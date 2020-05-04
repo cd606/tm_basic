@@ -25,16 +25,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
         TimePoint currentTimeMillis() {
             return latestTime_;
         }
-
-        template <class Duration>
-        static uint64_t sinceMidnight(int64_t tp) {
-            std::time_t t = (std::time_t) (tp/1000LL);
-            std::tm *m = std::localtime(&t);
-            m->tm_hour = 0;
-            m->tm_min = 0;
-            m->tm_sec = 0;
-            return (tp - std::mktime(m)*1000LL);
-        }
     };
 
 } } } } }
