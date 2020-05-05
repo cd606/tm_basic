@@ -29,6 +29,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
             return Clock::now();
         }
         void createOneShotTimer(TimePointType const &fireAtTime, std::function<void()> callback);
+        void createOneShotDurationTimer(DurationType const &fireAfterDuration, std::function<void()> callback);
         void createRecurringTimer(TimePointType const &firstFireAtTime, TimePointType const &lastFireAtTime, DurationType const &period, std::function<void()> callback);
     };
 

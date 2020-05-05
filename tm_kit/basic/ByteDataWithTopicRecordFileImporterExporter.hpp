@@ -96,7 +96,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     reader_.startReadingByteDataWithTopicRecordFile(*is_);
                     env_ = env;
                 }
-                virtual typename infra::SinglePassIterationMonad<Env>::template Data<ByteDataWithTopic> 
+                virtual typename infra::SinglePassIterationMonad<Env>::template InnerData<ByteDataWithTopic> 
                 generate() override final {
                     auto d = reader_.readByteDataWithTopicRecord(*is_);
                     if (!d) {

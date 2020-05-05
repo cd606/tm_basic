@@ -27,10 +27,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                 virtual void start(Env *env) override final {
                     env_ = env;
                 }
-                virtual typename M::template Data<T> generate() override final {
-                    return {typename M::template InnerData<T> {
+                virtual typename M::template InnerData<T> generate() override final {
+                    return typename M::template InnerData<T> {
                         env_, {tp_, generator_(tp_), true}
-                    }};
+                    };
                 }
             };
             return M::importer(new LocalI(tp, generator));
@@ -58,10 +58,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                     : start_(start), end_(end), period_(period), current_(start_), generator_(generator), env_(nullptr)
                 {
                 }
-                virtual typename M::template Data<T> generate() override final {
-                    typename M::template Data<T> ret = {typename M::template InnerData<T> {
+                virtual typename M::template InnerData<T> generate() override final {
+                    typename M::template InnerData<T> ret = typename M::template InnerData<T> {
                         env_, {current_, generator_(current_), (current_+period_ > end_)}
-                    }};
+                    };
                     if (current_ < end_) {
                         current_ += period_;
                     }

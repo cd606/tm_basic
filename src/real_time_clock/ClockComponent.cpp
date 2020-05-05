@@ -51,6 +51,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
             impl_->scheduleOneTimeCallback(t, callback);
         }
     }
+    void ClockComponent::createOneShotDurationTimer(ClockComponent::DurationType const &fireAfterDuration, std::function<void()> callback) {
+        if (fireAfterDuration >= ClockComponent::DurationType(0)) {
+            auto t = std::chrono::system_clock::now()+Clock::actualDuration(fireAfterDuration);
+            impl_->scheduleOneTimeCallback(t, callback);
+        }
+    }
     void ClockComponent::createRecurringTimer(ClockComponent::TimePointType const &firstFireAtTime, ClockComponent::TimePointType const &lastFireAtTime, ClockComponent::DurationType const &period, std::function<void()> callback) {
         auto t1 = Clock::actualTime(firstFireAtTime);
         auto t2 = Clock::actualTime(lastFireAtTime);
