@@ -59,13 +59,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         
         template <class Duration>
         static std::shared_ptr<typename infra::RealTimeMonad<Env>::template Exporter<ByteDataWithTopic>>
-        createExporter(std::ostream &os, std::vector<std::byte> const &fileMagic=std::vector<std::byte>(), std::vector<std::byte> const &recordMagic=std::vector<std::byte>()) {
-            class LocalE final : public infra::RealTimeMonad<Env>::template AbstractExporter<ByteDataWithTopic> {
+        createExporter(std::ostream &os, std::vector<std::byte> const &fileMagic=std::vector<std::byte>(), std::vector<std::byte> const &recordMagic=std::vector<std::byte>(), bool separateThread=false) {
+            class LocalENonThreaded final : public infra::RealTimeMonad<Env>::template AbstractExporter<ByteDataWithTopic> {
             private:
                 std::ostream *os_;
                 ByteDataWithTopicRecordFileWriter<Duration> writer_;
             public:
-                LocalE(std::ostream &os, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic) : os_(&os), writer_(fileMagic, recordMagic) {}
+                LocalENonThreaded(std::ostream &os, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic) : os_(&os), writer_(fileMagic, recordMagic) {}
                 virtual void start(Env *) override final {
                     writer_.startWritingByteDataWithTopicRecordFile(*os_);
                 }
@@ -74,7 +74,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     os_->flush();
                 }
             };
-            return infra::RealTimeMonad<Env>::template exporter(new LocalE(os, fileMagic, recordMagic));
+            class LocalEThreaded final : public infra::RealTimeMonad<Env>::template AbstractExporter<ByteDataWithTopic>, public infra::RealTimeMonadComponents<Env>::template ThreadedHandler<ByteDataWithTopic> {
+            private:
+                std::ostream *os_;
+                ByteDataWithTopicRecordFileWriter<Duration> writer_;
+            public:
+            #ifdef _MSC_VER
+                LocalEThreaded(std::ostream &os, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic) : os_(&os), writer_(fileMagic, recordMagic) {}
+            #else
+                LocalEThreaded(std::ostream &os, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic) : infra::RealTimeMonadComponents<Env>::template ThreadedHandler<ByteDataWithTopic>(), os_(&os), writer_(fileMagic, recordMagic) {}
+            #endif
+                virtual void start(Env *) override final {
+                    writer_.startWritingByteDataWithTopicRecordFile(*os_);
+                }
+            private:
+                virtual void actuallyHandle(typename infra::RealTimeMonad<Env>::template InnerData<ByteDataWithTopic> &&d) override final {
+                    writer_.writeByteDataWithTopicRecord(*os_, d.timedData);
+                    os_->flush();
+                }
+            };
+            if (separateThread) {
+                return infra::RealTimeMonad<Env>::template exporter(new LocalEThreaded(os, fileMagic, recordMagic));
+            } else {
+                return infra::RealTimeMonad<Env>::template exporter(new LocalENonThreaded(os, fileMagic, recordMagic));
+            }           
         }
 
     };
