@@ -15,18 +15,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
     //of an environment
     class Clock {
     public:
-        struct Settings {
+        struct ClockSettings {
             std::chrono::system_clock::time_point synchronizationPointActual;
             std::chrono::system_clock::time_point synchronizationPointVirtual;
             double speed; //1.0 means actual speed, 2.0 means clock goes at twice speed, and so on
         };
     private:
         //If settings is not given, the clock is the actual clock
-        std::optional<Settings> settings_; 
+        std::optional<ClockSettings> settings_; 
 
     public:
         Clock();
-        Clock(Settings const &);
+        Clock(ClockSettings const &);
         Clock(Clock const &) = default;
         Clock &operator=(Clock const &) = default;
         Clock(Clock &&) = default;
@@ -43,15 +43,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
          * }
          * The date and time formats must be exact
          */
-        static Settings loadClockSettingsFromJSONFile(std::string const &fileName);
-        static Settings loadClockSettingsFromJSONString(std::string const &jsonContent);
+        static ClockSettings loadClockSettingsFromJSONFile(std::string const &fileName);
+        static ClockSettings loadClockSettingsFromJSONString(std::string const &jsonContent);
         //this simulates the JSON parsing, but with actual time given as an int and virtual time given as yyyy-MM-ddTHH:mmss
-        static Settings clockSettingsWithStartPoint(int actualHHMM, std::string const &virtualStartPoint, double speed);
+        static ClockSettings clockSettingsWithStartPoint(int actualHHMM, std::string const &virtualStartPoint, double speed);
         //here the virtual time is still given in string, but the actual time is given as an "align minute",
         //how it works is: if actualTimeAlign is 5, then the next even-5-minute-point (on actual clock)
         //will be synchronized with the virtual start point. If the current call is exactly on an aligned minute
         //point, the actual alignment time will be the next align point.
-        static Settings clockSettingsWithStartPointCorrespondingToNextAlignment(int actualTimeAlignMinute, std::string const &virtualStartPoint, double speed=1.0);
+        static ClockSettings clockSettingsWithStartPointCorrespondingToNextAlignment(int actualTimeAlignMinute, std::string const &virtualStartPoint, double speed=1.0);
 
         //these are virtual times
         std::chrono::system_clock::time_point now();

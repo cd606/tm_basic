@@ -19,12 +19,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
             std::vector<Duration> callbackDurations;
         };
         template <class S, class T>
-        static std::shared_ptr<typename M::template OnOrderFacility<FacilityInput<S>,T>> createClockCallback(std::function<T(typename Env::TimePointType const &)> converter) {
+        static std::shared_ptr<typename M::template OnOrderFacility<FacilityInput<S>,T>> createClockCallback(std::function<T(typename Env::TimePointType const &, std::size_t, std::size_t)> converter) {
             class LocalF final : public M::template AbstractOnOrderFacility<FacilityInput<S>,T> {
             private:
-                std::function<T(typename Env::TimePointType const &)> converter_;
+                std::function<T(typename Env::TimePointType const &, std::size_t, std::size_t)> converter_;
             public:
-                LocalF(std::function<T(typename Env::TimePointType const &)> converter)
+                LocalF(std::function<T(typename Env::TimePointType const &, std::size_t, std::size_t)> converter)
                     : converter_(converter)
                 {
                 }
@@ -40,18 +40,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                     if (filteredDurations.empty()) {
                         env->createOneShotDurationTimer(Duration(0), [this,env,id]() {
                             auto now = env->now();
-                            T t = converter_(now);
+                            T t = converter_(now, 0, 0);
                             this->publish(typename M::template InnerData<typename M::template Key<T>> {
                                 env, {now, {id, std::move(t)}, true}
                             });
                         });
                     } else {
                         std::sort(filteredDurations.begin(), filteredDurations.end());
-                        for (size_t ii=0; ii<filteredDurations.size(); ++ii) {
-                            bool isFinal = (ii == filteredDurations.size()-1);
-                            env->createOneShotDurationTimer(filteredDurations[ii], [this,env,id,isFinal]() {
+                        std::size_t count = filteredDurations.size();
+                        for (size_t ii=0; ii<count; ++ii) {
+                            bool isFinal = (ii == count-1);
+                            env->createOneShotDurationTimer(filteredDurations[ii], [this,env,id,isFinal,ii,count]() {
                                 auto now = env->now();
-                                T t = converter_(now);
+                                T t = converter_(now, ii, count);
                                 this->publish(typename M::template InnerData<typename M::template Key<T>> {
                                     env, {now, {id, std::move(t)}, isFinal}
                                 });
@@ -61,14 +62,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                 }
             };
             return M::fromAbstractOnOrderFacility(new LocalF(converter));
-        }
-        template <class S, class T>
-        static std::shared_ptr<typename M::template OnOrderFacility<FacilityInput<S>,T>> createConstClockCallback(T const &value) {
-            return createClockCallback<S,T>(ConstGenerator<T,typename Env::TimePointType> {value});
-        }
-        template <class S, class T>
-        static std::shared_ptr<typename M::template OnOrderFacility<FacilityInput<S>,T>> createConstClockCallback(T &&value) {
-            return createClockCallback<S,T>(ConstGenerator<T,typename Env::TimePointType> {std::move(value)});
         }
     };
 

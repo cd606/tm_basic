@@ -17,7 +17,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
         static constexpr bool PreserveInputRelativeOrder = false;
 
         ClockComponent();
-        ClockComponent(Clock::Settings const &);
+        ClockComponent(Clock::ClockSettings const &);
         ClockComponent(ClockComponent &&);
         ClockComponent &operator=(ClockComponent &&);
         ~ClockComponent();

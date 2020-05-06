@@ -8,16 +8,16 @@
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace real_time_clock {
     Clock::Clock() : settings_(std::nullopt) {}
-    Clock::Clock(Clock::Settings const &s) : settings_(s) {}
+    Clock::Clock(Clock::ClockSettings const &s) : settings_(s) {}
 
     namespace {
-        Clock::Settings createClockSettings(boost::property_tree::ptree &tree) {
+        Clock::ClockSettings createClockSettings(boost::property_tree::ptree &tree) {
             std::string hhmmActual = tree.get<std::string>("clock_settings.actual.time");
             std::string yyyymmddVirtual = tree.get<std::string>("clock_settings.virtual.date");
             std::string hhmmVirtual = tree.get<std::string>("clock_settings.virtual.time");
             double speed = tree.get<double>("clock_settings.speed");
 
-            Clock::Settings ret;
+            Clock::ClockSettings ret;
 
             std::time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
             std::tm *m = std::localtime(&t);
@@ -52,12 +52,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
         }
     }
 
-    Clock::Settings Clock::loadClockSettingsFromJSONFile(std::string const &fileName) {
+    Clock::ClockSettings Clock::loadClockSettingsFromJSONFile(std::string const &fileName) {
         boost::property_tree::ptree tree;
         boost::property_tree::read_json(fileName, tree);
         return createClockSettings(tree);
     }
-    Clock::Settings Clock::loadClockSettingsFromJSONString(std::string const &jsonContent) {
+    Clock::ClockSettings Clock::loadClockSettingsFromJSONString(std::string const &jsonContent) {
         boost::property_tree::ptree tree;
         std::stringstream ss;
         ss << jsonContent;
@@ -65,8 +65,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
         return createClockSettings(tree);
     }
 
-    Clock::Settings Clock::clockSettingsWithStartPoint(int actualHHMM, std::string const &virtualStartPoint, double speed) {
-        Clock::Settings ret;
+    Clock::ClockSettings Clock::clockSettingsWithStartPoint(int actualHHMM, std::string const &virtualStartPoint, double speed) {
+        Clock::ClockSettings ret;
 
         std::time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         std::tm *m = std::localtime(&t);
@@ -81,8 +81,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
 
         return ret;
     }
-    Clock::Settings Clock::clockSettingsWithStartPointCorrespondingToNextAlignment(int actualTimeAlignMinute, std::string const &virtualStartPoint, double speed) {
-        Clock::Settings ret;
+    Clock::ClockSettings Clock::clockSettingsWithStartPointCorrespondingToNextAlignment(int actualTimeAlignMinute, std::string const &virtualStartPoint, double speed) {
+        Clock::ClockSettings ret;
 
         std::time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         std::tm *m = std::localtime(&t);
@@ -109,12 +109,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
     }
 
     namespace {
-        std::chrono::system_clock::time_point actualToVirtual(Clock::Settings const &s, std::chrono::system_clock::time_point const &t) {
+        std::chrono::system_clock::time_point actualToVirtual(Clock::ClockSettings const &s, std::chrono::system_clock::time_point const &t) {
             auto d = t-s.synchronizationPointActual;
             d *= s.speed;
             return s.synchronizationPointVirtual+d;
         }
-        std::chrono::system_clock::time_point virtualToActual(Clock::Settings const &s, std::chrono::system_clock::time_point const &t) {
+        std::chrono::system_clock::time_point virtualToActual(Clock::ClockSettings const &s, std::chrono::system_clock::time_point const &t) {
             auto d = t-s.synchronizationPointVirtual;
             d /= s.speed;
             return s.synchronizationPointActual+d;

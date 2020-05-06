@@ -40,7 +40,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
     };
 
     ClockComponent::ClockComponent() : Clock(), impl_(std::make_unique<ClockComponentImpl>()) {}
-    ClockComponent::ClockComponent(Clock::Settings const &s) : Clock(s), impl_(std::make_unique<ClockComponentImpl>()) {}
+    ClockComponent::ClockComponent(Clock::ClockSettings const &s) : Clock(s), impl_(std::make_unique<ClockComponentImpl>()) {}
     ClockComponent::ClockComponent(ClockComponent &&) = default;
     ClockComponent &ClockComponent::operator=(ClockComponent &&) = default;
     ClockComponent::~ClockComponent() = default;

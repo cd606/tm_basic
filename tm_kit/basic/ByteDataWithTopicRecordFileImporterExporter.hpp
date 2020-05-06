@@ -113,25 +113,49 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::istream *is_;
                 ByteDataWithTopicRecordFileReader<Duration> reader_;
                 Env *env_;
+                std::optional<typename infra::SinglePassIterationMonad<Env>::template InnerData<ByteDataWithTopic>> data_;
             public:
-                LocalI(std::istream &is, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic) : is_(&is), reader_(fileMagic, recordMagic), env_(nullptr) {}
+                LocalI(std::istream &is, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic) : is_(&is), reader_(fileMagic, recordMagic), env_(nullptr), data_(std::nullopt) {}
                 virtual void start(Env *env) override final {
                     reader_.startReadingByteDataWithTopicRecordFile(*is_);
                     env_ = env;
                 }
                 virtual typename infra::SinglePassIterationMonad<Env>::template InnerData<ByteDataWithTopic> 
                 generate() override final {
-                    auto d = reader_.readByteDataWithTopicRecord(*is_);
-                    if (!d) {
-                        //for bad data, return a final input
-                        return typename infra::SinglePassIterationMonad<Env>::template InnerData<ByteDataWithTopic> {
-                            env_, 
-                            {env_->now(), ByteDataWithTopic {}, true}
+                    if (!data_) {
+                        //the first read
+                        auto d = reader_.readByteDataWithTopicRecord(*is_);
+                        if (!d) {
+                            return typename infra::SinglePassIterationMonad<Env>::template InnerData<ByteDataWithTopic> {
+                                env_, 
+                                {env_->now(), ByteDataWithTopic {}, true}
+                            };
+                        }
+                        auto ret = typename infra::SinglePassIterationMonad<Env>::template InnerData<ByteDataWithTopic> {
+                            env_, *d
                         };
+                        auto d1 = reader_.readByteDataWithTopicRecord(*is_);
+                        if (!d1) {
+                            ret.timedData.finalFlag = true;
+                        } else {
+                            data_ = typename infra::SinglePassIterationMonad<Env>::template InnerData<ByteDataWithTopic> {
+                                env_, *d1
+                            };
+                        }
+                        return ret;
+                    } else {
+                        auto ret = std::move(*data_);
+                        auto d = reader_.readByteDataWithTopicRecord(*is_);
+                        if (!d) {
+                            ret.timedData.finalFlag = true;
+                            data_ = std::nullopt;
+                        } else {
+                            data_ = typename infra::SinglePassIterationMonad<Env>::template InnerData<ByteDataWithTopic> {
+                                env_, *d
+                            };
+                        }
+                        return ret;
                     }
-                    return typename infra::SinglePassIterationMonad<Env>::template InnerData<ByteDataWithTopic> {
-                        env_, *d
-                    };
                 }
             };
             return infra::SinglePassIterationMonad<Env>::template importer(new LocalI(is, fileMagic, recordMagic));
