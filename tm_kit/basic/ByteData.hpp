@@ -30,8 +30,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         T content;
     };
 
-    template <class M>
-    class SerializationActions {
+    class SerializationFunctions {
     private:
         template <class T, int B=(std::is_same_v<T,std::string>?1:(std::is_same_v<T,ByteData>?2:0))>
         class S {};
@@ -90,6 +89,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         };
     public:
+        template <class T>
+        static std::string serializeFunc(T const &t) {
+            return S<T>::apply(t);
+        }
+        template <class T>
+        static std::optional<T> deserializeFunc(std::string const &data) {
+            return { D<T>::apply(data) };
+        }
+    };
+
+    template <class M>
+    class SerializationActions {
+    public:
+        template <class T>
+        static std::string serializeFunc(T const &t) {
+            return SerializationFunctions::serializeFunc<T>(t);
+        }
+        template <class T>
+        static std::optional<T> deserializeFunc(std::string const &data) {
+            return SerializationFunctions::deserializeFunc<T>(data);
+        }
         template <class T, class F>
         static std::shared_ptr<typename M::template Action<T, TypedDataWithTopic<T>>> addTopic(F &&f) {
             return M::template liftPure<T>(
@@ -107,7 +127,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static std::shared_ptr<typename M::template Action<TypedDataWithTopic<T>, ByteDataWithTopic>> serialize() {
             return M::template liftPure<TypedDataWithTopic<T>>(
                 [](TypedDataWithTopic<T> &&data) -> ByteDataWithTopic {
-                    return {std::move(data.topic), S<T>::apply(data.content)};
+                    return {std::move(data.topic), { SerializationFunctions::serializeFunc<T>(data.content) }};
                 }
             );
         }
@@ -115,7 +135,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static std::shared_ptr<typename M::template Action<typename M::template Key<T>, ByteDataWithID>> serializeWithKey() {
             return M::template liftPure<typename M::template Key<T>>(
                 [](typename M::template Key<T> &&data) -> ByteDataWithID {
-                    return {M::EnvironmentType::id_to_string(data.id()), S<T>::apply(data.key())};
+                    return {M::EnvironmentType::id_to_string(data.id()), { SerializationFunctions::serializeFunc<T>(data.key()) }};
                 }
             );
         }
@@ -123,7 +143,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static std::shared_ptr<typename M::template Action<typename M::template KeyedData<A,B>, ByteDataWithID>> serializeWithKey() {
             return M::template liftPure<typename M::template KeyedData<A,B>>(
                 [](typename M::template KeyedData<A,B> &&data) -> ByteDataWithID {
-                    return {M::EnvironmentType::id_to_string(data.key.id()), S<B>::apply(data.data)};
+                    return {M::EnvironmentType::id_to_string(data.key.id()), { SerializationFunctions::serializeFunc<B>(data.data) }};
                 }
             );
         }
@@ -131,7 +151,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static std::shared_ptr<typename M::template Action<ByteDataWithTopic, TypedDataWithTopic<T>>> deserialize() {
             return M::template liftMaybe<ByteDataWithTopic>(
                 [](ByteDataWithTopic &&data) -> std::optional<TypedDataWithTopic<T>> {
-                    std::optional<T> t = D<T>::apply(data.content);
+                    std::optional<T> t = SerializationFunctions::deserializeFunc<T>(data.content);
                     if (t) {
                         return TypedDataWithTopic<T> {std::move(data.topic), std::move(*t)};
                     } else {
@@ -144,7 +164,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static std::shared_ptr<typename M::template Action<ByteDataWithID, typename M::template Key<T>>> deserializeWithKey() {
             return M::template liftMaybe<ByteDataWithID>(
                 [](ByteDataWithID &&data) -> std::optional<typename M::template Key<T>> {
-                    std::optional<T> t = D<T>::apply(data.content);
+                    std::optional<T> t = SerializationFunctions::deserializeFunc<T>(data.content);
                     if (t) {
                         return typename M::template Key<T> {M::EnvironmentType::id_from_string(data.id), std::move(*t)};
                     } else {
