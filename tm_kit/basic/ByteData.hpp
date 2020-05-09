@@ -5,6 +5,7 @@
 #include <type_traits>
 #include <memory>
 #include <iostream>
+#include <optional>
 #include <tm_kit/basic/ConstGenerator.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { 
