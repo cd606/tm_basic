@@ -5,6 +5,8 @@
 #include <chrono>
 #include <cstddef>
 #include <vector>
+#include <cstring>
+#include <boost/endian/conversion.hpp>
 #include <tm_kit/infra/WithTimeData.hpp>
 #include <tm_kit/infra/ChronoUtils.hpp>
 #include <tm_kit/basic/ByteData.hpp>
@@ -28,14 +30,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             if (!recordHeaderMagic_.empty()) {
                 os.write(reinterpret_cast<char *>(recordHeaderMagic_.data()), recordHeaderMagic_.size());
             }
-            int64_t t = infra::withtime_utils::sinceEpoch<Duration>(d.timePoint);
+            int64_t t = boost::endian::native_to_little<int64_t>(infra::withtime_utils::sinceEpoch<Duration>(d.timePoint));
             os.write(reinterpret_cast<char *>(&t), sizeof(int64_t));
-            uint16_t lt = d.value.topic.length();
+            uint16_t lt = boost::endian::native_to_little<uint16_t>(d.value.topic.length());
             os.write(reinterpret_cast<char *>(&lt), sizeof(uint16_t));
             if (lt > 0) {
                 os.write(d.value.topic.c_str(), lt);
             }
-            uint32_t ld = d.value.content.length();
+            uint32_t ld = boost::endian::native_to_little<uint32_t>(d.value.content.length());
             os.write(reinterpret_cast<char *>(&ld), sizeof(uint32_t));
             if (ld > 0) {
                 os.write(d.value.content.c_str(), ld);
@@ -89,19 +91,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             if (!readMagic(is, recordHeaderMagic_)) {
                 return std::nullopt;
             }
+            char buf[sizeof(int64_t)];
             int64_t t;
-            is.read(reinterpret_cast<char *>(&t), sizeof(int64_t));
+            is.read(buf, sizeof(int64_t));
             if (is.gcount() != sizeof(int64_t)) {
                 return std::nullopt;
             }
+            std::memcpy(&t, buf, sizeof(int64_t));
+            t = boost::endian::little_to_native<int64_t>(t);
             infra::WithTime<ByteDataWithTopic, std::chrono::system_clock::time_point> ret;
             ret.timePoint = infra::withtime_utils::epochDurationToTime<Duration>(t);
 
             uint16_t lt;
-            is.read(reinterpret_cast<char *>(&lt), sizeof(uint16_t));
+            is.read(buf, sizeof(uint16_t));
             if (is.gcount() != sizeof(uint16_t)) {
                 return std::nullopt;
             }
+            std::memcpy(&lt, buf, sizeof(uint16_t));
+            lt = boost::endian::little_to_native<uint16_t>(lt);
             if (lt > 0) {
                 ret.value.topic.resize(lt);
                 is.read(&ret.value.topic[0], lt);
@@ -110,10 +117,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
             uint32_t ld;
-            is.read(reinterpret_cast<char *>(&ld), sizeof(uint32_t));
+            is.read(buf, sizeof(uint32_t));
             if (is.gcount() != sizeof(uint32_t)) {
                 return std::nullopt;
             }
+            std::memcpy(&ld, buf, sizeof(uint32_t));
+            ld = boost::endian::little_to_native<uint32_t>(ld);
             if (ld > 0) {
                 ret.value.content.resize(ld);
                 is.read(&ret.value.content[0], ld);
