@@ -13,7 +13,15 @@
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
 
-    template <class Duration>
+    template <class TimeDuration, class TimeStorageT=int64_t, class TopicLenT=uint32_t, class ContentLenT=uint32_t, bool HasFinal=true>
+    struct ByteDataWithTopicRecordFileFormat {
+        using Duration = TimeDuration;
+        using TimeStorageType = TimeStorageT;
+        using TopicLengthType = TopicLenT;
+        using ContentLengthType = ContentLenT;
+        static constexpr bool HasFinalFlag = HasFinal;
+    };
+    template <class Format>
     class ByteDataWithTopicRecordFileWriter {
     private:
         std::vector<std::byte> fileHeaderMagic_;
@@ -30,24 +38,26 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             if (!recordHeaderMagic_.empty()) {
                 os.write(reinterpret_cast<char *>(recordHeaderMagic_.data()), recordHeaderMagic_.size());
             }
-            int64_t t = boost::endian::native_to_little<int64_t>(infra::withtime_utils::sinceEpoch<Duration>(d.timePoint));
-            os.write(reinterpret_cast<char *>(&t), sizeof(int64_t));
-            uint16_t lt = boost::endian::native_to_little<uint16_t>(d.value.topic.length());
-            os.write(reinterpret_cast<char *>(&lt), sizeof(uint16_t));
+            typename Format::TimeStorageType t = boost::endian::native_to_little<typename Format::TimeStorageType>(infra::withtime_utils::sinceEpoch<typename Format::Duration>(d.timePoint));
+            os.write(reinterpret_cast<char *>(&t), sizeof(typename Format::TimeStorageType));
+            typename Format::TopicLengthType lt = boost::endian::native_to_little<typename Format::TopicLengthType>(d.value.topic.length());
+            os.write(reinterpret_cast<char *>(&lt), sizeof(typename Format::TopicLengthType));
             if (lt > 0) {
                 os.write(d.value.topic.c_str(), lt);
             }
-            uint32_t ld = boost::endian::native_to_little<uint32_t>(d.value.content.length());
-            os.write(reinterpret_cast<char *>(&ld), sizeof(uint32_t));
+            typename Format::ContentLengthType ld = boost::endian::native_to_little<typename Format::ContentLengthType>(d.value.content.length());
+            os.write(reinterpret_cast<char *>(&ld), sizeof(typename Format::ContentLengthType));
             if (ld > 0) {
                 os.write(d.value.content.c_str(), ld);
             }
-            std::byte b = (std::byte) (d.finalFlag?1:0);
-            os.write(reinterpret_cast<char *>(&b), 1);
+            if (Format::HasFinalFlag) {
+                std::byte b = (std::byte) (d.finalFlag?1:0);
+                os.write(reinterpret_cast<char *>(&b), 1);
+            }
         }
     };
 
-    template <class Duration>
+    template <class Format>
     class ByteDataWithTopicRecordFileReader {
     private:
         std::vector<std::byte> fileHeaderMagic_;
@@ -91,24 +101,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             if (!readMagic(is, recordHeaderMagic_)) {
                 return std::nullopt;
             }
-            char buf[sizeof(int64_t)];
-            int64_t t;
-            is.read(buf, sizeof(int64_t));
-            if (is.gcount() != sizeof(int64_t)) {
+            char buf[sizeof(typename Format::TimeStorageType)];
+            typename Format::TimeStorageType t;
+            is.read(buf, sizeof(typename Format::TimeStorageType));
+            if (is.gcount() != sizeof(typename Format::TimeStorageType)) {
                 return std::nullopt;
             }
-            std::memcpy(&t, buf, sizeof(int64_t));
-            t = boost::endian::little_to_native<int64_t>(t);
+            std::memcpy(&t, buf, sizeof(typename Format::TimeStorageType));
+            t = boost::endian::little_to_native<typename Format::TimeStorageType>(t);
             infra::WithTime<ByteDataWithTopic, std::chrono::system_clock::time_point> ret;
-            ret.timePoint = infra::withtime_utils::epochDurationToTime<Duration>(t);
+            ret.timePoint = infra::withtime_utils::epochDurationToTime<typename Format::Duration>(t);
 
-            uint16_t lt;
-            is.read(buf, sizeof(uint16_t));
-            if (is.gcount() != sizeof(uint16_t)) {
+            typename Format::TopicLengthType lt;
+            is.read(buf, sizeof(typename Format::TopicLengthType));
+            if (is.gcount() != sizeof(typename Format::TopicLengthType)) {
                 return std::nullopt;
             }
-            std::memcpy(&lt, buf, sizeof(uint16_t));
-            lt = boost::endian::little_to_native<uint16_t>(lt);
+            std::memcpy(&lt, buf, sizeof(typename Format::TopicLengthType));
+            lt = boost::endian::little_to_native<typename Format::TopicLengthType>(lt);
             if (lt > 0) {
                 ret.value.topic.resize(lt);
                 is.read(&ret.value.topic[0], lt);
@@ -116,13 +126,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
             }
-            uint32_t ld;
-            is.read(buf, sizeof(uint32_t));
-            if (is.gcount() != sizeof(uint32_t)) {
+            typename Format::ContentLengthType ld;
+            is.read(buf, sizeof(typename Format::ContentLengthType));
+            if (is.gcount() != sizeof(typename Format::ContentLengthType)) {
                 return std::nullopt;
             }
-            std::memcpy(&ld, buf, sizeof(uint32_t));
-            ld = boost::endian::little_to_native<uint32_t>(ld);
+            std::memcpy(&ld, buf, sizeof(typename Format::ContentLengthType));
+            ld = boost::endian::little_to_native<typename Format::ContentLengthType>(ld);
             if (ld > 0) {
                 ret.value.content.resize(ld);
                 is.read(&ret.value.content[0], ld);
@@ -130,13 +140,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
             }
-            std::byte b;
-            is.read(reinterpret_cast<char *>(&b), 1);
-            if (is.gcount() != 1) {
-                return std::nullopt;
+            if (Format::HasFinalFlag) {
+                std::byte b;
+                is.read(reinterpret_cast<char *>(&b), 1);
+                if (is.gcount() != 1) {
+                    return std::nullopt;
+                }
+                ret.finalFlag = ((int) b != 0); 
+            } else {
+                ret.finalFlag = false;
             }
-            ret.finalFlag = ((int) b != 0);
-
             if (is.eof()) {
                 ret.finalFlag = true;
             }

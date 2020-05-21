@@ -15,13 +15,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <class Env>
     class ByteDataWithTopicRecordFileImporterExporter<infra::RealTimeMonad<Env>, std::chrono::system_clock::time_point> {
     public:
-        template <class Duration>
+        template <class Format>
         static std::shared_ptr<typename infra::RealTimeMonad<Env>::template Importer<ByteDataWithTopic>>
         createImporter(std::istream &is, std::vector<std::byte> const &fileMagic=std::vector<std::byte>(), std::vector<std::byte> const &recordMagic=std::vector<std::byte>()) {
             class LocalI : public infra::RealTimeMonad<Env>::template AbstractImporter<ByteDataWithTopic> {
             private:
                 std::istream *is_;
-                ByteDataWithTopicRecordFileReader<Duration> reader_;
+                ByteDataWithTopicRecordFileReader<Format> reader_;
                 Env *env_;
                 std::thread th_;
                 void run() {
@@ -57,13 +57,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             return infra::RealTimeMonad<Env>::template importer(new LocalI(is, fileMagic, recordMagic));
         }
         
-        template <class Duration>
+        template <class Format>
         static std::shared_ptr<typename infra::RealTimeMonad<Env>::template Exporter<ByteDataWithTopic>>
         createExporter(std::ostream &os, std::vector<std::byte> const &fileMagic=std::vector<std::byte>(), std::vector<std::byte> const &recordMagic=std::vector<std::byte>(), bool separateThread=false) {
             class LocalENonThreaded final : public infra::RealTimeMonad<Env>::template AbstractExporter<ByteDataWithTopic> {
             private:
                 std::ostream *os_;
-                ByteDataWithTopicRecordFileWriter<Duration> writer_;
+                ByteDataWithTopicRecordFileWriter<Format> writer_;
             public:
                 LocalENonThreaded(std::ostream &os, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic) : os_(&os), writer_(fileMagic, recordMagic) {}
                 virtual void start(Env *) override final {
@@ -77,7 +77,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             class LocalEThreaded final : public infra::RealTimeMonad<Env>::template AbstractExporter<ByteDataWithTopic>, public infra::RealTimeMonadComponents<Env>::template ThreadedHandler<ByteDataWithTopic> {
             private:
                 std::ostream *os_;
-                ByteDataWithTopicRecordFileWriter<Duration> writer_;
+                ByteDataWithTopicRecordFileWriter<Format> writer_;
             public:
             #ifdef _MSC_VER
                 LocalEThreaded(std::ostream &os, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic) : os_(&os), writer_(fileMagic, recordMagic) {}
@@ -105,13 +105,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <class Env>
     class ByteDataWithTopicRecordFileImporterExporter<infra::SinglePassIterationMonad<Env>, std::chrono::system_clock::time_point> {
     public:
-        template <class Duration>
+        template <class Format>
         static std::shared_ptr<typename infra::SinglePassIterationMonad<Env>::template Importer<ByteDataWithTopic>>
         createImporter(std::istream &is, std::vector<std::byte> const &fileMagic=std::vector<std::byte>(), std::vector<std::byte> const &recordMagic=std::vector<std::byte>()) {
             class LocalI final : public infra::SinglePassIterationMonad<Env>::template AbstractImporter<ByteDataWithTopic> {
             private:
                 std::istream *is_;
-                ByteDataWithTopicRecordFileReader<Duration> reader_;
+                ByteDataWithTopicRecordFileReader<Format> reader_;
                 Env *env_;
                 std::optional<typename infra::SinglePassIterationMonad<Env>::template InnerData<ByteDataWithTopic>> data_;
             public:
@@ -161,13 +161,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             return infra::SinglePassIterationMonad<Env>::template importer(new LocalI(is, fileMagic, recordMagic));
         }
 
-        template <class Duration>
+        template <class Format>
         static std::shared_ptr<typename infra::SinglePassIterationMonad<Env>::template Exporter<ByteDataWithTopic>>
         createExporter(std::ostream &os, std::vector<std::byte> const &fileMagic=std::vector<std::byte>(), std::vector<std::byte> const &recordMagic=std::vector<std::byte>()) {
             class LocalE final : public infra::SinglePassIterationMonad<Env>::template AbstractExporter<ByteDataWithTopic> {
             private:
                 std::ostream *os_;
-                ByteDataWithTopicRecordFileWriter<Duration> writer_;
+                ByteDataWithTopicRecordFileWriter<Format> writer_;
             public:
                 LocalE(std::ostream &os, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic) : os_(&os), writer_(fileMagic, recordMagic) {}
                 virtual void start(Env *) override final {
