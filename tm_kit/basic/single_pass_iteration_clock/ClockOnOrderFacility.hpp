@@ -108,6 +108,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
             using ClockFacilityOutput = typename M::template KeyedData<FacilityInput<basic::VoidStruct>, basic::VoidStruct>;
             auto doExit = M::template simpleExporter<ClockFacilityOutput>(
                 [wrapUpFunc](typename M::template InnerData<ClockFacilityOutput> &&data) {
+                    data.environment->resolveTime(data.timedData.timePoint);
                     wrapUpFunc(data.environment);
                     exit(0);
                 }
