@@ -5,6 +5,8 @@
 #include <optional>
 #include <deque>
 
+#include <tm_kit/infra/KleisliUtils.hpp>
+
 namespace dev { namespace cd606 { namespace tm { namespace basic {
 
     template <class M>
@@ -13,15 +15,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         using TheEnvironment = typename M::EnvironmentType;
 
         template <class T>
-        static auto duplicateInput(infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint>()) 
-            -> std::shared_ptr<
-                typename M::template Action<
-                    T
-                    , std::tuple<T,T>
-                >
-            >    
-        {
-            return M::template kleisli<T>(
+        static typename infra::KleisliUtils<M>::template KleisliFunction<T,std::tuple<T,T>> duplicateInput() {
+            return
                 [](typename M::template InnerData<T> &&x) -> typename M::template Data<std::tuple<T,T>>
                 {
                     auto xCopy = infra::withtime_utils::makeCopy<typename M::TimePoint, T>(x.timedData);
@@ -32,196 +27,106 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                             , {std::move(x.timedData.value), std::move(xCopy.value)}
                             , x.timedData.finalFlag
                         }
-                        , x.timedData.finalFlag
                     };
-                }
-                , liftParam
-            );
+                };
         }
         template <class A, class B>
-        static auto switchTupleOrder(infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint>()) 
-            -> std::shared_ptr<
-                typename M::template Action<
-                    std::tuple<A,B>
-                    , std::tuple<B,A>
-                >
-            >    
-        {
-            return M::template liftPure<std::tuple<A,B>>(
+        static typename infra::KleisliUtils<M>::template KleisliFunction<std::tuple<A,B>,std::tuple<B,A>> switchTupleOrder() {
+            return infra::KleisliUtils<M>::template liftPure<std::tuple<A,B>>(
                 [](std::tuple<A,B> &&x) -> std::tuple<B,A>
                 {
                     return {std::move(std::get<1>(x)), std::move(std::get<0>(x))};
                 }
-                , liftParam
             );
         }
         template <class A, class B>
-        static auto dropLeft(infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint>()) 
-            -> std::shared_ptr<
-                typename M::template Action<
-                    std::tuple<A,B>
-                    , B
-                >
-            >    
-        {
-            return M::template liftPure<std::tuple<A,B>>(
+        static typename infra::KleisliUtils<M>::template KleisliFunction<std::tuple<A,B>,B> dropLeft() {
+            return infra::KleisliUtils<M>::template liftPure<std::tuple<A,B>>(
                 [](std::tuple<A,B> &&x) -> B
                 {
                     return std::get<1>(x);
                 }
-                , liftParam
             );
         }
-        template <class A, class B, class F>
-        static auto liftPurePreserveLeft(F &&f, infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint>()) 
-            -> std::shared_ptr<
-                typename M::template Action<
-                    std::tuple<A,B>
-                    , std::tuple<
-                        A 
-                        , decltype(f(std::move(* (B *) nullptr)))
-                    >
-                >
-            >    
-        {
-            return M::template liftPure<std::tuple<A,B>>(
-                [f=std::move(f)](std::tuple<A,B> &&x) -> std::tuple<
-                            A 
-                            , decltype(f(std::move(* (B *) nullptr)))
-                        >
+        template <class A, class B>
+        static typename infra::KleisliUtils<M>::template KleisliFunction<std::tuple<A,B>,A> dropRight() {
+            return infra::KleisliUtils<M>::template liftPure<std::tuple<A,B>>(
+                [](std::tuple<A,B> &&x) -> A
                 {
-                    return {std::move(std::get<0>(x)), f(std::move(std::get<1>(x)))};
+                    return std::get<0>(x);
                 }
-                , liftParam
             );
         }
+    private:
         template <class A, class B, class F>
-        static auto liftMaybePreserveLeft(F &&f, infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint>()) 
-            -> std::shared_ptr<
-                typename M::template Action<
-                    std::tuple<A,B>
-                    , std::tuple<
-                        A 
-                        , typename decltype(f(std::move(* (B *) nullptr)))::value_type
-                    >
-                >
-            >    
-        {
-            return M::template liftMaybe<std::tuple<A,B>>(
-                [f=std::move(f)](std::tuple<A,B> &&x) -> std::optional<std::tuple<
-                            A 
-                            , typename decltype(f(std::move(* (B *) nullptr)))::value_type
-                        >>
-                {
-                    auto fRes = f(std::move(std::get<1>(x)));
-                    if (fRes) {
-                        return {std::move(std::get<0>(x)), std::move(*fRes)};
-                    } else {
-                        return std::nullopt;
-                    }    
+        class PreserveLeft {
+        private:
+            F f_;
+        public:
+            PreserveLeft(F &&f) : f_(std::move(f)) {}
+
+            using C = typename decltype(f_(std::move(* (typename M::template InnerData<B> *)nullptr)))::value_type::ValueType;
+            typename M::template Data<std::tuple<A,C>> operator()(typename M::template InnerData<std::tuple<A,B>> &&x) {
+                auto aValue = std::get<0>(x.timedData.value);
+                auto bData = M::template pureInnerDataLift<std::tuple<A,B>>([](std::tuple<A,B> &&t) -> B {
+                    return std::get<1>(std::move(t));
+                }, std::move(x));
+                auto cData = f_(std::move(bData));
+                if (cData) {
+                    return M::template pureInnerDataLift<C>([aValue=std::move(aValue)](C &&c) -> std::tuple<A,C> {
+                        return {std::move(aValue), std::move(c)};
+                    }, std::move(*cData));
+                } else {
+                    return std::nullopt;
                 }
-                , liftParam
-            );
+            }
+        };
+    public:
+        template <class A, class B, class F>
+        static PreserveLeft<A,B,F> preserveLeft(F &&f) {
+            return PreserveLeft<A,B,F>(std::move(f));
         }
-        template <class A, class B, class F>
-        static auto enhancedMaybePreserveLeft(F &&f, infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint>()) 
-            -> std::shared_ptr<
-                typename M::template Action<
-                    std::tuple<A,B>
-                    , std::tuple<
-                        A 
-                        , typename decltype(f(
-                            std::tuple<typename M::TimePoint, B>()
-                        ))::value_type
-                    >
-                >
-            >    
-        {
-            return M::template enhancedMaybe<std::tuple<A,B>>(
-                [f=std::move(f)](std::tuple<typename M::TimePoint, std::tuple<A,B>> &&x) -> std::optional<std::tuple<
-                            A 
-                            , typename decltype(f(
-                                std::tuple<typename M::TimePoint, B>()
-                            ))::value_type
-                        >>
-                {
-                    auto fRes = f({std::get<0>(x), std::move(std::get<1>(std::get<1>(x)))});
-                    if (fRes) {
-                        return {std::move(std::get<0>(std::get<1>(x))), std::move(*fRes)};
-                    } else {
-                        return std::nullopt;
-                    }    
+    private:
+        template <class A, class F>
+        class PureFilter {
+        private:
+            F f_;
+        public:
+            PureFilter(F &&f) : f_(std::move(f)) {}
+
+            typename M::template Data<A> operator()(typename M::template InnerData<A> &&x) {
+                if (f_(x.timedData.value)) {
+                    return std::move(x);
+                } else {
+                    return std::nullopt;
                 }
-                , liftParam
-            );
+            }
+        };
+        template <class A, class F>
+        class EnhancedPureFilter {
+        private:
+            F f_;
+        public:
+            EnhancedPureFilter(F &&f) : f_(std::move(f)) {}
+
+            typename M::template Data<A> operator()(typename M::template InnerData<A> &&x) {
+                if (f_(std::tuple<typename M::TimePoint, A> {x.timedData.timePoint, x.timedData.value})) {
+                    return std::move(x);
+                } else {
+                    return std::nullopt;
+                }
+            }
+        };
+    public:
+        template <class A, class F>
+        static PureFilter<A,F> pureFilter(F &&f) {
+            return PureFilter<A,F>(std::move(f));
+        }
+        template <class A, class F>
+        static EnhancedPureFilter<A,F> enhancedPureFilter(F &&f) {
+            return enhancedPureFilter<A,F>(std::move(f));
         }
         
-        template <class T, class F>
-        static std::shared_ptr<typename M::template Action<T,T>> liftPureFilter(F &&f, infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint>()) {
-            return M::template liftMaybe<T>([f=std::move(f)](T &&a) -> std::optional<T> {
-                if (f(a)) {
-                    return {std::move(a)};
-                } else {
-                    return std::nullopt;
-                }
-            }, liftParam);
-        }
-
-        template <class T, class F>
-        static std::shared_ptr<typename M::template Action<T,T>> kleisliFilter(F &&f, infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint>()) {
-            return M::template kleisli<T>([f=std::move(f)](typename M::template InnerData<T> &&a) -> typename M::template Data<T> {
-                if (f(a)) {
-                    return {std::move(a)};
-                } else {
-                    return std::nullopt;
-                }
-            }, liftParam);
-        }
-
-        template <class Reducer, class StateReader>
-        static auto liftPureReduce(Reducer &&reducer, StateReader &&stateReader, typename Reducer::StateType const &initState, infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint>())
-            -> std::shared_ptr<typename M::template Action<
-                    typename Reducer::InputType
-                    , decltype(stateReader(initState))
-                >>
-        {
-            class F {
-            private:
-                Reducer reducer_;
-                StateReader stateReader_;
-                typename Reducer::StateType state_;
-            public:
-                F(Reducer &&r, StateReader &&sr, typename Reducer::StatetType const &s) : reducer_(std::move(r)), stateReader_(std::move(sr)), state_(s) {}
-                decltype(stateReader_(state_)) operator()(typename Reducer::InputType &&x) {
-                    reducer_(&state_, std::move(x));
-                    return stateReader_(state_);
-                }
-            };
-            return M::template liftPure<typename Reducer::InputType>(F(std::move(reducer), std::move(stateReader), initState), liftParam);
-        }
-
-        template <class Reducer, class StateReader>
-        static auto kleisliReduce(Reducer &&reducer, StateReader &&stateReader, typename Reducer::StateType const &initState, infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint>())
-            -> std::shared_ptr<typename M::template Action<
-                    typename Reducer::InputType
-                    , typename decltype(stateReader((TheEnvironment *) nullptr, initState))::value_type::ValueType
-                >>
-        {
-            class F {
-            private:
-                Reducer reducer_;
-                StateReader stateReader_;
-                typename Reducer::StateType state_;
-            public:
-                F(Reducer &&r, StateReader &&sr, typename Reducer::OutputType const &s) : reducer_(std::move(r)), stateReader_(std::move(sr)), state_(s) {}
-                decltype(stateReader_((TheEnvironment *) nullptr, state_)) operator()(typename M::template InnerData<Reducer::InputType> &&x) {
-                    reducer_(&state_, std::move(x));
-                    return stateReader_(x.environment, state_);
-                }
-            };
-            return M::template kleisli<typename Reducer::InputType>(F(std::move(reducer), std::move(stateReader), initState), liftParam);
-        }
-
         template <class T>
         static std::shared_ptr<typename M::template Action<T,T>> simpleFinalizer() {
             return M::template kleisli<T>([](typename M::template InnerData<T> &&d) -> typename M::template Data<T> {
@@ -259,7 +164,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         //void handlePop(std::tuple<typename M::TimePoint, T> const &);
         //std::optional<...> readResult(std::deque<std::tuple<typename M::TimePoint, T>> const &)
         template <class T, class PushPopHandler>
-        class SimpleMovingTimeWindowAction {
+        class SimpleMovingTimeWindowKleisli {
         private:
             using MTW = MovingTimeWindow<T,PushPopHandler>;
             using State = typename MTW::StateType;
@@ -273,7 +178,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             MTW w_;
             State state_;
         public:
-            SimpleMovingTimeWindowAction(PushPopHandler &&handler, Duration const &d) : handler_(std::move(handler)), w_(d), state_() {}
+            SimpleMovingTimeWindowKleisli(PushPopHandler &&handler, Duration const &d) : handler_(std::move(handler)), w_(d), state_() {}
             typename M::template Data<Result> operator()(typename M::template InnerData<T> &&a) {
                 auto *p = a.environment;
                 auto tp = a.timedData.timePoint;
@@ -289,45 +194,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         };
-        template <class T, class PushPopHandler>
-        class SimpleMovingTimeWindowActionWithInputAttached {
-        private:
-            using MTW = MovingTimeWindow<T,PushPopHandler>;
-            using State = typename MTW::StateType;
-        public:
-            using Duration = typename MTW::Duration;
-            using Result = typename decltype(((PushPopHandler *) nullptr)->readResult(
-                (*(State *) nullptr)
-            ))::value_type;
-        private:
-            PushPopHandler handler_;
-            MTW w_;
-            State state_;
-        public:
-            SimpleMovingTimeWindowActionWithInputAttached(PushPopHandler &&handler, Duration const &d) : handler_(std::move(handler)), w_(d), state_() {}
-            typename M::template Data<std::tuple<T,Result>> operator()(typename M::template InnerData<T> &&a) {
-                auto *p = a.environment;
-                auto tp = a.timedData.timePoint;
-                auto aCopy = infra::withtime_utils::makeCopy<typename M::TimePoint, T>(a.timedData);
-                w_.handleData(&state_, handler_, std::tuple<typename M::TimePoint, T> {std::move(a.timedData.timePoint), std::move(a.timedData.value)});
-                auto res = handler_.readResult(state_);
-                if (res) {
-                    return { typename M::template InnerData<std::tuple<T,Result>> {
-                        p,
-                        { p->resolveTime(tp), {std::move(aCopy.value), std::move(*res)}, a.timedData.finalFlag }
-                    } };
-                } else {
-                    return std::nullopt;
-                }
-            }
-        };
-
+        
         //Requirement for push/pop handler:
         //void handlePush(std::tuple<typename M::TimePoint, A> const &);
         //void handlePop(std::tuple<typename M::TimePoint, A> const &);
         //std::optional<...> readResult(std::deque<std::tuple<typename M::TimePoint, A>> const &, std::tuple<typename M::TimePoint, B> &&)
         template <class A, class B, class PushPopHandler>
-        class ComplexMovingTimeWindowAction {
+        class ComplexMovingTimeWindowKleisli {
         private:
             using MTW = MovingTimeWindow<A,PushPopHandler>;
             using State = typename MTW::StateType;
@@ -342,7 +215,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             MTW w_;
             State state_;
         public:
-            ComplexMovingTimeWindowAction(PushPopHandler &&handler, Duration const &d) : handler_(std::move(handler)), w_(d), state_() {}
+            ComplexMovingTimeWindowKleisli(PushPopHandler &&handler, Duration const &d) : handler_(std::move(handler)), w_(d), state_() {}
             typename M::template Data<Result> operator()(int which, typename M::template InnerData<A> &&a, typename M::template InnerData<B> &&b) {
                 switch (which) {
                     case 0:
@@ -371,115 +244,34 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         };
-        template <class A, class B, class PushPopHandler>
-        class ComplexMovingTimeWindowActionWithInputAttached {
-        private:
-            using MTW = MovingTimeWindow<A,PushPopHandler>;
-            using State = typename MTW::StateType;
-        public:
-            using Duration = typename MTW::Duration;
-            using Result = typename decltype(((PushPopHandler *) nullptr)->readResult(
-                (*(State *) nullptr)
-                , std::move(* ((std::tuple<typename M::TimePoint, B> *) nullptr))
-            ))::value_type;
-        private:
-            PushPopHandler handler_;
-            MTW w_;
-            State state_;
-        public:
-            ComplexMovingTimeWindowActionWithInputAttached(PushPopHandler &&handler, Duration const &d) : handler_(std::move(handler)), w_(d), state_() {}
-            typename M::template Data<std::tuple<B,Result>> operator()(int which, typename M::template InnerData<A> &&a, typename M::template InnerData<B> &&b) {
-                switch (which) {
-                    case 0:
-                        {
-                            w_.handleData(&state_, handler_, std::tuple<typename M::TimePoint, A> {std::move(a.timedData.timePoint), std::move(a.timedData.value)});
-                            return std::nullopt;
-                        }
-                        break;
-                    case 1:
-                        {
-                            auto tp = b.timedData.timePoint;
-                            auto bCopy = infra::withtime_utils::makeCopy<typename M::TimePoint, B>(b.timedData);
-                            w_.handleTimePoint(&state_, handler_, tp);
-                            auto res = handler_.readResult(state_, std::tuple<typename M::TimePoint, B> {std::move(b.timedData.timePoint), std::move(b.timedData.value)});
-                            if (res) {
-                                return { typename M::template InnerData<std::tuple<B,Result>> {
-                                    b.environment,
-                                    { b.environment->resolveTime(tp), {std::move(bCopy.value), std::move(*res)}, b.timedData.finalFlag }
-                                } };
-                            } else {
-                                return std::nullopt;
-                            }
-                        }
-                        break;
-                    default:
-                        return std::nullopt;
-                }
-            }
-        };
 
     public:
         template <class T, class PushPopHandler>
-        static auto simpleMovingTimeWindowAction(
+        static SimpleMovingTimeWindowKleisli<T,PushPopHandler> simpleMovingTimeWindowKleisli(
             PushPopHandler &&handler
             , typename MovingTimeWindow<T,PushPopHandler>::Duration const &duration
-            , infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint>()
-        ) -> std::shared_ptr<typename M::template Action<T, typename SimpleMovingTimeWindowAction<T,PushPopHandler>::Result>>
-        {
-            return M::template kleisli<T>(
-                SimpleMovingTimeWindowAction<T,PushPopHandler>(std::move(handler), duration)
-                , liftParam
-            );
+        ) {
+            return SimpleMovingTimeWindowKleisli<T,PushPopHandler>(std::move(handler), duration);
         }
         template <class A, class B, class PushPopHandler>
-        static auto complexMovingTimeWindowAction(
+        static auto complexMovingTimeWindowActionKleisli(
             PushPopHandler &&handler
             , typename MovingTimeWindow<A,PushPopHandler>::Duration const &duration
-            , infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint>()
-        ) -> std::shared_ptr<typename M::template Action<std::variant<A,B>, typename ComplexMovingTimeWindowAction<A,B,PushPopHandler>::Result>>
-        {
-            return M::template kleisli<std::variant<A,B>>(
-                ComplexMovingTimeWindowAction<A,B,PushPopHandler>(std::move(handler), duration)
-                , liftParam
-            );
-        }
-        template <class T, class PushPopHandler>
-        static auto simpleMovingTimeWindowActionWithInputAttached(
-            PushPopHandler &&handler
-            , typename MovingTimeWindow<T,PushPopHandler>::Duration const &duration
-            , infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint>()
-        ) -> std::shared_ptr<typename M::template Action<T, std::tuple<T,typename SimpleMovingTimeWindowAction<T,PushPopHandler>::Result>>>
-        {
-            return M::template kleisli<T>(
-                SimpleMovingTimeWindowActionWithInputAttached<T,PushPopHandler>(std::move(handler), duration)
-                , liftParam
-            );
-        }
-        template <class A, class B, class PushPopHandler>
-        static auto complexMovingTimeWindowActionWithInputAttached(
-            PushPopHandler &&handler
-            , typename MovingTimeWindow<A,PushPopHandler>::Duration const &duration
-            , infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint>()
-        ) -> std::shared_ptr<typename M::template Action<std::variant<A,B>, std::tuple<B,typename ComplexMovingTimeWindowAction<A,B,PushPopHandler>::Result>>>
-        {
-            return M::template kleisli<std::variant<A,B>>(
-                ComplexMovingTimeWindowActionWithInputAttached<A,B,PushPopHandler>(std::move(handler), duration)
-                , liftParam
-            );
+        ) {
+            return ComplexMovingTimeWindowKleisli<A,B,PushPopHandler>(std::move(handler), duration);
         }
     private:
         //Requirement for whole history handler:
         //void add(std::tuple<typename M::TimePoint, T> const &);
         //std::optional<...> readResult()
         template <class T, class WholeHistoryHandler>
-        class WholeHistoryAction {
+        class WholeHistoryKleisli {
         public:
             using Result = typename decltype(((WholeHistoryHandler *) nullptr)->readResult())::value_type;
         private:
             WholeHistoryHandler handler_;
         public:
-            WholeHistoryAction(WholeHistoryHandler &&handler) : handler_(std::move(handler)) {}
-            WholeHistoryAction(WholeHistoryAction &&) = default;
+            WholeHistoryKleisli(WholeHistoryHandler &&handler) : handler_(std::move(handler)) {}
             typename M::template Data<Result> operator()(typename M::template InnerData<T> &&a) {
                 auto tp = a.timedData.timePoint;
                 handler_.add(std::tuple<typename M::TimePoint, T> {std::move(a.timedData.timePoint), std::move(a.timedData.value)});
@@ -494,52 +286,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         };
-        template <class T, class WholeHistoryHandler>
-        class WholeHistoryActionWithInputAttached {
-        public:
-            using Result = typename decltype(((WholeHistoryHandler *) nullptr)->readResult())::value_type;
-        private:
-            WholeHistoryHandler handler_;
-        public:
-            WholeHistoryActionWithInputAttached(WholeHistoryHandler &&handler) : handler_(std::move(handler)) {}
-            WholeHistoryActionWithInputAttached(WholeHistoryActionWithInputAttached &&) = default;
-            typename M::template Data<std::tuple<T,Result>> operator()(typename M::template InnerData<T> &&a) {
-                auto tp = a.timedData.timePoint;
-                auto aCopy = infra::withtime_utils::makeCopy<typename M::TimePoint, T>(a.timedData);
-                handler_.add(std::tuple<typename M::TimePoint, T> {std::move(a.timedData.timePoint), std::move(a.timedData.value)});
-                auto res = handler_.readResult();
-                if (res) {
-                    return { typename M::template InnerData<std::tuple<T,Result>> {
-                        a.environment,
-                        { a.environment->resolveTime(tp), {std::move(aCopy.value), std::move(*res)}, a.timedData.finalFlag }
-                    } };
-                } else {
-                    return std::nullopt;
-                }
-            }
-        };
     public:
         template <class T, class WholeHistoryHandler>
-        static auto wholeHistoryAction(
-            WholeHistoryHandler &&handler
-            , infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint>()
-        ) -> std::shared_ptr<typename M::template Action<T, typename WholeHistoryAction<T,WholeHistoryHandler>::Result>>
-        {
-            return M::template kleisli<T>(
-                WholeHistoryAction<T,WholeHistoryHandler>(std::move(handler))
-                , liftParam
-            );
-        }
-        template <class T, class WholeHistoryHandler>
-        static auto wholeHistoryActionWithInputAttached(
-            WholeHistoryHandler &&handler
-            , infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint>()
-        ) -> std::shared_ptr<typename M::template Action<T, std::tuple<T,typename WholeHistoryAction<T,WholeHistoryHandler>::Result>>>
-        {
-            return M::template kleisli<T>(
-                WholeHistoryActionWithInputAttached<T,WholeHistoryHandler>(std::move(handler))
-                , liftParam
-            );
+        static auto wholeHistoryKleisli(WholeHistoryHandler &&handler) {
+            return WholeHistoryKleisli<T,WholeHistoryHandler>(std::move(handler));
         }
     };
 
