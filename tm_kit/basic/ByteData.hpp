@@ -73,6 +73,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         };
+        template <class A>
+        struct RunSerializer<std::shared_ptr<A>, void> {
+            static std::string apply(std::shared_ptr<A> const &data) {
+                if (data) {
+                    return RunSerializer<A>::apply(*data);
+                } else {
+                    return "";
+                }
+            }
+        };
         template <class A, class B>
         struct RunSerializer<std::tuple<A,B>, void> {
             static std::string apply(std::tuple<A,B> const &data) {
@@ -83,6 +93,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 oss << RunSerializer<int32_t>::apply(aLen)
                     << a 
                     << b;
+                return oss.str();
+            }
+        };
+        template <class VersionType, class DataType, class Cmp>
+        struct RunSerializer<infra::VersionedData<VersionType,DataType,Cmp>> {
+            static std::string apply(infra::VersionedData<VersionType,DataType,Cmp> const &data) {
+                std::string v = RunSerializer<VersionType>::apply(data.version);
+                std::string d = RunSerializer<DataType>::apply(data.data);
+                int32_t vLen = v.length();
+                std::ostringstream oss;
+                oss << RunSerializer<int32_t>::apply(vLen)
+                    << v 
+                    << d;
                 return oss.str();
             }
         };
@@ -135,6 +158,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         };
+        template <class A>
+        struct RunDeserializer<std::shared_ptr<A>, void> {
+            static std::optional<std::shared_ptr<A>> apply(std::string const &data) {
+                if (data.length() == 0) {
+                    return std::nullopt;
+                }
+                auto a = RunDeserializer<A>::apply(data);
+                if (a) {
+                    return {std::make_shared<A>(std::move(a))};
+                } else {
+                    return std::nullopt;
+                }
+            }
+        };
         template <class A, class B>
         struct RunDeserializer<std::tuple<A,B>, void> {
             static std::optional<std::tuple<A,B>> apply(std::string const &data) {
@@ -163,6 +200,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 return {std::tuple<A,B> {std::move(a), std::move(b)}};
+            }
+        };
+        template <class VersionType, class DataType, class Cmp>
+        struct RunDeserializer<infra::VersionedData<VersionType,DataType,Cmp>, void> {
+            static std::optional<infra::VersionedData<VersionType,DataType,Cmp>> apply(std::string const &data) {
+                auto x = RunDeserializer<std::tuple<VersionType,DataType>>::apply(data);
+                if (!x) {
+                    return std::nullopt;
+                }
+                return infra::VersionedData<VersionType,DataType,Cmp> {
+                    std::move(std::get<0>(x)), std::move(std::get<1>(x))
+                };
             }
         };
     }
