@@ -109,6 +109,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return oss.str();
             }
         };
+        template <class GroupIDType, class VersionType, class DataType, class Cmp>
+        struct RunSerializer<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>> {
+            static std::string apply(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> const &data) {
+                std::string g = RunSerializer<GroupIDType>::apply(data.groupID);
+                std::string v = RunSerializer<VersionType>::apply(data.version);
+                std::string d = RunSerializer<DataType>::apply(data.data);
+                int32_t gLen = g.length();
+                int32_t vLen = v.length();
+                std::ostringstream oss;
+                oss << RunSerializer<int32_t>::apply(gLen)
+                    << g
+                    << RunSerializer<int32_t>::apply(vLen)
+                    << v 
+                    << d;
+                return oss.str();
+            }
+        };
 
         template <class T, typename Enable=void>
         struct RunDeserializer {
@@ -211,6 +228,60 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return infra::VersionedData<VersionType,DataType,Cmp> {
                     std::move(std::get<0>(x)), std::move(std::get<1>(x))
+                };
+            }
+        };
+        template <class GroupIDType, class VersionType, class DataType, class Cmp>
+        struct RunDeserializer<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>, void> {
+            static std::optional<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>> apply(std::string const &data) {
+                const char *p = data.c_str();
+                size_t len = data.length();
+                if (len < sizeof(int32_t)) {
+                    return std::nullopt;
+                }
+                auto gLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                if (!gLen) {
+                    return std::nullopt;
+                }
+                p += sizeof(int32_t);
+                len -= sizeof(int32_t);
+                if (len < *gLen) {
+                    return std::nullopt;
+                }
+                auto g = RunDeserializer<GroupIDType>::apply(std::string(p, p+(*gLen)));
+                if (!g) {
+                    return std::nullopt;
+                }
+                p += *gLen;
+                len -= *gLen;
+                if (len < sizeof(int32_t)) {
+                    return std::nullopt;
+                }
+                auto vLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                if (!vLen) {
+                    return std::nullopt;
+                }
+                p += sizeof(int32_t);
+                len -= sizeof(int32_t);
+                if (len < *vLen) {
+                    return std::nullopt;
+                }
+                auto v = RunDeserializer<VersionType>::apply(std::string(p, p+(*vLen)));
+                if (!v) {
+                    return std::nullopt;
+                }
+                p += *vLen;
+                len -= *vLen;
+                auto d = RunDeserializer<DataType>::apply(std::string(p, p+len));
+                if (!d) {
+                    return std::nullopt;
+                }
+                return {
+                    infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> {
+                        std::move(*g)
+                        , std::move(*v)
+                        , std::move(*d)
+                    }
                 };
             }
         };
