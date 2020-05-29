@@ -87,6 +87,110 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             return PreserveLeft<A,B,F>(std::move(f));
         }
     private:
+        template <class A, class B, class F>
+        class PreserveRight {
+        private:
+            F f_;
+        public:
+            PreserveRight(F &&f) : f_(std::move(f)) {}
+
+            using C = typename decltype(f_(std::move(* (typename M::template InnerData<A> *)nullptr)))::value_type::ValueType;
+            typename M::template Data<std::tuple<C,B>> operator()(typename M::template InnerData<std::tuple<A,B>> &&x) {
+                auto bValue = std::get<1>(x.timedData.value);
+                auto aData = M::template pureInnerDataLift<std::tuple<A,B>>([](std::tuple<A,B> &&t) -> A {
+                    return std::get<0>(std::move(t));
+                }, std::move(x));
+                auto cData = f_(std::move(aData));
+                if (cData) {
+                    return M::template pureInnerDataLift<C>([bValue=std::move(bValue)](C &&c) -> std::tuple<C,B> {
+                        return {std::move(c), std::move(bValue)};
+                    }, std::move(*cData));
+                } else {
+                    return std::nullopt;
+                }
+            }
+        };
+    public:
+        template <class A, class B, class F>
+        static PreserveRight<A,B,F> preserveRight(F &&f) {
+            return PreserveRight<A,B,F>(std::move(f));
+        }
+    private:
+        template <class A, class B, class F, class G>
+        class Parallel {
+        private:
+            F f_;
+            G g_;
+        public:
+            Parallel(F &&f, G &&g) : f_(std::move(f)), g_(std::move(g)) {}
+
+            using C = typename decltype(f_(std::move(* (typename M::template InnerData<A> *)nullptr)))::value_type::ValueType;
+            using D = typename decltype(g_(std::move(* (typename M::template InnerData<B> *)nullptr)))::value_type::ValueType;
+
+            typename M::template Data<std::tuple<C,D>> operator()(typename M::template InnerData<std::tuple<A,B>> &&x) {
+                auto aData = M::template pureInnerDataLift<std::tuple<A,B>>([](std::tuple<A,B> &&t) -> A {
+                    return std::move(std::get<0>(t));
+                }, std::move(x));
+                auto bData = M::template pureInnerDataLift<std::tuple<A,B>>([](std::tuple<A,B> &&t) -> B {
+                    return std::move(std::get<1>(t));
+                }, std::move(x));
+                auto cData = f_(std::move(aData));
+                auto dData = g_(std::move(bData));
+                if (cData && dData) {
+                    return {typename M::template InnerData<std::tuple<C,D>> {
+                        x.environment
+                        , {std::max(cData->timedData.timePoint, dData->timedData.timePoint)
+                            , std::tuple<C,D> {std::move(cData->timedData.value), std::move(dData->timedData.value)}
+                            , (cData->timedData.finalFlag && dData->timedData.finalFlag)
+                        }
+                    }};
+                } else {
+                    return std::nullopt;
+                }
+            }
+        };
+    public:
+        template <class A, class B, class F, class G>
+        static Parallel<A,B,F,G> parallel(F &&f, G &&g) {
+            return Parallel<A,B,F,G>(std::move(f), std::move(g));
+        }
+    private:
+        template <class A, class F, class G>
+        class FanOut {
+        private:
+            F f_;
+            G g_;
+        public:
+            FanOut(F &&f, G &&g) : f_(std::move(f)), g_(std::move(g)) {}
+
+            using B = typename decltype(f_(std::move(* (typename M::template InnerData<A> *)nullptr)))::value_type::ValueType;
+            using C = typename decltype(g_(std::move(* (typename M::template InnerData<A> *)nullptr)))::value_type::ValueType;
+
+            typename M::template Data<std::tuple<B,C>> operator()(typename M::template InnerData<A> &&x) {
+                auto aCopy = typename M::template InnerData<A> {
+                    x.environment, infra::withtime_utils::makeCopy(x.timedData)
+                };
+                auto bData = f_(std::move(x));
+                auto cData = g_(std::move(aCopy));
+                if (bData && cData) {
+                    return {typename M::template InnerData<std::tuple<B,C>> {
+                        x.environment
+                        , {std::max(bData->timedData.timePoint, cData->timedData.timePoint)
+                            , std::tuple<B,C> {std::move(bData->timedData.value), std::move(cData->timedData.value)}
+                            , (bData->timedData.finalFlag && cData->timedData.finalFlag)
+                        }
+                    }};
+                } else {
+                    return std::nullopt;
+                }
+            }
+        };
+    public:
+        template <class A, class F, class G>
+        static FanOut<A,F,G> fanOut(F &&f, G &&g) {
+            return FanOut<A,F,G>(std::move(f), std::move(g));
+        }
+    private:
         template <class A, class F>
         class PureFilter {
         private:
