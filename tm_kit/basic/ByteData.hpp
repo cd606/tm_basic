@@ -2,6 +2,7 @@
 #define TM_KIT_BASIC_BYTE_DATA_HPP_
 
 #include <string>
+#include <vector>
 #include <type_traits>
 #include <memory>
 #include <iostream>
@@ -83,46 +84,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         };
-        template <class A, class B>
-        struct RunSerializer<std::tuple<A,B>, void> {
-            static std::string apply(std::tuple<A,B> const &data) {
-                std::string a = RunSerializer<A>::apply(std::get<0>(data));
-                std::string b = RunSerializer<B>::apply(std::get<0>(data));
-                int32_t aLen = a.length();
+        template <class A>
+        struct RunSerializer<std::vector<A>, void> {
+            static std::string apply(std::vector<A> const &data) {
+                int32_t len = data.size();
                 std::ostringstream oss;
-                oss << RunSerializer<int32_t>::apply(aLen)
-                    << a 
-                    << b;
-                return oss.str();
-            }
-        };
-        template <class VersionType, class DataType, class Cmp>
-        struct RunSerializer<infra::VersionedData<VersionType,DataType,Cmp>> {
-            static std::string apply(infra::VersionedData<VersionType,DataType,Cmp> const &data) {
-                std::string v = RunSerializer<VersionType>::apply(data.version);
-                std::string d = RunSerializer<DataType>::apply(data.data);
-                int32_t vLen = v.length();
-                std::ostringstream oss;
-                oss << RunSerializer<int32_t>::apply(vLen)
-                    << v 
-                    << d;
-                return oss.str();
-            }
-        };
-        template <class GroupIDType, class VersionType, class DataType, class Cmp>
-        struct RunSerializer<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>> {
-            static std::string apply(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> const &data) {
-                std::string g = RunSerializer<GroupIDType>::apply(data.groupID);
-                std::string v = RunSerializer<VersionType>::apply(data.version);
-                std::string d = RunSerializer<DataType>::apply(data.data);
-                int32_t gLen = g.length();
-                int32_t vLen = v.length();
-                std::ostringstream oss;
-                oss << RunSerializer<int32_t>::apply(gLen)
-                    << g
-                    << RunSerializer<int32_t>::apply(vLen)
-                    << v 
-                    << d;
+                oss << RunSerializer<int32_t>::apply(len);
+                for (auto const &item : data) {
+                    auto s = RunSerializer<A>::apply(item);
+                    int32_t sLen = s.length();
+                    oss << RunSerializer<int32_t>::apply(sLen)
+                        << s;
+                }
                 return oss.str();
             }
         };
@@ -189,34 +162,80 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         };
-        template <class A, class B>
-        struct RunDeserializer<std::tuple<A,B>, void> {
-            static std::optional<std::tuple<A,B>> apply(std::string const &data) {
+        template <class A>
+        struct RunDeserializer<std::vector<A>, void> {
+            static std::optional<std::vector<A>> apply(std::string const &data) {
                 const char *p = data.c_str();
                 size_t len = data.length();
                 if (len < sizeof(int32_t)) {
                     return std::nullopt;
                 }
-                auto aLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
-                if (!aLen) {
+                auto resLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                if (!resLen) {
                     return std::nullopt;
                 }
                 p += sizeof(int32_t);
                 len -= sizeof(int32_t);
-                if (len < *aLen) {
+                std::vector<A> res;
+                res.resize(*resLen);
+                for (int32_t ii=0; ii<*resLen; ++ii) {
+                    if (len < sizeof(int32_t)) {
+                        return std::nullopt;
+                    }
+                    auto itemLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                    if (!itemLen) {
+                        return std::nullopt;
+                    }
+                    p += sizeof(int32_t);
+                    len -= sizeof(int32_t);
+                    if (len < *itemLen) {
+                        return std::nullopt;
+                    }
+                    auto item = RunDeserializer<A>::apply(std::string(p, p+(*itemLen)));
+                    if (!item) {
+                        return std::nullopt;
+                    }
+                    res[ii] = std::move(item);
+                    p += *itemLen;
+                    len -= *itemLen;
+                }
+                if (len != 0) {
                     return std::nullopt;
                 }
-                auto a = RunDeserializer<A>::apply(std::string(p, p+(*aLen)));
-                if (!a) {
-                    return std::nullopt;
-                }
-                p += *aLen;
-                len -= *aLen;
-                auto b = RunDeserializer<B>::apply(std::string(p, p+len));
-                if (!b) {
-                    return std::nullopt;
-                }
-                return {std::tuple<A,B> {std::move(a), std::move(b)}};
+                return {std::move(res)};
+            }
+        };
+
+        #include <tm_kit/basic/ByteData_Tuple_Variant_Piece.hpp>
+
+        template <class VersionType, class DataType, class Cmp>
+        struct RunSerializer<infra::VersionedData<VersionType,DataType,Cmp>> {
+            static std::string apply(infra::VersionedData<VersionType,DataType,Cmp> const &data) {
+                std::string v = RunSerializer<VersionType>::apply(data.version);
+                std::string d = RunSerializer<DataType>::apply(data.data);
+                int32_t vLen = v.length();
+                std::ostringstream oss;
+                oss << RunSerializer<int32_t>::apply(vLen)
+                    << v 
+                    << d;
+                return oss.str();
+            }
+        };
+        template <class GroupIDType, class VersionType, class DataType, class Cmp>
+        struct RunSerializer<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>> {
+            static std::string apply(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> const &data) {
+                std::string g = RunSerializer<GroupIDType>::apply(data.groupID);
+                std::string v = RunSerializer<VersionType>::apply(data.version);
+                std::string d = RunSerializer<DataType>::apply(data.data);
+                int32_t gLen = g.length();
+                int32_t vLen = v.length();
+                std::ostringstream oss;
+                oss << RunSerializer<int32_t>::apply(gLen)
+                    << g
+                    << RunSerializer<int32_t>::apply(vLen)
+                    << v 
+                    << d;
+                return oss.str();
             }
         };
         template <class VersionType, class DataType, class Cmp>
