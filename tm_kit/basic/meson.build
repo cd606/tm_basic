@@ -8,8 +8,10 @@ tm_basic_headers = [
     , 'TrivialBoostLoggingComponent.hpp'
     , 'VoidStruct.hpp'
     , 'SingleLayerWrapper.hpp'
+    , 'ConstType.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
 subdir('real_time_clock')
 subdir('single_pass_iteration_clock')
+subdir('transaction')

@@ -11,6 +11,7 @@
 #include <tm_kit/basic/ConstGenerator.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <tm_kit/basic/SingleLayerWrapper.hpp>
+#include <tm_kit/basic/ConstType.hpp>
 #include <tm_kit/infra/WithTimeData.hpp>
 #include <boost/endian/conversion.hpp>
 
@@ -111,6 +112,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         struct RunSerializer<SingleLayerWrapper<T>, void> {
             static std::string apply(SingleLayerWrapper<T> const &data) {
                 return RunSerializer<T>::apply(data.value);
+            }
+        };
+        template <int32_t N>
+        struct RunSerializer<ConstType<N>, void> {
+            static std::string apply(ConstType<N> const &data) {
+                return RunSerializer<int32_t>::apply(N);
             }
         };
 
@@ -237,6 +244,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 return SingleLayerWrapper<T> {std::move(*t)};
+            }
+        };
+        template <int32_t N>
+        struct RunDeserializer<ConstType<N>, void> {
+            static std::optional<ConstType<N>> apply(std::string const &data) {
+                auto t = RunDeserializer<int32_t>::apply(data);
+                if (!t) {
+                    return std::nullopt;
+                }
+                if (*t != N) {
+                    return std::nullopt;
+                }
+                return ConstType<N> {};
             }
         };
 
