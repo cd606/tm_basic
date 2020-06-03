@@ -9,6 +9,8 @@
 #include <sstream>
 #include <optional>
 #include <tm_kit/basic/ConstGenerator.hpp>
+#include <tm_kit/basic/VoidStruct.hpp>
+#include <tm_kit/basic/SingleLayerWrapper.hpp>
 #include <tm_kit/infra/WithTimeData.hpp>
 #include <boost/endian/conversion.hpp>
 
@@ -97,6 +99,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         << s;
                 }
                 return oss.str();
+            }
+        };
+        template <>
+        struct RunSerializer<VoidStruct, void> {
+            static std::string apply(VoidStruct const &data) {
+                return std::string();
+            }
+        };
+        template <class T>
+        struct RunSerializer<SingleLayerWrapper<T>, void> {
+            static std::string apply(SingleLayerWrapper<T> const &data) {
+                return RunSerializer<T>::apply(data.value);
             }
         };
 
@@ -203,6 +217,26 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 return {std::move(res)};
+            }
+        };
+        template <>
+        struct RunDeserializer<VoidStruct, void> {
+            static std::optional<VoidStruct> apply(std::string const &data) {
+                if (data.length() == 0) {
+                    return VoidStruct {};
+                } else {
+                    return std::nullopt;
+                }
+            }
+        };
+        template <class T>
+        struct RunDeserializer<SingleLayerWrapper<T>, void> {
+            static std::optional<SingleLayerWrapper<T>> apply(std::string const &data) {
+                auto t = RunDeserializer<T>::apply(data);
+                if (!t) {
+                    return std::nullopt;
+                }
+                return SingleLayerWrapper<T> {std::move(*t)};
             }
         };
 

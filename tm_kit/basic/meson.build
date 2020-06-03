@@ -7,6 +7,7 @@ tm_basic_headers = [
     , 'ConstGenerator.hpp'
     , 'TrivialBoostLoggingComponent.hpp'
     , 'VoidStruct.hpp'
+    , 'SingleLayerWrapper.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
