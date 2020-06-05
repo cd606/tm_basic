@@ -40,8 +40,8 @@ struct RunDeserializer<std::tuple<A0,A1>> {
             return std::nullopt;
         }
         return std::tuple<A0,A1> {
-            std::move(a0)
-            , std::move(a1)
+            std::move(*a0)
+            , std::move(*a1)
         };
     }
 };
@@ -163,9 +163,9 @@ struct RunDeserializer<std::tuple<A0,A1,A2>> {
             return std::nullopt;
         }
         return std::tuple<A0,A1,A2> {
-            std::move(a0)
-            , std::move(a1)
-            , std::move(a2)
+            std::move(*a0)
+            , std::move(*a1)
+            , std::move(*a2)
         };
     }
 };
@@ -320,10 +320,10 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3>> {
             return std::nullopt;
         }
         return std::tuple<A0,A1,A2,A3> {
-            std::move(a0)
-            , std::move(a1)
-            , std::move(a2)
-            , std::move(a3)
+            std::move(*a0)
+            , std::move(*a1)
+            , std::move(*a2)
+            , std::move(*a3)
         };
     }
 };
@@ -511,11 +511,11 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4>> {
             return std::nullopt;
         }
         return std::tuple<A0,A1,A2,A3,A4> {
-            std::move(a0)
-            , std::move(a1)
-            , std::move(a2)
-            , std::move(a3)
-            , std::move(a4)
+            std::move(*a0)
+            , std::move(*a1)
+            , std::move(*a2)
+            , std::move(*a3)
+            , std::move(*a4)
         };
     }
 };
@@ -736,12 +736,12 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4,A5>> {
             return std::nullopt;
         }
         return std::tuple<A0,A1,A2,A3,A4,A5> {
-            std::move(a0)
-            , std::move(a1)
-            , std::move(a2)
-            , std::move(a3)
-            , std::move(a4)
-            , std::move(a5)
+            std::move(*a0)
+            , std::move(*a1)
+            , std::move(*a2)
+            , std::move(*a3)
+            , std::move(*a4)
+            , std::move(*a5)
         };
     }
 };
@@ -995,13 +995,13 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6>> {
             return std::nullopt;
         }
         return std::tuple<A0,A1,A2,A3,A4,A5,A6> {
-            std::move(a0)
-            , std::move(a1)
-            , std::move(a2)
-            , std::move(a3)
-            , std::move(a4)
-            , std::move(a5)
-            , std::move(a6)
+            std::move(*a0)
+            , std::move(*a1)
+            , std::move(*a2)
+            , std::move(*a3)
+            , std::move(*a4)
+            , std::move(*a5)
+            , std::move(*a6)
         };
     }
 };
@@ -1288,14 +1288,14 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>> {
             return std::nullopt;
         }
         return std::tuple<A0,A1,A2,A3,A4,A5,A6,A7> {
-            std::move(a0)
-            , std::move(a1)
-            , std::move(a2)
-            , std::move(a3)
-            , std::move(a4)
-            , std::move(a5)
-            , std::move(a6)
-            , std::move(a7)
+            std::move(*a0)
+            , std::move(*a1)
+            , std::move(*a2)
+            , std::move(*a3)
+            , std::move(*a4)
+            , std::move(*a5)
+            , std::move(*a6)
+            , std::move(*a7)
         };
     }
 };
@@ -1615,15 +1615,15 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             return std::nullopt;
         }
         return std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8> {
-            std::move(a0)
-            , std::move(a1)
-            , std::move(a2)
-            , std::move(a3)
-            , std::move(a4)
-            , std::move(a5)
-            , std::move(a6)
-            , std::move(a7)
-            , std::move(a8)
+            std::move(*a0)
+            , std::move(*a1)
+            , std::move(*a2)
+            , std::move(*a3)
+            , std::move(*a4)
+            , std::move(*a5)
+            , std::move(*a6)
+            , std::move(*a7)
+            , std::move(*a8)
         };
     }
 };
@@ -1976,16 +1976,16 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             return std::nullopt;
         }
         return std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {
-            std::move(a0)
-            , std::move(a1)
-            , std::move(a2)
-            , std::move(a3)
-            , std::move(a4)
-            , std::move(a5)
-            , std::move(a6)
-            , std::move(a7)
-            , std::move(a8)
-            , std::move(a9)
+            std::move(*a0)
+            , std::move(*a1)
+            , std::move(*a2)
+            , std::move(*a3)
+            , std::move(*a4)
+            , std::move(*a5)
+            , std::move(*a6)
+            , std::move(*a7)
+            , std::move(*a8)
+            , std::move(*a9)
         };
     }
 };
