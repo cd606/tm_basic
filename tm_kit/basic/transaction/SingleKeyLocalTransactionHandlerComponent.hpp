@@ -18,13 +18,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     public:
         using TI = SingleKeyTransactionInterface<KeyType,DataType,VersionType,IDType,DataSummaryType,Cmp,CheckSummary>;
         virtual ~SingleKeyLocalTransactionHandlerComponent() {}
-        virtual typename TI::TransactionResult
-            handleTransaction(
+        //All the false results will be interpreted as permission failure
+        //since the assumption is that preconditions have been checked in 
+        //the broker already
+        virtual bool
+            handleInsert(
                 std::string const &account
-                , typename TI::Transaction const &transaction
+                , KeyType const &key
+                , DataType const &data
             )
             = 0;
-        virtual std::vector<std::tuple<KeyType,ValueType>> loadInitialData() = 0;
+        virtual bool
+            handleUpdate(
+                std::string const &account
+                , KeyType const &key
+                , DataType const &data
+            )
+            = 0;
+        virtual bool
+            handleDelete(
+                std::string const &account
+                , KeyType const &key
+            )
+            = 0;
+        virtual std::vector<std::tuple<KeyType,DataType>> loadInitialData() = 0;
     };
 
     template <

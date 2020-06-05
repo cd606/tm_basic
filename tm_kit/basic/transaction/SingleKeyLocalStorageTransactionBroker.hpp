@@ -71,185 +71,136 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         std::mutex mutex_;
         CheckSummary checkSummary_;
 
-        bool checkTransactionPrecondition(typename M::IDType const &requester, typename TI::Transaction const &transaction) {
-            std::lock_guard<std::mutex> _(mutex_);
-            switch (transaction.which()) {
-            case 0:
-                {
-                    auto insertAction = std::get<0>(transaction);
-                    auto iter = dataMap_.find(insertAction.key);
-                    if (iter == dataMap_.end()) {
-                        return true;
-                    }
-                    if (!iter->second.currentValue.data) {
-                        return true;
-                    }
-                    return false;
-                }
-                break;
-            case 1:
-                {
-                    auto updateAction = std::get<1>(transaction);
-                    auto iter = dataMap_.find(updateAction.key);
-                    if (iter == dataMap_.end()) {
-                        return false;
-                    }
-                    if (!iter->second.currentValue.data) {
-                        return false;
-                    }
-                    if (iter->second.currentValue.version != updateAction.oldVersion) {
-                        return false;
-                    }
-                    if (!checkSummary_(iter->second.currentValue, updateAction.oldData)) {
-                        return false;
-                    }
-                    return true;
-                }
-                break;
-            case 2:
-                {
-                    auto deleteAction = std::get<2>(transaction);
-                    auto iter = dataMap_.find(deleteAction.key);
-                    if (iter == dataMap_.end()) {
-                        return false;
-                    }
-                    if (!iter->second.currentValue.data) {
-                        return false;
-                    }
-                    return true;
-                }
-                break;
-            default:
+        bool checkTransactionPrecondition(typename M::IDType const &requester, typename TI::InsertAction const &insertAction) {
+            auto iter = dataMap_.find(insertAction.key);
+            if (iter == dataMap_.end()) {
+                return true;
+            }
+            if (!iter->second.currentValue.data) {
+                return true;
+            }
+            return false;
+        }
+        bool checkTransactionPrecondition(typename M::IDType const &requester, typename TI::UpdateAction const &updateAction) { 
+            auto iter = dataMap_.find(updateAction.key);
+            if (iter == dataMap_.end()) {
                 return false;
             }
+            if (!iter->second.currentValue.data) {
+                return false;
+            }
+            if (iter->second.currentValue.version != updateAction.oldVersion) {
+                return false;
+            }
+            if (!checkSummary_(iter->second.currentValue, updateAction.oldData)) {
+                return false;
+            }
+            return true;
+        }
+        bool checkTransactionPrecondition(typename M::IDType const &requester, typename TI::DeleteAction const &deleteAction) {
+            auto iter = dataMap_.find(deleteAction.key);
+            if (iter == dataMap_.end()) {
+                return false;
+            }
+            if (!iter->second.currentValue.data) {
+                return false;
+            }
+            return true;
         }
 
-        void handleTransactionResult(typename M::IDType const &requester, typename TI::Transaction const &transaction, typename TI::TransactionResult res, VP *vp) {
-            this->publish(typename M::template Key<typename TI::FacilityOutput> {
-                requester, res
-            });
-            switch (res.which()) {
-            case 0:
-                {
-                    std::lock_guard<std::mutex> _(mutex_);
-                    switch (transaction.which()) {
-                    case 0:
-                        {
-                            auto insertAction = std::get<0>(transaction);
-                            auto iter = dataMap_.find(insertAction.key);
-                            if (iter == dataMap_.end()) {
-                                iter = dataMap_.insert({
-                                    insertAction.key
-                                    , OneKeyInfo {
-                                        typename TI::OneValue {
-                                            insertAction.key
-                                            , vp->getNextVersionForKey(insertAction.key)
-                                            , insertAction.data
-                                        }
-                                        , std::unordered_set<typename M::IDType> {}
-                                    }
-                                }).first;
-                            } else {
-                                iter->second.currentValue = typename TI::OneValue {
-                                    insertAction.key
-                                    , vp->getNextVersionForKey(insertAction.key)
-                                    , insertAction.data
-                                };
-                            }
-                            for (auto const &id : iter->second.subscribers) {
-                                this->publish(typename M::template Key<typename TI::FacilityOutput> {
-                                    requester, iter->second.currentValue
-                                });
-                            }
+        void handleTransactionResult(typename M::EnvironmentType *env, typename M::IDType const &requester, typename TI::InsertAction const &insertAction, VP *vp) {
+            auto iter = dataMap_.find(insertAction.key);
+            if (iter == dataMap_.end()) {
+                iter = dataMap_.insert({
+                    insertAction.key
+                    , OneKeyInfo {
+                        typename TI::OneValue {
+                            insertAction.key
+                            , vp->getNextVersionForKey(insertAction.key)
+                            , insertAction.data
                         }
-                        break;
-                    case 1:
-                        {
-                            auto updateAction = std::get<1>(transaction);
-                            auto iter = dataMap_.find(updateAction.key);
-                            if (iter == dataMap_.end()) {
-                                iter = dataMap_.insert({
-                                    updateAction.key
-                                    , OneKeyInfo {
-                                        typename TI::OneValue {
-                                            updateAction.key
-                                            , vp->getNextVersionForKey(updateAction.key)
-                                            , updateAction.newData
-                                        }
-                                        , std::unordered_set<typename M::IDType> {}
-                                    }
-                                }).first;
-                            } else {
-                                iter->second.currentValue = typename TI::OneValue {
-                                    updateAction.key
-                                    , vp->getNextVersionForKey(updateAction.key)
-                                    , updateAction.newData
-                                };
-                            }
-                            for (auto const &id : iter->second.subscribers) {
-                                this->publish(typename M::template Key<typename TI::FacilityOutput> {
-                                    requester, iter->second.currentValue
-                                });
-                            }
-                        }
-                        break;
-                    case 2:
-                        {
-                            auto deleteAction = std::get<2>(transaction);
-                            auto iter = dataMap_.find(deleteAction.key);
-                            if (iter == dataMap_.end()) {
-                                iter = dataMap_.insert({
-                                    deleteAction.key
-                                    , OneKeyInfo {
-                                        typename TI::OneValue {
-                                            deleteAction.key
-                                            , vp->getNextVersionForKey(updateAction.key)
-                                            , std::nullopt
-                                        }
-                                        , std::unordered_set<typename M::IDType> {}
-                                    }
-                                }).first;
-                            } else {
-                                iter->second.currentValue = typename TI::OneValue {
-                                    deleteAction.key
-                                    , vp->getNextVersionForKey(deleteAction.key)
-                                    , std::nullopt
-                                };
-                            }
-                            for (auto const &id : iter->second.subscribers) {
-                                this->publish(typename M::template Key<typename TI::FacilityOutput> {
-                                    requester, iter->second.currentValue
-                                });
-                            }
-                        }
-                        break;
-                    default:
-                        break;
+                        , std::unordered_set<typename M::IDType> {}
                     }
-                }
-                break;
-            case 1:
-                {
-                    auto innerRes = std::get<1>(res);
-                    this->publish(typename M::template Key<typename TI::FacilityOutput> {
-                        requester, typename innerRes
-                    });
-                }
-                break;
-            case 2:
-                {
-                    auto innerRes = std::get<2>(res);
-                    this->publish(typename M::template Key<typename TI::FacilityOutput> {
-                        requester, typename innerRes
-                    });
-                }
-                break;
-            default:
-                break;
+                }).first;
+            } else {
+                iter->second.currentValue = typename TI::OneValue {
+                    insertAction.key
+                    , vp->getNextVersionForKey(insertAction.key)
+                    , insertAction.data
+                };
+            }
+            for (auto const &id : iter->second.subscribers) {
+                this->publish(
+                    env
+                    , typename M::template Key<typename TI::FacilityOutput> {
+                        requester, iter->second.currentValue
+                    }
+                    , false
+                );
             }
         }
-        void handleSubscription(typename M::IDType const &requester, KeyType const &key, VP *vp) {
-            std::lock_guard<std::mutex> _(mutex_);
+        void handleTransactionResult(typename M::EnvironmentType *env, typename M::IDType const &requester, typename TI::UpdateAction const &updateAction, VP *vp) {
+            auto iter = dataMap_.find(updateAction.key);
+            if (iter == dataMap_.end()) {
+                iter = dataMap_.insert({
+                    updateAction.key
+                    , OneKeyInfo {
+                        typename TI::OneValue {
+                            updateAction.key
+                            , vp->getNextVersionForKey(updateAction.key)
+                            , updateAction.newData
+                        }
+                        , std::unordered_set<typename M::IDType> {}
+                    }
+                }).first;
+            } else {
+                iter->second.currentValue = typename TI::OneValue {
+                    updateAction.key
+                    , vp->getNextVersionForKey(updateAction.key)
+                    , updateAction.newData
+                };
+            }
+            for (auto const &id : iter->second.subscribers) {
+                this->publish(
+                    env,
+                    typename M::template Key<typename TI::FacilityOutput> {
+                        requester, iter->second.currentValue
+                    }
+                    , false
+                );
+            }
+        }
+        void handleTransactionResult(typename M::EnvironmentType *env, typename M::IDType const &requester, typename TI::DeleteAction const &deleteAction, VP *vp) {
+            auto iter = dataMap_.find(deleteAction.key);
+            if (iter == dataMap_.end()) {
+                iter = dataMap_.insert({
+                    deleteAction.key
+                    , OneKeyInfo {
+                        typename TI::OneValue {
+                            deleteAction.key
+                            , vp->getNextVersionForKey(updateAction.key)
+                            , std::nullopt
+                        }
+                        , std::unordered_set<typename M::IDType> {}
+                    }
+                }).first;
+            } else {
+                iter->second.currentValue = typename TI::OneValue {
+                    deleteAction.key
+                    , vp->getNextVersionForKey(deleteAction.key)
+                    , std::nullopt
+                };
+            }
+            for (auto const &id : iter->second.subscribers) {
+                this->publish(
+                    env
+                    , typename M::template Key<typename TI::FacilityOutput> {
+                        requester, iter->second.currentValue
+                    }
+                    , false);
+            }
+        }
+        void handleSubscription(typename M::EnvironmentType *env, typename M::IDType const &requester, KeyType const &key, VP *vp) {
             auto iter = dataMap_.find(key);
             if (iter == dataMap_.end()) {
                 iter = dataMap_.insert({
@@ -265,33 +216,56 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 }).first;
             }
             iter->second.subscribers.insert(requester);
-            this->publish(typename M::template Key<typename TI::FacilityOutput> {
-                requester, typename TI::SubscriptionAck {}
-            });
-            this->publish(typename M::template Key<typename TI::FacilityOutput> {
-                requester, iter->second.currentValue
-            });
+            this->publish(
+                env
+                , typename M::template Key<typename TI::FacilityOutput> {
+                    requester, typename TI::SubscriptionAck {}
+                }
+                , false);
+            this->publish(
+                env
+                , typename M::template Key<typename TI::FacilityOutput> {
+                    requester, iter->second.currentValue
+                }
+                , false);
         }
-        void handleUnsubscription(typename M::IDType const &requester, typename M::IDType const &originalSubscriptionID, KeyType const &key, VP *vp) {
-            std::lock_guard<std::mutex> _(mutex_);
+        void handleUnsubscription(typename M::EnvironmentType *env, typename M::IDType const &requester, typename M::IDType const &originalSubscriptionID, KeyType const &key, VP *vp) {
             auto iter = dataMap_.find(key);
             if (iter == dataMap_.end()) {
-                this->publish(typename M::template Key<typename TI::FacilityOutput> {
-                    requester, typename TI::UnsubscriptionAck {}
-                });
+                this->publish(
+                    env
+                    , typename M::template Key<typename TI::FacilityOutput> {
+                        requester, typename TI::UnsubscriptionAck {}
+                    }
+                    , true);
                 return;
             }
             auto innerIter = iter->second.subscribers.find(originalSubscriptionID);
             if (innerIter == iter->second.end()) {
-                this->publish(typename M::template Key<typename TI::FacilityOutput> {
-                    requester, typename TI::UnsubscriptionAck {}
-                });
+                this->publish(
+                    env
+                    , typename M::template Key<typename TI::FacilityOutput> {
+                        requester, typename TI::UnsubscriptionAck {}
+                    }
+                    , true
+                );
                 return;
             }
+            this->publish(
+                env
+                , typename M::template Key<typename TI::FacilityOutput> {
+                    innerIter->second, typename TI::UnsubscriptionAck {}
+                }
+                , true
+            );
             iter->second.erase(innerIter);
-            this->publish(typename M::template Key<typename TI::FacilityOutput> {
-                requester, typename TI::UnsubscriptionAck {}
-            });
+            this->publish(
+                env
+                , typename M::template Key<typename TI::FacilityOutput> {
+                    requester, typename TI::UnsubscriptionAck {}
+                }
+                , true
+            );
             return;
         }
     public:
@@ -315,32 +289,155 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             }
         }
         virtual void handle(typename M::template InnerData<typename M::template Key<SingleKeyTransactionInterface<KeyType,Datatype,VersionType,DataSummaryType,Cmp>::FacilityInput>> &&input) override final {
-            template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-            template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
-
-            auto *handler = static_cast<TH *>(input.environment);
-            auto *versionProvider = static_cast<VP *>(input.environment);
+            auto *env = input.environment;
+            auto *handler = static_cast<TH *>(env);
+            auto *versionProvider = static_cast<VP *>(env);
             auto const &account = std::get<0>(input.timedData.value.key());
             auto const &id = input.timedData.value.id();
-            std::visit(overloaded {
-                [&account,handler,versionProvider,&id,this](typename TI::Transaction const &transaction) {
-                    if (!this->checkTransactionPrecondition(id, transaction)) {
-                        typename T::TransactionResult res = typename TI::TransactionFailurePrecondition {};
-                        this->publish(typename M::template Key<typename TI::FacilityOutput> {
-                            requester, res
-                        });
-                        return;
+
+            std::lock_guard<std::mutex> _(mutex_);
+            switch (input.timedData.value.key().which()) {
+            case 0:
+                {
+                    auto const &transaction = std::get<0>(input.timedData.value.key());
+                    switch (transaction.which()) {
+                    case 0:
+                        {
+                            auto const &insertAction = std::get<0>(transaction);
+                            if (!this->checkTransactionPrecondition(id, insertAction)) {
+                                typename T::TransactionResult res = typename TI::TransactionFailurePrecondition {};
+                                this->publish(
+                                    env
+                                    , typename M::template Key<typename TI::FacilityOutput> {
+                                        requester, res
+                                    }
+                                    , true
+                                );
+                                return;
+                            }
+                            bool actionRes = handler->handleInsert(insertAction.key, insertAction.data);
+                            if (!actionRes) {
+                                typename T::TransactionResult res = typename TI::TransactionFailurePermission {};
+                                this->publish(
+                                    env
+                                    , typename M::template Key<typename TI::FacilityOutput> {
+                                        requester, res
+                                    }
+                                    , true
+                                );
+                                return;
+                            } 
+                            this->handleTransactionResult(id, insertAction, versionProvider);
+                            typename T::TransactionResult res = typename TI::TransactionSuccess {};
+                            this->publish(
+                                env
+                                , typename M::template Key<typename TI::FacilityOutput> {
+                                    requester, res
+                                }
+                                , true
+                            );
+                        }
+                        break;
+                    case 1:
+                        {
+                            auto const &updateAction = std::get<1>(transaction);
+                            if (!this->checkTransactionPrecondition(id, updateAction)) {
+                                typename T::TransactionResult res = typename TI::TransactionFailurePrecondition {};
+                                this->publish(
+                                    env
+                                    , typename M::template Key<typename TI::FacilityOutput> {
+                                        requester, res
+                                    }
+                                    , true);
+                                return;
+                            }
+                            bool actionRes = handler->handleUpdate(updateAction.key, updateAction.newData);
+                            if (!actionRes) {
+                                typename T::TransactionResult res = typename TI::TransactionFailurePermission {};
+                                this->publish(
+                                    env
+                                    , typename M::template Key<typename TI::FacilityOutput> {
+                                        requester, res
+                                    }
+                                    , true);
+                                return;
+                            } 
+                            this->handleTransactionResult(id, updateAction, versionProvider);
+                            typename T::TransactionResult res = typename TI::TransactionSuccess {};
+                            this->publish(
+                                env
+                                , typename M::template Key<typename TI::FacilityOutput> {
+                                    requester, res
+                                }
+                                , true
+                            );
+                        }
+                        break;
+                    case 2:
+                        {
+                            auto const &deleteAction = std::get<2>(transaction);
+                            if (!this->checkTransactionPrecondition(id, deleteAction)) {
+                                typename T::TransactionResult res = typename TI::TransactionFailurePrecondition {};
+                                this->publish(
+                                    env
+                                    , typename M::template Key<typename TI::FacilityOutput> {
+                                        requester, res
+                                    }
+                                    , true);
+                                return;
+                            }
+                            bool actionRes = handler->handleDelete(deleteAction.key);
+                            if (!actionRes) {
+                                typename T::TransactionResult res = typename TI::TransactionFailurePermission {};
+                                this->publish(
+                                    env
+                                    , typename M::template Key<typename TI::FacilityOutput> {
+                                        requester, res
+                                    }
+                                    , true);
+                                return;
+                            } 
+                            this->handleTransactionResult(id, deleteAction, versionProvider);
+                            typename T::TransactionResult res = typename TI::TransactionSuccess {};
+                            this->publish(
+                                env
+                                , typename M::template Key<typename TI::FacilityOutput> {
+                                    requester, res
+                                }
+                                , true
+                            );                        
+                        }
+                        break;
+                    default:
+                        {
+                            typename T::TransactionResult res = typename TI::TransactionFailurePermission {};
+                            this->publish(
+                                env
+                                , typename M::template Key<typename TI::FacilityOutput> {
+                                    requester, res
+                                }
+                                , true
+                            );
+                        }
+                        break;
                     }
-                    auto res = handler->handleTransaction(account,insertAction);
-                    this->handleTransactionResult(id, transaction, res, versionProvider);
                 }
-                , [versionProvider,&id,this](typename TI::Subscription const &subscription) {
+                break;
+            case 1:
+                {
+                    auto const &subscription = std::get<1>(input.timedData.value.key());
                     this->handleSubscription(id, subscription.key, versionProvider);
                 }
-                , [versionProvider,&id,this](typename TI::Unsubscription const &unsubscription) {
+                break;
+            case 2:
+                {
+                    auto const &unsubscription = std::get<2>(input.timedData.value.key());
                     this->handleUnsubscription(id, unsubscription.originalSubscriptionID, unsubscription.key, versionProvider);
                 }
-            }, std::get<1>(input.timedData.value.key()));
+                break;
+            default:
+                break;
+            }
         }
     };
 
