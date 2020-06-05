@@ -17,13 +17,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     //It is named 'single' because there is only one version number for
     //all the keys
     template <class KeyType, class DataType>
-    class FileBackedSingleVersionProviderComponent final
+    class FileBackedSingleVersionProviderComponent
         : public VersionProviderComponent<KeyType,DataType,int64_t> {
     private:
         std::mutex mutex_;
         int64_t version_;
         std::ofstream ofs_;
     public:
+        FileBackedSingleVersionProviderComponent()
+            : mutex_(), version_(0), ofs_()
+        {}
         FileBackedSingleVersionProviderComponent(std::string const &filePath) 
             : mutex_(), version_(0), ofs_()
         {
@@ -37,6 +40,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 }
             } 
             ofs_ = std::ofstream(filePath);
+            ofs_.seekp(0);
+            ofs_.write(reinterpret_cast<const char *>(&version_), sizeof(int64_t));
+            ofs_.flush();
+        }
+        FileBackedSingleVersionProviderComponent(FileBackedSingleVersionProviderComponent &&f) 
+            : mutex_(), version_(std::move(f.version_)), ofs_(std::move(f.ofs_))
+        {}
+        FileBackedSingleVersionProviderComponent &operator=(FileBackedSingleVersionProviderComponent &&f) 
+        {
+            if (this != &f) {
+                std::lock_guard<std::mutex> _(mutex_);
+                version_ = std::move(f.version_);
+                ofs_ = std::move(f.ofs_);
+            }
         }
         virtual ~FileBackedSingleVersionProviderComponent() {
             ofs_.close();

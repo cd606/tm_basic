@@ -8,15 +8,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     template <
         class KeyType
         , class DataType
-        , class VersionType
-        , class IDType
-        , class DataSummaryType = DataType
-        , class Cmp = std::less<VersionType>
-        , class CheckSummary = std::equal_to<DataType>
     >
     class SingleKeyLocalTransactionHandlerComponent {
     public:
-        using TI = SingleKeyTransactionInterface<KeyType,DataType,VersionType,IDType,DataSummaryType,Cmp,CheckSummary>;
         virtual ~SingleKeyLocalTransactionHandlerComponent() {}
         //All the false results will be interpreted as permission failure
         //since the assumption is that preconditions have been checked in 
@@ -47,18 +41,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     template <
         class KeyType
         , class DataType
-        , class VersionType
-        , class IDType
-        , class DataSummaryType = DataType
-        , class Cmp = std::less<VersionType>
-        , class CheckSummary = std::equal_to<DataType>
     >
     class ReadOnlySingleKeyLocalTransactionHandlerComponent 
         :
-        public SingleKeyLocalTransactionHandlerComponent<KeyType,DataType,VersionType,IDType,DataSummaryType,Cmp,CheckSummary>
+        public SingleKeyLocalTransactionHandlerComponent<KeyType,DataType>
     {
     public:
-        using TI = SingleKeyTransactionInterface<KeyType,DataType,VersionType,IDType,DataSummaryType,Cmp,CheckSummary>;
         virtual ~ReadOnlySingleKeyLocalTransactionHandlerComponent() {}
         virtual bool
             handleInsert(

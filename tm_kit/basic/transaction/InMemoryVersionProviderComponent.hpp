@@ -11,7 +11,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     //This implementation is purely in memory and cannot preserve version
     //across runs or across simultaneous processes
     template <class KeyType, class DataType>
-    class InMemoryVersionProviderComponent final
+    class InMemoryVersionProviderComponent
         : public VersionProviderComponent<KeyType,DataType,int64_t> {
     private:
         std::mutex mutex_;

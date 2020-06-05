@@ -12,8 +12,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         , class DataType
         , class VersionType
         , class IDType
-        , class DataSummaryType = DataType
         , class Cmp = std::less<VersionType>
+        , class DataSummaryType = DataType
         , class CheckSummary = std::equal_to<DataType>
         , class Enable = void 
     >
@@ -24,8 +24,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         , class DataType
         , class VersionType
         , class IDType
-        , class DataSummaryType
         , class Cmp
+        , class DataSummaryType
         , class CheckSummary
     >
     class SingleKeyTransactionInterface<
@@ -33,8 +33,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         , DataType
         , VersionType
         , IDType
-        , DataSummaryType
         , Cmp
+        , DataSummaryType
         , CheckSummary
         , std::enable_if_t<
             std::is_default_constructible_v<KeyType>
@@ -69,10 +69,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         struct UpdateAction {
             KeyType key;
             VersionType oldVersion;
-            DataSummaryType oldData;
+            DataSummaryType oldDataSummary;
             DataType newData;
             void SerializeToString(std::string *s) const {
-                std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataType const *> t {&key, &oldVersion, &oldData, &newData};
+                std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataType const *> t {&key, &oldVersion, &oldDataSummary, &newData};
                 *s = bytedata_utils::RunSerializer<
                         std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataType const *>
                     >::apply(t);
@@ -86,7 +86,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 }
                 key = std::move(std::get<0>(*res));
                 oldVersion = std::move(std::get<1>(*res));
-                oldData = std::move(std::get<2>(*res));
+                oldDataSummary = std::move(std::get<2>(*res));
                 newData = std::move(std::get<3>(*res));
                 return true;
             }
@@ -153,15 +153,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
 
         using SubscriptionAck = ConstType<103>;
         using UnsubscriptionAck = ConstType<104>;
+
+        using BasicFacilityInput = std::variant<
+                                    Transaction
+                                    , Subscription
+                                    , Unsubscription
+                                >;
         
         //The std::string is the account information
         using FacilityInput = std::tuple<
                                     std::string
-                                    , std::variant<
-                                        Transaction
-                                        , Subscription
-                                        , Unsubscription
-                                    >
+                                    , BasicFacilityInput
                                 >;
         using FacilityOutput = SingleLayerWrapper<std::variant<
                                     TransactionResult
