@@ -71,15 +71,32 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         struct RunSerializer<std::unique_ptr<A>, void> {
             static std::string apply(std::unique_ptr<A> const &data) {
                 if (data) {
-                    return RunSerializer<A>::apply(*data);
+                    auto s = RunSerializer<A>::apply(*data);
+                    std::ostringstream oss;
+                    oss << RunSerializer<int8_t>::apply(1) << s;
+                    return oss.str();
                 } else {
-                    return "";
+                    return RunSerializer<int8_t>::apply(0);
                 }
             }
         };
         template <class A>
         struct RunSerializer<std::shared_ptr<A>, void> {
             static std::string apply(std::shared_ptr<A> const &data) {
+                if (data) {
+                    auto s = RunSerializer<A>::apply(*data);
+                    std::ostringstream oss;
+                    oss << RunSerializer<int8_t>::apply(1) << s;
+                    return oss.str();
+                } else {
+                    return RunSerializer<int8_t>::apply(0);
+                }
+            }
+        };
+        //This is a helper specialization and does not have a deserializer counterpart
+        template <class A>
+        struct RunSerializer<A const *, void> {
+            static std::string apply(A const *data) {
                 if (data) {
                     return RunSerializer<A>::apply(*data);
                 } else {
@@ -100,6 +117,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         << s;
                 }
                 return oss.str();
+            }
+        };
+        template <class A>
+        struct RunSerializer<std::optional<A>, void> {
+            static std::string apply(std::optional<A> const &data) {
+                if (data) {
+                    auto s = RunSerializer<A>::apply(*data);
+                    std::ostringstream oss;
+                    oss << RunSerializer<int8_t>::apply(1) << s;
+                    return oss.str();
+                } else {
+                    return RunSerializer<int8_t>::apply(0);
+                }
             }
         };
         template <>
@@ -161,11 +191,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if (data.length() == 0) {
                     return std::nullopt;
                 }
-                auto a = RunDeserializer<A>::apply(data);
-                if (a) {
-                    return {std::make_unique<A>(std::move(a))};
-                } else {
+                auto x = RunDeserializer<int8_t>::apply(data.substr(0,1));
+                if (!x) {
                     return std::nullopt;
+                }
+                if (*x == 0) {
+                    return {std::unique_ptr<A> {}};
+                } else {
+                    auto a = RunDeserializer<A>::apply(data.substr(1));
+                    if (!a) {
+                        return std::nullopt;
+                    }
+                    return {std::make_unique<A>(std::move(*a))};
                 }
             }
         };
@@ -175,11 +212,39 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if (data.length() == 0) {
                     return std::nullopt;
                 }
-                auto a = RunDeserializer<A>::apply(data);
-                if (a) {
-                    return {std::make_shared<A>(std::move(a))};
-                } else {
+                auto x = RunDeserializer<int8_t>::apply(data.substr(0,1));
+                if (!x) {
                     return std::nullopt;
+                }
+                if (*x == 0) {
+                    return {std::shared_ptr<A> {}};
+                } else {
+                    auto a = RunDeserializer<A>::apply(data.substr(1));
+                    if (!a) {
+                        return std::nullopt;
+                    }
+                    return {std::make_shared<A>(std::move(*a))};
+                }
+            }
+        };
+        template <class A>
+        struct RunDeserializer<std::optional<A>, void> {
+            static std::optional<std::optional<A>> apply(std::string const &data) {
+                if (data.length() == 0) {
+                    return std::nullopt;
+                }
+                auto x = RunDeserializer<int8_t>::apply(data.substr(0,1));
+                if (!x) {
+                    return std::nullopt;
+                }
+                if (*x == 0) {
+                    return {std::nullopt};
+                } else {
+                    auto a = RunDeserializer<A>::apply(data.substr(1));
+                    if (!a) {
+                        return std::nullopt;
+                    }
+                    return { {std::move(*a)} };
                 }
             }
         };
@@ -265,31 +330,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <class VersionType, class DataType, class Cmp>
         struct RunSerializer<infra::VersionedData<VersionType,DataType,Cmp>> {
             static std::string apply(infra::VersionedData<VersionType,DataType,Cmp> const &data) {
-                std::string v = RunSerializer<VersionType>::apply(data.version);
-                std::string d = RunSerializer<DataType>::apply(data.data);
-                int32_t vLen = v.length();
-                std::ostringstream oss;
-                oss << RunSerializer<int32_t>::apply(vLen)
-                    << v 
-                    << d;
-                return oss.str();
+                std::tuple<VersionType const *, DataType const *> t {
+                    &(data.version), &(data.data)
+                };
+                return RunSerializer<std::tuple<VersionType const *, DataType const *>>::apply(t);
             }
         };
         template <class GroupIDType, class VersionType, class DataType, class Cmp>
         struct RunSerializer<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>> {
             static std::string apply(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> const &data) {
-                std::string g = RunSerializer<GroupIDType>::apply(data.groupID);
-                std::string v = RunSerializer<VersionType>::apply(data.version);
-                std::string d = RunSerializer<DataType>::apply(data.data);
-                int32_t gLen = g.length();
-                int32_t vLen = v.length();
-                std::ostringstream oss;
-                oss << RunSerializer<int32_t>::apply(gLen)
-                    << g
-                    << RunSerializer<int32_t>::apply(vLen)
-                    << v 
-                    << d;
-                return oss.str();
+                std::tuple<GroupIDType const *, VersionType const *, DataType const *> t {
+                    &(data.groupID), &(data.version), &(data.data)
+                };
+                return RunSerializer<std::tuple<GroupIDType const *, VersionType const *, DataType const *>>::apply(t);
             }
         };
         template <class VersionType, class DataType, class Cmp>
@@ -307,54 +360,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <class GroupIDType, class VersionType, class DataType, class Cmp>
         struct RunDeserializer<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>, void> {
             static std::optional<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>> apply(std::string const &data) {
-                const char *p = data.c_str();
-                size_t len = data.length();
-                if (len < sizeof(int32_t)) {
+                auto x = RunDeserializer<std::tuple<GroupIDType,VersionType,DataType>>::apply(data);
+                if (!x) {
                     return std::nullopt;
                 }
-                auto gLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
-                if (!gLen) {
-                    return std::nullopt;
-                }
-                p += sizeof(int32_t);
-                len -= sizeof(int32_t);
-                if (len < *gLen) {
-                    return std::nullopt;
-                }
-                auto g = RunDeserializer<GroupIDType>::apply(std::string(p, p+(*gLen)));
-                if (!g) {
-                    return std::nullopt;
-                }
-                p += *gLen;
-                len -= *gLen;
-                if (len < sizeof(int32_t)) {
-                    return std::nullopt;
-                }
-                auto vLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
-                if (!vLen) {
-                    return std::nullopt;
-                }
-                p += sizeof(int32_t);
-                len -= sizeof(int32_t);
-                if (len < *vLen) {
-                    return std::nullopt;
-                }
-                auto v = RunDeserializer<VersionType>::apply(std::string(p, p+(*vLen)));
-                if (!v) {
-                    return std::nullopt;
-                }
-                p += *vLen;
-                len -= *vLen;
-                auto d = RunDeserializer<DataType>::apply(std::string(p, p+len));
-                if (!d) {
-                    return std::nullopt;
-                }
-                return {
-                    infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> {
-                        std::move(*g)
-                        , std::move(*v)
-                        , std::move(*d)
-                    }
+                return infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> {
+                    std::move(std::get<0>(x)), std::move(std::get<1>(x)), std::move(std::get<2>(x))
                 };
             }
         };
