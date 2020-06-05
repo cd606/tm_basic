@@ -60,12 +60,28 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     public:
         using TI = SingleKeyTransactionInterface<KeyType,DataType,VersionType,IDType,DataSummaryType,Cmp,CheckSummary>;
         virtual ~ReadOnlySingleKeyLocalTransactionHandlerComponent() {}
-        virtual typename TI::TransactionResult
-            handleTransaction(
+        virtual bool
+            handleInsert(
                 std::string const &account
-                , typename TI::Transaction const &transaction
+                , KeyType const &key
+                , DataType const &data
             ) final {
-            return TI::TransactionFailurePermission {};
+            return false;
+        }
+        virtual bool
+            handleUpdate(
+                std::string const &account
+                , KeyType const &key
+                , DataType const &data
+            ) final {
+            return false;
+        }
+        virtual bool
+            handleDelete(
+                std::string const &account
+                , KeyType const &key
+            ) final {
+            return false;
         }
     };
 

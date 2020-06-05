@@ -7,6 +7,8 @@
 #include <mutex>
 #include <cstring>
 
+#include <tm_kit/basic/transaction/VersionProviderComponent.hpp>
+
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace transaction {
 
     //This implementation does not lock the file, it is suitable for
@@ -39,11 +41,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         virtual ~FileBackedSingleVersionProviderComponent() {
             ofs_.close();
         }
-        virtual VersionType getNextVersionForKey(KeyType const &) {
+        virtual int64_t getNextVersionForKey(KeyType const &) {
             std::lock_guard<std::mutex> _(mutex_);
             ++version_;
             ofs_.seekp(0);
-            ofs_.write(&version_, sizeof(int64_t));
+            ofs_.write(reinterpret_cast<const char *>(&version_), sizeof(int64_t));
             ofs_.flush();
             return version_;
         }

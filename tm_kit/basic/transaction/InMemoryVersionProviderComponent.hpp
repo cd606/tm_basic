@@ -4,6 +4,8 @@
 #include <mutex>
 #include <unordered_map>
 
+#include <tm_kit/basic/transaction/VersionProviderComponent.hpp>
+
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace transaction {
 
     //This implementation is purely in memory and cannot preserve version
@@ -22,7 +24,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         }
         virtual ~InMemoryVersionProviderComponent() {
         }
-        virtual VersionType getNextVersionForKey(KeyType const &k) {
+        virtual int64_t getNextVersionForKey(KeyType const &k) {
             std::lock_guard<std::mutex> _(mutex_);
             auto iter = version_.find(k);
             if (iter == version_.end()) {

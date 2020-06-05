@@ -17,7 +17,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         , class CheckSummary = std::equal_to<DataType>
         , class Enable = void 
     >
-    class TransactionInterface {};
+    class SingleKeyTransactionInterface {};
 
     template <
         class KeyType

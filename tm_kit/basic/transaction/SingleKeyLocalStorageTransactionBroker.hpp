@@ -1,7 +1,7 @@
 #ifndef TM_KIT_BASIC_TRANSACTION_SINGLE_KEY_LOCAL_STORAGE_TRANSACTION_BROKER_HPP_
 #define TM_KIT_BASIC_TRANSACTION_SINGLE_KEY_LOCAL_STORAGE_TRANSACTION_BROKER_HPP_
 
-#include <tm_kit/basic/SingleKeyLocalTransactionHandlerComponent.hpp>
+#include <tm_kit/basic/transaction/SingleKeyLocalTransactionHandlerComponent.hpp>
 #include <tm_kit/basic/transaction/VersionProviderComponent.hpp>
 #include <unordered_map>
 #include <unordered_set>
@@ -32,7 +32,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         , class CheckSummary
     >
     class SingleKeyLocalStorageTransactionBroker<
-        KeyType, DataType, VersionType, Env, DataSummaryType, Cmp, CheckSummary
+        M, KeyType, DataType, VersionType, DataSummaryType, Cmp, CheckSummary,
         std::enable_if_t<
             std::is_base_of_v<
                 SingleKeyLocalTransactionHandlerComponent<
@@ -52,14 +52,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         :
     public M::IExternalComponent
     , public M::template AbstractOnOrderFacility<
-        typename SingleKeyTransactionInterface<KeyType,Datatype,VersionType,typename M::IDType,DataSummaryType,Cmp,CheckSummary>
+        typename SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::IDType,DataSummaryType,Cmp,CheckSummary>
                 ::FacilityInput
-        , typename SingleKeyTransactionInterface<KeyType,Datatype,VersionType,typename M::IDType,DataSummaryType,Cmp,CheckSummary>
+        , typename SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::IDType,DataSummaryType,Cmp,CheckSummary>
                 ::FacilityOutput
     >
     {
     private:
-        using TI = SingleKeyTransactionInterface<KeyType,Datatype,VersionType,typename M::IDType,DataSummaryType,Cmp,CheckSummary>;
+        using TI = SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::IDType,DataSummaryType,Cmp,CheckSummary>;
         using TH = SingleKeyLocalTransactionHandlerComponent<KeyType,DataType,VersionType,typename M::IDType,DataSummaryType,Cmp,CheckSummary>;
         using VP = VersionProviderComponent<KeyType,DataType,VersionType>;
 
@@ -178,7 +178,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                     , OneKeyInfo {
                         typename TI::OneValue {
                             deleteAction.key
-                            , vp->getNextVersionForKey(updateAction.key)
+                            , vp->getNextVersionForKey(deleteAction.key)
                             , std::nullopt
                         }
                         , std::unordered_set<typename M::IDType> {}
@@ -288,12 +288,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 });
             }
         }
-        virtual void handle(typename M::template InnerData<typename M::template Key<SingleKeyTransactionInterface<KeyType,Datatype,VersionType,DataSummaryType,Cmp>::FacilityInput>> &&input) override final {
+        virtual void handle(typename M::template InnerData<typename M::template Key<SingleKeyTransactionInterface<KeyType,DataType,VersionType,DataSummaryType,Cmp>::FacilityInput>> &&input) override final {
             auto *env = input.environment;
             auto *handler = static_cast<TH *>(env);
             auto *versionProvider = static_cast<VP *>(env);
             auto const &account = std::get<0>(input.timedData.value.key());
-            auto const &id = input.timedData.value.id();
+            auto const &requester = input.timedData.value.id();
 
             std::lock_guard<std::mutex> _(mutex_);
             switch (input.timedData.value.key().which()) {
@@ -304,8 +304,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                     case 0:
                         {
                             auto const &insertAction = std::get<0>(transaction);
-                            if (!this->checkTransactionPrecondition(id, insertAction)) {
-                                typename T::TransactionResult res = typename TI::TransactionFailurePrecondition {};
+                            if (!this->checkTransactionPrecondition(requester, insertAction)) {
+                                typename TI::TransactionResult res = typename TI::TransactionFailurePrecondition {};
                                 this->publish(
                                     env
                                     , typename M::template Key<typename TI::FacilityOutput> {
@@ -317,7 +317,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                             }
                             bool actionRes = handler->handleInsert(insertAction.key, insertAction.data);
                             if (!actionRes) {
-                                typename T::TransactionResult res = typename TI::TransactionFailurePermission {};
+                                typename TI::TransactionResult res = typename TI::TransactionFailurePermission {};
                                 this->publish(
                                     env
                                     , typename M::template Key<typename TI::FacilityOutput> {
@@ -327,8 +327,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                                 );
                                 return;
                             } 
-                            this->handleTransactionResult(id, insertAction, versionProvider);
-                            typename T::TransactionResult res = typename TI::TransactionSuccess {};
+                            this->handleTransactionResult(env, requester, insertAction, versionProvider);
+                            typename TI::TransactionResult res = typename TI::TransactionSuccess {};
                             this->publish(
                                 env
                                 , typename M::template Key<typename TI::FacilityOutput> {
@@ -341,8 +341,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                     case 1:
                         {
                             auto const &updateAction = std::get<1>(transaction);
-                            if (!this->checkTransactionPrecondition(id, updateAction)) {
-                                typename T::TransactionResult res = typename TI::TransactionFailurePrecondition {};
+                            if (!this->checkTransactionPrecondition(requester, updateAction)) {
+                                typename TI::TransactionResult res = typename TI::TransactionFailurePrecondition {};
                                 this->publish(
                                     env
                                     , typename M::template Key<typename TI::FacilityOutput> {
@@ -353,7 +353,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                             }
                             bool actionRes = handler->handleUpdate(updateAction.key, updateAction.newData);
                             if (!actionRes) {
-                                typename T::TransactionResult res = typename TI::TransactionFailurePermission {};
+                                typename TI::TransactionResult res = typename TI::TransactionFailurePermission {};
                                 this->publish(
                                     env
                                     , typename M::template Key<typename TI::FacilityOutput> {
@@ -362,8 +362,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                                     , true);
                                 return;
                             } 
-                            this->handleTransactionResult(id, updateAction, versionProvider);
-                            typename T::TransactionResult res = typename TI::TransactionSuccess {};
+                            this->handleTransactionResult(env, requester, updateAction, versionProvider);
+                            typename TI::TransactionResult res = typename TI::TransactionSuccess {};
                             this->publish(
                                 env
                                 , typename M::template Key<typename TI::FacilityOutput> {
@@ -376,8 +376,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                     case 2:
                         {
                             auto const &deleteAction = std::get<2>(transaction);
-                            if (!this->checkTransactionPrecondition(id, deleteAction)) {
-                                typename T::TransactionResult res = typename TI::TransactionFailurePrecondition {};
+                            if (!this->checkTransactionPrecondition(requester, deleteAction)) {
+                                typename TI::TransactionResult res = typename TI::TransactionFailurePrecondition {};
                                 this->publish(
                                     env
                                     , typename M::template Key<typename TI::FacilityOutput> {
@@ -388,7 +388,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                             }
                             bool actionRes = handler->handleDelete(deleteAction.key);
                             if (!actionRes) {
-                                typename T::TransactionResult res = typename TI::TransactionFailurePermission {};
+                                typename TI::TransactionResult res = typename TI::TransactionFailurePermission {};
                                 this->publish(
                                     env
                                     , typename M::template Key<typename TI::FacilityOutput> {
@@ -397,8 +397,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                                     , true);
                                 return;
                             } 
-                            this->handleTransactionResult(id, deleteAction, versionProvider);
-                            typename T::TransactionResult res = typename TI::TransactionSuccess {};
+                            this->handleTransactionResult(env, requester, deleteAction, versionProvider);
+                            typename TI::TransactionResult res = typename TI::TransactionSuccess {};
                             this->publish(
                                 env
                                 , typename M::template Key<typename TI::FacilityOutput> {
@@ -410,7 +410,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                         break;
                     default:
                         {
-                            typename T::TransactionResult res = typename TI::TransactionFailurePermission {};
+                            typename TI::TransactionResult res = typename TI::TransactionFailurePermission {};
                             this->publish(
                                 env
                                 , typename M::template Key<typename TI::FacilityOutput> {
@@ -426,13 +426,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             case 1:
                 {
                     auto const &subscription = std::get<1>(input.timedData.value.key());
-                    this->handleSubscription(id, subscription.key, versionProvider);
+                    this->handleSubscription(env, requester, subscription.key, versionProvider);
                 }
                 break;
             case 2:
                 {
                     auto const &unsubscription = std::get<2>(input.timedData.value.key());
-                    this->handleUnsubscription(id, unsubscription.originalSubscriptionID, unsubscription.key, versionProvider);
+                    this->handleUnsubscription(env, requester, unsubscription.originalSubscriptionID, unsubscription.key, versionProvider);
                 }
                 break;
             default:
