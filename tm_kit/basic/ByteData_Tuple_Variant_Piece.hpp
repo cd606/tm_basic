@@ -49,12 +49,10 @@ template <class A0, class A1>
 struct RunSerializer<std::variant<A0,A1>> {
     static std::string apply(std::variant<A0,A1> const &data) {
         std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.which());
-        switch (data.which()) {
+        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
+        switch (data.index()) {
         case 0:
             oss << RunSerializer<A0>::apply(std::get<0>(data));
-            break;
-        default:
             break;
         case 1:
             oss << RunSerializer<A1>::apply(std::get<1>(data));
@@ -82,7 +80,7 @@ struct RunDeserializer<std::variant<A0,A1>> {
         switch (*which) {
         case 0:
             {
-                auto res = RunSerializer<A0>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -90,7 +88,7 @@ struct RunDeserializer<std::variant<A0,A1>> {
             }
         case 1:
             {
-                auto res = RunSerializer<A1>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -175,17 +173,13 @@ template <class A0, class A1, class A2>
 struct RunSerializer<std::variant<A0,A1,A2>> {
     static std::string apply(std::variant<A0,A1,A2> const &data) {
         std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.which());
-        switch (data.which()) {
+        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
+        switch (data.index()) {
         case 0:
             oss << RunSerializer<A0>::apply(std::get<0>(data));
             break;
-        default:
-            break;
         case 1:
             oss << RunSerializer<A1>::apply(std::get<1>(data));
-            break;
-        default:
             break;
         case 2:
             oss << RunSerializer<A2>::apply(std::get<2>(data));
@@ -213,7 +207,7 @@ struct RunDeserializer<std::variant<A0,A1,A2>> {
         switch (*which) {
         case 0:
             {
-                auto res = RunSerializer<A0>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -221,7 +215,7 @@ struct RunDeserializer<std::variant<A0,A1,A2>> {
             }
         case 1:
             {
-                auto res = RunSerializer<A1>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -229,7 +223,7 @@ struct RunDeserializer<std::variant<A0,A1,A2>> {
             }
         case 2:
             {
-                auto res = RunSerializer<A2>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A2>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -337,22 +331,16 @@ template <class A0, class A1, class A2, class A3>
 struct RunSerializer<std::variant<A0,A1,A2,A3>> {
     static std::string apply(std::variant<A0,A1,A2,A3> const &data) {
         std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.which());
-        switch (data.which()) {
+        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
+        switch (data.index()) {
         case 0:
             oss << RunSerializer<A0>::apply(std::get<0>(data));
-            break;
-        default:
             break;
         case 1:
             oss << RunSerializer<A1>::apply(std::get<1>(data));
             break;
-        default:
-            break;
         case 2:
             oss << RunSerializer<A2>::apply(std::get<2>(data));
-            break;
-        default:
             break;
         case 3:
             oss << RunSerializer<A3>::apply(std::get<3>(data));
@@ -380,7 +368,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3>> {
         switch (*which) {
         case 0:
             {
-                auto res = RunSerializer<A0>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -388,7 +376,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3>> {
             }
         case 1:
             {
-                auto res = RunSerializer<A1>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -396,7 +384,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3>> {
             }
         case 2:
             {
-                auto res = RunSerializer<A2>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A2>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -404,7 +392,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3>> {
             }
         case 3:
             {
-                auto res = RunSerializer<A3>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A3>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -535,27 +523,19 @@ template <class A0, class A1, class A2, class A3, class A4>
 struct RunSerializer<std::variant<A0,A1,A2,A3,A4>> {
     static std::string apply(std::variant<A0,A1,A2,A3,A4> const &data) {
         std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.which());
-        switch (data.which()) {
+        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
+        switch (data.index()) {
         case 0:
             oss << RunSerializer<A0>::apply(std::get<0>(data));
-            break;
-        default:
             break;
         case 1:
             oss << RunSerializer<A1>::apply(std::get<1>(data));
             break;
-        default:
-            break;
         case 2:
             oss << RunSerializer<A2>::apply(std::get<2>(data));
             break;
-        default:
-            break;
         case 3:
             oss << RunSerializer<A3>::apply(std::get<3>(data));
-            break;
-        default:
             break;
         case 4:
             oss << RunSerializer<A4>::apply(std::get<4>(data));
@@ -583,7 +563,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4>> {
         switch (*which) {
         case 0:
             {
-                auto res = RunSerializer<A0>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -591,7 +571,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4>> {
             }
         case 1:
             {
-                auto res = RunSerializer<A1>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -599,7 +579,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4>> {
             }
         case 2:
             {
-                auto res = RunSerializer<A2>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A2>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -607,7 +587,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4>> {
             }
         case 3:
             {
-                auto res = RunSerializer<A3>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A3>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -615,7 +595,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4>> {
             }
         case 4:
             {
-                auto res = RunSerializer<A4>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A4>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -769,32 +749,22 @@ template <class A0, class A1, class A2, class A3, class A4, class A5>
 struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5>> {
     static std::string apply(std::variant<A0,A1,A2,A3,A4,A5> const &data) {
         std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.which());
-        switch (data.which()) {
+        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
+        switch (data.index()) {
         case 0:
             oss << RunSerializer<A0>::apply(std::get<0>(data));
-            break;
-        default:
             break;
         case 1:
             oss << RunSerializer<A1>::apply(std::get<1>(data));
             break;
-        default:
-            break;
         case 2:
             oss << RunSerializer<A2>::apply(std::get<2>(data));
-            break;
-        default:
             break;
         case 3:
             oss << RunSerializer<A3>::apply(std::get<3>(data));
             break;
-        default:
-            break;
         case 4:
             oss << RunSerializer<A4>::apply(std::get<4>(data));
-            break;
-        default:
             break;
         case 5:
             oss << RunSerializer<A5>::apply(std::get<5>(data));
@@ -822,7 +792,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
         switch (*which) {
         case 0:
             {
-                auto res = RunSerializer<A0>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -830,7 +800,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
             }
         case 1:
             {
-                auto res = RunSerializer<A1>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -838,7 +808,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
             }
         case 2:
             {
-                auto res = RunSerializer<A2>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A2>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -846,7 +816,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
             }
         case 3:
             {
-                auto res = RunSerializer<A3>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A3>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -854,7 +824,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
             }
         case 4:
             {
-                auto res = RunSerializer<A4>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A4>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -862,7 +832,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
             }
         case 5:
             {
-                auto res = RunSerializer<A5>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A5>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1039,37 +1009,25 @@ template <class A0, class A1, class A2, class A3, class A4, class A5, class A6>
 struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
     static std::string apply(std::variant<A0,A1,A2,A3,A4,A5,A6> const &data) {
         std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.which());
-        switch (data.which()) {
+        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
+        switch (data.index()) {
         case 0:
             oss << RunSerializer<A0>::apply(std::get<0>(data));
-            break;
-        default:
             break;
         case 1:
             oss << RunSerializer<A1>::apply(std::get<1>(data));
             break;
-        default:
-            break;
         case 2:
             oss << RunSerializer<A2>::apply(std::get<2>(data));
-            break;
-        default:
             break;
         case 3:
             oss << RunSerializer<A3>::apply(std::get<3>(data));
             break;
-        default:
-            break;
         case 4:
             oss << RunSerializer<A4>::apply(std::get<4>(data));
             break;
-        default:
-            break;
         case 5:
             oss << RunSerializer<A5>::apply(std::get<5>(data));
-            break;
-        default:
             break;
         case 6:
             oss << RunSerializer<A6>::apply(std::get<6>(data));
@@ -1097,7 +1055,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
         switch (*which) {
         case 0:
             {
-                auto res = RunSerializer<A0>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1105,7 +1063,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
             }
         case 1:
             {
-                auto res = RunSerializer<A1>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1113,7 +1071,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
             }
         case 2:
             {
-                auto res = RunSerializer<A2>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A2>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1121,7 +1079,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
             }
         case 3:
             {
-                auto res = RunSerializer<A3>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A3>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1129,7 +1087,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
             }
         case 4:
             {
-                auto res = RunSerializer<A4>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A4>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1137,7 +1095,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
             }
         case 5:
             {
-                auto res = RunSerializer<A5>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A5>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1145,7 +1103,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
             }
         case 6:
             {
-                auto res = RunSerializer<A6>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A6>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1345,42 +1303,28 @@ template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, 
 struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
     static std::string apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7> const &data) {
         std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.which());
-        switch (data.which()) {
+        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
+        switch (data.index()) {
         case 0:
             oss << RunSerializer<A0>::apply(std::get<0>(data));
-            break;
-        default:
             break;
         case 1:
             oss << RunSerializer<A1>::apply(std::get<1>(data));
             break;
-        default:
-            break;
         case 2:
             oss << RunSerializer<A2>::apply(std::get<2>(data));
-            break;
-        default:
             break;
         case 3:
             oss << RunSerializer<A3>::apply(std::get<3>(data));
             break;
-        default:
-            break;
         case 4:
             oss << RunSerializer<A4>::apply(std::get<4>(data));
-            break;
-        default:
             break;
         case 5:
             oss << RunSerializer<A5>::apply(std::get<5>(data));
             break;
-        default:
-            break;
         case 6:
             oss << RunSerializer<A6>::apply(std::get<6>(data));
-            break;
-        default:
             break;
         case 7:
             oss << RunSerializer<A7>::apply(std::get<7>(data));
@@ -1408,7 +1352,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
         switch (*which) {
         case 0:
             {
-                auto res = RunSerializer<A0>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1416,7 +1360,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
             }
         case 1:
             {
-                auto res = RunSerializer<A1>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1424,7 +1368,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
             }
         case 2:
             {
-                auto res = RunSerializer<A2>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A2>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1432,7 +1376,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
             }
         case 3:
             {
-                auto res = RunSerializer<A3>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A3>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1440,7 +1384,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
             }
         case 4:
             {
-                auto res = RunSerializer<A4>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A4>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1448,7 +1392,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
             }
         case 5:
             {
-                auto res = RunSerializer<A5>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A5>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1456,7 +1400,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
             }
         case 6:
             {
-                auto res = RunSerializer<A6>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A6>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1464,7 +1408,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
             }
         case 7:
             {
-                auto res = RunSerializer<A7>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A7>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1687,47 +1631,31 @@ template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, 
 struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
     static std::string apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> const &data) {
         std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.which());
-        switch (data.which()) {
+        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
+        switch (data.index()) {
         case 0:
             oss << RunSerializer<A0>::apply(std::get<0>(data));
-            break;
-        default:
             break;
         case 1:
             oss << RunSerializer<A1>::apply(std::get<1>(data));
             break;
-        default:
-            break;
         case 2:
             oss << RunSerializer<A2>::apply(std::get<2>(data));
-            break;
-        default:
             break;
         case 3:
             oss << RunSerializer<A3>::apply(std::get<3>(data));
             break;
-        default:
-            break;
         case 4:
             oss << RunSerializer<A4>::apply(std::get<4>(data));
-            break;
-        default:
             break;
         case 5:
             oss << RunSerializer<A5>::apply(std::get<5>(data));
             break;
-        default:
-            break;
         case 6:
             oss << RunSerializer<A6>::apply(std::get<6>(data));
             break;
-        default:
-            break;
         case 7:
             oss << RunSerializer<A7>::apply(std::get<7>(data));
-            break;
-        default:
             break;
         case 8:
             oss << RunSerializer<A8>::apply(std::get<8>(data));
@@ -1755,7 +1683,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
         switch (*which) {
         case 0:
             {
-                auto res = RunSerializer<A0>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1763,7 +1691,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             }
         case 1:
             {
-                auto res = RunSerializer<A1>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1771,7 +1699,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             }
         case 2:
             {
-                auto res = RunSerializer<A2>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A2>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1779,7 +1707,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             }
         case 3:
             {
-                auto res = RunSerializer<A3>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A3>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1787,7 +1715,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             }
         case 4:
             {
-                auto res = RunSerializer<A4>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A4>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1795,7 +1723,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             }
         case 5:
             {
-                auto res = RunSerializer<A5>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A5>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1803,7 +1731,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             }
         case 6:
             {
-                auto res = RunSerializer<A6>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A6>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1811,7 +1739,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             }
         case 7:
             {
-                auto res = RunSerializer<A7>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A7>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1819,7 +1747,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             }
         case 8:
             {
-                auto res = RunSerializer<A8>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A8>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -2065,52 +1993,34 @@ template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, 
 struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
     static std::string apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> const &data) {
         std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.which());
-        switch (data.which()) {
+        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
+        switch (data.index()) {
         case 0:
             oss << RunSerializer<A0>::apply(std::get<0>(data));
-            break;
-        default:
             break;
         case 1:
             oss << RunSerializer<A1>::apply(std::get<1>(data));
             break;
-        default:
-            break;
         case 2:
             oss << RunSerializer<A2>::apply(std::get<2>(data));
-            break;
-        default:
             break;
         case 3:
             oss << RunSerializer<A3>::apply(std::get<3>(data));
             break;
-        default:
-            break;
         case 4:
             oss << RunSerializer<A4>::apply(std::get<4>(data));
-            break;
-        default:
             break;
         case 5:
             oss << RunSerializer<A5>::apply(std::get<5>(data));
             break;
-        default:
-            break;
         case 6:
             oss << RunSerializer<A6>::apply(std::get<6>(data));
-            break;
-        default:
             break;
         case 7:
             oss << RunSerializer<A7>::apply(std::get<7>(data));
             break;
-        default:
-            break;
         case 8:
             oss << RunSerializer<A8>::apply(std::get<8>(data));
-            break;
-        default:
             break;
         case 9:
             oss << RunSerializer<A9>::apply(std::get<9>(data));
@@ -2138,7 +2048,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
         switch (*which) {
         case 0:
             {
-                auto res = RunSerializer<A0>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -2146,7 +2056,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 1:
             {
-                auto res = RunSerializer<A1>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -2154,7 +2064,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 2:
             {
-                auto res = RunSerializer<A2>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A2>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -2162,7 +2072,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 3:
             {
-                auto res = RunSerializer<A3>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A3>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -2170,7 +2080,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 4:
             {
-                auto res = RunSerializer<A4>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A4>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -2178,7 +2088,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 5:
             {
-                auto res = RunSerializer<A5>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A5>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -2186,7 +2096,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 6:
             {
-                auto res = RunSerializer<A6>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A6>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -2194,7 +2104,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 7:
             {
-                auto res = RunSerializer<A7>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A7>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -2202,7 +2112,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 8:
             {
-                auto res = RunSerializer<A8>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A8>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
@@ -2210,7 +2120,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 9:
             {
-                auto res = RunSerializer<A9>::apply(std::string(p, p+len));
+                auto res = RunDeserializer<A9>::apply(std::string(p, p+len));
                 if (!res) {
                     return std::nullopt;
                 }
