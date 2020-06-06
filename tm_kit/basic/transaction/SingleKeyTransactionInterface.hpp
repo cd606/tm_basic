@@ -12,9 +12,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         , class DataType
         , class VersionType
         , class IDType
-        , class Cmp = std::less<VersionType>
         , class DataSummaryType = DataType
-        , class CheckSummary = std::equal_to<DataType>
+        , class Cmp = std::less<VersionType>
         , class Enable = void 
     >
     class SingleKeyTransactionInterface {};
@@ -24,18 +23,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         , class DataType
         , class VersionType
         , class IDType
-        , class Cmp
         , class DataSummaryType
-        , class CheckSummary
+        , class Cmp
     >
     class SingleKeyTransactionInterface<
         KeyType
         , DataType
         , VersionType
         , IDType
-        , Cmp
         , DataSummaryType
-        , CheckSummary
+        , Cmp
         , std::enable_if_t<
             std::is_default_constructible_v<KeyType>
             && std::is_copy_constructible_v<KeyType>
@@ -93,15 +90,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         };
         struct DeleteAction {
             KeyType key;
+            VersionType oldVersion;
+            DataSummaryType oldDataSummary;
             void SerializeToString(std::string *s) const {
-                *s = bytedata_utils::RunSerializer<KeyType>::apply(key);
+                std::tuple<KeyType const *, VersionType const *, DataSummaryType const *> t {&key, &oldVersion, &oldDataSummary};
+                *s = bytedata_utils::RunSerializer<
+                        std::tuple<KeyType const *, VersionType const *, DataSummaryType const *>
+                    >::apply(t);
             }
             bool ParseFromString(std::string const &s) {
-                auto res = bytedata_utils::RunDeserializer<KeyType>::apply(s);
+                auto res = bytedata_utils::RunDeserializer<
+                            std::tuple<KeyType,VersionType,DataSummaryType>
+                            >::apply(s);
                 if (!res) {
                     return false;
                 }
-                key = std::move(*res);
+                key = std::move(std::get<0>(*res));
+                oldVersion = std::move(std::get<1>(*res));
+                oldDataSummary = std::move(std::get<2>(*res));
                 return true;
             }
         };

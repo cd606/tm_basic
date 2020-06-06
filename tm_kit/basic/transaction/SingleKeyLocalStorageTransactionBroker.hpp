@@ -14,22 +14,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         , class KeyType
         , class DataType
         , class VersionType
-        , class Cmp = std::less<VersionType>
         , class DataSummaryType = DataType
         , class CheckSummary = std::equal_to<DataType>
+        , class Cmp = std::less<VersionType>
     >
     class SingleKeyLocalStorageTransactionBroker final
         :
         public virtual M::IExternalComponent
         , public M::template AbstractOnOrderFacility<
-            typename SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::EnvironmentType::IDType,Cmp,DataSummaryType,CheckSummary>
+            typename SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::EnvironmentType::IDType,DataSummaryType,Cmp>
                     ::FacilityInput
-            , typename SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::EnvironmentType::IDType,Cmp,DataSummaryType,CheckSummary>
+            , typename SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::EnvironmentType::IDType,DataSummaryType,Cmp>
                     ::FacilityOutput
         >
     {
     private:
-        using TI = SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::EnvironmentType::IDType,Cmp,DataSummaryType,CheckSummary>;
+        using TI = SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::EnvironmentType::IDType,DataSummaryType,Cmp>;
         using TH = SingleKeyLocalTransactionHandlerComponent<KeyType,DataType>;
         using VP = VersionProviderComponent<KeyType,DataType,VersionType>;
 
@@ -73,6 +73,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 return false;
             }
             if (!iter->second.currentValue.data) {
+                return false;
+            }
+            if (iter->second.currentValue.version != deleteAction.oldVersion) {
+                return false;
+            }
+            if (!checkSummary_(*(iter->second.currentValue.data), deleteAction.oldDataSummary)) {
                 return false;
             }
             return true;
