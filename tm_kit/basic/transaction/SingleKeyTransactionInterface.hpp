@@ -160,11 +160,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         using SubscriptionAck = ConstType<103>;
         using UnsubscriptionAck = ConstType<104>;
 
-        using BasicFacilityInput = std::variant<
+        using BasicFacilityInput = SingleLayerWrapper<std::variant<
                                     Transaction
                                     , Subscription
                                     , Unsubscription
-                                >;
+                                >>;
         
         //The std::string is the account information
         using FacilityInput = std::tuple<
