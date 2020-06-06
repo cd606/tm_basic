@@ -109,11 +109,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 this->publish(
                     env
                     , typename M::template Key<typename TI::FacilityOutput> {
-                        requester, typename TI::FacilityOutput { {iter->second.currentValue} }
+                        id, typename TI::FacilityOutput { {iter->second.currentValue} }
                     }
                     , false
                 );
             }
+            this->publish(
+                env
+                , typename M::template Key<typename TI::FacilityOutput> {
+                    requester, typename TI::FacilityOutput { {iter->second.currentValue} }
+                }
+                , false
+            );
         }
         void handleTransactionResult(typename M::EnvironmentType *env, typename M::EnvironmentType::IDType const &requester, typename TI::UpdateAction const &updateAction, VP *vp) {
             auto iter = dataMap_.find(updateAction.key);
@@ -140,11 +147,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 this->publish(
                     env,
                     typename M::template Key<typename TI::FacilityOutput> {
-                        requester, typename TI::FacilityOutput { {iter->second.currentValue} }
+                        id, typename TI::FacilityOutput { {iter->second.currentValue} }
                     }
                     , false
                 );
             }
+            this->publish(
+                env
+                , typename M::template Key<typename TI::FacilityOutput> {
+                    requester, typename TI::FacilityOutput { {iter->second.currentValue} }
+                }
+                , false
+            );
         }
         void handleTransactionResult(typename M::EnvironmentType *env, typename M::EnvironmentType::IDType const &requester, typename TI::DeleteAction const &deleteAction, VP *vp) {
             auto iter = dataMap_.find(deleteAction.key);
@@ -171,10 +185,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 this->publish(
                     env
                     , typename M::template Key<typename TI::FacilityOutput> {
-                        requester, typename TI::FacilityOutput { {iter->second.currentValue} }
+                        id, typename TI::FacilityOutput { {iter->second.currentValue} }
                     }
                     , false);
             }
+            this->publish(
+                env
+                , typename M::template Key<typename TI::FacilityOutput> {
+                    requester, typename TI::FacilityOutput { {iter->second.currentValue} }
+                }
+                , false
+            );
         }
         void handleSubscription(typename M::EnvironmentType *env, typename M::EnvironmentType::IDType const &requester, KeyType const &key, VP *vp) {
             auto iter = dataMap_.find(key);
@@ -268,14 +289,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             auto *env = input.environment;
             auto *handler = static_cast<TH *>(env);
             auto *versionProvider = static_cast<VP *>(env);
-            auto const &account = std::get<0>(input.timedData.value.key());
-            auto const &requester = input.timedData.value.id();
-
+            auto account = std::move(std::get<0>(input.timedData.value.key()));
+            auto requester = std::move(input.timedData.value.id());
+            
             std::lock_guard<std::mutex> _(mutex_);
             switch (std::get<1>(input.timedData.value.key()).value.index()) {
             case 0:
                 {
-                    auto const &transaction = std::get<0>(std::get<1>(input.timedData.value.key()).value);
+                    auto transaction = std::move(std::get<0>(std::get<1>(input.timedData.value.key()).value));
                     switch (transaction.index()) {
                     case 0:
                         {
@@ -401,13 +422,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 break;
             case 1:
                 {
-                    auto const &subscription = std::get<1>(std::get<1>(input.timedData.value.key()).value);
+                    auto subscription = std::move(std::get<1>(std::get<1>(input.timedData.value.key()).value));
                     this->handleSubscription(env, requester, subscription.key, versionProvider);
                 }
                 break;
             case 2:
                 {
-                    auto const &unsubscription = std::get<2>(std::get<1>(input.timedData.value.key()).value);
+                    auto unsubscription = std::move(std::get<2>(std::get<1>(input.timedData.value.key()).value));
                     this->handleUnsubscription(env, requester, unsubscription.originalSubscriptionID, unsubscription.key, versionProvider);
                 }
                 break;

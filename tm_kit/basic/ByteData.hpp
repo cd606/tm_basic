@@ -238,7 +238,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 if (*x == 0) {
-                    return {std::nullopt};
+                    return std::optional<std::optional<A>> { std::optional<A> {std::nullopt} };
                 } else {
                     auto a = RunDeserializer<A>::apply(data.substr(1));
                     if (!a) {
