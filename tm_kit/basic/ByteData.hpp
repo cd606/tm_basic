@@ -353,7 +353,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 return infra::VersionedData<VersionType,DataType,Cmp> {
-                    std::move(std::get<0>(x)), std::move(std::get<1>(x))
+                    std::move(std::get<0>(*x)), std::move(std::get<1>(*x))
                 };
             }
         };
@@ -365,7 +365,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 return infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> {
-                    std::move(std::get<0>(x)), std::move(std::get<1>(x)), std::move(std::get<2>(x))
+                    std::move(std::get<0>(*x)), std::move(std::get<1>(*x)), std::move(std::get<2>(*x))
                 };
             }
         };

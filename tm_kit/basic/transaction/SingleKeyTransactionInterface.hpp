@@ -133,7 +133,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             KeyType key;
             void SerializeToString(std::string *s) const {
                 std::tuple<IDType const *, KeyType const *> t {&originalSubscriptionID, &key};
-                *s = bytedata_utils::RunSerializer<KeyType>::apply(t);
+                *s = bytedata_utils::RunSerializer<std::tuple<IDType const *, KeyType const *>>::apply(t);
             }
             bool ParseFromString(std::string const &s) {
                 auto res = bytedata_utils::RunDeserializer<std::tuple<IDType,KeyType>>::apply(s);
