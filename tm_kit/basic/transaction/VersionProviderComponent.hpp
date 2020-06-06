@@ -7,7 +7,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     class VersionProviderComponent {
     public:
         virtual ~VersionProviderComponent() {}
-        virtual VersionType getNextVersionForKey(KeyType const &) = 0;
+        virtual VersionType getNextVersionForKey(KeyType const &, DataType const *) = 0;
     };
 
 } } } } }

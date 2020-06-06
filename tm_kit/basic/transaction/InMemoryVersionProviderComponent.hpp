@@ -24,7 +24,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         }
         virtual ~InMemoryVersionProviderComponent() {
         }
-        virtual int64_t getNextVersionForKey(KeyType const &k) {
+        virtual int64_t getNextVersionForKey(KeyType const &k, DataType const *) {
             std::lock_guard<std::mutex> _(mutex_);
             auto iter = version_.find(k);
             if (iter == version_.end()) {

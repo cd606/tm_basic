@@ -92,7 +92,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                     , OneKeyInfo {
                         typename TI::OneValue {
                             insertAction.key
-                            , vp->getNextVersionForKey(insertAction.key)
+                            , vp->getNextVersionForKey(insertAction.key, &(insertAction.data))
                             , insertAction.data
                         }
                         , std::unordered_set<typename M::EnvironmentType::IDType, typename M::EnvironmentType::IDHash> {}
@@ -101,7 +101,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             } else {
                 iter->second.currentValue = typename TI::OneValue {
                     insertAction.key
-                    , vp->getNextVersionForKey(insertAction.key)
+                    , vp->getNextVersionForKey(insertAction.key, &(insertAction.data))
                     , insertAction.data
                 };
             }
@@ -123,7 +123,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                     , OneKeyInfo {
                         typename TI::OneValue {
                             updateAction.key
-                            , vp->getNextVersionForKey(updateAction.key)
+                            , vp->getNextVersionForKey(updateAction.key, &(updateAction.newData))
                             , updateAction.newData
                         }
                         , std::unordered_set<typename M::EnvironmentType::IDType, typename M::EnvironmentType::IDHash> {}
@@ -132,7 +132,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             } else {
                 iter->second.currentValue = typename TI::OneValue {
                     updateAction.key
-                    , vp->getNextVersionForKey(updateAction.key)
+                    , vp->getNextVersionForKey(updateAction.key, &(updateAction.newData))
                     , updateAction.newData
                 };
             }
@@ -154,7 +154,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                     , OneKeyInfo {
                         typename TI::OneValue {
                             deleteAction.key
-                            , vp->getNextVersionForKey(deleteAction.key)
+                            , vp->getNextVersionForKey(deleteAction.key, nullptr)
                             , std::nullopt
                         }
                         , std::unordered_set<typename M::EnvironmentType::IDType, typename M::EnvironmentType::IDHash> {}
@@ -163,7 +163,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             } else {
                 iter->second.currentValue = typename TI::OneValue {
                     deleteAction.key
-                    , vp->getNextVersionForKey(deleteAction.key)
+                    , vp->getNextVersionForKey(deleteAction.key, nullptr)
                     , std::nullopt
                 };
             }
@@ -184,7 +184,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                     , OneKeyInfo {
                         typename TI::OneValue {
                             key
-                            , vp->getNextVersionForKey(key)
+                            , vp->getNextVersionForKey(key, nullptr)
                             , std::nullopt
                         }
                         , std::unordered_set<typename M::EnvironmentType::IDType, typename M::EnvironmentType::IDHash> {}
@@ -256,7 +256,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                     , OneKeyInfo {
                         typename TI::OneValue {
                             key
-                            , vp->getNextVersionForKey(key)
+                            , vp->getNextVersionForKey(key, &(std::get<1>(v)))
                             , std::get<1>(v)
                         }
                         , std::unordered_set<typename M::EnvironmentType::IDType, typename M::EnvironmentType::IDHash> {}

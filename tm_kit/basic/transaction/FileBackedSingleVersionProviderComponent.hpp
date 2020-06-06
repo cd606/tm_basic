@@ -62,7 +62,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 ofs_->close();
             }
         }
-        virtual int64_t getNextVersionForKey(KeyType const &) {
+        virtual int64_t getNextVersionForKey(KeyType const &, DataType const *) {
             std::lock_guard<std::mutex> _(mutex_);
             ++version_;
             if (ofs_) {
