@@ -22,7 +22,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     private:
         std::mutex mutex_;
         int64_t version_;
-        std::ofstream ofs_;
+        std::unique_ptr<std::ofstream> ofs_;
     public:
         FileBackedSingleVersionProviderComponent()
             : mutex_(), version_(0), ofs_()
@@ -39,10 +39,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                     std::memcpy(&version_, buf, sizeof(int64_t));
                 }
             } 
-            ofs_ = std::ofstream(filePath);
-            ofs_.seekp(0);
-            ofs_.write(reinterpret_cast<const char *>(&version_), sizeof(int64_t));
-            ofs_.flush();
+            ofs_ = std::make_unique<std::ofstream>(filePath);
+            ofs_->seekp(0);
+            ofs_->write(reinterpret_cast<const char *>(&version_), sizeof(int64_t));
+            ofs_->flush();
         }
         FileBackedSingleVersionProviderComponent(FileBackedSingleVersionProviderComponent &&f) 
             : mutex_(), version_(std::move(f.version_)), ofs_(std::move(f.ofs_))
@@ -54,16 +54,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 version_ = std::move(f.version_);
                 ofs_ = std::move(f.ofs_);
             }
+            return *this;
         }
         virtual ~FileBackedSingleVersionProviderComponent() {
-            ofs_.close();
+            std::lock_guard<std::mutex> _(mutex_);
+            if (ofs_) {
+                ofs_->close();
+            }
         }
         virtual int64_t getNextVersionForKey(KeyType const &) {
             std::lock_guard<std::mutex> _(mutex_);
             ++version_;
-            ofs_.seekp(0);
-            ofs_.write(reinterpret_cast<const char *>(&version_), sizeof(int64_t));
-            ofs_.flush();
+            if (ofs_) {
+                ofs_->seekp(0);
+                ofs_->write(reinterpret_cast<const char *>(&version_), sizeof(int64_t));
+                ofs_->flush();
+            }
             return version_;
         }
     };
