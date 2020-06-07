@@ -53,7 +53,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 std::string const &account
                 , KeyType const &key
                 , DataType const &data
-            ) final {
+            ) override final {
             return false;
         }
         virtual bool
@@ -61,16 +61,55 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 std::string const &account
                 , KeyType const &key
                 , DataType const &data
-            ) final {
+            ) override final {
             return false;
         }
         virtual bool
             handleDelete(
                 std::string const &account
                 , KeyType const &key
-            ) final {
+            ) override final {
             return false;
         }
+    };
+
+    template <
+        class KeyType
+        , class DataType
+    >
+    class TrivialSingleKeyLocalTransactionHandlerComponent 
+        :
+        public SingleKeyLocalTransactionHandlerComponent<KeyType,DataType>
+    {
+    public:
+        virtual ~TrivialSingleKeyLocalTransactionHandlerComponent() {}
+        virtual bool
+            handleInsert(
+                std::string const &account
+                , KeyType const &key
+                , DataType const &data
+            ) override final {
+            return true;
+        }
+        virtual bool
+            handleUpdate(
+                std::string const &account
+                , KeyType const &key
+                , DataType const &data
+            ) override final {
+            return true;
+        }
+        virtual bool
+            handleDelete(
+                std::string const &account
+                , KeyType const &key
+            ) override final {
+            return true;
+        }
+        virtual std::vector<std::tuple<KeyType,DataType>> loadInitialData() override final {
+            return std::vector<std::tuple<KeyType,DataType>> {};
+        }
+    
     };
 
 } } } } }
