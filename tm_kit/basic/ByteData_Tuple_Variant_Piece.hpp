@@ -13,6 +13,18 @@ struct RunSerializer<std::tuple<A0,A1>> {
     }
 };
 template <class A0, class A1>
+struct RunCBORSerializer<std::tuple<A0,A1>> {
+    static std::vector<uint8_t> apply(std::tuple<A0,A1> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(2);
+        v[0] = v[0] | 0x80;
+        auto v0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+        v.insert(v.end(), v0.begin(), v0.end());
+        auto v1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+        v.insert(v.end(), v1.begin(), v1.end());
+        return v;
+    }
+};
+template <class A0, class A1>
 struct RunDeserializer<std::tuple<A0,A1>> {
     static std::optional<std::tuple<A0,A1>> apply(std::string const &data) {
         const char *p = data.c_str();
@@ -46,6 +58,39 @@ struct RunDeserializer<std::tuple<A0,A1>> {
     }
 };
 template <class A0, class A1>
+struct RunCBORDeserializer<std::tuple<A0,A1>> {
+    static std::optional<std::tuple<std::tuple<A0,A1>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto a0 = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+        if (!a0) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a0);
+        auto a1 = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+        if (!a1) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a1);
+        return std::tuple<std::tuple<A0,A1>,size_t> {{
+            std::move(std::get<0>(*a0))
+            , std::move(std::get<0>(*a1))
+        }, accumLen};
+    }
+};
+template <class A0, class A1>
 struct RunSerializer<std::variant<A0,A1>> {
     static std::string apply(std::variant<A0,A1> const &data) {
         std::ostringstream oss;
@@ -61,6 +106,34 @@ struct RunSerializer<std::variant<A0,A1>> {
             break;
         }
         return oss.str();
+    }
+};
+template <class A0, class A1>
+struct RunCBORSerializer<std::variant<A0,A1>> {
+    static std::vector<uint8_t> apply(std::variant<A0,A1> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(2);
+        v[0] = v[0] | 0x80;
+        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
+        v.insert(v.end(), idx.begin(), idx.end());
+        switch (data.index()) {
+        case 0:
+            {
+                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+                v.insert(v.end(), a0.begin(), a0.end());
+                break;
+            }
+            break;
+        case 1:
+            {
+                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+                v.insert(v.end(), a1.begin(), a1.end());
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return v;
     }
 };
 template <class A0, class A1>
@@ -99,6 +172,52 @@ struct RunDeserializer<std::variant<A0,A1>> {
         }
     }
 };
+template <class A0, class A1>
+struct RunCBORDeserializer<std::variant<A0,A1>> {
+    static std::optional<std::tuple<std::variant<A0,A1>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        default:
+            return std::nullopt;
+        }
+    }
+};
 template <class A0, class A1, class A2>
 struct RunSerializer<std::tuple<A0,A1,A2>> {
     static std::string apply(std::tuple<A0,A1,A2> const &data) {
@@ -115,6 +234,20 @@ struct RunSerializer<std::tuple<A0,A1,A2>> {
             << s1
             << s2;
         return oss.str();
+    }
+};
+template <class A0, class A1, class A2>
+struct RunCBORSerializer<std::tuple<A0,A1,A2>> {
+    static std::vector<uint8_t> apply(std::tuple<A0,A1,A2> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(3);
+        v[0] = v[0] | 0x80;
+        auto v0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+        v.insert(v.end(), v0.begin(), v0.end());
+        auto v1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+        v.insert(v.end(), v1.begin(), v1.end());
+        auto v2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
+        v.insert(v.end(), v2.begin(), v2.end());
+        return v;
     }
 };
 template <class A0, class A1, class A2>
@@ -170,6 +303,45 @@ struct RunDeserializer<std::tuple<A0,A1,A2>> {
     }
 };
 template <class A0, class A1, class A2>
+struct RunCBORDeserializer<std::tuple<A0,A1,A2>> {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 3) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto a0 = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+        if (!a0) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a0);
+        auto a1 = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+        if (!a1) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a1);
+        auto a2 = RunCBORDeserializer<A2>::apply(data, start+accumLen);
+        if (!a2) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a2);
+        return std::tuple<std::tuple<A0,A1,A2>,size_t> {{
+            std::move(std::get<0>(*a0))
+            , std::move(std::get<0>(*a1))
+            , std::move(std::get<0>(*a2))
+        }, accumLen};
+    }
+};
+template <class A0, class A1, class A2>
 struct RunSerializer<std::variant<A0,A1,A2>> {
     static std::string apply(std::variant<A0,A1,A2> const &data) {
         std::ostringstream oss;
@@ -188,6 +360,41 @@ struct RunSerializer<std::variant<A0,A1,A2>> {
             break;
         }
         return oss.str();
+    }
+};
+template <class A0, class A1, class A2>
+struct RunCBORSerializer<std::variant<A0,A1,A2>> {
+    static std::vector<uint8_t> apply(std::variant<A0,A1,A2> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(2);
+        v[0] = v[0] | 0x80;
+        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
+        v.insert(v.end(), idx.begin(), idx.end());
+        switch (data.index()) {
+        case 0:
+            {
+                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+                v.insert(v.end(), a0.begin(), a0.end());
+                break;
+            }
+            break;
+        case 1:
+            {
+                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+                v.insert(v.end(), a1.begin(), a1.end());
+                break;
+            }
+            break;
+        case 2:
+            {
+                auto a2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
+                v.insert(v.end(), a2.begin(), a2.end());
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return v;
     }
 };
 template <class A0, class A1, class A2>
@@ -234,6 +441,61 @@ struct RunDeserializer<std::variant<A0,A1,A2>> {
         }
     }
 };
+template <class A0, class A1, class A2>
+struct RunCBORDeserializer<std::variant<A0,A1,A2>> {
+    static std::optional<std::tuple<std::variant<A0,A1,A2>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 2:
+            {
+                auto res = RunCBORDeserializer<A2>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        default:
+            return std::nullopt;
+        }
+    }
+};
 template <class A0, class A1, class A2, class A3>
 struct RunSerializer<std::tuple<A0,A1,A2,A3>> {
     static std::string apply(std::tuple<A0,A1,A2,A3> const &data) {
@@ -254,6 +516,22 @@ struct RunSerializer<std::tuple<A0,A1,A2,A3>> {
             << s2
             << s3;
         return oss.str();
+    }
+};
+template <class A0, class A1, class A2, class A3>
+struct RunCBORSerializer<std::tuple<A0,A1,A2,A3>> {
+    static std::vector<uint8_t> apply(std::tuple<A0,A1,A2,A3> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(4);
+        v[0] = v[0] | 0x80;
+        auto v0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+        v.insert(v.end(), v0.begin(), v0.end());
+        auto v1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+        v.insert(v.end(), v1.begin(), v1.end());
+        auto v2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
+        v.insert(v.end(), v2.begin(), v2.end());
+        auto v3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
+        v.insert(v.end(), v3.begin(), v3.end());
+        return v;
     }
 };
 template <class A0, class A1, class A2, class A3>
@@ -328,6 +606,51 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3>> {
     }
 };
 template <class A0, class A1, class A2, class A3>
+struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3>> {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 4) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto a0 = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+        if (!a0) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a0);
+        auto a1 = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+        if (!a1) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a1);
+        auto a2 = RunCBORDeserializer<A2>::apply(data, start+accumLen);
+        if (!a2) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a2);
+        auto a3 = RunCBORDeserializer<A3>::apply(data, start+accumLen);
+        if (!a3) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a3);
+        return std::tuple<std::tuple<A0,A1,A2,A3>,size_t> {{
+            std::move(std::get<0>(*a0))
+            , std::move(std::get<0>(*a1))
+            , std::move(std::get<0>(*a2))
+            , std::move(std::get<0>(*a3))
+        }, accumLen};
+    }
+};
+template <class A0, class A1, class A2, class A3>
 struct RunSerializer<std::variant<A0,A1,A2,A3>> {
     static std::string apply(std::variant<A0,A1,A2,A3> const &data) {
         std::ostringstream oss;
@@ -349,6 +672,48 @@ struct RunSerializer<std::variant<A0,A1,A2,A3>> {
             break;
         }
         return oss.str();
+    }
+};
+template <class A0, class A1, class A2, class A3>
+struct RunCBORSerializer<std::variant<A0,A1,A2,A3>> {
+    static std::vector<uint8_t> apply(std::variant<A0,A1,A2,A3> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(2);
+        v[0] = v[0] | 0x80;
+        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
+        v.insert(v.end(), idx.begin(), idx.end());
+        switch (data.index()) {
+        case 0:
+            {
+                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+                v.insert(v.end(), a0.begin(), a0.end());
+                break;
+            }
+            break;
+        case 1:
+            {
+                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+                v.insert(v.end(), a1.begin(), a1.end());
+                break;
+            }
+            break;
+        case 2:
+            {
+                auto a2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
+                v.insert(v.end(), a2.begin(), a2.end());
+                break;
+            }
+            break;
+        case 3:
+            {
+                auto a3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
+                v.insert(v.end(), a3.begin(), a3.end());
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return v;
     }
 };
 template <class A0, class A1, class A2, class A3>
@@ -403,6 +768,70 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3>> {
         }
     }
 };
+template <class A0, class A1, class A2, class A3>
+struct RunCBORDeserializer<std::variant<A0,A1,A2,A3>> {
+    static std::optional<std::tuple<std::variant<A0,A1,A2,A3>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 2:
+            {
+                auto res = RunCBORDeserializer<A2>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 3:
+            {
+                auto res = RunCBORDeserializer<A3>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        default:
+            return std::nullopt;
+        }
+    }
+};
 template <class A0, class A1, class A2, class A3, class A4>
 struct RunSerializer<std::tuple<A0,A1,A2,A3,A4>> {
     static std::string apply(std::tuple<A0,A1,A2,A3,A4> const &data) {
@@ -427,6 +856,24 @@ struct RunSerializer<std::tuple<A0,A1,A2,A3,A4>> {
             << s3
             << s4;
         return oss.str();
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4>
+struct RunCBORSerializer<std::tuple<A0,A1,A2,A3,A4>> {
+    static std::vector<uint8_t> apply(std::tuple<A0,A1,A2,A3,A4> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(5);
+        v[0] = v[0] | 0x80;
+        auto v0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+        v.insert(v.end(), v0.begin(), v0.end());
+        auto v1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+        v.insert(v.end(), v1.begin(), v1.end());
+        auto v2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
+        v.insert(v.end(), v2.begin(), v2.end());
+        auto v3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
+        v.insert(v.end(), v3.begin(), v3.end());
+        auto v4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
+        v.insert(v.end(), v4.begin(), v4.end());
+        return v;
     }
 };
 template <class A0, class A1, class A2, class A3, class A4>
@@ -520,6 +967,57 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4>> {
     }
 };
 template <class A0, class A1, class A2, class A3, class A4>
+struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4>> {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 5) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto a0 = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+        if (!a0) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a0);
+        auto a1 = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+        if (!a1) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a1);
+        auto a2 = RunCBORDeserializer<A2>::apply(data, start+accumLen);
+        if (!a2) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a2);
+        auto a3 = RunCBORDeserializer<A3>::apply(data, start+accumLen);
+        if (!a3) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a3);
+        auto a4 = RunCBORDeserializer<A4>::apply(data, start+accumLen);
+        if (!a4) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a4);
+        return std::tuple<std::tuple<A0,A1,A2,A3,A4>,size_t> {{
+            std::move(std::get<0>(*a0))
+            , std::move(std::get<0>(*a1))
+            , std::move(std::get<0>(*a2))
+            , std::move(std::get<0>(*a3))
+            , std::move(std::get<0>(*a4))
+        }, accumLen};
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4>
 struct RunSerializer<std::variant<A0,A1,A2,A3,A4>> {
     static std::string apply(std::variant<A0,A1,A2,A3,A4> const &data) {
         std::ostringstream oss;
@@ -544,6 +1042,55 @@ struct RunSerializer<std::variant<A0,A1,A2,A3,A4>> {
             break;
         }
         return oss.str();
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4>
+struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4>> {
+    static std::vector<uint8_t> apply(std::variant<A0,A1,A2,A3,A4> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(2);
+        v[0] = v[0] | 0x80;
+        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
+        v.insert(v.end(), idx.begin(), idx.end());
+        switch (data.index()) {
+        case 0:
+            {
+                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+                v.insert(v.end(), a0.begin(), a0.end());
+                break;
+            }
+            break;
+        case 1:
+            {
+                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+                v.insert(v.end(), a1.begin(), a1.end());
+                break;
+            }
+            break;
+        case 2:
+            {
+                auto a2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
+                v.insert(v.end(), a2.begin(), a2.end());
+                break;
+            }
+            break;
+        case 3:
+            {
+                auto a3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
+                v.insert(v.end(), a3.begin(), a3.end());
+                break;
+            }
+            break;
+        case 4:
+            {
+                auto a4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
+                v.insert(v.end(), a4.begin(), a4.end());
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return v;
     }
 };
 template <class A0, class A1, class A2, class A3, class A4>
@@ -606,6 +1153,79 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4>> {
         }
     }
 };
+template <class A0, class A1, class A2, class A3, class A4>
+struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4>> {
+    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 2:
+            {
+                auto res = RunCBORDeserializer<A2>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 3:
+            {
+                auto res = RunCBORDeserializer<A3>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 4:
+            {
+                auto res = RunCBORDeserializer<A4>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        default:
+            return std::nullopt;
+        }
+    }
+};
 template <class A0, class A1, class A2, class A3, class A4, class A5>
 struct RunSerializer<std::tuple<A0,A1,A2,A3,A4,A5>> {
     static std::string apply(std::tuple<A0,A1,A2,A3,A4,A5> const &data) {
@@ -634,6 +1254,26 @@ struct RunSerializer<std::tuple<A0,A1,A2,A3,A4,A5>> {
             << s4
             << s5;
         return oss.str();
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4, class A5>
+struct RunCBORSerializer<std::tuple<A0,A1,A2,A3,A4,A5>> {
+    static std::vector<uint8_t> apply(std::tuple<A0,A1,A2,A3,A4,A5> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(6);
+        v[0] = v[0] | 0x80;
+        auto v0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+        v.insert(v.end(), v0.begin(), v0.end());
+        auto v1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+        v.insert(v.end(), v1.begin(), v1.end());
+        auto v2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
+        v.insert(v.end(), v2.begin(), v2.end());
+        auto v3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
+        v.insert(v.end(), v3.begin(), v3.end());
+        auto v4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
+        v.insert(v.end(), v4.begin(), v4.end());
+        auto v5 = RunCBORSerializer<A5>::apply(std::get<5>(data));
+        v.insert(v.end(), v5.begin(), v5.end());
+        return v;
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5>
@@ -746,6 +1386,63 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4,A5>> {
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5>
+struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5>> {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 6) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto a0 = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+        if (!a0) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a0);
+        auto a1 = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+        if (!a1) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a1);
+        auto a2 = RunCBORDeserializer<A2>::apply(data, start+accumLen);
+        if (!a2) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a2);
+        auto a3 = RunCBORDeserializer<A3>::apply(data, start+accumLen);
+        if (!a3) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a3);
+        auto a4 = RunCBORDeserializer<A4>::apply(data, start+accumLen);
+        if (!a4) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a4);
+        auto a5 = RunCBORDeserializer<A5>::apply(data, start+accumLen);
+        if (!a5) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a5);
+        return std::tuple<std::tuple<A0,A1,A2,A3,A4,A5>,size_t> {{
+            std::move(std::get<0>(*a0))
+            , std::move(std::get<0>(*a1))
+            , std::move(std::get<0>(*a2))
+            , std::move(std::get<0>(*a3))
+            , std::move(std::get<0>(*a4))
+            , std::move(std::get<0>(*a5))
+        }, accumLen};
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4, class A5>
 struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5>> {
     static std::string apply(std::variant<A0,A1,A2,A3,A4,A5> const &data) {
         std::ostringstream oss;
@@ -773,6 +1470,62 @@ struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5>> {
             break;
         }
         return oss.str();
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4, class A5>
+struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5>> {
+    static std::vector<uint8_t> apply(std::variant<A0,A1,A2,A3,A4,A5> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(2);
+        v[0] = v[0] | 0x80;
+        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
+        v.insert(v.end(), idx.begin(), idx.end());
+        switch (data.index()) {
+        case 0:
+            {
+                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+                v.insert(v.end(), a0.begin(), a0.end());
+                break;
+            }
+            break;
+        case 1:
+            {
+                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+                v.insert(v.end(), a1.begin(), a1.end());
+                break;
+            }
+            break;
+        case 2:
+            {
+                auto a2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
+                v.insert(v.end(), a2.begin(), a2.end());
+                break;
+            }
+            break;
+        case 3:
+            {
+                auto a3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
+                v.insert(v.end(), a3.begin(), a3.end());
+                break;
+            }
+            break;
+        case 4:
+            {
+                auto a4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
+                v.insert(v.end(), a4.begin(), a4.end());
+                break;
+            }
+            break;
+        case 5:
+            {
+                auto a5 = RunCBORSerializer<A5>::apply(std::get<5>(data));
+                v.insert(v.end(), a5.begin(), a5.end());
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return v;
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5>
@@ -843,6 +1596,88 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
         }
     }
 };
+template <class A0, class A1, class A2, class A3, class A4, class A5>
+struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
+    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 2:
+            {
+                auto res = RunCBORDeserializer<A2>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 3:
+            {
+                auto res = RunCBORDeserializer<A3>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 4:
+            {
+                auto res = RunCBORDeserializer<A4>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 5:
+            {
+                auto res = RunCBORDeserializer<A5>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        default:
+            return std::nullopt;
+        }
+    }
+};
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6>
 struct RunSerializer<std::tuple<A0,A1,A2,A3,A4,A5,A6>> {
     static std::string apply(std::tuple<A0,A1,A2,A3,A4,A5,A6> const &data) {
@@ -875,6 +1710,28 @@ struct RunSerializer<std::tuple<A0,A1,A2,A3,A4,A5,A6>> {
             << s5
             << s6;
         return oss.str();
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4, class A5, class A6>
+struct RunCBORSerializer<std::tuple<A0,A1,A2,A3,A4,A5,A6>> {
+    static std::vector<uint8_t> apply(std::tuple<A0,A1,A2,A3,A4,A5,A6> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(7);
+        v[0] = v[0] | 0x80;
+        auto v0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+        v.insert(v.end(), v0.begin(), v0.end());
+        auto v1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+        v.insert(v.end(), v1.begin(), v1.end());
+        auto v2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
+        v.insert(v.end(), v2.begin(), v2.end());
+        auto v3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
+        v.insert(v.end(), v3.begin(), v3.end());
+        auto v4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
+        v.insert(v.end(), v4.begin(), v4.end());
+        auto v5 = RunCBORSerializer<A5>::apply(std::get<5>(data));
+        v.insert(v.end(), v5.begin(), v5.end());
+        auto v6 = RunCBORSerializer<A6>::apply(std::get<6>(data));
+        v.insert(v.end(), v6.begin(), v6.end());
+        return v;
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6>
@@ -1006,6 +1863,69 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6>> {
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6>
+struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6>> {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 7) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto a0 = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+        if (!a0) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a0);
+        auto a1 = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+        if (!a1) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a1);
+        auto a2 = RunCBORDeserializer<A2>::apply(data, start+accumLen);
+        if (!a2) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a2);
+        auto a3 = RunCBORDeserializer<A3>::apply(data, start+accumLen);
+        if (!a3) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a3);
+        auto a4 = RunCBORDeserializer<A4>::apply(data, start+accumLen);
+        if (!a4) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a4);
+        auto a5 = RunCBORDeserializer<A5>::apply(data, start+accumLen);
+        if (!a5) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a5);
+        auto a6 = RunCBORDeserializer<A6>::apply(data, start+accumLen);
+        if (!a6) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a6);
+        return std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6>,size_t> {{
+            std::move(std::get<0>(*a0))
+            , std::move(std::get<0>(*a1))
+            , std::move(std::get<0>(*a2))
+            , std::move(std::get<0>(*a3))
+            , std::move(std::get<0>(*a4))
+            , std::move(std::get<0>(*a5))
+            , std::move(std::get<0>(*a6))
+        }, accumLen};
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4, class A5, class A6>
 struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
     static std::string apply(std::variant<A0,A1,A2,A3,A4,A5,A6> const &data) {
         std::ostringstream oss;
@@ -1036,6 +1956,69 @@ struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
             break;
         }
         return oss.str();
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4, class A5, class A6>
+struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
+    static std::vector<uint8_t> apply(std::variant<A0,A1,A2,A3,A4,A5,A6> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(2);
+        v[0] = v[0] | 0x80;
+        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
+        v.insert(v.end(), idx.begin(), idx.end());
+        switch (data.index()) {
+        case 0:
+            {
+                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+                v.insert(v.end(), a0.begin(), a0.end());
+                break;
+            }
+            break;
+        case 1:
+            {
+                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+                v.insert(v.end(), a1.begin(), a1.end());
+                break;
+            }
+            break;
+        case 2:
+            {
+                auto a2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
+                v.insert(v.end(), a2.begin(), a2.end());
+                break;
+            }
+            break;
+        case 3:
+            {
+                auto a3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
+                v.insert(v.end(), a3.begin(), a3.end());
+                break;
+            }
+            break;
+        case 4:
+            {
+                auto a4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
+                v.insert(v.end(), a4.begin(), a4.end());
+                break;
+            }
+            break;
+        case 5:
+            {
+                auto a5 = RunCBORSerializer<A5>::apply(std::get<5>(data));
+                v.insert(v.end(), a5.begin(), a5.end());
+                break;
+            }
+            break;
+        case 6:
+            {
+                auto a6 = RunCBORSerializer<A6>::apply(std::get<6>(data));
+                v.insert(v.end(), a6.begin(), a6.end());
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return v;
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6>
@@ -1114,6 +2097,97 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
         }
     }
 };
+template <class A0, class A1, class A2, class A3, class A4, class A5, class A6>
+struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
+    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 2:
+            {
+                auto res = RunCBORDeserializer<A2>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 3:
+            {
+                auto res = RunCBORDeserializer<A3>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 4:
+            {
+                auto res = RunCBORDeserializer<A4>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 5:
+            {
+                auto res = RunCBORDeserializer<A5>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 6:
+            {
+                auto res = RunCBORDeserializer<A6>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        default:
+            return std::nullopt;
+        }
+    }
+};
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7>
 struct RunSerializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>> {
     static std::string apply(std::tuple<A0,A1,A2,A3,A4,A5,A6,A7> const &data) {
@@ -1150,6 +2224,30 @@ struct RunSerializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>> {
             << s6
             << s7;
         return oss.str();
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7>
+struct RunCBORSerializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>> {
+    static std::vector<uint8_t> apply(std::tuple<A0,A1,A2,A3,A4,A5,A6,A7> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(8);
+        v[0] = v[0] | 0x80;
+        auto v0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+        v.insert(v.end(), v0.begin(), v0.end());
+        auto v1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+        v.insert(v.end(), v1.begin(), v1.end());
+        auto v2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
+        v.insert(v.end(), v2.begin(), v2.end());
+        auto v3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
+        v.insert(v.end(), v3.begin(), v3.end());
+        auto v4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
+        v.insert(v.end(), v4.begin(), v4.end());
+        auto v5 = RunCBORSerializer<A5>::apply(std::get<5>(data));
+        v.insert(v.end(), v5.begin(), v5.end());
+        auto v6 = RunCBORSerializer<A6>::apply(std::get<6>(data));
+        v.insert(v.end(), v6.begin(), v6.end());
+        auto v7 = RunCBORSerializer<A7>::apply(std::get<7>(data));
+        v.insert(v.end(), v7.begin(), v7.end());
+        return v;
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7>
@@ -1300,6 +2398,75 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>> {
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7>
+struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>> {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 8) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto a0 = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+        if (!a0) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a0);
+        auto a1 = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+        if (!a1) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a1);
+        auto a2 = RunCBORDeserializer<A2>::apply(data, start+accumLen);
+        if (!a2) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a2);
+        auto a3 = RunCBORDeserializer<A3>::apply(data, start+accumLen);
+        if (!a3) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a3);
+        auto a4 = RunCBORDeserializer<A4>::apply(data, start+accumLen);
+        if (!a4) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a4);
+        auto a5 = RunCBORDeserializer<A5>::apply(data, start+accumLen);
+        if (!a5) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a5);
+        auto a6 = RunCBORDeserializer<A6>::apply(data, start+accumLen);
+        if (!a6) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a6);
+        auto a7 = RunCBORDeserializer<A7>::apply(data, start+accumLen);
+        if (!a7) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a7);
+        return std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> {{
+            std::move(std::get<0>(*a0))
+            , std::move(std::get<0>(*a1))
+            , std::move(std::get<0>(*a2))
+            , std::move(std::get<0>(*a3))
+            , std::move(std::get<0>(*a4))
+            , std::move(std::get<0>(*a5))
+            , std::move(std::get<0>(*a6))
+            , std::move(std::get<0>(*a7))
+        }, accumLen};
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7>
 struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
     static std::string apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7> const &data) {
         std::ostringstream oss;
@@ -1333,6 +2500,76 @@ struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
             break;
         }
         return oss.str();
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7>
+struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
+    static std::vector<uint8_t> apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(2);
+        v[0] = v[0] | 0x80;
+        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
+        v.insert(v.end(), idx.begin(), idx.end());
+        switch (data.index()) {
+        case 0:
+            {
+                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+                v.insert(v.end(), a0.begin(), a0.end());
+                break;
+            }
+            break;
+        case 1:
+            {
+                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+                v.insert(v.end(), a1.begin(), a1.end());
+                break;
+            }
+            break;
+        case 2:
+            {
+                auto a2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
+                v.insert(v.end(), a2.begin(), a2.end());
+                break;
+            }
+            break;
+        case 3:
+            {
+                auto a3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
+                v.insert(v.end(), a3.begin(), a3.end());
+                break;
+            }
+            break;
+        case 4:
+            {
+                auto a4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
+                v.insert(v.end(), a4.begin(), a4.end());
+                break;
+            }
+            break;
+        case 5:
+            {
+                auto a5 = RunCBORSerializer<A5>::apply(std::get<5>(data));
+                v.insert(v.end(), a5.begin(), a5.end());
+                break;
+            }
+            break;
+        case 6:
+            {
+                auto a6 = RunCBORSerializer<A6>::apply(std::get<6>(data));
+                v.insert(v.end(), a6.begin(), a6.end());
+                break;
+            }
+            break;
+        case 7:
+            {
+                auto a7 = RunCBORSerializer<A7>::apply(std::get<7>(data));
+                v.insert(v.end(), a7.begin(), a7.end());
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return v;
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7>
@@ -1419,6 +2656,106 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
         }
     }
 };
+template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7>
+struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
+    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 2:
+            {
+                auto res = RunCBORDeserializer<A2>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 3:
+            {
+                auto res = RunCBORDeserializer<A3>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 4:
+            {
+                auto res = RunCBORDeserializer<A4>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 5:
+            {
+                auto res = RunCBORDeserializer<A5>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 6:
+            {
+                auto res = RunCBORDeserializer<A6>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 7:
+            {
+                auto res = RunCBORDeserializer<A7>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        default:
+            return std::nullopt;
+        }
+    }
+};
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8>
 struct RunSerializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
     static std::string apply(std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8> const &data) {
@@ -1459,6 +2796,32 @@ struct RunSerializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             << s7
             << s8;
         return oss.str();
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8>
+struct RunCBORSerializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
+    static std::vector<uint8_t> apply(std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(9);
+        v[0] = v[0] | 0x80;
+        auto v0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+        v.insert(v.end(), v0.begin(), v0.end());
+        auto v1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+        v.insert(v.end(), v1.begin(), v1.end());
+        auto v2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
+        v.insert(v.end(), v2.begin(), v2.end());
+        auto v3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
+        v.insert(v.end(), v3.begin(), v3.end());
+        auto v4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
+        v.insert(v.end(), v4.begin(), v4.end());
+        auto v5 = RunCBORSerializer<A5>::apply(std::get<5>(data));
+        v.insert(v.end(), v5.begin(), v5.end());
+        auto v6 = RunCBORSerializer<A6>::apply(std::get<6>(data));
+        v.insert(v.end(), v6.begin(), v6.end());
+        auto v7 = RunCBORSerializer<A7>::apply(std::get<7>(data));
+        v.insert(v.end(), v7.begin(), v7.end());
+        auto v8 = RunCBORSerializer<A8>::apply(std::get<8>(data));
+        v.insert(v.end(), v8.begin(), v8.end());
+        return v;
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8>
@@ -1628,6 +2991,81 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8>
+struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 9) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto a0 = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+        if (!a0) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a0);
+        auto a1 = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+        if (!a1) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a1);
+        auto a2 = RunCBORDeserializer<A2>::apply(data, start+accumLen);
+        if (!a2) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a2);
+        auto a3 = RunCBORDeserializer<A3>::apply(data, start+accumLen);
+        if (!a3) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a3);
+        auto a4 = RunCBORDeserializer<A4>::apply(data, start+accumLen);
+        if (!a4) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a4);
+        auto a5 = RunCBORDeserializer<A5>::apply(data, start+accumLen);
+        if (!a5) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a5);
+        auto a6 = RunCBORDeserializer<A6>::apply(data, start+accumLen);
+        if (!a6) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a6);
+        auto a7 = RunCBORDeserializer<A7>::apply(data, start+accumLen);
+        if (!a7) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a7);
+        auto a8 = RunCBORDeserializer<A8>::apply(data, start+accumLen);
+        if (!a8) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a8);
+        return std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> {{
+            std::move(std::get<0>(*a0))
+            , std::move(std::get<0>(*a1))
+            , std::move(std::get<0>(*a2))
+            , std::move(std::get<0>(*a3))
+            , std::move(std::get<0>(*a4))
+            , std::move(std::get<0>(*a5))
+            , std::move(std::get<0>(*a6))
+            , std::move(std::get<0>(*a7))
+            , std::move(std::get<0>(*a8))
+        }, accumLen};
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8>
 struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
     static std::string apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> const &data) {
         std::ostringstream oss;
@@ -1664,6 +3102,83 @@ struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             break;
         }
         return oss.str();
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8>
+struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
+    static std::vector<uint8_t> apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(2);
+        v[0] = v[0] | 0x80;
+        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
+        v.insert(v.end(), idx.begin(), idx.end());
+        switch (data.index()) {
+        case 0:
+            {
+                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+                v.insert(v.end(), a0.begin(), a0.end());
+                break;
+            }
+            break;
+        case 1:
+            {
+                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+                v.insert(v.end(), a1.begin(), a1.end());
+                break;
+            }
+            break;
+        case 2:
+            {
+                auto a2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
+                v.insert(v.end(), a2.begin(), a2.end());
+                break;
+            }
+            break;
+        case 3:
+            {
+                auto a3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
+                v.insert(v.end(), a3.begin(), a3.end());
+                break;
+            }
+            break;
+        case 4:
+            {
+                auto a4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
+                v.insert(v.end(), a4.begin(), a4.end());
+                break;
+            }
+            break;
+        case 5:
+            {
+                auto a5 = RunCBORSerializer<A5>::apply(std::get<5>(data));
+                v.insert(v.end(), a5.begin(), a5.end());
+                break;
+            }
+            break;
+        case 6:
+            {
+                auto a6 = RunCBORSerializer<A6>::apply(std::get<6>(data));
+                v.insert(v.end(), a6.begin(), a6.end());
+                break;
+            }
+            break;
+        case 7:
+            {
+                auto a7 = RunCBORSerializer<A7>::apply(std::get<7>(data));
+                v.insert(v.end(), a7.begin(), a7.end());
+                break;
+            }
+            break;
+        case 8:
+            {
+                auto a8 = RunCBORSerializer<A8>::apply(std::get<8>(data));
+                v.insert(v.end(), a8.begin(), a8.end());
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return v;
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8>
@@ -1758,6 +3273,115 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
         }
     }
 };
+template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8>
+struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
+    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 2:
+            {
+                auto res = RunCBORDeserializer<A2>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 3:
+            {
+                auto res = RunCBORDeserializer<A3>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 4:
+            {
+                auto res = RunCBORDeserializer<A4>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 5:
+            {
+                auto res = RunCBORDeserializer<A5>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 6:
+            {
+                auto res = RunCBORDeserializer<A6>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 7:
+            {
+                auto res = RunCBORDeserializer<A7>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 8:
+            {
+                auto res = RunCBORDeserializer<A8>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        default:
+            return std::nullopt;
+        }
+    }
+};
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8, class A9>
 struct RunSerializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
     static std::string apply(std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> const &data) {
@@ -1802,6 +3426,34 @@ struct RunSerializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             << s8
             << s9;
         return oss.str();
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8, class A9>
+struct RunCBORSerializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
+    static std::vector<uint8_t> apply(std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(10);
+        v[0] = v[0] | 0x80;
+        auto v0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+        v.insert(v.end(), v0.begin(), v0.end());
+        auto v1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+        v.insert(v.end(), v1.begin(), v1.end());
+        auto v2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
+        v.insert(v.end(), v2.begin(), v2.end());
+        auto v3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
+        v.insert(v.end(), v3.begin(), v3.end());
+        auto v4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
+        v.insert(v.end(), v4.begin(), v4.end());
+        auto v5 = RunCBORSerializer<A5>::apply(std::get<5>(data));
+        v.insert(v.end(), v5.begin(), v5.end());
+        auto v6 = RunCBORSerializer<A6>::apply(std::get<6>(data));
+        v.insert(v.end(), v6.begin(), v6.end());
+        auto v7 = RunCBORSerializer<A7>::apply(std::get<7>(data));
+        v.insert(v.end(), v7.begin(), v7.end());
+        auto v8 = RunCBORSerializer<A8>::apply(std::get<8>(data));
+        v.insert(v.end(), v8.begin(), v8.end());
+        auto v9 = RunCBORSerializer<A9>::apply(std::get<9>(data));
+        v.insert(v.end(), v9.begin(), v9.end());
+        return v;
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8, class A9>
@@ -1990,6 +3642,87 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8, class A9>
+struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 10) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto a0 = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+        if (!a0) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a0);
+        auto a1 = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+        if (!a1) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a1);
+        auto a2 = RunCBORDeserializer<A2>::apply(data, start+accumLen);
+        if (!a2) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a2);
+        auto a3 = RunCBORDeserializer<A3>::apply(data, start+accumLen);
+        if (!a3) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a3);
+        auto a4 = RunCBORDeserializer<A4>::apply(data, start+accumLen);
+        if (!a4) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a4);
+        auto a5 = RunCBORDeserializer<A5>::apply(data, start+accumLen);
+        if (!a5) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a5);
+        auto a6 = RunCBORDeserializer<A6>::apply(data, start+accumLen);
+        if (!a6) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a6);
+        auto a7 = RunCBORDeserializer<A7>::apply(data, start+accumLen);
+        if (!a7) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a7);
+        auto a8 = RunCBORDeserializer<A8>::apply(data, start+accumLen);
+        if (!a8) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a8);
+        auto a9 = RunCBORDeserializer<A9>::apply(data, start+accumLen);
+        if (!a9) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a9);
+        return std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> {{
+            std::move(std::get<0>(*a0))
+            , std::move(std::get<0>(*a1))
+            , std::move(std::get<0>(*a2))
+            , std::move(std::get<0>(*a3))
+            , std::move(std::get<0>(*a4))
+            , std::move(std::get<0>(*a5))
+            , std::move(std::get<0>(*a6))
+            , std::move(std::get<0>(*a7))
+            , std::move(std::get<0>(*a8))
+            , std::move(std::get<0>(*a9))
+        }, accumLen};
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8, class A9>
 struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
     static std::string apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> const &data) {
         std::ostringstream oss;
@@ -2029,6 +3762,90 @@ struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             break;
         }
         return oss.str();
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8, class A9>
+struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
+    static std::vector<uint8_t> apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(2);
+        v[0] = v[0] | 0x80;
+        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
+        v.insert(v.end(), idx.begin(), idx.end());
+        switch (data.index()) {
+        case 0:
+            {
+                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+                v.insert(v.end(), a0.begin(), a0.end());
+                break;
+            }
+            break;
+        case 1:
+            {
+                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
+                v.insert(v.end(), a1.begin(), a1.end());
+                break;
+            }
+            break;
+        case 2:
+            {
+                auto a2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
+                v.insert(v.end(), a2.begin(), a2.end());
+                break;
+            }
+            break;
+        case 3:
+            {
+                auto a3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
+                v.insert(v.end(), a3.begin(), a3.end());
+                break;
+            }
+            break;
+        case 4:
+            {
+                auto a4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
+                v.insert(v.end(), a4.begin(), a4.end());
+                break;
+            }
+            break;
+        case 5:
+            {
+                auto a5 = RunCBORSerializer<A5>::apply(std::get<5>(data));
+                v.insert(v.end(), a5.begin(), a5.end());
+                break;
+            }
+            break;
+        case 6:
+            {
+                auto a6 = RunCBORSerializer<A6>::apply(std::get<6>(data));
+                v.insert(v.end(), a6.begin(), a6.end());
+                break;
+            }
+            break;
+        case 7:
+            {
+                auto a7 = RunCBORSerializer<A7>::apply(std::get<7>(data));
+                v.insert(v.end(), a7.begin(), a7.end());
+                break;
+            }
+            break;
+        case 8:
+            {
+                auto a8 = RunCBORSerializer<A8>::apply(std::get<8>(data));
+                v.insert(v.end(), a8.begin(), a8.end());
+                break;
+            }
+            break;
+        case 9:
+            {
+                auto a9 = RunCBORSerializer<A9>::apply(std::get<9>(data));
+                v.insert(v.end(), a9.begin(), a9.end());
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return v;
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8, class A9>
@@ -2125,6 +3942,124 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
                     return std::nullopt;
                 }
                 return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> { std::move(*res) };
+            }
+        default:
+            return std::nullopt;
+        }
+    }
+};
+template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8, class A9>
+struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
+    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 2:
+            {
+                auto res = RunCBORDeserializer<A2>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 3:
+            {
+                auto res = RunCBORDeserializer<A3>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 4:
+            {
+                auto res = RunCBORDeserializer<A4>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 5:
+            {
+                auto res = RunCBORDeserializer<A5>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 6:
+            {
+                auto res = RunCBORDeserializer<A6>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 7:
+            {
+                auto res = RunCBORDeserializer<A7>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 8:
+            {
+                auto res = RunCBORDeserializer<A8>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+            }
+        case 9:
+            {
+                auto res = RunCBORDeserializer<A9>::apply(data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*res);
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
             }
         default:
             return std::nullopt;
