@@ -693,6 +693,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return data.content;
             }
         };
+        template <>
+        struct RunSerializer<bool, void> {
+            static std::string apply(bool const &data) {
+                char x = data?1:0;
+                return std::string {&x, &x+1};
+            }
+        };
         template <class T>
         struct RunSerializer<T, std::enable_if_t<std::is_integral_v<T>,void>> {
             static std::string apply(T const &data) {
@@ -855,6 +862,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         struct RunDeserializer<ByteData, void> {
             static std::optional<ByteData> apply(std::string const &data) {
                 return {ByteData {data}};
+            }
+        };
+        template <>
+        struct RunDeserializer<bool, void> {
+            static std::optional<bool> apply(std::string const &data) {
+                if (data.length() != 1) {
+                    return std::nullopt;
+                }
+                char c = data[0];
+                switch (c) {
+                case 0:
+                    return false;
+                case 1:
+                    return true;
+                default:
+                    return std::nullopt;
+                }
             }
         };
         template <class T>
