@@ -83,7 +83,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     uint8_t buf[2];
                     buf[0] = 24;
                     buf[1] = data;
-                    return std::vector<uint8_t> {buf, buf+1};
+                    return std::vector<uint8_t> {buf, buf+2};
                 }
             }
         };
@@ -701,14 +701,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return std::string {p, p+sizeof(T)};
             }
         };
-        //NOTE: since the endianness of IEEE754 floating point is not
-        //very well supported by boost library, I choose to simply 
-        //send them in native byte order
-        template <class T>
-        struct RunSerializer<T, std::enable_if_t<std::is_floating_point_v<T>,void>> {
-            static std::string apply(T const &data) {
-                const char *p = reinterpret_cast<const char *>(&data);
-                return std::string {p, p+sizeof(T)};
+        template <>
+        struct RunSerializer<float, void> {
+            static std::string apply(float const &data) {
+                uint32_t dBuf;
+                std::memcpy(&dBuf, &data, 4);
+                boost::endian::native_to_little_inplace<uint32_t>(dBuf);
+                const char *p = reinterpret_cast<const char *>(&dBuf);
+                return std::string {p, p+4};
+            }
+        };
+        template <>
+        struct RunSerializer<double, void> {
+            static std::string apply(double const &data) {
+                uint64_t dBuf;
+                std::memcpy(&dBuf, &data, 8);
+                boost::endian::native_to_little_inplace<uint64_t>(dBuf);
+                const char *p = reinterpret_cast<const char *>(&dBuf);
+                return std::string {p, p+8};
             }
         };
         template <class A>
@@ -858,15 +868,32 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return {boost::endian::little_to_native<T>(littleEndianVersion)};
             }
         };
-        template <class T>
-        struct RunDeserializer<T, std::enable_if_t<std::is_floating_point_v<T>,void>> {
-            static std::optional<T> apply(std::string const &data) {
-                if (data.length() != sizeof(T)) {
+        template <>
+        struct RunDeserializer<float, void> {
+            static std::optional<float> apply(std::string const &data) {
+                if (data.length() != 4) {
                     return std::nullopt;
                 }
-                T res;
-                std::memcpy(&res, data.c_str(), sizeof(T));
-                return {res};
+                uint32_t dBuf;
+                std::memcpy(&dBuf, data.c_str(), 4);
+                boost::endian::little_to_native_inplace<uint32_t>(dBuf);
+                float f;
+                std::memcpy(&f, &dBuf, 4);
+                return {f};
+            }
+        };
+        template <>
+        struct RunDeserializer<double, void> {
+            static std::optional<double> apply(std::string const &data) {
+                if (data.length() != 8) {
+                    return std::nullopt;
+                }
+                uint64_t dBuf;
+                std::memcpy(&dBuf, data.c_str(), 8);
+                boost::endian::little_to_native_inplace<uint64_t>(dBuf);
+                double f;
+                std::memcpy(&f, &dBuf, 8);
+                return {f};
             }
         };
         template <class A>
@@ -1111,7 +1138,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 auto x = RunDeserializer<T>::apply(std::get<0>(*t).content);
                 if (x) {
                     return std::tuple<T,size_t> { std::move(*x), std::get<1>(*t) };
-                }      
+                } else {
+                    return std::nullopt;
+                }     
             } else {
                 return std::nullopt;
             }

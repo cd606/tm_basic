@@ -1,7 +1,7 @@
 #ifndef TM_KIT_BASIC_TRANSACTION_FILE_BACKED_SINGLE_VERSION_PROVIDER_COMPONENT_HPP_
 #define TM_KIT_BASIC_TRANSACTION_FILE_BACKED_SINGLE_VERSION_PROVIDER_COMPONENT_HPP_
 
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <iostream>
 #include <fstream>
 #include <mutex>
@@ -30,7 +30,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         FileBackedSingleVersionProviderComponent(std::string const &filePath) 
             : mutex_(), version_(0), ofs_()
         {
-            if (boost::filesystem::exists(filePath)) {
+            if (std::filesystem::exists(filePath)) {
                 std::ifstream ifs(filePath);
                 if (ifs.good()) {
                     char buf[sizeof(int64_t)];

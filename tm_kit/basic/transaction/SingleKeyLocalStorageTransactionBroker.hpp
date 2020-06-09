@@ -38,6 +38,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             std::unordered_set<typename M::EnvironmentType::IDType, typename M::EnvironmentType::IDHash> subscribers;
         };
         std::unordered_map<KeyType, OneKeyInfo> dataMap_;
+        std::unordered_map<typename M::EnvironmentType::IDType, std::string, typename M::EnvironmentType::IDHash> idToAccount_;
         std::mutex mutex_;
         CheckSummary checkSummary_;
 
@@ -197,7 +198,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 , false
             );
         }
-        void handleSubscription(typename M::EnvironmentType *env, typename M::EnvironmentType::IDType const &requester, KeyType const &key, VP *vp) {
+        void handleSubscription(typename M::EnvironmentType *env, std::string const &account, typename M::EnvironmentType::IDType const &requester, KeyType const &key, VP *vp) {
+            idToAccount_.insert({requester, account});
             auto iter = dataMap_.find(key);
             if (iter == dataMap_.end()) {
                 iter = dataMap_.insert({
@@ -226,7 +228,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 }
                 , false);
         }
-        void handleUnsubscription(typename M::EnvironmentType *env, typename M::EnvironmentType::IDType const &requester, typename M::EnvironmentType::IDType const &originalSubscriptionID, KeyType const &key, VP *vp) {
+        void handleUnsubscription(typename M::EnvironmentType *env, std::string const &account, typename M::EnvironmentType::IDType const &requester, typename M::EnvironmentType::IDType const &originalSubscriptionID, KeyType const &key, VP *vp) {
+            auto idToAccountIter = idToAccount_.find(originalSubscriptionID);
+            if (idToAccountIter == idToAccount_.end()) {
+                typename TI::TransactionResult res = typename TI::TransactionFailurePermission {};
+                this->publish(
+                    env
+                    , typename M::template Key<typename TI::FacilityOutput> {
+                        requester, typename TI::FacilityOutput { {res} }
+                    }
+                    , true);
+                return;
+            }
+            if (idToAccountIter->second != account) {
+                typename TI::TransactionResult res = typename TI::TransactionFailurePermission {};
+                this->publish(
+                    env
+                    , typename M::template Key<typename TI::FacilityOutput> {
+                        requester, typename TI::FacilityOutput { {res} }
+                    }
+                    , true);
+                return;
+            }
+            idToAccount_.erase(idToAccountIter);
             auto iter = dataMap_.find(key);
             if (iter == dataMap_.end()) {
                 this->publish(
@@ -423,13 +447,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             case 1:
                 {
                     auto subscription = std::move(std::get<1>(std::get<1>(input.timedData.value.key()).value));
-                    this->handleSubscription(env, requester, subscription.key, versionProvider);
+                    this->handleSubscription(env, account, requester, subscription.key, versionProvider);
                 }
                 break;
             case 2:
                 {
                     auto unsubscription = std::move(std::get<2>(std::get<1>(input.timedData.value.key()).value));
-                    this->handleUnsubscription(env, requester, unsubscription.originalSubscriptionID, unsubscription.key, versionProvider);
+                    this->handleUnsubscription(env, account, requester, unsubscription.originalSubscriptionID, unsubscription.key, versionProvider);
                 }
                 break;
             default:
