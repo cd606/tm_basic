@@ -66,7 +66,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -84,7 +84,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1>> {
             return std::nullopt;
         }
         accumLen += std::get<1>(*a1);
-        return std::tuple<std::tuple<A0,A1>,size_t> {{
+        return std::tuple<std::tuple<A0,A1>,size_t> { std::tuple<A0,A1> {
             std::move(std::get<0>(*a0))
             , std::move(std::get<0>(*a1))
         }, accumLen};
@@ -181,7 +181,7 @@ struct RunCBORDeserializer<std::variant<A0,A1>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -189,7 +189,7 @@ struct RunCBORDeserializer<std::variant<A0,A1>> {
             return std::nullopt;
         }
         size_t accumLen = std::get<1>(*n);
-        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
         if (!which) {
             return std::nullopt;
         }
@@ -202,7 +202,7 @@ struct RunCBORDeserializer<std::variant<A0,A1>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1>,size_t> { std::variant<A0,A1> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 1:
             {
@@ -211,7 +211,7 @@ struct RunCBORDeserializer<std::variant<A0,A1>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1>,size_t> { std::variant<A0,A1> {std::move(std::get<0>(*res))}, accumLen };
             }
         default:
             return std::nullopt;
@@ -311,7 +311,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -334,7 +334,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2>> {
             return std::nullopt;
         }
         accumLen += std::get<1>(*a2);
-        return std::tuple<std::tuple<A0,A1,A2>,size_t> {{
+        return std::tuple<std::tuple<A0,A1,A2>,size_t> { std::tuple<A0,A1,A2> {
             std::move(std::get<0>(*a0))
             , std::move(std::get<0>(*a1))
             , std::move(std::get<0>(*a2))
@@ -450,7 +450,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -458,7 +458,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2>> {
             return std::nullopt;
         }
         size_t accumLen = std::get<1>(*n);
-        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
         if (!which) {
             return std::nullopt;
         }
@@ -471,7 +471,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2>,size_t> { std::variant<A0,A1,A2> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 1:
             {
@@ -480,7 +480,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2>,size_t> { std::variant<A0,A1,A2> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 2:
             {
@@ -489,7 +489,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2>,size_t> { std::variant<A0,A1,A2> {std::move(std::get<0>(*res))}, accumLen };
             }
         default:
             return std::nullopt;
@@ -614,7 +614,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -642,7 +642,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3>> {
             return std::nullopt;
         }
         accumLen += std::get<1>(*a3);
-        return std::tuple<std::tuple<A0,A1,A2,A3>,size_t> {{
+        return std::tuple<std::tuple<A0,A1,A2,A3>,size_t> { std::tuple<A0,A1,A2,A3> {
             std::move(std::get<0>(*a0))
             , std::move(std::get<0>(*a1))
             , std::move(std::get<0>(*a2))
@@ -777,7 +777,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -785,7 +785,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3>> {
             return std::nullopt;
         }
         size_t accumLen = std::get<1>(*n);
-        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
         if (!which) {
             return std::nullopt;
         }
@@ -798,7 +798,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3>,size_t> { std::variant<A0,A1,A2,A3> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 1:
             {
@@ -807,7 +807,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3>,size_t> { std::variant<A0,A1,A2,A3> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 2:
             {
@@ -816,7 +816,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3>,size_t> { std::variant<A0,A1,A2,A3> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 3:
             {
@@ -825,7 +825,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3>,size_t> { std::variant<A0,A1,A2,A3> {std::move(std::get<0>(*res))}, accumLen };
             }
         default:
             return std::nullopt;
@@ -975,7 +975,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -1008,7 +1008,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4>> {
             return std::nullopt;
         }
         accumLen += std::get<1>(*a4);
-        return std::tuple<std::tuple<A0,A1,A2,A3,A4>,size_t> {{
+        return std::tuple<std::tuple<A0,A1,A2,A3,A4>,size_t> { std::tuple<A0,A1,A2,A3,A4> {
             std::move(std::get<0>(*a0))
             , std::move(std::get<0>(*a1))
             , std::move(std::get<0>(*a2))
@@ -1162,7 +1162,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -1170,7 +1170,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4>> {
             return std::nullopt;
         }
         size_t accumLen = std::get<1>(*n);
-        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
         if (!which) {
             return std::nullopt;
         }
@@ -1183,7 +1183,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t> { std::variant<A0,A1,A2,A3,A4> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 1:
             {
@@ -1192,7 +1192,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t> { std::variant<A0,A1,A2,A3,A4> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 2:
             {
@@ -1201,7 +1201,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t> { std::variant<A0,A1,A2,A3,A4> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 3:
             {
@@ -1210,7 +1210,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t> { std::variant<A0,A1,A2,A3,A4> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 4:
             {
@@ -1219,7 +1219,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t> { std::variant<A0,A1,A2,A3,A4> {std::move(std::get<0>(*res))}, accumLen };
             }
         default:
             return std::nullopt;
@@ -1394,7 +1394,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -1432,7 +1432,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5>> {
             return std::nullopt;
         }
         accumLen += std::get<1>(*a5);
-        return std::tuple<std::tuple<A0,A1,A2,A3,A4,A5>,size_t> {{
+        return std::tuple<std::tuple<A0,A1,A2,A3,A4,A5>,size_t> { std::tuple<A0,A1,A2,A3,A4,A5> {
             std::move(std::get<0>(*a0))
             , std::move(std::get<0>(*a1))
             , std::move(std::get<0>(*a2))
@@ -1605,7 +1605,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -1613,7 +1613,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
             return std::nullopt;
         }
         size_t accumLen = std::get<1>(*n);
-        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
         if (!which) {
             return std::nullopt;
         }
@@ -1626,7 +1626,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { std::variant<A0,A1,A2,A3,A4,A5> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 1:
             {
@@ -1635,7 +1635,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { std::variant<A0,A1,A2,A3,A4,A5> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 2:
             {
@@ -1644,7 +1644,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { std::variant<A0,A1,A2,A3,A4,A5> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 3:
             {
@@ -1653,7 +1653,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { std::variant<A0,A1,A2,A3,A4,A5> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 4:
             {
@@ -1662,7 +1662,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { std::variant<A0,A1,A2,A3,A4,A5> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 5:
             {
@@ -1671,7 +1671,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { std::variant<A0,A1,A2,A3,A4,A5> {std::move(std::get<0>(*res))}, accumLen };
             }
         default:
             return std::nullopt;
@@ -1871,7 +1871,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -1914,7 +1914,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6>> {
             return std::nullopt;
         }
         accumLen += std::get<1>(*a6);
-        return std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6>,size_t> {{
+        return std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6>,size_t> { std::tuple<A0,A1,A2,A3,A4,A5,A6> {
             std::move(std::get<0>(*a0))
             , std::move(std::get<0>(*a1))
             , std::move(std::get<0>(*a2))
@@ -2106,7 +2106,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -2114,7 +2114,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
             return std::nullopt;
         }
         size_t accumLen = std::get<1>(*n);
-        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
         if (!which) {
             return std::nullopt;
         }
@@ -2127,7 +2127,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 1:
             {
@@ -2136,7 +2136,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 2:
             {
@@ -2145,7 +2145,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 3:
             {
@@ -2154,7 +2154,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 4:
             {
@@ -2163,7 +2163,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 5:
             {
@@ -2172,7 +2172,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 6:
             {
@@ -2181,7 +2181,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6> {std::move(std::get<0>(*res))}, accumLen };
             }
         default:
             return std::nullopt;
@@ -2406,7 +2406,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -2454,7 +2454,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>> {
             return std::nullopt;
         }
         accumLen += std::get<1>(*a7);
-        return std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> {{
+        return std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { std::tuple<A0,A1,A2,A3,A4,A5,A6,A7> {
             std::move(std::get<0>(*a0))
             , std::move(std::get<0>(*a1))
             , std::move(std::get<0>(*a2))
@@ -2665,7 +2665,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -2673,7 +2673,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
             return std::nullopt;
         }
         size_t accumLen = std::get<1>(*n);
-        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
         if (!which) {
             return std::nullopt;
         }
@@ -2686,7 +2686,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 1:
             {
@@ -2695,7 +2695,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 2:
             {
@@ -2704,7 +2704,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 3:
             {
@@ -2713,7 +2713,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 4:
             {
@@ -2722,7 +2722,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 5:
             {
@@ -2731,7 +2731,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 6:
             {
@@ -2740,7 +2740,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 7:
             {
@@ -2749,7 +2749,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7> {std::move(std::get<0>(*res))}, accumLen };
             }
         default:
             return std::nullopt;
@@ -2999,7 +2999,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -3052,7 +3052,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             return std::nullopt;
         }
         accumLen += std::get<1>(*a8);
-        return std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> {{
+        return std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8> {
             std::move(std::get<0>(*a0))
             , std::move(std::get<0>(*a1))
             , std::move(std::get<0>(*a2))
@@ -3282,7 +3282,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -3290,7 +3290,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             return std::nullopt;
         }
         size_t accumLen = std::get<1>(*n);
-        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
         if (!which) {
             return std::nullopt;
         }
@@ -3303,7 +3303,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 1:
             {
@@ -3312,7 +3312,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 2:
             {
@@ -3321,7 +3321,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 3:
             {
@@ -3330,7 +3330,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 4:
             {
@@ -3339,7 +3339,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 5:
             {
@@ -3348,7 +3348,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 6:
             {
@@ -3357,7 +3357,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 7:
             {
@@ -3366,7 +3366,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 8:
             {
@@ -3375,7 +3375,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::move(std::get<0>(*res))}, accumLen };
             }
         default:
             return std::nullopt;
@@ -3650,7 +3650,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -3708,7 +3708,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             return std::nullopt;
         }
         accumLen += std::get<1>(*a9);
-        return std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> {{
+        return std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {
             std::move(std::get<0>(*a0))
             , std::move(std::get<0>(*a1))
             , std::move(std::get<0>(*a2))
@@ -3957,7 +3957,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
         if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
             return std::nullopt;
         }
-        auto n = parseCBORInt<size_t>(data, start);
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
         if (!n) {
             return std::nullopt;
         }
@@ -3965,7 +3965,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             return std::nullopt;
         }
         size_t accumLen = std::get<1>(*n);
-        auto which = parseCBORInt<uint8_t>(data, start+accumLen);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
         if (!which) {
             return std::nullopt;
         }
@@ -3978,7 +3978,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 1:
             {
@@ -3987,7 +3987,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 2:
             {
@@ -3996,7 +3996,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 3:
             {
@@ -4005,7 +4005,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 4:
             {
@@ -4014,7 +4014,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 5:
             {
@@ -4023,7 +4023,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 6:
             {
@@ -4032,7 +4032,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 7:
             {
@@ -4041,7 +4041,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 8:
             {
@@ -4050,7 +4050,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::move(std::get<0>(*res))}, accumLen };
             }
         case 9:
             {
@@ -4059,7 +4059,7 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
                     return std::nullopt;
                 }
                 accumLen += std::get<1>(*res);
-                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { {std::move(std::get<0>(*res))}, accumLen };
+                return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::move(std::get<0>(*res))}, accumLen };
             }
         default:
             return std::nullopt;

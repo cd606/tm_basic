@@ -40,7 +40,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
     template <class T>
     struct CBOR {
-        T content;
+        T value;
     };
 
     namespace bytedata_utils {
@@ -53,7 +53,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <class T>
         struct RunCBORSerializer<CBOR<T>, void> {
             static std::vector<uint8_t> apply(CBOR<T> const &data) {
-                return RunCBORSerializer<T>::apply(data.content);
+                return RunCBORSerializer<T>::apply(data.value);
             }
         };
         template <class A>
@@ -196,12 +196,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return r;
             }
         };
-        template <class T, typename Enable>
-        std::vector<uint8_t> RunCBORSerializer<T,Enable>::apply(T const &data) {
-            std::string s;
-            data.SerializeToString(&s);
-            return RunCBORSerializer<ByteData>::apply(ByteData {s});
-        }
         template <class A>
         struct RunCBORSerializer<std::vector<A>, void> {
             static std::vector<uint8_t> apply(std::vector<A> const &data) {
@@ -300,7 +294,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             if (data.length() < start+1) {
                 return std::nullopt;
             }
-            uint8_t c = static_cast<uint8_t>(data[start]) & (uint8_t) 0x1f;
+            uint8_t c = (static_cast<uint8_t>(data[start]) & (uint8_t) 0x1f);
             if (c <= 23) {
                 return std::tuple<T, size_t> { static_cast<T>(c), 1 };
             }
@@ -369,7 +363,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
-                if (static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0 != (uint8_t) 0) {
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != (uint8_t) 0) {
                     return std::nullopt;
                 }
                 auto v = parseCBORUnsignedInt<uint8_t>(data, start);
@@ -392,7 +386,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
-                if (static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0 != (uint8_t) 0) {
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != (uint8_t) 0) {
                     return std::nullopt;
                 }
                 return parseCBORUnsignedInt<uint8_t>(data, start);
@@ -404,7 +398,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
-                if (static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0 != (uint8_t) 0) {
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != (uint8_t) 0) {
                     return std::nullopt;
                 }
                 return parseCBORUnsignedInt<uint16_t>(data, start);
@@ -416,7 +410,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
-                if (static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0 != (uint8_t) 0) {
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != (uint8_t) 0) {
                     return std::nullopt;
                 }
                 return parseCBORUnsignedInt<uint32_t>(data, start);
@@ -428,7 +422,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
-                if (static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0 != (uint8_t) 0) {
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != (uint8_t) 0) {
                     return std::nullopt;
                 }
                 return parseCBORUnsignedInt<uint64_t>(data, start);
@@ -443,7 +437,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
-                uint8_t c = static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0;
+                uint8_t c = (static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0);
                 if (c != (uint8_t) 0 && c != (uint8_t) 0x20) {
                     return std::nullopt;
                 }
@@ -453,7 +447,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <>
         struct RunCBORDeserializer<float, void> {
             static std::optional<std::tuple<float, size_t>> apply(std::string const &data, size_t start) {
-                if (data.length() != start+5) {
+                if (data.length() < start+5) {
                     return std::nullopt;
                 }
                 if (static_cast<uint8_t>(data[start]) != ((uint8_t) 0xE0 | (uint8_t) 26)) {
@@ -467,7 +461,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <>
         struct RunCBORDeserializer<double, void> {
             static std::optional<std::tuple<double, size_t>> apply(std::string const &data, size_t start) {
-                if (data.length() != start+9) {
+                if (data.length() < start+9) {
                     return std::nullopt;
                 }
                 if (static_cast<uint8_t>(data[start]) != ((uint8_t) 0xE0 | (uint8_t) 27)) {
@@ -487,7 +481,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x60) {
                     return std::nullopt;
                 }
-                auto v = parseCBORInt<size_t>(data, start);
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
                 if (!v) {
                     return std::nullopt;
                 }
@@ -506,7 +500,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x40) {
                     return std::nullopt;
                 }
-                auto v = parseCBORInt<size_t>(data, start);
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
                 if (!v) {
                     return std::nullopt;
                 }
@@ -516,18 +510,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return std::tuple<ByteData, size_t> {ByteData {data.substr(start+std::get<1>(*v), std::get<0>(*v))}, std::get<0>(*v)+std::get<1>(*v)};
             }
         };
-        template <class T, class Enable>
-        std::optional<std::tuple<T,size_t>> RunCBORDeserializer<T,Enable>::apply(std::string const &data, size_t start) {
-            auto t = RunCBORDeserializer<ByteData>::apply(data, start);
-            if (t) {
-                T x;
-                if (x.ParseFromString(std::get<0>(*t).content)) {
-                    return std::tuple<T,size_t> { std::move(x), std::get<1>(*t) };
-                }      
-            } else {
-                return std::nullopt;
-            }
-        }
         template <class A>
         struct RunCBORDeserializer<std::vector<A>, void> {
             static std::optional<std::tuple<std::vector<A>, size_t>> apply(std::string const &data, size_t start) {
@@ -537,7 +519,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
                     return std::nullopt;
                 }
-                auto v = parseCBORInt<size_t>(data, start);
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
                 if (!v) {
                     return std::nullopt;
                 }
@@ -568,7 +550,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
                     return std::nullopt;
                 }
-                auto v = parseCBORInt<size_t>(data, start);
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
                 if (!v) {
                     return std::nullopt;
                 }
@@ -685,7 +667,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <class T>
         struct RunSerializer<CBOR<T>, void> {
             static std::string apply(CBOR<T> const &data) {
-                auto res = RunCBORSerializer<T>::apply(data.content);
+                auto res = RunCBORSerializer<T>::apply(data.value);
                 const char *p = reinterpret_cast<const char *>(res.data());
                 return std::string {p, p+res.size()};
             }
@@ -716,7 +698,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <class T>
         struct RunSerializer<T, std::enable_if_t<std::is_floating_point_v<T>,void>> {
             static std::string apply(T const &data) {
-                char *p = reinterpret_cast<char *>(&data);
+                const char *p = reinterpret_cast<const char *>(&data);
                 return std::string {p, p+sizeof(T)};
             }
         };
@@ -763,6 +745,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 int32_t len = data.size();
                 std::ostringstream oss;
                 oss << RunSerializer<int32_t>::apply(len);
+                for (auto const &item : data) {
+                    auto s = RunSerializer<A>::apply(item);
+                    int32_t sLen = s.length();
+                    oss << RunSerializer<int32_t>::apply(sLen)
+                        << s;
+                }
+                return oss.str();
+            }
+        };
+        template <class A, size_t N>
+        struct RunSerializer<std::array<A,N>, void> {
+            static std::string apply(std::array<A,N> const &data) {
+                std::ostringstream oss;
+                oss << RunSerializer<uint32_t>::apply(static_cast<uint32_t>(N));
                 for (auto const &item : data) {
                     auto s = RunSerializer<A>::apply(item);
                     int32_t sLen = s.length();
@@ -960,7 +956,52 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     if (!item) {
                         return std::nullopt;
                     }
-                    res[ii] = std::move(item);
+                    res[ii] = std::move(*item);
+                    p += *itemLen;
+                    len -= *itemLen;
+                }
+                if (len != 0) {
+                    return std::nullopt;
+                }
+                return {std::move(res)};
+            }
+        };
+        template <class A, size_t N>
+        struct RunDeserializer<std::array<A,N>, void> {
+            static std::optional<std::array<A,N>> apply(std::string const &data) {
+                const char *p = data.c_str();
+                size_t len = data.length();
+                if (len < sizeof(uint32_t)) {
+                    return std::nullopt;
+                }
+                auto resLen = RunDeserializer<uint32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                if (!resLen) {
+                    return std::nullopt;
+                }
+                if (*resLen != static_cast<uint32_t>(N)) {
+                    return std::nullopt;
+                }
+                p += sizeof(uint32_t);
+                len -= sizeof(uint32_t);
+                std::array<A,N> res;
+                for (size_t ii=0; ii<N; ++ii) {
+                    if (len < sizeof(int32_t)) {
+                        return std::nullopt;
+                    }
+                    auto itemLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                    if (!itemLen) {
+                        return std::nullopt;
+                    }
+                    p += sizeof(int32_t);
+                    len -= sizeof(int32_t);
+                    if (len < *itemLen) {
+                        return std::nullopt;
+                    }
+                    auto item = RunDeserializer<A>::apply(std::string(p, p+(*itemLen)));
+                    if (!item) {
+                        return std::nullopt;
+                    }
+                    res[ii] = std::move(*item);
                     p += *itemLen;
                     len -= *itemLen;
                 }
@@ -1048,6 +1089,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 };
             }
         };
+
+        template <class T, typename Enable>
+        std::vector<uint8_t> RunCBORSerializer<T,Enable>::apply(T const &data) {
+            std::string s = RunSerializer<T>::apply(data);
+            return RunCBORSerializer<ByteData>::apply(ByteData {s});
+        }
+        template <class T, class Enable>
+        std::optional<std::tuple<T,size_t>> RunCBORDeserializer<T,Enable>::apply(std::string const &data, size_t start) {
+            auto t = RunCBORDeserializer<ByteData>::apply(data, start);
+            if (t) {
+                auto x = RunDeserializer<T>::apply(std::get<0>(*t).content);
+                if (x) {
+                    return std::tuple<T,size_t> { std::move(*x), std::get<1>(*t) };
+                }      
+            } else {
+                return std::nullopt;
+            }
+        }
     }
 
     template <class M>

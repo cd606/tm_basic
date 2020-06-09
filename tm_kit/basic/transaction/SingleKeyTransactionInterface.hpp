@@ -47,19 +47,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             KeyType key;
             DataType data;
             void SerializeToString(std::string *s) const {
-                std::tuple<KeyType const *, DataType const *> t {&key, &data};
-                *s = bytedata_utils::RunSerializer<std::tuple<KeyType const *, DataType const *>>
+                CBOR<std::tuple<KeyType const *, DataType const *>> t {{&key, &data}};
+                *s = bytedata_utils::RunSerializer<CBOR<std::tuple<KeyType const *, DataType const *>>>
                     ::apply(t);
             }
             bool ParseFromString(std::string const &s) {
                 auto res = bytedata_utils::RunDeserializer<
-                            std::tuple<KeyType,DataType>
+                            CBOR<std::tuple<KeyType,DataType>>
                             >::apply(s);
                 if (!res) {
                     return false;
                 }
-                key = std::move(std::get<0>(*res));
-                data = std::move(std::get<1>(*res));
+                key = std::move(std::get<0>(res->value));
+                data = std::move(std::get<1>(res->value));
                 return true;
             }
         };
@@ -69,22 +69,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             DataSummaryType oldDataSummary;
             DataType newData;
             void SerializeToString(std::string *s) const {
-                std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataType const *> t {&key, &oldVersion, &oldDataSummary, &newData};
+                CBOR<std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataType const *>> t {{&key, &oldVersion, &oldDataSummary, &newData}};
                 *s = bytedata_utils::RunSerializer<
-                        std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataType const *>
+                        CBOR<std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataType const *>>
                     >::apply(t);
             }
             bool ParseFromString(std::string const &s) {
                 auto res = bytedata_utils::RunDeserializer<
-                            std::tuple<KeyType,VersionType,DataSummaryType,DataType>
+                            CBOR<std::tuple<KeyType,VersionType,DataSummaryType,DataType>>
                             >::apply(s);
                 if (!res) {
                     return false;
                 }
-                key = std::move(std::get<0>(*res));
-                oldVersion = std::move(std::get<1>(*res));
-                oldDataSummary = std::move(std::get<2>(*res));
-                newData = std::move(std::get<3>(*res));
+                key = std::move(std::get<0>(res->value));
+                oldVersion = std::move(std::get<1>(res->value));
+                oldDataSummary = std::move(std::get<2>(res->value));
+                newData = std::move(std::get<3>(res->value));
                 return true;
             }
         };
@@ -93,21 +93,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             VersionType oldVersion;
             DataSummaryType oldDataSummary;
             void SerializeToString(std::string *s) const {
-                std::tuple<KeyType const *, VersionType const *, DataSummaryType const *> t {&key, &oldVersion, &oldDataSummary};
+                CBOR<std::tuple<KeyType const *, VersionType const *, DataSummaryType const *>> t {{&key, &oldVersion, &oldDataSummary}};
                 *s = bytedata_utils::RunSerializer<
-                        std::tuple<KeyType const *, VersionType const *, DataSummaryType const *>
+                        CBOR<std::tuple<KeyType const *, VersionType const *, DataSummaryType const *>>
                     >::apply(t);
             }
             bool ParseFromString(std::string const &s) {
                 auto res = bytedata_utils::RunDeserializer<
-                            std::tuple<KeyType,VersionType,DataSummaryType>
+                            CBOR<std::tuple<KeyType,VersionType,DataSummaryType>>
                             >::apply(s);
                 if (!res) {
                     return false;
                 }
-                key = std::move(std::get<0>(*res));
-                oldVersion = std::move(std::get<1>(*res));
-                oldDataSummary = std::move(std::get<2>(*res));
+                key = std::move(std::get<0>(res->value));
+                oldVersion = std::move(std::get<1>(res->value));
+                oldDataSummary = std::move(std::get<2>(res->value));
                 return true;
             }
         };
@@ -117,14 +117,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         struct Subscription {
             KeyType key;
             void SerializeToString(std::string *s) const {
-                *s = bytedata_utils::RunSerializer<KeyType>::apply(key);
+                *s = bytedata_utils::RunSerializer<CBOR<KeyType const *>>::apply(CBOR<KeyType const *> {&key});
             }
             bool ParseFromString(std::string const &s) {
-                auto res = bytedata_utils::RunDeserializer<KeyType>::apply(s);
+                auto res = bytedata_utils::RunDeserializer<CBOR<KeyType>>::apply(s);
                 if (!res) {
                     return false;
                 }
-                key = std::move(*res);
+                key = std::move(res->value);
                 return true;
             }
         };
@@ -132,16 +132,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             IDType originalSubscriptionID;
             KeyType key;
             void SerializeToString(std::string *s) const {
-                std::tuple<IDType const *, KeyType const *> t {&originalSubscriptionID, &key};
-                *s = bytedata_utils::RunSerializer<std::tuple<IDType const *, KeyType const *>>::apply(t);
+                CBOR<std::tuple<IDType const *, KeyType const *>> t {{&originalSubscriptionID, &key}};
+                *s = bytedata_utils::RunSerializer<CBOR<std::tuple<IDType const *, KeyType const *>>>::apply(t);
             }
             bool ParseFromString(std::string const &s) {
-                auto res = bytedata_utils::RunDeserializer<std::tuple<IDType,KeyType>>::apply(s);
+                auto res = bytedata_utils::RunDeserializer<CBOR<std::tuple<IDType,KeyType>>>::apply(s);
                 if (!res) {
                     return false;
                 }
-                originalSubscriptionID = std::move(std::get<0>(*res));
-                key = std::move(std::get<1>(*res));
+                originalSubscriptionID = std::move(std::get<0>(res->value));
+                key = std::move(std::get<1>(res->value));
                 return true;
             }
         };
@@ -160,7 +160,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         using SubscriptionAck = ConstType<103>;
         using UnsubscriptionAck = ConstType<104>;
 
-        using BasicFacilityInput = SingleLayerWrapper<std::variant<
+        using BasicFacilityInput = CBOR<std::variant<
                                     Transaction
                                     , Subscription
                                     , Unsubscription
@@ -171,7 +171,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                                     std::string
                                     , BasicFacilityInput
                                 >;
-        using FacilityOutput = SingleLayerWrapper<std::variant<
+        using FacilityOutput = CBOR<std::variant<
                                     TransactionResult
                                     , SubscriptionAck
                                     , UnsubscriptionAck
