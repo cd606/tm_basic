@@ -153,15 +153,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         };
-        //NOTE: since the endianness of IEEE754 floating point is not
-        //very well supported by boost library, I choose to simply 
-        //send them in native byte order
         template <>
         struct RunCBORSerializer<float, void> {
             static std::vector<uint8_t> apply(float const &data) {
                 uint8_t buf[5];
                 buf[0] = (uint8_t) 0xE0 | (uint8_t) 26;
-                std::memcpy(&buf[1], &data, 4);
+                uint32_t dBuf;
+                std::memcpy(&dBuf, &data, 4);
+                boost::endian::native_to_big_inplace<uint32_t>(dBuf);
+                std::memcpy(&buf[1], &dBuf, 4);
                 return std::vector<uint8_t> {buf, buf+5};
             }
         };
@@ -170,7 +170,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             static std::vector<uint8_t> apply(double const &data) {
                 uint8_t buf[9];
                 buf[0] = (uint8_t) 0xE0 | (uint8_t) 27;
-                std::memcpy(&buf[1], &data, 8);
+                uint64_t dBuf;
+                std::memcpy(&dBuf, &data, 8);
+                boost::endian::native_to_big_inplace<uint64_t>(dBuf);
+                std::memcpy(&buf[1], &dBuf, 8);
                 return std::vector<uint8_t> {buf, buf+9};
             }
         };
@@ -453,8 +456,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if (static_cast<uint8_t>(data[start]) != ((uint8_t) 0xE0 | (uint8_t) 26)) {
                     return std::nullopt;
                 }
+                uint32_t dBuf;
+                std::memcpy(&dBuf, data.c_str()+start+1, 4);
+                boost::endian::big_to_native_inplace<uint32_t>(dBuf);
                 float f;
-                std::memcpy(&f, data.c_str()+start+1, 4);
+                std::memcpy(&f, &dBuf, 4);
                 return std::tuple<float, size_t> {f, 5};
             }
         };
@@ -467,8 +473,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if (static_cast<uint8_t>(data[start]) != ((uint8_t) 0xE0 | (uint8_t) 27)) {
                     return std::nullopt;
                 }
+                uint64_t dBuf;
+                std::memcpy(&dBuf, data.c_str()+start+1, 8);
+                boost::endian::big_to_native_inplace<uint64_t>(dBuf);
                 double f;
-                std::memcpy(&f, data.c_str()+start+1, 8);
+                std::memcpy(&f, &dBuf, 8);
                 return std::tuple<double, size_t> {f, 9};
             }
         };
