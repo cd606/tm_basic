@@ -8,6 +8,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     template <
         class KeyType
         , class DataType
+        , class DataDeltaType = DataType
     >
     class SingleKeyLocalTransactionHandlerComponent {
     public:
@@ -26,7 +27,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             handleUpdate(
                 std::string const &account
                 , KeyType const &key
-                , DataType const &data
+                , DataDeltaType const &dataDelta
             )
             = 0;
         virtual bool
@@ -41,6 +42,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     template <
         class KeyType
         , class DataType
+        , class DataDeltaType = DataType
     >
     class ReadOnlySingleKeyLocalTransactionHandlerComponent 
         :
@@ -60,7 +62,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             handleUpdate(
                 std::string const &account
                 , KeyType const &key
-                , DataType const &data
+                , DataDeltaType const &dataDelta
             ) override final {
             return false;
         }
@@ -76,6 +78,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     template <
         class KeyType
         , class DataType
+        , class DataDeltaType = DataType
     >
     class TrivialSingleKeyLocalTransactionHandlerComponent 
         :
@@ -95,7 +98,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             handleUpdate(
                 std::string const &account
                 , KeyType const &key
-                , DataType const &data
+                , DataDeltaType const &data
             ) override final {
             return true;
         }

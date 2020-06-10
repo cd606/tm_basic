@@ -9,6 +9,13 @@
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace transaction {
     
+    template <class T>
+    class CopyApplier {
+    public:
+        void operator()(T &dest, T const &src) const {
+            dest = src;
+        }
+    };
     template <
         class M
         , class KeyType
@@ -16,21 +23,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         , class VersionType
         , class DataSummaryType = DataType
         , class CheckSummary = std::equal_to<DataType>
+        , class DataDeltaType = DataType
+        , class ApplyDelta = CopyApplier<DataType>
         , class Cmp = std::less<VersionType>
     >
     class SingleKeyLocalStorageTransactionBroker final
         :
         public virtual M::IExternalComponent
         , public M::template AbstractOnOrderFacility<
-            typename SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::EnvironmentType::IDType,DataSummaryType,Cmp>
+            typename SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::EnvironmentType::IDType,DataSummaryType,DataDeltaType,Cmp>
                     ::FacilityInput
-            , typename SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::EnvironmentType::IDType,DataSummaryType,Cmp>
+            , typename SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::EnvironmentType::IDType,DataSummaryType,DataDeltaType,Cmp>
                     ::FacilityOutput
         >
     {
     private:
-        using TI = SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::EnvironmentType::IDType,DataSummaryType,Cmp>;
-        using TH = SingleKeyLocalTransactionHandlerComponent<KeyType,DataType>;
+        using TI = SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::EnvironmentType::IDType,DataSummaryType,DataDeltaType,Cmp>;
+        using TH = SingleKeyLocalTransactionHandlerComponent<KeyType,DataType,DataDeltaType>;
         using VP = VersionProviderComponent<KeyType,DataType,VersionType>;
 
         struct OneKeyInfo {
@@ -41,6 +50,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         std::unordered_map<typename M::EnvironmentType::IDType, std::string, typename M::EnvironmentType::IDHash> idToAccount_;
         std::mutex mutex_;
         CheckSummary checkSummary_;
+        ApplyDelta applyDelta_;
 
         bool checkTransactionPrecondition(typename M::EnvironmentType::IDType const &requester, typename TI::InsertAction const &insertAction) {
             auto iter = dataMap_.find(insertAction.key);
@@ -88,8 +98,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         void handleTransactionResult(typename M::EnvironmentType *env, typename M::EnvironmentType::IDType const &requester, typename TI::InsertAction const &insertAction, VP *vp) {
             auto iter = dataMap_.find(insertAction.key);
             if (iter == dataMap_.end()) {
-                iter = dataMap_.insert({
-                    insertAction.key
+                iter = dataMap_.insert(std::make_pair<KeyType,OneKeyInfo>(
+                    KeyType(insertAction.key)
                     , OneKeyInfo {
                         typename TI::OneValue {
                             insertAction.key
@@ -98,7 +108,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                         }
                         , std::unordered_set<typename M::EnvironmentType::IDType, typename M::EnvironmentType::IDHash> {}
                     }
-                }).first;
+                )).first;
             } else {
                 iter->second.currentValue = typename TI::OneValue {
                     insertAction.key
@@ -125,30 +135,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         }
         void handleTransactionResult(typename M::EnvironmentType *env, typename M::EnvironmentType::IDType const &requester, typename TI::UpdateAction const &updateAction, VP *vp) {
             auto iter = dataMap_.find(updateAction.key);
-            if (iter == dataMap_.end()) {
-                iter = dataMap_.insert({
-                    updateAction.key
-                    , OneKeyInfo {
-                        typename TI::OneValue {
-                            updateAction.key
-                            , vp->getNextVersionForKey(updateAction.key, &(updateAction.newData))
-                            , updateAction.newData
-                        }
-                        , std::unordered_set<typename M::EnvironmentType::IDType, typename M::EnvironmentType::IDHash> {}
-                    }
-                }).first;
-            } else {
-                iter->second.currentValue = typename TI::OneValue {
-                    updateAction.key
-                    , vp->getNextVersionForKey(updateAction.key, &(updateAction.newData))
-                    , updateAction.newData
-                };
-            }
+            //iter must be there already because of precondition check
+            //also, the data must not be empty either
+            applyDelta_(*(iter->second.currentValue.data), updateAction.dataDelta);
+            iter->second.currentValue.version = 
+                vp->getNextVersionForKey(updateAction.key, &(*(iter->second.currentValue.data)));
+            typename TI::OneDelta delta {
+                updateAction.key
+                , iter->second.currentValue.version
+                , updateAction.dataDelta
+            };
             for (auto const &id : iter->second.subscribers) {
                 this->publish(
                     env,
                     typename M::template Key<typename TI::FacilityOutput> {
-                        id, typename TI::FacilityOutput { {iter->second.currentValue} }
+                        id, typename TI::FacilityOutput { {delta} }
                     }
                     , false
                 );
@@ -164,8 +165,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         void handleTransactionResult(typename M::EnvironmentType *env, typename M::EnvironmentType::IDType const &requester, typename TI::DeleteAction const &deleteAction, VP *vp) {
             auto iter = dataMap_.find(deleteAction.key);
             if (iter == dataMap_.end()) {
-                iter = dataMap_.insert({
-                    deleteAction.key
+                iter = dataMap_.insert(std::make_pair<KeyType,OneKeyInfo>(
+                    KeyType(deleteAction.key)
                     , OneKeyInfo {
                         typename TI::OneValue {
                             deleteAction.key
@@ -174,7 +175,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                         }
                         , std::unordered_set<typename M::EnvironmentType::IDType, typename M::EnvironmentType::IDHash> {}
                     }
-                }).first;
+                )).first;
             } else {
                 iter->second.currentValue = typename TI::OneValue {
                     deleteAction.key
@@ -202,8 +203,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             idToAccount_.insert({requester, account});
             auto iter = dataMap_.find(key);
             if (iter == dataMap_.end()) {
-                iter = dataMap_.insert({
-                    key
+                iter = dataMap_.insert(std::make_pair<KeyType,OneKeyInfo>(
+                    KeyType(key)
                     , OneKeyInfo {
                         typename TI::OneValue {
                             key
@@ -212,7 +213,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                         }
                         , std::unordered_set<typename M::EnvironmentType::IDType, typename M::EnvironmentType::IDHash> {}
                     }
-                }).first;
+                )).first;
             }
             iter->second.subscribers.insert(requester);
             this->publish(
@@ -296,8 +297,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             std::lock_guard<std::mutex> _(mutex_);
             for (auto const &v : initialValues) {
                 auto const &key = std::get<0>(v);
-                dataMap_.insert({
-                    key
+                dataMap_.insert(std::make_pair<KeyType, OneKeyInfo>(
+                    KeyType(key)
                     , OneKeyInfo {
                         typename TI::OneValue {
                             key
@@ -306,7 +307,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                         }
                         , std::unordered_set<typename M::EnvironmentType::IDType, typename M::EnvironmentType::IDHash> {}
                     }
-                });
+                ));
             }
         }
         virtual void handle(typename M::template InnerData<typename M::template Key<typename TI::FacilityInput>> &&input) override final {
@@ -372,7 +373,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                                     , true);
                                 return;
                             }
-                            bool actionRes = handler->handleUpdate(account, updateAction.key, updateAction.newData);
+                            bool actionRes = handler->handleUpdate(account, updateAction.key, updateAction.dataDelta);
                             if (!actionRes) {
                                 typename TI::TransactionResult res = typename TI::TransactionFailurePermission {};
                                 this->publish(

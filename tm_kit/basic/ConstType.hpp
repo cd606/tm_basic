@@ -7,4 +7,28 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     };
 } } } }
 
+namespace std {
+    template <int32_t N>
+    class hash<dev::cd606::tm::basic::ConstType<N>> {
+    public:
+        size_t operator()(dev::cd606::tm::basic::ConstType<N> const &) const {
+            return 0;
+        }
+    };
+    template <int32_t N>
+    class equal_to<dev::cd606::tm::basic::ConstType<N>> {
+    public:
+        bool operator()(dev::cd606::tm::basic::ConstType<N> const &, dev::cd606::tm::basic::ConstType<N> const &) const {
+            return true;
+        }
+    };
+    template <int32_t N>
+    class less<dev::cd606::tm::basic::ConstType<N>> {
+    public:
+        bool operator()(dev::cd606::tm::basic::ConstType<N> const &, dev::cd606::tm::basic::ConstType<N> const &) const {
+            return false;
+        }
+    };
+}
+
 #endif

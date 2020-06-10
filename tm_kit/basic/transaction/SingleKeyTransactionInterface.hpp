@@ -2,6 +2,7 @@
 #define TM_KIT_BASIC_TRANSACTION_SINGLE_KEY_TRANSACTION_INTERFACE_HPP_
 
 #include <tm_kit/basic/ByteData.hpp>
+#include <tm_kit/basic/VoidStruct.hpp>
 #include <type_traits>
 #include <functional>
 
@@ -13,6 +14,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         , class VersionType
         , class IDType
         , class DataSummaryType = DataType
+        , class DataDeltaType = DataType
         , class Cmp = std::less<VersionType>
         , class Enable = void 
     >
@@ -24,6 +26,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         , class VersionType
         , class IDType
         , class DataSummaryType
+        , class DataDeltaType
         , class Cmp
     >
     class SingleKeyTransactionInterface<
@@ -32,6 +35,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         , VersionType
         , IDType
         , DataSummaryType
+        , DataDeltaType
         , Cmp
         , std::enable_if_t<
             std::is_default_constructible_v<KeyType>
@@ -40,6 +44,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             && std::is_copy_constructible_v<VersionType>
             && std::is_default_constructible_v<DataSummaryType>
             && std::is_copy_constructible_v<DataSummaryType>
+            && std::is_default_constructible_v<DataDeltaType>
+            && std::is_copy_constructible_v<DataDeltaType>
         >
     > {
     public:
@@ -67,16 +73,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             KeyType key;
             VersionType oldVersion;
             DataSummaryType oldDataSummary;
-            DataType newData;
+            DataDeltaType dataDelta;
             void SerializeToString(std::string *s) const {
-                CBOR<std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataType const *>> t {{&key, &oldVersion, &oldDataSummary, &newData}};
+                CBOR<std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataDeltaType const *>> t {{&key, &oldVersion, &oldDataSummary, &dataDelta}};
                 *s = bytedata_utils::RunSerializer<
-                        CBOR<std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataType const *>>
+                        CBOR<std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataDeltaType const *>>
                     >::apply(t);
             }
             bool ParseFromString(std::string const &s) {
                 auto res = bytedata_utils::RunDeserializer<
-                            CBOR<std::tuple<KeyType,VersionType,DataSummaryType,DataType>>
+                            CBOR<std::tuple<KeyType,VersionType,DataSummaryType,DataDeltaType>>
                             >::apply(s);
                 if (!res) {
                     return false;
@@ -84,7 +90,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 key = std::move(std::get<0>(res->value));
                 oldVersion = std::move(std::get<1>(res->value));
                 oldDataSummary = std::move(std::get<2>(res->value));
-                newData = std::move(std::get<3>(res->value));
+                dataDelta = std::move(std::get<3>(res->value));
                 return true;
             }
         };
@@ -151,6 +157,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                             , std::optional<DataType>
                             , Cmp
                         >;
+        using OneDelta = infra::GroupedVersionedData<
+                            KeyType
+                            , VersionType
+                            , DataDeltaType
+                            , Cmp
+                        >;
       
         using TransactionSuccess = ConstType<100>;
         using TransactionFailurePermission = ConstType<101>;
@@ -176,6 +188,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                                     , SubscriptionAck
                                     , UnsubscriptionAck
                                     , OneValue
+                                    , OneDelta
                                 >>;
     };
 

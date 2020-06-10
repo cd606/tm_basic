@@ -3,6 +3,12 @@
 
 #include <string>
 #include <vector>
+#include <array>
+#include <list>
+#include <set>
+#include <map>
+#include <unordered_set>
+#include <unordered_map>
 #include <type_traits>
 #include <memory>
 #include <iostream>
@@ -221,6 +227,75 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 for (auto const &item : data) {
                     auto r1 = RunCBORSerializer<A>::apply(item);
                     r.insert(r.end(), r1.begin(), r1.end());
+                }
+                return r;
+            }
+        };
+        template <class A>
+        struct RunCBORSerializer<std::list<A>, void> {
+            static std::vector<uint8_t> apply(std::list<A> const &data) {
+                auto r = RunCBORSerializer<size_t>::apply(data.size());
+                size_t prefixLen = r.size();
+                r[0] = r[0] | 0x80;
+                for (auto const &item : data) {
+                    auto r1 = RunCBORSerializer<A>::apply(item);
+                    r.insert(r.end(), r1.begin(), r1.end());
+                }
+                return r;
+            }
+        };
+        template <class A, class Cmp>
+        struct RunCBORSerializer<std::set<A, Cmp>, void> {
+            static std::vector<uint8_t> apply(std::set<A, Cmp> const &data) {
+                auto r = RunCBORSerializer<size_t>::apply(data.size());
+                size_t prefixLen = r.size();
+                r[0] = r[0] | 0x80;
+                for (auto const &item : data) {
+                    auto r1 = RunCBORSerializer<A>::apply(item);
+                    r.insert(r.end(), r1.begin(), r1.end());
+                }
+                return r;
+            }
+        };
+        template <class A, class Hash>
+        struct RunCBORSerializer<std::unordered_set<A, Hash>, void> {
+            static std::vector<uint8_t> apply(std::unordered_set<A, Hash> const &data) {
+                auto r = RunCBORSerializer<size_t>::apply(data.size());
+                size_t prefixLen = r.size();
+                r[0] = r[0] | 0x80;
+                for (auto const &item : data) {
+                    auto r1 = RunCBORSerializer<A>::apply(item);
+                    r.insert(r.end(), r1.begin(), r1.end());
+                }
+                return r;
+            }
+        };
+        template <class A, class B, class Cmp>
+        struct RunCBORSerializer<std::map<A, B, Cmp>, void> {
+            static std::vector<uint8_t> apply(std::map<A, B, Cmp> const &data) {
+                auto r = RunCBORSerializer<size_t>::apply(data.size());
+                size_t prefixLen = r.size();
+                r[0] = r[0] | 0xA0;
+                for (auto const &item : data) {
+                    auto r1 = RunCBORSerializer<A>::apply(item.first);
+                    r.insert(r.end(), r1.begin(), r1.end());
+                    auto r2 = RunCBORSerializer<B>::apply(item.second);
+                    r.insert(r.end(), r2.begin(), r2.end());
+                }
+                return r;
+            }
+        };
+        template <class A, class B, class Hash>
+        struct RunCBORSerializer<std::unordered_map<A, B, Hash>, void> {
+            static std::vector<uint8_t> apply(std::unordered_map<A, B, Hash> const &data) {
+                auto r = RunCBORSerializer<size_t>::apply(data.size());
+                size_t prefixLen = r.size();
+                r[0] = r[0] | 0xA0;
+                for (auto const &item : data) {
+                    auto r1 = RunCBORSerializer<A>::apply(item.first);
+                    r.insert(r.end(), r1.begin(), r1.end());
+                    auto r2 = RunCBORSerializer<B>::apply(item.second);
+                    r.insert(r.end(), r2.begin(), r2.end());
                 }
                 return r;
             }
@@ -538,6 +613,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 std::vector<A> ret;
+                ret.resize(std::get<0>(*v));
                 for (size_t ii=0; ii<std::get<0>(*v); ++ii) {
                     auto r = RunCBORDeserializer<A>::apply(data, newStart);
                     if (!r) {
@@ -545,7 +621,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     }
                     len += std::get<1>(*r);
                     newStart += std::get<1>(*r);
-                    ret.push_back(std::move(std::get<0>(*r)));
+                    ret[ii] = std::move(std::get<0>(*r));
                 }
                 return std::tuple<std::vector<A>, size_t> {std::move(ret), len};
             }
@@ -582,6 +658,173 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     ret[ii] = std::move(std::get<0>(*r));
                 }
                 return std::tuple<std::array<A,N>, size_t> {std::move(ret), len};
+            }
+        };
+        template <class A>
+        struct RunCBORDeserializer<std::list<A>, void> {
+            static std::optional<std::tuple<std::list<A>, size_t>> apply(std::string const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                std::list<A> ret;
+                for (size_t ii=0; ii<std::get<0>(*v); ++ii) {
+                    auto r = RunCBORDeserializer<A>::apply(data, newStart);
+                    if (!r) {
+                        return std::nullopt;
+                    }
+                    len += std::get<1>(*r);
+                    newStart += std::get<1>(*r);
+                    ret.push_back(std::move(std::get<0>(*r)));
+                }
+                return std::tuple<std::list<A>, size_t> {std::move(ret), len};
+            }
+        };
+        template <class A, class Cmp>
+        struct RunCBORDeserializer<std::set<A, Cmp>, void> {
+            static std::optional<std::tuple<std::set<A, Cmp>, size_t>> apply(std::string const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                std::set<A, Cmp> ret;
+                for (size_t ii=0; ii<std::get<0>(*v); ++ii) {
+                    auto r = RunCBORDeserializer<A>::apply(data, newStart);
+                    if (!r) {
+                        return std::nullopt;
+                    }
+                    len += std::get<1>(*r);
+                    newStart += std::get<1>(*r);
+                    ret.insert(std::move(std::get<0>(*r)));
+                }
+                return std::tuple<std::set<A, Cmp>, size_t> {std::move(ret), len};
+            }
+        };
+        template <class A, class Hash>
+        struct RunCBORDeserializer<std::unordered_set<A, Hash>, void> {
+            static std::optional<std::tuple<std::unordered_set<A, Hash>, size_t>> apply(std::string const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                std::unordered_set<A, Hash> ret;
+                for (size_t ii=0; ii<std::get<0>(*v); ++ii) {
+                    auto r = RunCBORDeserializer<A>::apply(data, newStart);
+                    if (!r) {
+                        return std::nullopt;
+                    }
+                    len += std::get<1>(*r);
+                    newStart += std::get<1>(*r);
+                    ret.insert(std::move(std::get<0>(*r)));
+                }
+                return std::tuple<std::unordered_set<A, Hash>, size_t> {std::move(ret), len};
+            }
+        };
+        template <class A, class B, class Cmp>
+        struct RunCBORDeserializer<std::map<A, B, Cmp>, void> {
+            static std::optional<std::tuple<std::map<A, B, Cmp>, size_t>> apply(std::string const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0xa0) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                std::map<A, B, Cmp> ret;
+                for (size_t ii=0; ii<std::get<0>(*v); ++ii) {
+                    auto r1 = RunCBORDeserializer<A>::apply(data, newStart);
+                    if (!r1) {
+                        return std::nullopt;
+                    }
+                    len += std::get<1>(*r1);
+                    newStart += std::get<1>(*r1);
+                    auto r2 = RunCBORDeserializer<B>::apply(data, newStart);
+                    if (!r2) {
+                        return std::nullopt;
+                    }
+                    len += std::get<1>(*r2);
+                    newStart += std::get<1>(*r2);
+                    ret.insert({std::move(std::get<0>(*r1)), std::move(std::get<0>(*r2))});
+                }
+                return std::tuple<std::map<A, B, Cmp>, size_t> {std::move(ret), len};
+            }
+        };
+        template <class A, class B, class Hash>
+        struct RunCBORDeserializer<std::unordered_map<A, B, Hash>, void> {
+            static std::optional<std::tuple<std::unordered_map<A, B, Hash>, size_t>> apply(std::string const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0xa0) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                std::unordered_map<A, B, Hash> ret;
+                for (size_t ii=0; ii<std::get<0>(*v); ++ii) {
+                    auto r1 = RunCBORDeserializer<A>::apply(data, newStart);
+                    if (!r1) {
+                        return std::nullopt;
+                    }
+                    len += std::get<1>(*r1);
+                    newStart += std::get<1>(*r1);
+                    auto r2 = RunCBORDeserializer<B>::apply(data, newStart);
+                    if (!r2) {
+                        return std::nullopt;
+                    }
+                    len += std::get<1>(*r2);
+                    newStart += std::get<1>(*r2);
+                    ret.insert({std::move(std::get<0>(*r1)), std::move(std::get<0>(*r2))});
+                }
+                return std::tuple<std::unordered_map<A, B, Hash>, size_t> {std::move(ret), len};
             }
         };
         template <class A>
@@ -790,6 +1033,89 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     int32_t sLen = s.length();
                     oss << RunSerializer<int32_t>::apply(sLen)
                         << s;
+                }
+                return oss.str();
+            }
+        };
+        template <class A>
+        struct RunSerializer<std::list<A>, void> {
+            static std::string apply(std::list<A> const &data) {
+                int32_t len = data.size();
+                std::ostringstream oss;
+                oss << RunSerializer<int32_t>::apply(len);
+                for (auto const &item : data) {
+                    auto s = RunSerializer<A>::apply(item);
+                    int32_t sLen = s.length();
+                    oss << RunSerializer<int32_t>::apply(sLen)
+                        << s;
+                }
+                return oss.str();
+            }
+        };
+        template <class A, class Cmp>
+        struct RunSerializer<std::set<A, Cmp>, void> {
+            static std::string apply(std::set<A, Cmp> const &data) {
+                int32_t len = data.size();
+                std::ostringstream oss;
+                oss << RunSerializer<int32_t>::apply(len);
+                for (auto const &item : data) {
+                    auto s = RunSerializer<A>::apply(item);
+                    int32_t sLen = s.length();
+                    oss << RunSerializer<int32_t>::apply(sLen)
+                        << s;
+                }
+                return oss.str();
+            }
+        };
+        template <class A, class Hash>
+        struct RunSerializer<std::unordered_set<A, Hash>, void> {
+            static std::string apply(std::unordered_set<A, Hash> const &data) {
+                int32_t len = data.size();
+                std::ostringstream oss;
+                oss << RunSerializer<int32_t>::apply(len);
+                for (auto const &item : data) {
+                    auto s = RunSerializer<A>::apply(item);
+                    int32_t sLen = s.length();
+                    oss << RunSerializer<int32_t>::apply(sLen)
+                        << s;
+                }
+                return oss.str();
+            }
+        };
+        template <class A, class B, class Cmp>
+        struct RunSerializer<std::map<A, B, Cmp>, void> {
+            static std::string apply(std::map<A, B, Cmp> const &data) {
+                int32_t len = data.size();
+                std::ostringstream oss;
+                oss << RunSerializer<int32_t>::apply(len);
+                for (auto const &item : data) {
+                    auto s1 = RunSerializer<A>::apply(item.first);
+                    auto s2 = RunSerializer<B>::apply(item.second);
+                    int32_t s1Len = s1.length();
+                    int32_t s2Len = s2.length();
+                    oss << RunSerializer<int32_t>::apply(s1Len)
+                        << s1
+                        << RunSerializer<int32_t>::apply(s2Len)
+                        << s2;
+                }
+                return oss.str();
+            }
+        };
+        template <class A, class B, class Hash>
+        struct RunSerializer<std::unordered_map<A, B, Hash>, void> {
+            static std::string apply(std::unordered_map<A, B, Hash> const &data) {
+                int32_t len = data.size();
+                std::ostringstream oss;
+                oss << RunSerializer<int32_t>::apply(len);
+                for (auto const &item : data) {
+                    auto s1 = RunSerializer<A>::apply(item.first);
+                    auto s2 = RunSerializer<B>::apply(item.second);
+                    int32_t s1Len = s1.length();
+                    int32_t s2Len = s2.length();
+                    oss << RunSerializer<int32_t>::apply(s1Len)
+                        << s1
+                        << RunSerializer<int32_t>::apply(s2Len)
+                        << s2;
                 }
                 return oss.str();
             }
@@ -1071,6 +1397,254 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return {std::move(res)};
             }
         };
+        template <class A>
+        struct RunDeserializer<std::list<A>, void> {
+            static std::optional<std::list<A>> apply(std::string const &data) {
+                const char *p = data.c_str();
+                size_t len = data.length();
+                if (len < sizeof(int32_t)) {
+                    return std::nullopt;
+                }
+                auto resLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                if (!resLen) {
+                    return std::nullopt;
+                }
+                p += sizeof(int32_t);
+                len -= sizeof(int32_t);
+                std::list<A> res;
+                for (int32_t ii=0; ii<*resLen; ++ii) {
+                    if (len < sizeof(int32_t)) {
+                        return std::nullopt;
+                    }
+                    auto itemLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                    if (!itemLen) {
+                        return std::nullopt;
+                    }
+                    p += sizeof(int32_t);
+                    len -= sizeof(int32_t);
+                    if (len < *itemLen) {
+                        return std::nullopt;
+                    }
+                    auto item = RunDeserializer<A>::apply(std::string(p, p+(*itemLen)));
+                    if (!item) {
+                        return std::nullopt;
+                    }
+                    res.push_back(std::move(*item));
+                    p += *itemLen;
+                    len -= *itemLen;
+                }
+                if (len != 0) {
+                    return std::nullopt;
+                }
+                return {std::move(res)};
+            }
+        };
+        template <class A, class Cmp>
+        struct RunDeserializer<std::set<A, Cmp>, void> {
+            static std::optional<std::set<A, Cmp>> apply(std::string const &data) {
+                const char *p = data.c_str();
+                size_t len = data.length();
+                if (len < sizeof(int32_t)) {
+                    return std::nullopt;
+                }
+                auto resLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                if (!resLen) {
+                    return std::nullopt;
+                }
+                p += sizeof(int32_t);
+                len -= sizeof(int32_t);
+                std::set<A, Cmp> res;
+                for (int32_t ii=0; ii<*resLen; ++ii) {
+                    if (len < sizeof(int32_t)) {
+                        return std::nullopt;
+                    }
+                    auto itemLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                    if (!itemLen) {
+                        return std::nullopt;
+                    }
+                    p += sizeof(int32_t);
+                    len -= sizeof(int32_t);
+                    if (len < *itemLen) {
+                        return std::nullopt;
+                    }
+                    auto item = RunDeserializer<A>::apply(std::string(p, p+(*itemLen)));
+                    if (!item) {
+                        return std::nullopt;
+                    }
+                    res.insert(std::move(*item));
+                    p += *itemLen;
+                    len -= *itemLen;
+                }
+                if (len != 0) {
+                    return std::nullopt;
+                }
+                return {std::move(res)};
+            }
+        };
+        template <class A, class Hash>
+        struct RunDeserializer<std::unordered_set<A, Hash>, void> {
+            static std::optional<std::unordered_set<A, Hash>> apply(std::string const &data) {
+                const char *p = data.c_str();
+                size_t len = data.length();
+                if (len < sizeof(int32_t)) {
+                    return std::nullopt;
+                }
+                auto resLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                if (!resLen) {
+                    return std::nullopt;
+                }
+                p += sizeof(int32_t);
+                len -= sizeof(int32_t);
+                std::unordered_set<A, Hash> res;
+                for (int32_t ii=0; ii<*resLen; ++ii) {
+                    if (len < sizeof(int32_t)) {
+                        return std::nullopt;
+                    }
+                    auto itemLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                    if (!itemLen) {
+                        return std::nullopt;
+                    }
+                    p += sizeof(int32_t);
+                    len -= sizeof(int32_t);
+                    if (len < *itemLen) {
+                        return std::nullopt;
+                    }
+                    auto item = RunDeserializer<A>::apply(std::string(p, p+(*itemLen)));
+                    if (!item) {
+                        return std::nullopt;
+                    }
+                    res.insert(std::move(*item));
+                    p += *itemLen;
+                    len -= *itemLen;
+                }
+                if (len != 0) {
+                    return std::nullopt;
+                }
+                return {std::move(res)};
+            }
+        };
+        template <class A, class B, class Cmp>
+        struct RunDeserializer<std::map<A, B, Cmp>, void> {
+            static std::optional<std::map<A, B, Cmp>> apply(std::string const &data) {
+                const char *p = data.c_str();
+                size_t len = data.length();
+                if (len < sizeof(int32_t)) {
+                    return std::nullopt;
+                }
+                auto resLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                if (!resLen) {
+                    return std::nullopt;
+                }
+                p += sizeof(int32_t);
+                len -= sizeof(int32_t);
+                std::map<A, B, Cmp> res;
+                for (int32_t ii=0; ii<*resLen; ++ii) {
+                    if (len < sizeof(int32_t)) {
+                        return std::nullopt;
+                    }
+                    auto keyLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                    if (!keyLen) {
+                        return std::nullopt;
+                    }
+                    p += sizeof(int32_t);
+                    len -= sizeof(int32_t);
+                    if (len < *keyLen) {
+                        return std::nullopt;
+                    }
+                    auto key = RunDeserializer<A>::apply(std::string(p, p+(*keyLen)));
+                    if (!key) {
+                        return std::nullopt;
+                    }
+                    p += *keyLen;
+                    len -= *keyLen;
+                    if (len < sizeof(int32_t)) {
+                        return std::nullopt;
+                    }
+                    auto dataLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                    if (!dataLen) {
+                        return std::nullopt;
+                    }
+                    p += sizeof(int32_t);
+                    len -= sizeof(int32_t);
+                    if (len < *dataLen) {
+                        return std::nullopt;
+                    }
+                    auto data = RunDeserializer<B>::apply(std::string(p, p+(*dataLen)));
+                    if (!data) {
+                        return std::nullopt;
+                    }
+                    p += *dataLen;
+                    len -= *dataLen;
+
+                    res.insert({std::move(*key), std::move(*data)});
+                }
+                if (len != 0) {
+                    return std::nullopt;
+                }
+                return {std::move(res)};
+            }
+        };
+        template <class A, class B, class Hash>
+        struct RunDeserializer<std::unordered_map<A, B, Hash>, void> {
+            static std::optional<std::unordered_map<A, B, Hash>> apply(std::string const &data) {
+                const char *p = data.c_str();
+                size_t len = data.length();
+                if (len < sizeof(int32_t)) {
+                    return std::nullopt;
+                }
+                auto resLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                if (!resLen) {
+                    return std::nullopt;
+                }
+                p += sizeof(int32_t);
+                len -= sizeof(int32_t);
+                std::unordered_map<A, B, Hash> res;
+                for (int32_t ii=0; ii<*resLen; ++ii) {
+                    if (len < sizeof(int32_t)) {
+                        return std::nullopt;
+                    }
+                    auto keyLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                    if (!keyLen) {
+                        return std::nullopt;
+                    }
+                    p += sizeof(int32_t);
+                    len -= sizeof(int32_t);
+                    if (len < *keyLen) {
+                        return std::nullopt;
+                    }
+                    auto key = RunDeserializer<A>::apply(std::string(p, p+(*keyLen)));
+                    if (!key) {
+                        return std::nullopt;
+                    }
+                    p += *keyLen;
+                    len -= *keyLen;
+                    if (len < sizeof(int32_t)) {
+                        return std::nullopt;
+                    }
+                    auto dataLen = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
+                    if (!dataLen) {
+                        return std::nullopt;
+                    }
+                    p += sizeof(int32_t);
+                    len -= sizeof(int32_t);
+                    if (len < *dataLen) {
+                        return std::nullopt;
+                    }
+                    auto data = RunDeserializer<B>::apply(std::string(p, p+(*dataLen)));
+                    if (!data) {
+                        return std::nullopt;
+                    }
+                    p += *dataLen;
+                    len -= *dataLen;
+
+                    res.insert({std::move(*key), std::move(*data)});
+                }
+                if (len != 0) {
+                    return std::nullopt;
+                }
+                return {std::move(res)};
+            }
+        };
         template <>
         struct RunDeserializer<VoidStruct, void> {
             static std::optional<VoidStruct> apply(std::string const &data) {
@@ -1107,6 +1681,48 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
         #include <tm_kit/basic/ByteData_Tuple_Variant_Piece.hpp>
 
+        template <class VersionType, class DataType, class Cmp>
+        struct RunCBORSerializer<infra::VersionedData<VersionType,DataType,Cmp>> {
+            static std::vector<uint8_t> apply(infra::VersionedData<VersionType,DataType,Cmp> const &data) {
+                std::tuple<VersionType const *, DataType const *> t {
+                    &(data.version), &(data.data)
+                };
+                return RunCBORSerializer<std::tuple<VersionType const *, DataType const *>>::apply(t);
+            }
+        };
+        template <class GroupIDType, class VersionType, class DataType, class Cmp>
+        struct RunCBORSerializer<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>> {
+            static std::vector<uint8_t> apply(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> const &data) {
+                std::tuple<GroupIDType const *, VersionType const *, DataType const *> t {
+                    &(data.groupID), &(data.version), &(data.data)
+                };
+                return RunCBORSerializer<std::tuple<GroupIDType const *, VersionType const *, DataType const *>>::apply(t);
+            }
+        };
+        template <class VersionType, class DataType, class Cmp>
+        struct RunCBORDeserializer<infra::VersionedData<VersionType,DataType,Cmp>, void> {
+            static std::optional<std::tuple<infra::VersionedData<VersionType,DataType,Cmp>,size_t>> apply(std::string const &data, size_t start) {
+                auto x = RunCBORDeserializer<std::tuple<VersionType,DataType>>::apply(data, start);
+                if (!x) {
+                    return std::nullopt;
+                }
+                return std::tuple<infra::VersionedData<VersionType,DataType,Cmp>,size_t> {infra::VersionedData<VersionType,DataType,Cmp> {
+                    std::move(std::get<0>(std::get<0>(*x))), std::move(std::get<1>(std::get<0>(*x)))
+                }, std::get<1>(*x)};
+            }
+        };
+        template <class GroupIDType, class VersionType, class DataType, class Cmp>
+        struct RunCBORDeserializer<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>, void> {
+            static std::optional<std::tuple<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>,size_t>> apply(std::string const &data, size_t start) {
+                auto x = RunCBORDeserializer<std::tuple<GroupIDType,VersionType,DataType>>::apply(data, start);
+                if (!x) {
+                    return std::nullopt;
+                }
+                return std::tuple<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>,size_t> {infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> {
+                    std::move(std::get<0>(std::get<0>(*x))), std::move(std::get<1>(std::get<0>(*x))), std::move(std::get<2>(std::get<0>(*x)))
+                }, std::get<1>(*x)};
+            }
+        };
         template <class VersionType, class DataType, class Cmp>
         struct RunSerializer<infra::VersionedData<VersionType,DataType,Cmp>> {
             static std::string apply(infra::VersionedData<VersionType,DataType,Cmp> const &data) {
