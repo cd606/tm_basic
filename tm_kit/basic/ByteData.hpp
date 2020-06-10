@@ -209,7 +209,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         struct RunCBORSerializer<std::vector<A>, void> {
             static std::vector<uint8_t> apply(std::vector<A> const &data) {
                 auto r = RunCBORSerializer<size_t>::apply(data.size());
-                size_t prefixLen = r.size();
                 r[0] = r[0] | 0x80;
                 for (auto const &item : data) {
                     auto r1 = RunCBORSerializer<A>::apply(item);
@@ -222,7 +221,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         struct RunCBORSerializer<std::array<A, N>, void> {
             static std::vector<uint8_t> apply(std::array<A, N> const &data) {
                 auto r = RunCBORSerializer<size_t>::apply(N);
-                size_t prefixLen = r.size();
                 r[0] = r[0] | 0x80;
                 for (auto const &item : data) {
                     auto r1 = RunCBORSerializer<A>::apply(item);
@@ -235,7 +233,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         struct RunCBORSerializer<std::list<A>, void> {
             static std::vector<uint8_t> apply(std::list<A> const &data) {
                 auto r = RunCBORSerializer<size_t>::apply(data.size());
-                size_t prefixLen = r.size();
                 r[0] = r[0] | 0x80;
                 for (auto const &item : data) {
                     auto r1 = RunCBORSerializer<A>::apply(item);
@@ -248,7 +245,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         struct RunCBORSerializer<std::set<A, Cmp>, void> {
             static std::vector<uint8_t> apply(std::set<A, Cmp> const &data) {
                 auto r = RunCBORSerializer<size_t>::apply(data.size());
-                size_t prefixLen = r.size();
                 r[0] = r[0] | 0x80;
                 for (auto const &item : data) {
                     auto r1 = RunCBORSerializer<A>::apply(item);
@@ -261,7 +257,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         struct RunCBORSerializer<std::unordered_set<A, Hash>, void> {
             static std::vector<uint8_t> apply(std::unordered_set<A, Hash> const &data) {
                 auto r = RunCBORSerializer<size_t>::apply(data.size());
-                size_t prefixLen = r.size();
                 r[0] = r[0] | 0x80;
                 for (auto const &item : data) {
                     auto r1 = RunCBORSerializer<A>::apply(item);
@@ -274,7 +269,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         struct RunCBORSerializer<std::map<A, B, Cmp>, void> {
             static std::vector<uint8_t> apply(std::map<A, B, Cmp> const &data) {
                 auto r = RunCBORSerializer<size_t>::apply(data.size());
-                size_t prefixLen = r.size();
                 r[0] = r[0] | 0xA0;
                 for (auto const &item : data) {
                     auto r1 = RunCBORSerializer<A>::apply(item.first);
@@ -289,7 +283,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         struct RunCBORSerializer<std::unordered_map<A, B, Hash>, void> {
             static std::vector<uint8_t> apply(std::unordered_map<A, B, Hash> const &data) {
                 auto r = RunCBORSerializer<size_t>::apply(data.size());
-                size_t prefixLen = r.size();
                 r[0] = r[0] | 0xA0;
                 for (auto const &item : data) {
                     auto r1 = RunCBORSerializer<A>::apply(item.first);
@@ -1679,6 +1672,79 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         };
 
+        template <class T, size_t N>
+        struct RunCBORSerializerWithNameList {};
+
+        template <class T>
+        struct RunCBORSerializerWithNameList<T, 0> {
+            static std::vector<uint8_t> apply(T const &data, std::array<std::string,0> const &) {
+                return RunCBORSerializer<T>::apply(data);
+            }
+        };
+
+        template <class T>
+        struct RunCBORSerializerWithNameList<T, 1> {
+            static std::vector<uint8_t> apply(T const &data, std::array<std::string,1> const &names) {
+                auto r = RunCBORSerializer<size_t>::apply(1);
+                r[0] = r[0] | 0xA0;
+                for (auto const &item : data) {
+                    auto r1 = RunCBORSerializer<std::string>::apply(names[0]);
+                    r.insert(r.end(), r1.begin(), r1.end());
+                    auto r2 = RunCBORSerializer<T>::apply(data);
+                    r.insert(r.end(), r2.begin(), r2.end());
+                }
+                return r;
+            }
+        };
+        template <class T, size_t N>
+        struct RunCBORDeserializerWithNameList {};
+
+        template <class T>
+        struct RunCBORDeserializerWithNameList<T, 0> {
+            static std::optional<std::tuple<T,size_t>> apply(std::string const &data, size_t start, std::array<std::string,0> const &) {
+                return RunCBORDeserializer<T>::apply(data, start);
+            }
+        };
+
+        template <class T>
+        struct RunCBORDeserializerWithNameList<T, 1> {
+            static std::optional<std::tuple<T,size_t>> apply(std::string const &data, size_t start, std::array<std::string,1> const &names) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0xa0) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                if (std::get<0>(*v) != 1) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                auto r1 = RunCBORDeserializer<std::string>::apply(data, newStart);
+                if (!r1) {
+                    return std::nullopt;
+                }
+                if (std::get<0>(*r1) != names[0]) {
+                    return std::nullopt;
+                }
+                len += std::get<1>(*r1);
+                newStart += std::get<1>(*r1);
+                auto r2 = RunCBORDeserializer<T>::apply(data, newStart);
+                if (!r2) {
+                    return std::nullopt;
+                }
+                len += std::get<1>(*r2);
+                return std::tuple<T,size_t>(std::move(std::get<0>(*r2)), len);
+            }
+        };
+
         #include <tm_kit/basic/ByteData_Tuple_Variant_Piece.hpp>
 
         template <class VersionType, class DataType, class Cmp>
@@ -1687,7 +1753,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::tuple<VersionType const *, DataType const *> t {
                     &(data.version), &(data.data)
                 };
-                return RunCBORSerializer<std::tuple<VersionType const *, DataType const *>>::apply(t);
+                return RunCBORSerializerWithNameList<std::tuple<VersionType const *, DataType const *>, 2>::apply(
+                    t
+                    , {"version", "data"}
+                );
             }
         };
         template <class GroupIDType, class VersionType, class DataType, class Cmp>
@@ -1696,13 +1765,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::tuple<GroupIDType const *, VersionType const *, DataType const *> t {
                     &(data.groupID), &(data.version), &(data.data)
                 };
-                return RunCBORSerializer<std::tuple<GroupIDType const *, VersionType const *, DataType const *>>::apply(t);
+                return RunCBORSerializerWithNameList<std::tuple<GroupIDType const *, VersionType const *, DataType const *>, 3>::apply(
+                    t
+                    , {"groupID", "version", "data"}
+                );
             }
         };
         template <class VersionType, class DataType, class Cmp>
         struct RunCBORDeserializer<infra::VersionedData<VersionType,DataType,Cmp>, void> {
             static std::optional<std::tuple<infra::VersionedData<VersionType,DataType,Cmp>,size_t>> apply(std::string const &data, size_t start) {
-                auto x = RunCBORDeserializer<std::tuple<VersionType,DataType>>::apply(data, start);
+                auto x = RunCBORDeserializerWithNameList<std::tuple<VersionType,DataType>, 2>::apply(
+                    data, start
+                    , {"version", "data"}
+                );
                 if (!x) {
                     return std::nullopt;
                 }
@@ -1714,7 +1789,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <class GroupIDType, class VersionType, class DataType, class Cmp>
         struct RunCBORDeserializer<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>, void> {
             static std::optional<std::tuple<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>,size_t>> apply(std::string const &data, size_t start) {
-                auto x = RunCBORDeserializer<std::tuple<GroupIDType,VersionType,DataType>>::apply(data, start);
+                auto x = RunCBORDeserializerWithNameList<std::tuple<GroupIDType,VersionType,DataType>, 3>::apply(
+                    data, start
+                    , {"groupID", "version", "data"}
+                );
                 if (!x) {
                     return std::nullopt;
                 }
