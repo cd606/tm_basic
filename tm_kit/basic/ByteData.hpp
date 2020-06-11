@@ -326,7 +326,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <>
         struct RunCBORSerializer<VoidStruct, void> {
             static std::vector<uint8_t> apply(VoidStruct const &data) {
-                return std::vector<uint8_t> {};
+                return RunCBORSerializer<int32_t>::apply(0);
             }
         };
         template <class T>
@@ -874,7 +874,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <>
         struct RunCBORDeserializer<VoidStruct, void> {
             static std::optional<std::tuple<VoidStruct, size_t>> apply(std::string const &data, size_t start) {
-                return std::tuple<VoidStruct, size_t> {VoidStruct{}, 0};
+                auto r = RunCBORDeserializer<int32_t>::apply(data, start);
+                if (!r) {
+                    return std::nullopt;
+                }
+                if (std::get<0>(*r) != 0) {
+                    return std::nullopt;
+                }
+                return std::tuple<VoidStruct, size_t> {VoidStruct {}, std::get<1>(*r)};
             }
         };
         template <class T>
