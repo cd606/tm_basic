@@ -1,3 +1,130 @@
+template <class A0>
+struct RunSerializer<std::tuple<A0>> {
+    static std::string apply(std::tuple<A0> const &data) {
+        std::string s0 = RunSerializer<A0>::apply(std::get<0>(data));
+        
+        std::ostringstream oss;
+        oss
+            
+            << s0;
+        return oss.str();
+    }
+};
+template <class A0>
+struct RunCBORSerializer<std::tuple<A0>> {
+    static std::vector<uint8_t> apply(std::tuple<A0> const &data) {
+        auto v = RunCBORSerializer<size_t>::apply(1);
+        v[0] = v[0] | 0x80;
+        auto v0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+        v.insert(v.end(), v0.begin(), v0.end());
+        return v;
+    }
+};
+template <class A0>
+struct RunCBORSerializerWithNameList<std::tuple<A0>, 1> {
+    static std::vector<uint8_t> apply(std::tuple<A0> const &data, std::array<std::string, 1> const &nameList) {
+        auto v = RunCBORSerializer<size_t>::apply(1);
+        v[0] = v[0] | 0xA0;
+        auto s0 = RunCBORSerializer<std::string>::apply(nameList[0]);
+        v.insert(v.end(), s0.begin(), s0.end());
+        auto v0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
+        v.insert(v.end(), v0.begin(), v0.end());
+        return v;
+    }
+};
+template <class A0>
+struct RunDeserializer<std::tuple<A0>> {
+    static std::optional<std::tuple<A0>> apply(std::string const &data) {
+        const char *p = data.c_str();
+        size_t len = data.length();
+        
+        auto a0 = RunDeserializer<A0>::apply(std::string(p, p+len));
+        if (!a0) {
+            return std::nullopt;
+        }
+        return std::tuple<A0> {
+            std::move(*a0)
+        };
+    }
+};
+template <class A0>
+struct RunCBORDeserializer<std::tuple<A0>> {
+    static std::optional<std::tuple<std::tuple<A0>,size_t>> apply(std::string const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 1) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto a0 = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+        if (!a0) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*a0);
+        return std::tuple<std::tuple<A0>,size_t> { std::tuple<A0> {
+            std::move(std::get<0>(*a0))
+        }, accumLen};
+    }
+};
+template <class A0>
+struct RunCBORDeserializerWithNameList<std::tuple<A0>, 1> {
+    static std::optional<std::tuple<std::tuple<A0>,size_t>> apply(std::string const &data, size_t start, std::array<std::string,1> const &nameList) {
+        std::unordered_map<std::string, size_t> nameMap {
+            {nameList[0], 0}
+        };
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0xa0) {
+            return std::nullopt;
+        }
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 1) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        std::optional<std::tuple<A0, size_t>> a0 = std::nullopt;
+        for (size_t ii=0; ii<1; ++ii) {
+            auto nm = RunCBORDeserializer<std::string>::apply(data, start+accumLen);
+            if (!nm) {
+                return std::nullopt;
+            }
+            accumLen += std::get<1>(*nm);
+            auto nameIter = nameMap.find(std::get<0>(*nm));
+            if (nameIter == nameMap.end()) {
+                return std::nullopt;
+            }
+            switch (nameIter->second) {
+            case 0:
+                if (a0) {
+                    return std::nullopt;
+                }
+                a0 = RunCBORDeserializer<A0>::apply(data, start+accumLen);
+                if (!a0) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*a0);
+                break;
+            default:
+                return std::nullopt;
+            }
+        }
+        return std::tuple<std::tuple<A0>,size_t> { std::tuple<A0> {
+            std::move(std::get<0>(*a0))
+        }, accumLen};
+    }
+};
 template <class A0, class A1>
 struct RunSerializer<std::tuple<A0,A1>> {
     static std::string apply(std::tuple<A0,A1> const &data) {

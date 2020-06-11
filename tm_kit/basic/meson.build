@@ -9,6 +9,7 @@ tm_basic_headers = [
     , 'VoidStruct.hpp'
     , 'SingleLayerWrapper.hpp'
     , 'ConstType.hpp'
+    , 'SerializationHelperMacros.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
