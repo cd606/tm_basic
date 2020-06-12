@@ -49,7 +49,7 @@ struct RunDeserializer<std::tuple<A0>> {
 };
 template <class A0>
 struct RunCBORDeserializer<std::tuple<A0>> {
-    static std::optional<std::tuple<std::tuple<A0>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::tuple<A0>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -76,7 +76,7 @@ struct RunCBORDeserializer<std::tuple<A0>> {
 };
 template <class A0>
 struct RunCBORDeserializerWithNameList<std::tuple<A0>, 1> {
-    static std::optional<std::tuple<std::tuple<A0>,size_t>> apply(std::string const &data, size_t start, std::array<std::string,1> const &nameList) {
+    static std::optional<std::tuple<std::tuple<A0>,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string,1> const &nameList) {
         std::unordered_map<std::string, size_t> nameMap {
             {nameList[0], 0}
         };
@@ -202,7 +202,7 @@ struct RunDeserializer<std::tuple<A0,A1>> {
 };
 template <class A0, class A1>
 struct RunCBORDeserializer<std::tuple<A0,A1>> {
-    static std::optional<std::tuple<std::tuple<A0,A1>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::tuple<A0,A1>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -235,7 +235,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1>> {
 };
 template <class A0, class A1>
 struct RunCBORDeserializerWithNameList<std::tuple<A0,A1>, 2> {
-    static std::optional<std::tuple<std::tuple<A0,A1>,size_t>> apply(std::string const &data, size_t start, std::array<std::string,2> const &nameList) {
+    static std::optional<std::tuple<std::tuple<A0,A1>,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string,2> const &nameList) {
         std::unordered_map<std::string, size_t> nameMap {
             {nameList[0], 0}
             , {nameList[1], 1}
@@ -381,7 +381,7 @@ struct RunDeserializer<std::variant<A0,A1>> {
 };
 template <class A0, class A1>
 struct RunCBORDeserializer<std::variant<A0,A1>> {
-    static std::optional<std::tuple<std::variant<A0,A1>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::variant<A0,A1>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -531,7 +531,7 @@ struct RunDeserializer<std::tuple<A0,A1,A2>> {
 };
 template <class A0, class A1, class A2>
 struct RunCBORDeserializer<std::tuple<A0,A1,A2>> {
-    static std::optional<std::tuple<std::tuple<A0,A1,A2>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -570,7 +570,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2>> {
 };
 template <class A0, class A1, class A2>
 struct RunCBORDeserializerWithNameList<std::tuple<A0,A1,A2>, 3> {
-    static std::optional<std::tuple<std::tuple<A0,A1,A2>,size_t>> apply(std::string const &data, size_t start, std::array<std::string,3> const &nameList) {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2>,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string,3> const &nameList) {
         std::unordered_map<std::string, size_t> nameMap {
             {nameList[0], 0}
             , {nameList[1], 1}
@@ -747,7 +747,7 @@ struct RunDeserializer<std::variant<A0,A1,A2>> {
 };
 template <class A0, class A1, class A2>
 struct RunCBORDeserializer<std::variant<A0,A1,A2>> {
-    static std::optional<std::tuple<std::variant<A0,A1,A2>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::variant<A0,A1,A2>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -935,7 +935,7 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3>> {
 };
 template <class A0, class A1, class A2, class A3>
 struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3>> {
-    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -980,7 +980,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3>> {
 };
 template <class A0, class A1, class A2, class A3>
 struct RunCBORDeserializerWithNameList<std::tuple<A0,A1,A2,A3>, 4> {
-    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3>,size_t>> apply(std::string const &data, size_t start, std::array<std::string,4> const &nameList) {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3>,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string,4> const &nameList) {
         std::unordered_map<std::string, size_t> nameMap {
             {nameList[0], 0}
             , {nameList[1], 1}
@@ -1188,7 +1188,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3>> {
 };
 template <class A0, class A1, class A2, class A3>
 struct RunCBORDeserializer<std::variant<A0,A1,A2,A3>> {
-    static std::optional<std::tuple<std::variant<A0,A1,A2,A3>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::variant<A0,A1,A2,A3>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -1414,7 +1414,7 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4>> {
 };
 template <class A0, class A1, class A2, class A3, class A4>
 struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4>> {
-    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -1465,7 +1465,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4>> {
 };
 template <class A0, class A1, class A2, class A3, class A4>
 struct RunCBORDeserializerWithNameList<std::tuple<A0,A1,A2,A3,A4>, 5> {
-    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4>,size_t>> apply(std::string const &data, size_t start, std::array<std::string,5> const &nameList) {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4>,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string,5> const &nameList) {
         std::unordered_map<std::string, size_t> nameMap {
             {nameList[0], 0}
             , {nameList[1], 1}
@@ -1704,7 +1704,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4>> {
 };
 template <class A0, class A1, class A2, class A3, class A4>
 struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4>> {
-    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -1968,7 +1968,7 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4,A5>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5>
 struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5>> {
-    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -2025,7 +2025,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5>
 struct RunCBORDeserializerWithNameList<std::tuple<A0,A1,A2,A3,A4,A5>, 6> {
-    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5>,size_t>> apply(std::string const &data, size_t start, std::array<std::string,6> const &nameList) {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5>,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string,6> const &nameList) {
         std::unordered_map<std::string, size_t> nameMap {
             {nameList[0], 0}
             , {nameList[1], 1}
@@ -2295,7 +2295,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5>
 struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
-    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -2597,7 +2597,7 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6>
 struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6>> {
-    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -2660,7 +2660,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6>
 struct RunCBORDeserializerWithNameList<std::tuple<A0,A1,A2,A3,A4,A5,A6>, 7> {
-    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6>,size_t>> apply(std::string const &data, size_t start, std::array<std::string,7> const &nameList) {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6>,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string,7> const &nameList) {
         std::unordered_map<std::string, size_t> nameMap {
             {nameList[0], 0}
             , {nameList[1], 1}
@@ -2961,7 +2961,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6>
 struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
-    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -3301,7 +3301,7 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7>
 struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>> {
-    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -3370,7 +3370,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7>
 struct RunCBORDeserializerWithNameList<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>, 8> {
-    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>,size_t>> apply(std::string const &data, size_t start, std::array<std::string,8> const &nameList) {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7>,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string,8> const &nameList) {
         std::unordered_map<std::string, size_t> nameMap {
             {nameList[0], 0}
             , {nameList[1], 1}
@@ -3702,7 +3702,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7>
 struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
-    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -4080,7 +4080,7 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8>
 struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
-    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -4155,7 +4155,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8>
 struct RunCBORDeserializerWithNameList<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>, 9> {
-    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t>> apply(std::string const &data, size_t start, std::array<std::string,9> const &nameList) {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string,9> const &nameList) {
         std::unordered_map<std::string, size_t> nameMap {
             {nameList[0], 0}
             , {nameList[1], 1}
@@ -4518,7 +4518,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8>
 struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
-    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -4934,7 +4934,7 @@ struct RunDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8, class A9>
 struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
-    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -5015,7 +5015,7 @@ struct RunCBORDeserializer<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8, class A9>
 struct RunCBORDeserializerWithNameList<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>, 10> {
-    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t>> apply(std::string const &data, size_t start, std::array<std::string,10> const &nameList) {
+    static std::optional<std::tuple<std::tuple<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string,10> const &nameList) {
         std::unordered_map<std::string, size_t> nameMap {
             {nameList[0], 0}
             , {nameList[1], 1}
@@ -5409,7 +5409,7 @@ struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8, class A9>
 struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
-    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t>> apply(std::string const &data, size_t start) {
+    static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }

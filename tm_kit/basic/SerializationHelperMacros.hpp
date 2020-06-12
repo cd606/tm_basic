@@ -94,7 +94,7 @@
     namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
         template <> \
         struct RunCBORDeserializer<name, void> { \
-            static std::optional<std::tuple<name, size_t>> apply(std::string const &s, size_t start) { \
+            static std::optional<std::tuple<name, size_t>> apply(std::string_view const &s, size_t start) { \
                 auto t = RunCBORDeserializerWithNameList<std::tuple< \
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE,_,content) \
                     >, BOOST_PP_SEQ_SIZE(content) \

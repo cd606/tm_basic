@@ -2,6 +2,7 @@
 #define TM_KIT_BASIC_BYTE_DATA_HPP_
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <array>
 #include <list>
@@ -373,12 +374,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
         template <class T, typename Enable=void>
         struct RunCBORDeserializer {
-            static std::optional<std::tuple<T,size_t>> apply(std::string const &data, size_t start);
+            static std::optional<std::tuple<T,size_t>> apply(std::string_view const &data, size_t start);
         };
 
         template <class T>
         struct RunCBORDeserializer<CBOR<T>, void> {
-            static std::optional<std::tuple<CBOR<T>,size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<CBOR<T>,size_t>> apply(std::string_view const &data, size_t start) {
                 auto t = RunCBORDeserializer<T>::apply(data, start);
                 if (t) {
                     return std::tuple<CBOR<T>,size_t> { CBOR<T> {std::move(std::get<0>(*t))}, std::get<1>(*t) };
@@ -390,7 +391,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
 
         template <class T>
-        inline std::optional<std::tuple<T, size_t>> parseCBORUnsignedInt(std::string const &data, size_t start) {
+        inline std::optional<std::tuple<T, size_t>> parseCBORUnsignedInt(std::string_view const &data, size_t start) {
             if (data.length() < start+1) {
                 return std::nullopt;
             }
@@ -410,7 +411,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         return std::nullopt;
                     }
                     uint16_t bigEndianVersion;
-                    std::memcpy(&bigEndianVersion, data.c_str()+start+1, 2);
+                    data.copy(reinterpret_cast<char *>(&bigEndianVersion), 2, start+1);
                     return std::tuple<T, size_t> { static_cast<T>(boost::endian::big_to_native<uint16_t>(bigEndianVersion)), 3 };
                 }
                 break;
@@ -420,7 +421,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         return std::nullopt;
                     }
                     uint32_t bigEndianVersion;
-                    std::memcpy(&bigEndianVersion, data.c_str()+start+1, 4);
+                    data.copy(reinterpret_cast<char *>(&bigEndianVersion), 4, start+1);
                     return std::tuple<T, size_t> { static_cast<T>(boost::endian::big_to_native<uint32_t>(bigEndianVersion)), 5 };
                 }
                 break;
@@ -430,7 +431,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         return std::nullopt;
                     }
                     uint64_t bigEndianVersion;
-                    std::memcpy(&bigEndianVersion, data.c_str()+start+1, 8);
+                    data.copy(reinterpret_cast<char *>(&bigEndianVersion), 8, start+1);
                     return std::tuple<T, size_t> { static_cast<T>(boost::endian::big_to_native<uint64_t>(bigEndianVersion)), 9 };
                 }
                 break;
@@ -440,7 +441,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
         template <class T>
-        inline std::optional<std::tuple<T, size_t>> parseCBORInt(std::string const &data, size_t start) {
+        inline std::optional<std::tuple<T, size_t>> parseCBORInt(std::string_view const &data, size_t start) {
             if (data.length() < start+1) {
                 return std::nullopt;
             }
@@ -459,7 +460,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
         template <>
         struct RunCBORDeserializer<bool, void> {
-            static std::optional<std::tuple<bool, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<bool, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
@@ -482,7 +483,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <>
         struct RunCBORDeserializer<uint8_t, void> {
-            static std::optional<std::tuple<uint8_t, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<uint8_t, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
@@ -494,7 +495,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <>
         struct RunCBORDeserializer<uint16_t, void> {
-            static std::optional<std::tuple<uint16_t, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<uint16_t, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
@@ -506,7 +507,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <>
         struct RunCBORDeserializer<uint32_t, void> {
-            static std::optional<std::tuple<uint32_t, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<uint32_t, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
@@ -518,7 +519,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <>
         struct RunCBORDeserializer<uint64_t, void> {
-            static std::optional<std::tuple<uint64_t, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<uint64_t, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
@@ -533,7 +534,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             std::is_integral_v<T> && std::is_signed_v<T>
             ,void
         >> {
-            static std::optional<std::tuple<T, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<T, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
@@ -546,7 +547,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <>
         struct RunCBORDeserializer<float, void> {
-            static std::optional<std::tuple<float, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<float, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+5) {
                     return std::nullopt;
                 }
@@ -554,7 +555,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 uint32_t dBuf;
-                std::memcpy(&dBuf, data.c_str()+start+1, 4);
+                data.copy(reinterpret_cast<char *>(&dBuf), 4, start+1);
                 boost::endian::big_to_native_inplace<uint32_t>(dBuf);
                 float f;
                 std::memcpy(&f, &dBuf, 4);
@@ -563,7 +564,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <>
         struct RunCBORDeserializer<double, void> {
-            static std::optional<std::tuple<double, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<double, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+9) {
                     return std::nullopt;
                 }
@@ -571,7 +572,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 uint64_t dBuf;
-                std::memcpy(&dBuf, data.c_str()+start+1, 8);
+                data.copy(reinterpret_cast<char *>(&dBuf), 8, start+1);
                 boost::endian::big_to_native_inplace<uint64_t>(dBuf);
                 double f;
                 std::memcpy(&f, &dBuf, 8);
@@ -580,7 +581,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <>
         struct RunCBORDeserializer<std::string, void> {
-            static std::optional<std::tuple<std::string, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<std::string, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
@@ -599,7 +600,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <>
         struct RunCBORDeserializer<ByteData, void> {
-            static std::optional<std::tuple<ByteData, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<ByteData, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
@@ -613,12 +614,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if (data.length() < start+std::get<0>(*v)+std::get<1>(*v)) {
                     return std::nullopt;
                 }
-                return std::tuple<ByteData, size_t> {ByteData {data.substr(start+std::get<1>(*v), std::get<0>(*v))}, std::get<0>(*v)+std::get<1>(*v)};
+                return std::tuple<ByteData, size_t> {ByteData { std::string {data.substr(start+std::get<1>(*v), std::get<0>(*v))} }, std::get<0>(*v)+std::get<1>(*v)};
             }
         };
         template <>
         struct RunCBORDeserializer<ByteDataWithTopic, void> {
-            static std::optional<std::tuple<ByteDataWithTopic, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<ByteDataWithTopic, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
@@ -651,7 +652,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <class A>
         struct RunCBORDeserializer<std::vector<A>, void> {
-            static std::optional<std::tuple<std::vector<A>, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<std::vector<A>, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
@@ -683,7 +684,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <class A, size_t N>
         struct RunCBORDeserializer<std::array<A,N>, void> {
-            static std::optional<std::tuple<std::array<A,N>, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<std::array<A,N>, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
@@ -717,7 +718,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <class A>
         struct RunCBORDeserializer<std::list<A>, void> {
-            static std::optional<std::tuple<std::list<A>, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<std::list<A>, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
@@ -748,7 +749,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <class A, class Cmp>
         struct RunCBORDeserializer<std::set<A, Cmp>, void> {
-            static std::optional<std::tuple<std::set<A, Cmp>, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<std::set<A, Cmp>, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
@@ -779,7 +780,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <class A, class Hash>
         struct RunCBORDeserializer<std::unordered_set<A, Hash>, void> {
-            static std::optional<std::tuple<std::unordered_set<A, Hash>, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<std::unordered_set<A, Hash>, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
@@ -810,7 +811,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <class A, class B, class Cmp>
         struct RunCBORDeserializer<std::map<A, B, Cmp>, void> {
-            static std::optional<std::tuple<std::map<A, B, Cmp>, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<std::map<A, B, Cmp>, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
@@ -847,7 +848,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <class A, class B, class Hash>
         struct RunCBORDeserializer<std::unordered_map<A, B, Hash>, void> {
-            static std::optional<std::tuple<std::unordered_map<A, B, Hash>, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<std::unordered_map<A, B, Hash>, size_t>> apply(std::string_view const &data, size_t start) {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
@@ -884,7 +885,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <class A>
         struct RunCBORDeserializer<std::unique_ptr<A>, void> {
-            static std::optional<std::tuple<std::unique_ptr<A>, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<std::unique_ptr<A>, size_t>> apply(std::string_view const &data, size_t start) {
                 auto v = RunCBORDeserializer<std::vector<A>>::apply(data, start);
                 if (!v) {
                     return std::nullopt;
@@ -901,7 +902,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <class A>
         struct RunCBORDeserializer<std::shared_ptr<A>, void> {
-            static std::optional<std::tuple<std::shared_ptr<A>, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<std::shared_ptr<A>, size_t>> apply(std::string_view const &data, size_t start) {
                 auto v = RunCBORDeserializer<std::vector<A>>::apply(data, start);
                 if (!v) {
                     return std::nullopt;
@@ -918,7 +919,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <class A>
         struct RunCBORDeserializer<std::optional<A>, void> {
-            static std::optional<std::tuple<std::optional<A>, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<std::optional<A>, size_t>> apply(std::string_view const &data, size_t start) {
                 auto v = RunCBORDeserializer<std::vector<A>>::apply(data, start);
                 if (!v) {
                     return std::nullopt;
@@ -935,7 +936,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <>
         struct RunCBORDeserializer<VoidStruct, void> {
-            static std::optional<std::tuple<VoidStruct, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<VoidStruct, size_t>> apply(std::string_view const &data, size_t start) {
                 auto r = RunCBORDeserializer<int32_t>::apply(data, start);
                 if (!r) {
                     return std::nullopt;
@@ -948,7 +949,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <class T>
         struct RunCBORDeserializer<SingleLayerWrapper<T>, void> {
-            static std::optional<std::tuple<SingleLayerWrapper<T>, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<SingleLayerWrapper<T>, size_t>> apply(std::string_view const &data, size_t start) {
                 auto r = RunCBORDeserializer<T>::apply(data, start);
                 if (!r) {
                     return std::nullopt;
@@ -958,7 +959,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <int32_t N>
         struct RunCBORDeserializer<ConstType<N>, void> {
-            static std::optional<std::tuple<ConstType<N>, size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<ConstType<N>, size_t>> apply(std::string_view const &data, size_t start) {
                 auto r = RunCBORDeserializer<int32_t>::apply(data, start);
                 if (!r) {
                     return std::nullopt;
@@ -1238,7 +1239,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <class T>
         struct RunDeserializer<CBOR<T>, void> {
             static std::optional<CBOR<T>> apply(std::string const &data) {
-                auto r = RunCBORDeserializer<T>::apply(data, 0);
+                auto r = RunCBORDeserializer<T>::apply(std::string_view {data}, 0);
                 if (!r) {
                     return std::nullopt;
                 }
@@ -1799,14 +1800,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
         template <class T>
         struct RunCBORDeserializerWithNameList<T, 0> {
-            static std::optional<std::tuple<T,size_t>> apply(std::string const &data, size_t start, std::array<std::string,0> const &) {
+            static std::optional<std::tuple<T,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string,0> const &) {
                 return RunCBORDeserializer<T>::apply(data, start);
             }
         };
 
         template <class T>
         struct RunCBORDeserializerWithNameList<T, 1> {
-            static std::optional<std::tuple<T,size_t>> apply(std::string const &data, size_t start, std::array<std::string,1> const &names) {
+            static std::optional<std::tuple<T,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string,1> const &names) {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
@@ -1871,7 +1872,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <class VersionType, class DataType, class Cmp>
         struct RunCBORDeserializer<infra::VersionedData<VersionType,DataType,Cmp>, void> {
-            static std::optional<std::tuple<infra::VersionedData<VersionType,DataType,Cmp>,size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<infra::VersionedData<VersionType,DataType,Cmp>,size_t>> apply(std::string_view const &data, size_t start) {
                 auto x = RunCBORDeserializerWithNameList<std::tuple<VersionType,DataType>, 2>::apply(
                     data, start
                     , {"version", "data"}
@@ -1886,7 +1887,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <class GroupIDType, class VersionType, class DataType, class Cmp>
         struct RunCBORDeserializer<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>, void> {
-            static std::optional<std::tuple<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>,size_t>> apply(std::string const &data, size_t start) {
+            static std::optional<std::tuple<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>,size_t>> apply(std::string_view const &data, size_t start) {
                 auto x = RunCBORDeserializerWithNameList<std::tuple<GroupIDType,VersionType,DataType>, 3>::apply(
                     data, start
                     , {"groupID", "version", "data"}
@@ -1948,7 +1949,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             return RunCBORSerializer<ByteData>::apply(ByteData {s});
         }
         template <class T, class Enable>
-        std::optional<std::tuple<T,size_t>> RunCBORDeserializer<T,Enable>::apply(std::string const &data, size_t start) {
+        std::optional<std::tuple<T,size_t>> RunCBORDeserializer<T,Enable>::apply(std::string_view const &data, size_t start) {
             auto t = RunCBORDeserializer<ByteData>::apply(data, start);
             if (t) {
                 auto x = RunDeserializer<T>::apply(std::get<0>(*t).content);

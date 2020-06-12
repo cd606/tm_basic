@@ -221,7 +221,7 @@ namespace bytedata_utils {
     };
     template <class KeyType, class DataType>
     struct RunCBORDeserializer<transaction::InsertAction<KeyType,DataType>, void> {
-        static std::optional<std::tuple<transaction::InsertAction<KeyType,DataType>,size_t>> apply(std::string const &data, size_t start) {
+        static std::optional<std::tuple<transaction::InsertAction<KeyType,DataType>,size_t>> apply(std::string_view const &data, size_t start) {
             auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, DataType>,2>
                 ::apply(data, start, {
                     "key", "data"
@@ -250,7 +250,7 @@ namespace bytedata_utils {
     };
     template <class KeyType, class VersionType, class DataSummaryType, class DataDeltaType>
     struct RunCBORDeserializer<transaction::UpdateAction<KeyType,VersionType,DataSummaryType,DataDeltaType>, void> {
-        static std::optional<std::tuple<transaction::UpdateAction<KeyType,VersionType,DataSummaryType,DataDeltaType>,size_t>> apply(std::string const &data, size_t start) {
+        static std::optional<std::tuple<transaction::UpdateAction<KeyType,VersionType,DataSummaryType,DataDeltaType>,size_t>> apply(std::string_view const &data, size_t start) {
             auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, VersionType, DataSummaryType, DataDeltaType>, 4>
                 ::apply(data, start, {
                     "key", "old_version", "old_data_summary", "data_delta"
@@ -281,7 +281,7 @@ namespace bytedata_utils {
     };
     template <class KeyType, class VersionType, class DataSummaryType>
     struct RunCBORDeserializer<transaction::DeleteAction<KeyType,VersionType,DataSummaryType>, void> {
-        static std::optional<std::tuple<transaction::DeleteAction<KeyType,VersionType,DataSummaryType>,size_t>> apply(std::string const &data, size_t start) {
+        static std::optional<std::tuple<transaction::DeleteAction<KeyType,VersionType,DataSummaryType>,size_t>> apply(std::string_view const &data, size_t start) {
             auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, VersionType, DataSummaryType>, 3>
                 ::apply(data, start, {
                     "key", "old_version", "old_data_summary"
@@ -311,7 +311,7 @@ namespace bytedata_utils {
     };
     template <class KeyType>
     struct RunCBORDeserializer<transaction::Subscription<KeyType>, void> {
-        static std::optional<std::tuple<transaction::Subscription<KeyType>,size_t>> apply(std::string const &data, size_t start) {
+        static std::optional<std::tuple<transaction::Subscription<KeyType>,size_t>> apply(std::string_view const &data, size_t start) {
             auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType>, 1>
                 ::apply(data, start, {
                     "key"
@@ -339,7 +339,7 @@ namespace bytedata_utils {
     };
     template <class IDType, class KeyType>
     struct RunCBORDeserializer<transaction::Unsubscription<IDType,KeyType>, void> {
-        static std::optional<std::tuple<transaction::Unsubscription<IDType,KeyType>,size_t>> apply(std::string const &data, size_t start) {
+        static std::optional<std::tuple<transaction::Unsubscription<IDType,KeyType>,size_t>> apply(std::string_view const &data, size_t start) {
             auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<IDType, KeyType>, 2>
                 ::apply(data, start, {
                     "original_subscription_id", "key"
