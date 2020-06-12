@@ -218,6 +218,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return r;
             }
         };
+        template <>
+        struct RunCBORSerializer<ByteDataWithTopic, void> {
+            static std::vector<uint8_t> apply(ByteDataWithTopic const &data) {
+                auto v = RunCBORSerializer<size_t>::apply(2);
+                v[0] = v[0] | 0x80;
+                auto v1 = RunCBORSerializer<std::string>::apply(data.topic);
+                v.insert(v.end(), v1.begin(), v1.end());
+                auto v2 = RunCBORSerializer<size_t>::apply(data.content.length());
+                size_t prefixLen = v2.size();
+                v2.resize(prefixLen+data.content.length());
+                std::memcpy(v2.data()+prefixLen, data.content.c_str(), data.content.length());
+                v2[0] = v2[0] | 0x40;
+                v.insert(v.end(), v2.begin(), v2.end());
+                return v;
+            }
+        };
         template <class A>
         struct RunCBORSerializer<std::vector<A>, void> {
             static std::vector<uint8_t> apply(std::vector<A> const &data) {
@@ -598,6 +614,39 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 return std::tuple<ByteData, size_t> {ByteData {data.substr(start+std::get<1>(*v), std::get<0>(*v))}, std::get<0>(*v)+std::get<1>(*v)};
+            }
+        };
+        template <>
+        struct RunCBORDeserializer<ByteDataWithTopic, void> {
+            static std::optional<std::tuple<ByteDataWithTopic, size_t>> apply(std::string const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto n = parseCBORUnsignedInt<size_t>(data, start);
+                if (!n) {
+                    return std::nullopt;
+                }
+                if (std::get<0>(*n) != 2) {
+                    return std::nullopt;
+                }
+                size_t accumLen = std::get<1>(*n);
+                auto topic = RunCBORDeserializer<std::string>::apply(data, start+accumLen);
+                if (!topic) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*topic);
+                auto content = RunCBORDeserializer<ByteData>::apply(data, start+accumLen);
+                if (!content) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*content);
+                return std::tuple<ByteDataWithTopic, size_t> {
+                    ByteDataWithTopic {std::move(std::get<0>(*topic)), std::move(std::get<0>(*content).content)}
+                    , accumLen
+                };
             }
         };
         template <class A>
@@ -984,6 +1033,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return std::string {p, p+8};
             }
         };
+        template <>
+        struct RunSerializer<ByteDataWithTopic, void> {
+            static std::string apply(ByteDataWithTopic const &data) {
+                std::ostringstream oss;
+                oss << RunSerializer<uint32_t>::apply(data.topic.length())
+                    << data.topic
+                    << data.content;
+                return oss.str();
+            }
+        };
         template <class A>
         struct RunSerializer<std::unique_ptr<A>, void> {
             static std::string apply(std::unique_ptr<A> const &data) {
@@ -1257,6 +1316,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 double f;
                 std::memcpy(&f, &dBuf, 8);
                 return {f};
+            }
+        };
+        template <>
+        struct RunDeserializer<ByteDataWithTopic, void> {
+            static std::optional<ByteDataWithTopic> apply(std::string const &data) {
+                if (data.length() < sizeof(uint32_t)) {
+                    return std::nullopt;
+                }
+                auto topicLen = RunDeserializer<uint32_t>::apply(data.substr(0, sizeof(uint32_t)));
+                if (!topicLen) {
+                    return std::nullopt;
+                }
+                if (data.length() < *topicLen+sizeof(uint32_t)) {
+                    return std::nullopt;
+                }
+                return ByteDataWithTopic {
+                    data.substr(sizeof(uint32_t), *topicLen)
+                    , data.substr(*topicLen+sizeof(uint32_t))
+                };
             }
         };
         template <class A>
