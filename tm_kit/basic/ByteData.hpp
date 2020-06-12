@@ -235,6 +235,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return v;
             }
         };
+        template <>
+        struct RunCBORSerializer<ByteDataWithID, void> {
+            static std::vector<uint8_t> apply(ByteDataWithID const &data) {
+                auto v = RunCBORSerializer<size_t>::apply(2);
+                v[0] = v[0] | 0x80;
+                auto v1 = RunCBORSerializer<std::string>::apply(data.id);
+                v.insert(v.end(), v1.begin(), v1.end());
+                auto v2 = RunCBORSerializer<size_t>::apply(data.content.length());
+                size_t prefixLen = v2.size();
+                v2.resize(prefixLen+data.content.length());
+                std::memcpy(v2.data()+prefixLen, data.content.c_str(), data.content.length());
+                v2[0] = v2[0] | 0x40;
+                v.insert(v.end(), v2.begin(), v2.end());
+                return v;
+            }
+        };
         template <class A>
         struct RunCBORSerializer<std::vector<A>, void> {
             static std::vector<uint8_t> apply(std::vector<A> const &data) {
@@ -650,6 +666,39 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 };
             }
         };
+        template <>
+        struct RunCBORDeserializer<ByteDataWithID, void> {
+            static std::optional<std::tuple<ByteDataWithID, size_t>> apply(std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto n = parseCBORUnsignedInt<size_t>(data, start);
+                if (!n) {
+                    return std::nullopt;
+                }
+                if (std::get<0>(*n) != 2) {
+                    return std::nullopt;
+                }
+                size_t accumLen = std::get<1>(*n);
+                auto id = RunCBORDeserializer<std::string>::apply(data, start+accumLen);
+                if (!id) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*id);
+                auto content = RunCBORDeserializer<ByteData>::apply(data, start+accumLen);
+                if (!content) {
+                    return std::nullopt;
+                }
+                accumLen += std::get<1>(*content);
+                return std::tuple<ByteDataWithID, size_t> {
+                    ByteDataWithID {std::move(std::get<0>(*id)), std::move(std::get<0>(*content).content)}
+                    , accumLen
+                };
+            }
+        };
         template <class A>
         struct RunCBORDeserializer<std::vector<A>, void> {
             static std::optional<std::tuple<std::vector<A>, size_t>> apply(std::string_view const &data, size_t start) {
@@ -1044,6 +1093,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return oss.str();
             }
         };
+        template <>
+        struct RunSerializer<ByteDataWithID, void> {
+            static std::string apply(ByteDataWithID const &data) {
+                std::ostringstream oss;
+                oss << RunSerializer<uint32_t>::apply(data.id.length())
+                    << data.id
+                    << data.content;
+                return oss.str();
+            }
+        };
         template <class A>
         struct RunSerializer<std::unique_ptr<A>, void> {
             static std::string apply(std::unique_ptr<A> const &data) {
@@ -1335,6 +1394,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return ByteDataWithTopic {
                     data.substr(sizeof(uint32_t), *topicLen)
                     , data.substr(*topicLen+sizeof(uint32_t))
+                };
+            }
+        };
+        template <>
+        struct RunDeserializer<ByteDataWithID, void> {
+            static std::optional<ByteDataWithID> apply(std::string const &data) {
+                if (data.length() < sizeof(uint32_t)) {
+                    return std::nullopt;
+                }
+                auto idLen = RunDeserializer<uint32_t>::apply(data.substr(0, sizeof(uint32_t)));
+                if (!idLen) {
+                    return std::nullopt;
+                }
+                if (data.length() < *idLen+sizeof(uint32_t)) {
+                    return std::nullopt;
+                }
+                return ByteDataWithID {
+                    data.substr(sizeof(uint32_t), *idLen)
+                    , data.substr(*idLen+sizeof(uint32_t))
                 };
             }
         };
