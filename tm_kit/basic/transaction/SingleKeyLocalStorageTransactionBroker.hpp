@@ -26,6 +26,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         , class DataDeltaType = DataType
         , class ApplyDelta = CopyApplier<DataType>
         , class Cmp = std::less<VersionType>
+        , class KeyHash = std::hash<KeyType>
     >
     class SingleKeyLocalStorageTransactionBroker final
         :
@@ -46,7 +47,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             typename TI::OneValue currentValue;
             std::unordered_set<typename M::EnvironmentType::IDType, typename M::EnvironmentType::IDHash> subscribers;
         };
-        std::unordered_map<KeyType, OneKeyInfo> dataMap_;
+        std::unordered_map<KeyType, OneKeyInfo, KeyHash> dataMap_;
         std::unordered_map<typename M::EnvironmentType::IDType, std::string, typename M::EnvironmentType::IDHash> idToAccount_;
         std::mutex mutex_;
         CheckSummary checkSummary_;
