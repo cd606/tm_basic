@@ -243,9 +243,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
             typename M::template Data<typename M::template Key<B>> operator()(typename M::template InnerData<typename M::template Key<A>> &&x) {
                 auto a = typename M::template InnerData<A> {
-                    x.environment, {x.timedData.timePoint, std::move(x.timedData.value.key()), x.timedData.finalFlag}
+                    x.environment, {x.timedData.timePoint, x.timedData.value.key(), x.timedData.finalFlag}
                 };
-                auto id = std::move(x.timedData.value.id());
+                auto id = x.timedData.value.id();
                 auto b = f_(std::move(a));
                 if (b) {
                     return {typename M::template InnerData<typename M::template Key<B>> {
