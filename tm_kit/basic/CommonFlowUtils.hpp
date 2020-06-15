@@ -24,12 +24,32 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         }
 
+        template <class T>
+        static typename infra::KleisliUtils<M>::template KleisliFunction<T,infra::Key<T,TheEnvironment>> keyify() {
+            return infra::KleisliUtils<M>::template liftPure<T>(
+                [](T &&x) -> infra::Key<T,TheEnvironment>
+                {
+                    return infra::withtime_utils::keyify<T,TheEnvironment>(std::move(x));
+                }
+            );
+        }
+
         template <class A, class B>
         static typename infra::KleisliUtils<M>::template KleisliFunction<infra::KeyedData<A,B,TheEnvironment>,B> extractDataFromKeyedData() {
             return infra::KleisliUtils<M>::template liftPure<infra::KeyedData<A,B,TheEnvironment>>(
                 [](infra::KeyedData<A,B,TheEnvironment> &&x) -> B
                 {
                     return std::move(x.data);
+                }
+            );
+        }
+
+        template <class A, class B>
+        static typename infra::KleisliUtils<M>::template KleisliFunction<infra::KeyedData<A,B,TheEnvironment>,infra::Key<B,TheEnvironment>> extractIDAndDataFromKeyedData() {
+            return infra::KleisliUtils<M>::template liftPure<infra::KeyedData<A,B,TheEnvironment>>(
+                [](infra::KeyedData<A,B,TheEnvironment> &&x) -> infra::Key<B,TheEnvironment>
+                {
+                    return {std::move(x.key.id()), std::move(x.data)};
                 }
             );
         }

@@ -481,7 +481,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     private:
         Cmp cmp_;
         ApplyDelta applyDelta_;
-        std::unordered_map<KeyType, std::tuple<VersionType, DataType>, KeyHash> store_;
+        std::unordered_map<KeyType, std::tuple<VersionType, std::optional<DataType>>, KeyHash> store_;
         std::mutex mutex_;
 
         using TI = SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::EnvironmentType::IDType,DataSummaryType,DataDeltaType,Cmp>;
@@ -495,7 +495,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                     if (!v.data) {
                         if (iter != store_.end()) {
                             if (cmp_(std::get<0>(iter->second), v.version)) {
-                                store_.erase(iter);
+                                std::get<0>(iter->second) = v.version;
+                                std::get<1>(iter->second) = std::nullopt;
                                 return v;
                             } else {
                                 return std::nullopt;
@@ -505,11 +506,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                         }
                     }
                     if (iter == store_.end()) {
-                        store_.insert(std::make_pair(v.groupID, std::tuple<VersionType, DataType>(v.version, *(v.data))));
+                        store_.insert(std::make_pair(v.groupID, std::tuple<VersionType, std::optional<DataType>>(v.version, v.data)));
                         return v;
                     }
                     if (cmp_(std::get<0>(iter->second), v.version)) {
-                        iter->second = std::tuple<VersionType, DataType>(v.version, *(v.data));
+                        iter->second = std::tuple<VersionType, std::optional<DataType>>(v.version, v.data);
                         return v;
                     }
                     return std::nullopt;
@@ -522,11 +523,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                     if (iter == store_.end()) {
                         return std::nullopt;
                     }
+                    if (!std::get<1>(iter->second)) {
+                        return std::nullopt;
+                    }
                     if (!cmp_(std::get<0>(iter->second), v.version)) {
                         return std::nullopt;
                     }
                     std::get<0>(iter->second) = v.version;
-                    applyDelta_(std::get<1>(iter->second), v.data);
+                    applyDelta_(*(std::get<1>(iter->second)), v.data);
                     return typename TI::OneValue {
                         iter->first
                         , std::get<0>(iter->second)
