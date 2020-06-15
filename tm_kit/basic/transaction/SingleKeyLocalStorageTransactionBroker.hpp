@@ -487,17 +487,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         using TI = SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::EnvironmentType::IDType,DataSummaryType,DataDeltaType,Cmp>;
         
         std::optional<typename TI::OneValue> handle(typename TI::FacilityOutput &&x) {
-            switch (x.index()) {
+            switch (x.value.index()) {
             case 3: //OneValue
                 {
-                    auto v = std::move(std::get<3>(x));
+                    typename TI::OneValue v = std::move(std::get<3>(x.value));
                     auto iter = store_.find(v.groupID);
+                    if (!v.data) {
+                        if (iter != store_.end()) {
+                            if (cmp_(std::get<0>(iter->second), v.version)) {
+                                store_.erase(iter);
+                                return v;
+                            } else {
+                                return std::nullopt;
+                            }
+                        } else {
+                            return v;
+                        }
+                    }
                     if (iter == store_.end()) {
-                        store_.insert(std::make_pair(v.groupID, std::tuple<VersionType, DataType> {v.version, v.data}));
+                        store_.insert(std::make_pair(v.groupID, std::tuple<VersionType, DataType>(v.version, *(v.data))));
                         return v;
                     }
                     if (cmp_(std::get<0>(iter->second), v.version)) {
-                        iter->second = std::tuple<VersionType, DataType> {v.version, v.data};
+                        iter->second = std::tuple<VersionType, DataType>(v.version, *(v.data));
                         return v;
                     }
                     return std::nullopt;
@@ -505,7 +517,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 break;
             case 4: //OneDelta
                 {
-                    auto v = std::move(std::get<4>(x));
+                    typename TI::OneDelta v = std::move(std::get<4>(x.value));
                     auto iter = store_.find(v.groupID);
                     if (iter == store_.end()) {
                         return std::nullopt;

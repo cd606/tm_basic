@@ -24,6 +24,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         }
 
+        template <class A, class B>
+        static typename infra::KleisliUtils<M>::template KleisliFunction<infra::KeyedData<A,B,TheEnvironment>,B> extractDataFromKeyedData() {
+            return infra::KleisliUtils<M>::template liftPure<infra::KeyedData<A,B,TheEnvironment>>(
+                [](infra::KeyedData<A,B,TheEnvironment> &&x) -> B
+                {
+                    return std::move(x.data);
+                }
+            );
+        }
+
         template <class T>
         static typename infra::KleisliUtils<M>::template KleisliFunction<T,std::tuple<T,T>> duplicateInput() {
             return
