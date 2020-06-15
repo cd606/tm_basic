@@ -15,6 +15,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         using TheEnvironment = typename M::EnvironmentType;
 
         template <class T>
+        static typename infra::KleisliUtils<M>::template KleisliFunction<T,T> idFunc() {
+            return infra::KleisliUtils<M>::template liftPure<T>(
+                [](T &&x) -> T
+                {
+                    return std::move(x);
+                }
+            );
+        }
+
+        template <class T>
         static typename infra::KleisliUtils<M>::template KleisliFunction<T,std::tuple<T,T>> duplicateInput() {
             return
                 [](typename M::template InnerData<T> &&x) -> typename M::template Data<std::tuple<T,T>>

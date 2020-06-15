@@ -464,6 +464,88 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         }
     };
 
+    template <
+        class M
+        , class KeyType
+        , class DataType
+        , class VersionType
+        , bool MutexProtected = false
+        , class DataSummaryType = DataType
+        , class CheckSummary = std::equal_to<DataType>
+        , class DataDeltaType = DataType
+        , class ApplyDelta = CopyApplier<DataType>
+        , class Cmp = std::less<VersionType>
+        , class KeyHash = std::hash<KeyType>
+    >
+    class TITransactionFacilityOutputToData {
+    private:
+        Cmp cmp_;
+        ApplyDelta applyDelta_;
+        std::unordered_map<KeyType, std::tuple<VersionType, DataType>, KeyHash> store_;
+        std::mutex mutex_;
+
+        using TI = SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::EnvironmentType::IDType,DataSummaryType,DataDeltaType,Cmp>;
+        
+        std::optional<typename TI::OneValue> handle(typename TI::FacilityOutput &&x) {
+            switch (x.index()) {
+            case 3: //OneValue
+                {
+                    auto v = std::move(std::get<3>(x));
+                    auto iter = store_.find(v.groupID);
+                    if (iter == store_.end()) {
+                        store_.insert(std::make_pair(v.groupID, std::tuple<VersionType, DataType> {v.version, v.data}));
+                        return v;
+                    }
+                    if (cmp_(std::get<0>(iter->second), v.version)) {
+                        iter->second = std::tuple<VersionType, DataType> {v.version, v.data};
+                        return v;
+                    }
+                    return std::nullopt;
+                }
+                break;
+            case 4: //OneDelta
+                {
+                    auto v = std::move(std::get<4>(x));
+                    auto iter = store_.find(v.groupID);
+                    if (iter == store_.end()) {
+                        return std::nullopt;
+                    }
+                    if (!cmp_(std::get<0>(iter->second), v.version)) {
+                        return std::nullopt;
+                    }
+                    std::get<0>(iter->second) = v.version;
+                    applyDelta_(std::get<1>(iter->second), v.data);
+                    return typename TI::OneValue {
+                        iter->first
+                        , std::get<0>(iter->second)
+                        , std::get<1>(iter->second)
+                    };
+                }
+                break;
+            default:
+                return std::nullopt;
+            }
+        }
+    public:
+        TITransactionFacilityOutputToData() : cmp_(), applyDelta_(), store_(), mutex_() {
+        }
+        TITransactionFacilityOutputToData(TITransactionFacilityOutputToData &&d) :
+            cmp_(std::move(d.cmp_)), applyDelta_(std::move(d.applyDelta_)), store_(std::move(d.store_)), mutex_() {}
+        TITransactionFacilityOutputToData &operator=(TITransactionFacilityOutputToData &&d) {
+            cmp_ = std::move(d.cmp_);
+            applyDelta_ = std::move(d.applyDelta_);
+            store_ = std::move(d.store_);        
+        }
+        std::optional<typename TI::OneValue> operator()(typename TI::FacilityOutput &&x) {
+            if (MutexProtected) {
+                std::lock_guard<std::mutex> _(mutex_);
+                return handle(std::move(x));
+            } else {
+                return handle(std::move(x));
+            }
+        }
+    };
+
 } } } } } 
 
 #endif
