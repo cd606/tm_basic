@@ -547,11 +547,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         }
         TITransactionFacilityOutputToData(TITransactionFacilityOutputToData &&d) :
             cmp_(std::move(d.cmp_)), applyDelta_(std::move(d.applyDelta_)), store_(std::move(d.store_)), mutex_() {}
-        TITransactionFacilityOutputToData &operator=(TITransactionFacilityOutputToData &&d) {
-            cmp_ = std::move(d.cmp_);
-            applyDelta_ = std::move(d.applyDelta_);
-            store_ = std::move(d.store_);        
-        }
+        TITransactionFacilityOutputToData &operator=(TITransactionFacilityOutputToData &&d) = delete;
+        TITransactionFacilityOutputToData(TITransactionFacilityOutputToData const &d) :
+            cmp_(d.cmp_), applyDelta_(d.applyDelta_), store_(d.store_), mutex_() {}
+        TITransactionFacilityOutputToData &operator=(TITransactionFacilityOutputToData const &d) = delete;    
         std::optional<typename TI::OneValue> operator()(typename TI::FacilityOutput &&x) {
             if (MutexProtected) {
                 std::lock_guard<std::mutex> _(mutex_);

@@ -230,6 +230,42 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static FanOut<A,F,G> fanOut(F &&f, G &&g) {
             return FanOut<A,F,G>(std::move(f), std::move(g));
         }
+
+    private:
+        template <class A, class F>
+        class WithKey {
+        private:
+            F f_;
+        public:
+            WithKey(F &&f) : f_(std::move(f)) {}
+
+            using B = typename decltype(f_(std::move(* (typename M::template InnerData<A> *)nullptr)))::value_type::ValueType;
+
+            typename M::template Data<typename M::template Key<B>> operator()(typename M::template InnerData<typename M::template Key<A>> &&x) {
+                auto a = typename M::template InnerData<A> {
+                    x.environment, {x.timedData.timePoint, std::move(x.timedData.value.key()), x.timedData.finalFlag}
+                };
+                auto id = std::move(x.timedData.value.id());
+                auto b = f_(std::move(a));
+                if (b) {
+                    return {typename M::template InnerData<typename M::template Key<B>> {
+                        b->environment
+                        , {b->timedData.timePoint
+                            , typename M::template Key<B> {std::move(id), std::move(b->timedData.value)}
+                            , b->timedData.finalFlag 
+                        }
+                    }};
+                } else {
+                    return std::nullopt;
+                }
+            }
+        };
+    public:
+        template <class A, class F>
+        static WithKey<A,F> withKey(F &&innerFunc) {
+            return WithKey<A,F>(std::move(innerFunc));
+        }
+        
     private:
         template <class A, class F>
         class PureFilter {
