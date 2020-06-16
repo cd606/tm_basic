@@ -265,6 +265,112 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static WithKey<A,F> withKey(F &&innerFunc) {
             return WithKey<A,F>(std::move(innerFunc));
         }
+
+    private:
+        template <class K, class A, class F>
+        class WithKeyAndInput {
+        private:
+            F f_;
+        public:
+            WithKeyAndInput(F &&f) : f_(std::move(f)) {}
+
+            using B = typename decltype(f_(std::move(* (typename M::template InnerData<A> *)nullptr)))::value_type::ValueType;
+
+            typename M::template Data<typename M::template KeyedData<K,B>> operator()(typename M::template InnerData<typename M::template KeyedData<K,A>> &&x) {
+                auto a = typename M::template InnerData<A> {
+                    x.environment, {x.timedData.timePoint, std::move(x.timedData.value.data), x.timedData.finalFlag}
+                };
+                auto input = std::move(x.timedData.value.key);
+                auto b = f_(std::move(a));
+                if (b) {
+                    return {typename M::template InnerData<typename M::template KeyedData<K,B>> {
+                        b->environment
+                        , {b->timedData.timePoint
+                            , typename M::template KeyedData<K,B> {std::move(input), std::move(b->timedData.value)}
+                            , b->timedData.finalFlag 
+                        }
+                    }};
+                } else {
+                    return std::nullopt;
+                }
+            }
+        };
+    public:
+        template <class K, class A, class F>
+        static WithKeyAndInput<K,A,F> withKeyAndInput(F &&innerFunc) {
+            return WithKeyAndInput<K,A,F>(std::move(innerFunc));
+        }
+
+    private:
+        template <class V, class A, class F, class Cmp=std::less<V>>
+        class WithVersion {
+        private:
+            F f_;
+        public:
+            WithVersion(F &&f) : f_(std::move(f)) {}
+
+            using B = typename decltype(f_(std::move(* (typename M::template InnerData<A> *)nullptr)))::value_type::ValueType;
+
+            typename M::template Data<infra::VersionedData<V,B,Cmp>> operator()(typename M::template InnerData<infra::VersionedData<V,A,Cmp>> &&x) {
+                auto a = typename M::template InnerData<A> {
+                    x.environment, {x.timedData.timePoint, std::move(x.timedData.value.data), x.timedData.finalFlag}
+                };
+                auto v = std::move(x.timedData.value.version);
+                auto b = f_(std::move(a));
+                if (b) {
+                    return {typename M::template InnerData<infra::VersionedData<V,B,Cmp>> {
+                        b->environment
+                        , {b->timedData.timePoint
+                            , infra::VersionedData<V,B,Cmp> {std::move(v), std::move(b->timedData.value)}
+                            , b->timedData.finalFlag 
+                        }
+                    }};
+                } else {
+                    return std::nullopt;
+                }
+            }
+        };
+    public:
+        template <class V, class A, class F, class Cmp=std::less<V>>
+        static WithVersion<V,A,F,Cmp> withVersion(F &&innerFunc) {
+            return WithVersion<V,A,F,Cmp>(std::move(innerFunc));
+        }
+
+    private:
+        template <class G, class V, class A, class F, class Cmp=std::less<V>>
+        class WithGroupAndVersion {
+        private:
+            F f_;
+        public:
+            WithGroupAndVersion(F &&f) : f_(std::move(f)) {}
+
+            using B = typename decltype(f_(std::move(* (typename M::template InnerData<A> *)nullptr)))::value_type::ValueType;
+
+            typename M::template Data<infra::GroupedVersionedData<G,V,B,Cmp>> operator()(typename M::template InnerData<infra::GroupedVersionedData<G,V,A,Cmp>> &&x) {
+                auto a = typename M::template InnerData<A> {
+                    x.environment, {x.timedData.timePoint, std::move(x.timedData.value.data), x.timedData.finalFlag}
+                };
+                auto g = std::move(x.timedData.value.groupID);
+                auto v = std::move(x.timedData.value.version);
+                auto b = f_(std::move(a));
+                if (b) {
+                    return {typename M::template InnerData<infra::GroupedVersionedData<G,V,B,Cmp>> {
+                        b->environment
+                        , {b->timedData.timePoint
+                            , infra::GroupedVersionedData<G,V,B,Cmp> {std::move(g), std::move(v), std::move(b->timedData.value)}
+                            , b->timedData.finalFlag 
+                        }
+                    }};
+                } else {
+                    return std::nullopt;
+                }
+            }
+        };
+    public:
+        template <class G, class V, class A, class F, class Cmp=std::less<V>>
+        static WithGroupAndVersion<G,V,A,F,Cmp> withVersion(F &&innerFunc) {
+            return WithGroupAndVersion<G,V,A,F,Cmp>(std::move(innerFunc));
+        }
         
     private:
         template <class A, class F>
