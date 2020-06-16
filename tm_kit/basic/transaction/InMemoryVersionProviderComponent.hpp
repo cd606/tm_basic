@@ -17,7 +17,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         std::mutex mutex_;
         std::unordered_map<KeyType,int64_t> version_;
     public:
-        InMemoryVersionProviderComponent(std::string const &filePath) 
+        InMemoryVersionProviderComponent() 
             : mutex_(), version_()
         {
 

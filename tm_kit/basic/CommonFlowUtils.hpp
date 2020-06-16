@@ -368,7 +368,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
     public:
         template <class G, class V, class A, class F, class Cmp=std::less<V>>
-        static WithGroupAndVersion<G,V,A,F,Cmp> withVersion(F &&innerFunc) {
+        static WithGroupAndVersion<G,V,A,F,Cmp> withGroupAndVersion(F &&innerFunc) {
             return WithGroupAndVersion<G,V,A,F,Cmp>(std::move(innerFunc));
         }
         
