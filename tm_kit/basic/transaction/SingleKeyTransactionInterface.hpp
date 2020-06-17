@@ -181,10 +181,11 @@ namespace transaction {
         using TransactionSuccess = ConstType<100>;
         using TransactionFailurePermission = ConstType<101>;
         using TransactionFailurePrecondition = ConstType<102>;
-        using TransactionResult = std::variant<TransactionSuccess,TransactionFailurePermission,TransactionFailurePrecondition>;
+        using TransactionHandledAsynchronously = ConstType<103>;
+        using TransactionResult = std::variant<TransactionSuccess,TransactionFailurePermission,TransactionFailurePrecondition,TransactionHandledAsynchronously>;
 
-        using SubscriptionAck = ConstType<103>;
-        using UnsubscriptionAck = ConstType<104>;
+        using SubscriptionAck = ConstType<201>;
+        using UnsubscriptionAck = ConstType<202>;
 
         using BasicFacilityInput = CBOR<std::variant<
                                     Transaction
