@@ -181,8 +181,8 @@ namespace transaction {
         using TransactionSuccess = ConstType<100>;
         using TransactionFailurePermission = ConstType<101>;
         using TransactionFailurePrecondition = ConstType<102>;
-        using TransactionHandledAsynchronously = ConstType<103>;
-        using TransactionResult = std::variant<TransactionSuccess,TransactionFailurePermission,TransactionFailurePrecondition,TransactionHandledAsynchronously>;
+        using TransactionQueuedAsynchronously = ConstType<103>;
+        using TransactionResult = std::variant<TransactionSuccess,TransactionFailurePermission,TransactionFailurePrecondition,TransactionQueuedAsynchronously>;
 
         using SubscriptionAck = ConstType<201>;
         using UnsubscriptionAck = ConstType<202>;
@@ -207,6 +207,13 @@ namespace transaction {
                                 >>;
     };
 
+    template <class T>
+    class CopyApplier {
+    public:
+        void operator()(T &dest, T const &src) const {
+            dest = src;
+        }
+    };
 } 
 
 namespace bytedata_utils {

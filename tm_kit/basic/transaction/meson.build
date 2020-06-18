@@ -5,6 +5,7 @@ tm_basic_transaction_headers = [
       , 'FileBackedSingleVersionProviderComponent.hpp'
       , 'SingleKeyLocalTransactionHandlerComponent.hpp'
       , 'SingleKeyLocalStorageTransactionBroker.hpp'
+      , 'TITransactionFacilityOutputToData.hpp'
   ]
   
 install_headers(tm_basic_transaction_headers, subdir : 'tm_kit/basic/transaction')

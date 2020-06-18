@@ -9,13 +9,6 @@
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace transaction {
     
-    template <class T>
-    class CopyApplier {
-    public:
-        void operator()(T &dest, T const &src) const {
-            dest = src;
-        }
-    };
     template <
         class M
         , class KeyType
@@ -319,14 +312,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             auto requester = std::move(input.timedData.value.id());
             
             std::lock_guard<std::mutex> _(mutex_);
-            switch (std::get<1>(input.timedData.value.key()).value.index()) {
-            case 0:
-                {
-                    auto transaction = std::move(std::get<0>(std::get<1>(input.timedData.value.key()).value));
-                    switch (transaction.index()) {
-                    case 0:
-                        {
-                            auto const &insertAction = std::get<0>(transaction);
+            std::visit([this,env,handler,versionProvider,&account,&requester](auto && arg) {
+                using T = std::decay_t<decltype(arg)>;
+                if constexpr (std::is_same_v<typename TI::Transaction, T>) {
+                    auto transaction = std::move(arg);
+                    std::visit([this,env,handler,versionProvider,&account,&requester](auto const &trans) {
+                        using T1 = std::decay_t<decltype(trans)>;
+                        if constexpr (std::is_same_v<typename TI::InsertAction, T1>) {
+                            auto const &insertAction = trans;
                             if (!this->checkTransactionPrecondition(requester, insertAction)) {
                                 typename TI::TransactionResult res = typename TI::TransactionFailurePrecondition {};
                                 this->publish(
@@ -359,11 +352,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                                 }
                                 , true
                             );
-                        }
-                        break;
-                    case 1:
-                        {
-                            auto const &updateAction = std::get<1>(transaction);
+                        } else if constexpr (std::is_same_v<typename TI::UpdateAction, T1>) {
+                            auto const &updateAction = trans;
                             if (!this->checkTransactionPrecondition(requester, updateAction)) {
                                 typename TI::TransactionResult res = typename TI::TransactionFailurePrecondition {};
                                 this->publish(
@@ -394,11 +384,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                                 }
                                 , true
                             );
-                        }
-                        break;
-                    case 2:
-                        {
-                            auto const &deleteAction = std::get<2>(transaction);
+                        } else if constexpr (std::is_same_v<typename TI::DeleteAction, T1>) {
+                            auto const &deleteAction = trans;
                             if (!this->checkTransactionPrecondition(requester, deleteAction)) {
                                 typename TI::TransactionResult res = typename TI::TransactionFailurePrecondition {};
                                 this->publish(
@@ -428,11 +415,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                                     requester, typename TI::FacilityOutput { {res} }
                                 }
                                 , true
-                            );                        
-                        }
-                        break;
-                    default:
-                        {
+                            );
+                        } else {
                             typename TI::TransactionResult res = typename TI::TransactionFailurePermission {};
                             this->publish(
                                 env
@@ -442,122 +426,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                                 , true
                             );
                         }
-                        break;
-                    }
-                }
-                break;
-            case 1:
-                {
-                    auto subscription = std::move(std::get<1>(std::get<1>(input.timedData.value.key()).value));
+                    }, transaction);
+                } else if constexpr (std::is_same_v<typename TI::Subscription, T>) {
+                    auto subscription = std::move(arg);
                     this->handleSubscription(env, account, requester, subscription.key, versionProvider);
-                }
-                break;
-            case 2:
-                {
-                    auto unsubscription = std::move(std::get<2>(std::get<1>(input.timedData.value.key()).value));
+                } else if constexpr (std::is_same_v<typename TI::Unsubscription, T>) {
+                    auto unsubscription = std::move(arg);
                     this->handleUnsubscription(env, account, requester, unsubscription.originalSubscriptionID, unsubscription.key, versionProvider);
                 }
-                break;
-            default:
-                break;
-            }
-        }
-    };
-
-    template <
-        class M
-        , class KeyType
-        , class DataType
-        , class VersionType
-        , bool MutexProtected = false
-        , class DataSummaryType = DataType
-        , class CheckSummary = std::equal_to<DataType>
-        , class DataDeltaType = DataType
-        , class ApplyDelta = CopyApplier<DataType>
-        , class Cmp = std::less<VersionType>
-        , class KeyHash = std::hash<KeyType>
-    >
-    class TITransactionFacilityOutputToData {
-    private:
-        Cmp cmp_;
-        ApplyDelta applyDelta_;
-        std::unordered_map<KeyType, std::tuple<VersionType, std::optional<DataType>>, KeyHash> store_;
-        std::mutex mutex_;
-
-        using TI = SingleKeyTransactionInterface<KeyType,DataType,VersionType,typename M::EnvironmentType::IDType,DataSummaryType,DataDeltaType,Cmp>;
-        
-        std::optional<typename TI::OneValue> handle(typename TI::FacilityOutput &&x) {
-            switch (x.value.index()) {
-            case 3: //OneValue
-                {
-                    typename TI::OneValue v = std::move(std::get<3>(x.value));
-                    auto iter = store_.find(v.groupID);
-                    if (!v.data) {
-                        if (iter != store_.end()) {
-                            if (cmp_(std::get<0>(iter->second), v.version)) {
-                                std::get<0>(iter->second) = v.version;
-                                std::get<1>(iter->second) = std::nullopt;
-                                return v;
-                            } else {
-                                return std::nullopt;
-                            }
-                        } else {
-                            return v;
-                        }
-                    }
-                    if (iter == store_.end()) {
-                        store_.insert(std::make_pair(v.groupID, std::tuple<VersionType, std::optional<DataType>>(v.version, v.data)));
-                        return v;
-                    }
-                    if (cmp_(std::get<0>(iter->second), v.version)) {
-                        iter->second = std::tuple<VersionType, std::optional<DataType>>(v.version, v.data);
-                        return v;
-                    }
-                    return std::nullopt;
-                }
-                break;
-            case 4: //OneDelta
-                {
-                    typename TI::OneDelta v = std::move(std::get<4>(x.value));
-                    auto iter = store_.find(v.groupID);
-                    if (iter == store_.end()) {
-                        return std::nullopt;
-                    }
-                    if (!std::get<1>(iter->second)) {
-                        return std::nullopt;
-                    }
-                    if (!cmp_(std::get<0>(iter->second), v.version)) {
-                        return std::nullopt;
-                    }
-                    std::get<0>(iter->second) = v.version;
-                    applyDelta_(*(std::get<1>(iter->second)), v.data);
-                    return typename TI::OneValue {
-                        iter->first
-                        , std::get<0>(iter->second)
-                        , std::get<1>(iter->second)
-                    };
-                }
-                break;
-            default:
-                return std::nullopt;
-            }
-        }
-    public:
-        TITransactionFacilityOutputToData() : cmp_(), applyDelta_(), store_(), mutex_() {
-        }
-        TITransactionFacilityOutputToData(TITransactionFacilityOutputToData &&d) :
-            cmp_(std::move(d.cmp_)), applyDelta_(std::move(d.applyDelta_)), store_(std::move(d.store_)), mutex_() {}
-        TITransactionFacilityOutputToData &operator=(TITransactionFacilityOutputToData &&d) = delete;
-        TITransactionFacilityOutputToData(TITransactionFacilityOutputToData const &d) :
-            cmp_(d.cmp_), applyDelta_(d.applyDelta_), store_(d.store_), mutex_() {}
-        TITransactionFacilityOutputToData &operator=(TITransactionFacilityOutputToData const &d) = delete;    
-        std::optional<typename TI::OneValue> operator()(typename TI::FacilityOutput &&x) {
-            if (MutexProtected) {
-                std::lock_guard<std::mutex> _(mutex_);
-                return handle(std::move(x));
-            } else {
-                return handle(std::move(x));
-            }
+            }, std::move(std::get<1>(input.timedData.value.key()).value));
         }
     };
 
