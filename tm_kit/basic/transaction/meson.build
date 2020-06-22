@@ -6,6 +6,8 @@ tm_basic_transaction_headers = [
       , 'SingleKeyLocalTransactionHandlerComponent.hpp'
       , 'SingleKeyLocalStorageTransactionBroker.hpp'
       , 'TITransactionFacilityOutputToData.hpp'
+      , 'SingleKeyAsyncWatchableTransactionHandlerComponent.hpp'
+      , 'SingleKeyAsyncWatchableStorageTransactionBroker.hpp'
   ]
   
 install_headers(tm_basic_transaction_headers, subdir : 'tm_kit/basic/transaction')

@@ -42,7 +42,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         };
         std::unordered_map<KeyType, OneKeyInfo, KeyHash> dataMap_;
         std::unordered_map<typename M::EnvironmentType::IDType, std::string, typename M::EnvironmentType::IDHash> idToAccount_;
-        std::mutex mutex_;
+        std::recursive_mutex mutex_;
         CheckSummary checkSummary_;
         ApplyDelta applyDelta_;
 
@@ -64,6 +64,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             if (!iter->second.currentValue.data) {
                 return false;
             }
+            if (updateAction.forceUpdate) {
+                return true;
+            }
             if (iter->second.currentValue.version != updateAction.oldVersion) {
                 return false;
             }
@@ -79,6 +82,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             }
             if (!iter->second.currentValue.data) {
                 return false;
+            }
+            if (deleteAction.forceDelete) {
+                return true;
             }
             if (iter->second.currentValue.version != deleteAction.oldVersion) {
                 return false;
@@ -226,21 +232,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         void handleUnsubscription(typename M::EnvironmentType *env, std::string const &account, typename M::EnvironmentType::IDType const &requester, typename M::EnvironmentType::IDType const &originalSubscriptionID, KeyType const &key, VP *vp) {
             auto idToAccountIter = idToAccount_.find(originalSubscriptionID);
             if (idToAccountIter == idToAccount_.end()) {
-                typename TI::TransactionResult res = typename TI::TransactionFailurePermission {};
                 this->publish(
                     env
                     , typename M::template Key<typename TI::FacilityOutput> {
-                        requester, typename TI::FacilityOutput { {res} }
+                        requester, typename TI::FacilityOutput { {typename TI::UnsubscriptionAck {}} }
                     }
                     , true);
                 return;
             }
             if (idToAccountIter->second != account) {
-                typename TI::TransactionResult res = typename TI::TransactionFailurePermission {};
                 this->publish(
                     env
                     , typename M::template Key<typename TI::FacilityOutput> {
-                        requester, typename TI::FacilityOutput { {res} }
+                        requester, typename TI::FacilityOutput { {typename TI::UnsubscriptionAck {}} }
                     }
                     , true);
                 return;
@@ -288,7 +292,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         virtual void start(typename M::EnvironmentType *env) {
             auto *vp = static_cast<VP *>(env);
             auto initialValues = static_cast<TH *>(env)->loadInitialData();
-            std::lock_guard<std::mutex> _(mutex_);
+            std::lock_guard<std::recursive_mutex> _(mutex_);
             for (auto const &v : initialValues) {
                 auto const &key = std::get<0>(v);
                 dataMap_.insert(std::make_pair<KeyType, OneKeyInfo>(
@@ -311,7 +315,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             auto account = std::move(std::get<0>(input.timedData.value.key()));
             auto requester = std::move(input.timedData.value.id());
             
-            std::lock_guard<std::mutex> _(mutex_);
+            std::lock_guard<std::recursive_mutex> _(mutex_);
             std::visit([this,env,handler,versionProvider,&account,&requester](auto && arg) {
                 using T = std::decay_t<decltype(arg)>;
                 if constexpr (std::is_same_v<typename TI::Transaction, T>) {

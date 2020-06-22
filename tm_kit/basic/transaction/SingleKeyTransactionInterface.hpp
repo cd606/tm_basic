@@ -31,21 +31,43 @@ namespace transaction {
             return true;
         }
     };
+    //UpdateAction, if it happens successfully, is supposed to be atomic
     template <class KeyType, class VersionType, class DataSummaryType, class DataDeltaType>
     struct UpdateAction {
         KeyType key;
         VersionType oldVersion;
         DataSummaryType oldDataSummary;
         DataDeltaType dataDelta;
+        bool forceUpdate; //this field means two things:
+                          //one, that oldVersion and oldDataSummary checks
+                          //should be disabled
+                          //two, that the delta must be applied no matter
+                          //what the current stored value is, unless the delta
+                          //and the current stored value are plainly incompatible,
+                          //in which case the server is allowed to either panic
+                          //or reject the update (but registering a severe error
+                          //somewhere)
+                          //Thus, this field must be used with great caution,
+                          //since it has the potential of corrupting data and/or
+                          //causing the server to panic.
+                          //A typical situation where this flag is used is where
+                          //an external "oracle" is providing an update that must
+                          //go through. In most cases, these oracles are rare and
+                          //their updates are usually deterministic (e.g. overriding
+                          //a value, or incrementing a value, etc). In the cases 
+                          //where the oracles involve modifying complex substructures
+                          //of the value, the system has to defer to the oracle instead
+                          //of trying to impose any safety check, and it's up to 
+                          //the user of the oracle to ensure safety.
         void SerializeToString(std::string *s) const {
-            std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataDeltaType const *> t {&key, &oldVersion, &oldDataSummary, &dataDelta};
+            std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataDeltaType const *, bool const *> t {&key, &oldVersion, &oldDataSummary, &dataDelta, &forceUpdate};
             *s = bytedata_utils::RunSerializer<
-                    std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataDeltaType const *>
+                    std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataDeltaType const *, bool const *>
                 >::apply(t);
         }
         bool ParseFromString(std::string const &s) {
             auto res = bytedata_utils::RunDeserializer<
-                        std::tuple<KeyType,VersionType,DataSummaryType,DataDeltaType>
+                        std::tuple<KeyType,VersionType,DataSummaryType,DataDeltaType,bool>
                         >::apply(s);
             if (!res) {
                 return false;
@@ -54,6 +76,7 @@ namespace transaction {
             oldVersion = std::move(std::get<1>(*res));
             oldDataSummary = std::move(std::get<2>(*res));
             dataDelta = std::move(std::get<3>(*res));
+            forceUpdate = std::move(std::get<4>(*res));
             return true;
         }
     };
@@ -62,15 +85,16 @@ namespace transaction {
         KeyType key;
         VersionType oldVersion;
         DataSummaryType oldDataSummary;
+        bool forceDelete; //similar to "forceUpdate" in UpdateAction
         void SerializeToString(std::string *s) const {
-            std::tuple<KeyType const *, VersionType const *, DataSummaryType const *> t {&key, &oldVersion, &oldDataSummary};
+            std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, bool const *> t {&key, &oldVersion, &oldDataSummary, &forceDelete};
             *s = bytedata_utils::RunSerializer<
-                    std::tuple<KeyType const *, VersionType const *, DataSummaryType const *>
+                    std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, bool const *>
                 >::apply(t);
         }
         bool ParseFromString(std::string const &s) {
             auto res = bytedata_utils::RunDeserializer<
-                        std::tuple<KeyType,VersionType,DataSummaryType>
+                        std::tuple<KeyType,VersionType,DataSummaryType,bool>
                         >::apply(s);
             if (!res) {
                 return false;
@@ -78,6 +102,7 @@ namespace transaction {
             key = std::move(std::get<0>(*res));
             oldVersion = std::move(std::get<1>(*res));
             oldDataSummary = std::move(std::get<2>(*res));
+            forceDelete = std::move(std::get<3>(*res));
             return true;
         }
     };
@@ -249,19 +274,19 @@ namespace bytedata_utils {
     template <class KeyType, class VersionType, class DataSummaryType, class DataDeltaType>
     struct RunCBORSerializer<transaction::UpdateAction<KeyType,VersionType,DataSummaryType,DataDeltaType>, void> {
         static std::vector<uint8_t> apply(transaction::UpdateAction<KeyType,VersionType,DataSummaryType,DataDeltaType> const &x) {
-            std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataDeltaType const *> t {&x.key, &x.oldVersion, &x.oldDataSummary, &x.dataDelta};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataDeltaType const *>, 4>
+            std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataDeltaType const *, bool const *> t {&x.key, &x.oldVersion, &x.oldDataSummary, &x.dataDelta, &x.forceUpdate};
+            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataDeltaType const *, bool const *>, 5>
                 ::apply(t, {
-                    "key", "old_version", "old_data_summary", "data_delta"
+                    "key", "old_version", "old_data_summary", "data_delta", "force_update"
                 });
         }
     };
     template <class KeyType, class VersionType, class DataSummaryType, class DataDeltaType>
     struct RunCBORDeserializer<transaction::UpdateAction<KeyType,VersionType,DataSummaryType,DataDeltaType>, void> {
         static std::optional<std::tuple<transaction::UpdateAction<KeyType,VersionType,DataSummaryType,DataDeltaType>,size_t>> apply(std::string_view const &data, size_t start) {
-            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, VersionType, DataSummaryType, DataDeltaType>, 4>
+            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, VersionType, DataSummaryType, DataDeltaType, bool>, 5>
                 ::apply(data, start, {
-                    "key", "old_version", "old_data_summary", "data_delta"
+                    "key", "old_version", "old_data_summary", "data_delta", "force_update"
                 });
             if (!t) {
                 return std::nullopt;
@@ -272,6 +297,7 @@ namespace bytedata_utils {
                     , std::move(std::get<1>(std::get<0>(*t)))
                     , std::move(std::get<2>(std::get<0>(*t)))
                     , std::move(std::get<3>(std::get<0>(*t)))
+                    , std::move(std::get<4>(std::get<0>(*t)))
                 }
                 , std::get<1>(*t)
             };
@@ -280,19 +306,19 @@ namespace bytedata_utils {
     template <class KeyType, class VersionType, class DataSummaryType>
     struct RunCBORSerializer<transaction::DeleteAction<KeyType,VersionType,DataSummaryType>, void> {
         static std::vector<uint8_t> apply(transaction::DeleteAction<KeyType,VersionType,DataSummaryType> const &x) {
-            std::tuple<KeyType const *, VersionType const *, DataSummaryType const *> t {&x.key, &x.oldVersion, &x.oldDataSummary};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, VersionType const *, DataSummaryType const *>, 3>
+            std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, bool const *> t {&x.key, &x.oldVersion, &x.oldDataSummary, &x.forceDelete};
+            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, bool const *>, 4>
                 ::apply(t, {
-                    "key", "old_version", "old_data_summary"
+                    "key", "old_version", "old_data_summary", "force_delete"
                 });
         }
     };
     template <class KeyType, class VersionType, class DataSummaryType>
     struct RunCBORDeserializer<transaction::DeleteAction<KeyType,VersionType,DataSummaryType>, void> {
         static std::optional<std::tuple<transaction::DeleteAction<KeyType,VersionType,DataSummaryType>,size_t>> apply(std::string_view const &data, size_t start) {
-            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, VersionType, DataSummaryType>, 3>
+            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, VersionType, DataSummaryType,bool>, 4>
                 ::apply(data, start, {
-                    "key", "old_version", "old_data_summary"
+                    "key", "old_version", "old_data_summary", "force_delete"
                 });
             if (!t) {
                 return std::nullopt;
@@ -302,6 +328,7 @@ namespace bytedata_utils {
                     std::move(std::get<0>(std::get<0>(*t)))
                     , std::move(std::get<1>(std::get<0>(*t)))
                     , std::move(std::get<2>(std::get<0>(*t)))
+                    , std::move(std::get<3>(std::get<0>(*t)))
                 }
                 , std::get<1>(*t)
             };
