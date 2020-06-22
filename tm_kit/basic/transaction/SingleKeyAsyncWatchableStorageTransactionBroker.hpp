@@ -152,13 +152,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
 
                         if constexpr (std::is_same_v<typename TI::InsertAction, T1>) {
                             auto const &insertAction = trans;
-                            handler->handleInsert(requester, account, insertAction.key, insertAction.data, this);
+                            handler->handleInsert(requester, account, insertAction.key, insertAction.data, insertAction.ignoreChecks, this);
                         } else if constexpr (std::is_same_v<typename TI::UpdateAction, T1>) {
                             auto const &updateAction = trans;
-                            handler->handleUpdate(requester, account, updateAction.key, updateAction.oldVersion, updateAction.oldDataSummary, updateAction.dataDelta, updateAction.forceUpdate, this);
+                            handler->handleUpdate(requester, account, updateAction.key, updateAction.oldVersion, updateAction.oldDataSummary, updateAction.dataDelta, updateAction.ignoreChecks, this);
                         } else if constexpr (std::is_same_v<typename TI::DeleteAction, T1>) {
                             auto const &deleteAction = trans;
-                            handler->handleDelete(requester, account, deleteAction.key, deleteAction.oldVersion, deleteAction.oldDataSummary, deleteAction.forceDelete, this);
+                            handler->handleDelete(requester, account, deleteAction.key, deleteAction.oldVersion, deleteAction.oldDataSummary, deleteAction.ignoreChecks, this);
                         } else {
                             typename TI::TransactionResult res = typename TI::TransactionFailurePermission {};
                             this->publish(
@@ -179,16 +179,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 }
             }, std::move(std::get<1>(input.timedData.value.key()).value));
         }
-        virtual void onRequestDecision(IDType const &id, typename TH::RequestDecision decision) override final {
+        virtual void onRequestDecision(IDType const &id, RequestDecision decision) override final {
             typename TI::TransactionResult res {typename TI::TransactionFailurePermission {}};
             switch (decision) {
-            case TH::RequestDecision::Success:
+            case RequestDecision::Success:
                 res = typename TI::TransactionSuccess {};
                 break;
-            case TH::RequestDecision::FailurePrecondition:
+            case RequestDecision::FailurePrecondition:
                 res = typename TI::TransactionFailurePrecondition {};
                 break;
-            case TH::RequestDecision::FailurePermission:
+            case RequestDecision::FailureConsistency:
+                res = typename TI::TransactionFailureConsistency {};
+                break;
+            case RequestDecision::FailurePermission:
             default:
                 res = typename TI::TransactionFailurePermission {};
                 break;

@@ -15,11 +15,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     >
     class SingleKeyAsyncWatchableTransactionHandlerComponent {
     public:
-        enum class RequestDecision {
-            Success
-            , FailurePrecondition
-            , FailurePermission
-        };
         class Callback {
         public:
             virtual ~Callback() {}
@@ -35,6 +30,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 , std::string const &account
                 , KeyType const &key
                 , DataType const &data
+                , bool ignoreConsistencyCheckAsMuchAsPossible
                 , Callback *callback
             )
             = 0;
@@ -46,7 +42,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 , VersionType const &oldVersion
                 , DataSummaryType const &oldDataSummary
                 , DataDeltaType const &dataDelta
-                , bool forceUpdate
+                , bool ignoreConsistencyCheckAsMuchAsPossible
                 , Callback *callback
             )
             = 0;
@@ -57,7 +53,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 , KeyType const &key
                 , VersionType const &oldVersion
                 , DataSummaryType const &oldDataSummary
-                , bool forceDelete
+                , bool ignoreConsistencyCheckAsMuchAsPossible
                 , Callback *callback
             )
             = 0;

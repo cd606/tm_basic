@@ -10,24 +10,38 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     
 namespace transaction {
 
+    enum class RequestDecision {
+        Success
+        , FailurePrecondition
+        , FailurePermission
+        , FailureConsistency
+    };
+
     template <class KeyType, class DataType>
     struct InsertAction {
         KeyType key;
         DataType data;
+        bool ignoreChecks; //For the meaning of this field, see the comment
+                           //to the corresponding field in UpdateAction.
+                           //Even in insert, we might still want to ignore 
+                           //checks, because sometimes the backend will impose
+                           //some consistency check that we want to override
+                           //in extreme circumstances
         void SerializeToString(std::string *s) const {
-            std::tuple<KeyType const *, DataType const *> t {&key, &data};
-            *s = bytedata_utils::RunSerializer<std::tuple<KeyType const *, DataType const *>>
+            std::tuple<KeyType const *, DataType const *, bool const *> t {&key, &data, &ignoreChecks};
+            *s = bytedata_utils::RunSerializer<std::tuple<KeyType const *, DataType const *, bool const *>>
                 ::apply(t);
         }
         bool ParseFromString(std::string const &s) {
             auto res = bytedata_utils::RunDeserializer<
-                        std::tuple<KeyType,DataType>
+                        std::tuple<KeyType,DataType,bool>
                         >::apply(s);
             if (!res) {
                 return false;
             }
             key = std::move(std::get<0>(*res));
             data = std::move(std::get<1>(*res));
+            ignoreChecks = std::move(std::get<2>(*res));
             return true;
         }
     };
@@ -38,18 +52,14 @@ namespace transaction {
         VersionType oldVersion;
         DataSummaryType oldDataSummary;
         DataDeltaType dataDelta;
-        bool forceUpdate; //this field means two things:
-                          //one, that oldVersion and oldDataSummary checks
-                          //should be disabled
-                          //two, that the delta must be applied no matter
-                          //what the current stored value is, unless the delta
-                          //and the current stored value are plainly incompatible,
-                          //in which case the server is allowed to either panic
-                          //or reject the update (but registering a severe error
-                          //somewhere)
-                          //Thus, this field must be used with great caution,
-                          //since it has the potential of corrupting data and/or
-                          //causing the server to panic.
+        bool ignoreChecks;//This field means that oldVersion and oldDataSummary 
+                          //checks should be disabled, it also means that the server
+                          //should try to relax consistency check as much as possible.
+                          //This field must be used with great caution,
+                          //since it has the potential of double modifying (if there
+                          //are multiple server instances) or server blocking, or
+                          //bad data (if server relaxed consistency check too much),
+                          //or even server panicking.
                           //A typical situation where this flag is used is where
                           //an external "oracle" is providing an update that must
                           //go through. In most cases, these oracles are rare and
@@ -60,7 +70,7 @@ namespace transaction {
                           //of trying to impose any safety check, and it's up to 
                           //the user of the oracle to ensure safety.
         void SerializeToString(std::string *s) const {
-            std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataDeltaType const *, bool const *> t {&key, &oldVersion, &oldDataSummary, &dataDelta, &forceUpdate};
+            std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataDeltaType const *, bool const *> t {&key, &oldVersion, &oldDataSummary, &dataDelta, &ignoreChecks};
             *s = bytedata_utils::RunSerializer<
                     std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataDeltaType const *, bool const *>
                 >::apply(t);
@@ -76,7 +86,7 @@ namespace transaction {
             oldVersion = std::move(std::get<1>(*res));
             oldDataSummary = std::move(std::get<2>(*res));
             dataDelta = std::move(std::get<3>(*res));
-            forceUpdate = std::move(std::get<4>(*res));
+            ignoreChecks = std::move(std::get<4>(*res));
             return true;
         }
     };
@@ -85,9 +95,9 @@ namespace transaction {
         KeyType key;
         VersionType oldVersion;
         DataSummaryType oldDataSummary;
-        bool forceDelete; //similar to "forceUpdate" in UpdateAction
+        bool ignoreChecks; //similar to "ignoreChecks" in UpdateAction
         void SerializeToString(std::string *s) const {
-            std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, bool const *> t {&key, &oldVersion, &oldDataSummary, &forceDelete};
+            std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, bool const *> t {&key, &oldVersion, &oldDataSummary, &ignoreChecks};
             *s = bytedata_utils::RunSerializer<
                     std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, bool const *>
                 >::apply(t);
@@ -102,7 +112,7 @@ namespace transaction {
             key = std::move(std::get<0>(*res));
             oldVersion = std::move(std::get<1>(*res));
             oldDataSummary = std::move(std::get<2>(*res));
-            forceDelete = std::move(std::get<3>(*res));
+            ignoreChecks = std::move(std::get<3>(*res));
             return true;
         }
     };
@@ -206,8 +216,9 @@ namespace transaction {
         using TransactionSuccess = ConstType<100>;
         using TransactionFailurePermission = ConstType<101>;
         using TransactionFailurePrecondition = ConstType<102>;
-        using TransactionQueuedAsynchronously = ConstType<103>;
-        using TransactionResult = std::variant<TransactionSuccess,TransactionFailurePermission,TransactionFailurePrecondition,TransactionQueuedAsynchronously>;
+        using TransactionFailureConsistency = ConstType<103>;
+        using TransactionQueuedAsynchronously = ConstType<104>;
+        using TransactionResult = std::variant<TransactionSuccess,TransactionFailurePermission,TransactionFailurePrecondition,TransactionFailureConsistency,TransactionQueuedAsynchronously>;
 
         using SubscriptionAck = ConstType<201>;
         using UnsubscriptionAck = ConstType<202>;
@@ -245,19 +256,19 @@ namespace bytedata_utils {
     template <class KeyType, class DataType>
     struct RunCBORSerializer<transaction::InsertAction<KeyType,DataType>, void> {
         static std::vector<uint8_t> apply(transaction::InsertAction<KeyType,DataType> const &x) {
-            std::tuple<KeyType const *, DataType const *> t {&x.key, &x.data};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, DataType const *>, 2>
+            std::tuple<KeyType const *, DataType const *, bool const *> t {&x.key, &x.data, &x.ignoreChecks};
+            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, DataType const *, bool const *>, 3>
                 ::apply(t, {
-                    "key", "data"
+                    "key", "data", "ignore_checks"
                 });
         }
     };
     template <class KeyType, class DataType>
     struct RunCBORDeserializer<transaction::InsertAction<KeyType,DataType>, void> {
         static std::optional<std::tuple<transaction::InsertAction<KeyType,DataType>,size_t>> apply(std::string_view const &data, size_t start) {
-            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, DataType>,2>
+            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, DataType, bool>,3>
                 ::apply(data, start, {
-                    "key", "data"
+                    "key", "data", "ignore_checks"
                 });
             if (!t) {
                 return std::nullopt;
@@ -266,6 +277,7 @@ namespace bytedata_utils {
                 transaction::InsertAction<KeyType,DataType> {
                     std::move(std::get<0>(std::get<0>(*t)))
                     , std::move(std::get<1>(std::get<0>(*t)))
+                    , std::move(std::get<2>(std::get<0>(*t)))
                 }
                 , std::get<1>(*t)
             };
@@ -274,10 +286,10 @@ namespace bytedata_utils {
     template <class KeyType, class VersionType, class DataSummaryType, class DataDeltaType>
     struct RunCBORSerializer<transaction::UpdateAction<KeyType,VersionType,DataSummaryType,DataDeltaType>, void> {
         static std::vector<uint8_t> apply(transaction::UpdateAction<KeyType,VersionType,DataSummaryType,DataDeltaType> const &x) {
-            std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataDeltaType const *, bool const *> t {&x.key, &x.oldVersion, &x.oldDataSummary, &x.dataDelta, &x.forceUpdate};
+            std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataDeltaType const *, bool const *> t {&x.key, &x.oldVersion, &x.oldDataSummary, &x.dataDelta, &x.ignoreChecks};
             return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataDeltaType const *, bool const *>, 5>
                 ::apply(t, {
-                    "key", "old_version", "old_data_summary", "data_delta", "force_update"
+                    "key", "old_version", "old_data_summary", "data_delta", "ignore_checks"
                 });
         }
     };
@@ -286,7 +298,7 @@ namespace bytedata_utils {
         static std::optional<std::tuple<transaction::UpdateAction<KeyType,VersionType,DataSummaryType,DataDeltaType>,size_t>> apply(std::string_view const &data, size_t start) {
             auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, VersionType, DataSummaryType, DataDeltaType, bool>, 5>
                 ::apply(data, start, {
-                    "key", "old_version", "old_data_summary", "data_delta", "force_update"
+                    "key", "old_version", "old_data_summary", "data_delta", "ignore_checks"
                 });
             if (!t) {
                 return std::nullopt;
@@ -306,10 +318,10 @@ namespace bytedata_utils {
     template <class KeyType, class VersionType, class DataSummaryType>
     struct RunCBORSerializer<transaction::DeleteAction<KeyType,VersionType,DataSummaryType>, void> {
         static std::vector<uint8_t> apply(transaction::DeleteAction<KeyType,VersionType,DataSummaryType> const &x) {
-            std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, bool const *> t {&x.key, &x.oldVersion, &x.oldDataSummary, &x.forceDelete};
+            std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, bool const *> t {&x.key, &x.oldVersion, &x.oldDataSummary, &x.ignoreChecks};
             return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, bool const *>, 4>
                 ::apply(t, {
-                    "key", "old_version", "old_data_summary", "force_delete"
+                    "key", "old_version", "old_data_summary", "ignore_checks"
                 });
         }
     };
@@ -318,7 +330,7 @@ namespace bytedata_utils {
         static std::optional<std::tuple<transaction::DeleteAction<KeyType,VersionType,DataSummaryType>,size_t>> apply(std::string_view const &data, size_t start) {
             auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, VersionType, DataSummaryType,bool>, 4>
                 ::apply(data, start, {
-                    "key", "old_version", "old_data_summary", "force_delete"
+                    "key", "old_version", "old_data_summary", "ignore_checks"
                 });
             if (!t) {
                 return std::nullopt;

@@ -64,7 +64,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             if (!iter->second.currentValue.data) {
                 return false;
             }
-            if (updateAction.forceUpdate) {
+            if (updateAction.ignoreChecks) {
                 return true;
             }
             if (iter->second.currentValue.version != updateAction.oldVersion) {
@@ -83,7 +83,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             if (!iter->second.currentValue.data) {
                 return false;
             }
-            if (deleteAction.forceDelete) {
+            if (deleteAction.ignoreChecks) {
                 return true;
             }
             if (iter->second.currentValue.version != deleteAction.oldVersion) {
@@ -135,8 +135,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         }
         void handleTransactionResult(typename M::EnvironmentType *env, typename M::EnvironmentType::IDType const &requester, typename TI::UpdateAction const &updateAction, VP *vp) {
             auto iter = dataMap_.find(updateAction.key);
-            //iter must be there already because of precondition check
-            //also, the data must not be empty either
+            //iter must be there already because the transaction actually succeeded in the back end
             applyDelta_(*(iter->second.currentValue.data), updateAction.dataDelta);
             iter->second.currentValue.version = 
                 vp->getNextVersionForKey(updateAction.key, &(*(iter->second.currentValue.data)));
@@ -335,9 +334,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                                 );
                                 return;
                             }
-                            bool actionRes = handler->handleInsert(account, insertAction.key, insertAction.data);
-                            if (!actionRes) {
-                                typename TI::TransactionResult res = typename TI::TransactionFailurePermission {};
+                            RequestDecision actionRes = handler->handleInsert(account, insertAction.key, insertAction.data, insertAction.ignoreChecks);
+                            if (actionRes != RequestDecision::Success) {
+                                typename TI::TransactionResult res;
+                                switch (actionRes) {
+                                case RequestDecision::FailurePrecondition:
+                                    res = typename TI::TransactionFailurePrecondition {};
+                                case RequestDecision::FailureConsistency:
+                                    res = typename TI::TransactionFailureConsistency {};
+                                case RequestDecision::FailurePermission:
+                                default:
+                                    res = typename TI::TransactionFailurePermission {};
+                                }
                                 this->publish(
                                     env
                                     , typename M::template Key<typename TI::FacilityOutput> {
@@ -346,7 +354,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                                     , true
                                 );
                                 return;
-                            } 
+                            }
                             this->handleTransactionResult(env, requester, insertAction, versionProvider);
                             typename TI::TransactionResult res = typename TI::TransactionSuccess {};
                             this->publish(
@@ -368,17 +376,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                                     , true);
                                 return;
                             }
-                            bool actionRes = handler->handleUpdate(account, updateAction.key, updateAction.dataDelta);
-                            if (!actionRes) {
-                                typename TI::TransactionResult res = typename TI::TransactionFailurePermission {};
+                            RequestDecision actionRes = handler->handleUpdate(account, updateAction.key, updateAction.dataDelta, updateAction.ignoreChecks);
+                            if (actionRes != RequestDecision::Success) {
+                                typename TI::TransactionResult res;
+                                switch (actionRes) {
+                                case RequestDecision::FailurePrecondition:
+                                    res = typename TI::TransactionFailurePrecondition {};
+                                case RequestDecision::FailureConsistency:
+                                    res = typename TI::TransactionFailureConsistency {};
+                                case RequestDecision::FailurePermission:
+                                default:
+                                    res = typename TI::TransactionFailurePermission {};
+                                }
                                 this->publish(
                                     env
                                     , typename M::template Key<typename TI::FacilityOutput> {
                                         requester, typename TI::FacilityOutput { {res} }
                                     }
-                                    , true);
+                                    , true
+                                );
                                 return;
-                            } 
+                            }
                             this->handleTransactionResult(env, requester, updateAction, versionProvider);
                             typename TI::TransactionResult res = typename TI::TransactionSuccess {};
                             this->publish(
@@ -400,15 +418,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                                     , true);
                                 return;
                             }
-                            bool actionRes = handler->handleDelete(account, deleteAction.key);
-                            if (!actionRes) {
-                                typename TI::TransactionResult res = typename TI::TransactionFailurePermission {};
+                            RequestDecision actionRes = handler->handleDelete(account, deleteAction.key, deleteAction.ignoreChecks);
+                            if (actionRes != RequestDecision::Success) {
+                                typename TI::TransactionResult res;
+                                switch (actionRes) {
+                                case RequestDecision::FailurePrecondition:
+                                    res = typename TI::TransactionFailurePrecondition {};
+                                case RequestDecision::FailureConsistency:
+                                    res = typename TI::TransactionFailureConsistency {};
+                                case RequestDecision::FailurePermission:
+                                default:
+                                    res = typename TI::TransactionFailurePermission {};
+                                }
                                 this->publish(
                                     env
                                     , typename M::template Key<typename TI::FacilityOutput> {
                                         requester, typename TI::FacilityOutput { {res} }
                                     }
-                                    , true);
+                                    , true
+                                );
                                 return;
                             } 
                             this->handleTransactionResult(env, requester, deleteAction, versionProvider);

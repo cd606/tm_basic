@@ -13,27 +13,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     class SingleKeyLocalTransactionHandlerComponent {
     public:
         virtual ~SingleKeyLocalTransactionHandlerComponent() {}
-        //All the false results will be interpreted as permission failure
-        //since the assumption is that preconditions have been checked in 
-        //the broker already
-        virtual bool
+        virtual RequestDecision
             handleInsert(
                 std::string const &account
                 , KeyType const &key
                 , DataType const &data
+                , bool ignoreConsistencyCheckAsMuchAsPossible
             )
             = 0;
-        virtual bool
+        virtual RequestDecision
             handleUpdate(
                 std::string const &account
                 , KeyType const &key
                 , DataDeltaType const &dataDelta
+                , bool ignoreConsistencyCheckAsMuchAsPossible
             )
             = 0;
-        virtual bool
+        virtual RequestDecision
             handleDelete(
                 std::string const &account
                 , KeyType const &key
+                , bool ignoreConsistencyCheckAsMuchAsPossible
             )
             = 0;
         virtual std::vector<std::tuple<KeyType,DataType>> loadInitialData() = 0;
@@ -50,28 +50,31 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     {
     public:
         virtual ~ReadOnlySingleKeyLocalTransactionHandlerComponent() {}
-        virtual bool
+        virtual RequestDecision
             handleInsert(
                 std::string const &account
                 , KeyType const &key
                 , DataType const &data
+                , bool ignoreConsistencyCheckAsMuchAsPossible
             ) override final {
-            return false;
+            return RequestDecision::FailurePermission;
         }
-        virtual bool
+        virtual RequestDecision
             handleUpdate(
                 std::string const &account
                 , KeyType const &key
                 , DataDeltaType const &dataDelta
+                , bool ignoreConsistencyCheckAsMuchAsPossible
             ) override final {
-            return false;
+            return RequestDecision::FailurePermission;
         }
-        virtual bool
+        virtual RequestDecision
             handleDelete(
                 std::string const &account
                 , KeyType const &key
+                , bool ignoreConsistencyCheckAsMuchAsPossible
             ) override final {
-            return false;
+            return RequestDecision::FailurePermission;
         }
     };
 
