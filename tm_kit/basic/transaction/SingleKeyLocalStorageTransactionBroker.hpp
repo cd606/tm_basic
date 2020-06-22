@@ -288,7 +288,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             return;
         }
     public:
-        virtual void start(typename M::EnvironmentType *env) {
+        virtual void start(typename M::EnvironmentType *env) override final {
             auto *vp = static_cast<VP *>(env);
             auto initialValues = static_cast<TH *>(env)->loadInitialData();
             std::lock_guard<std::recursive_mutex> _(mutex_);

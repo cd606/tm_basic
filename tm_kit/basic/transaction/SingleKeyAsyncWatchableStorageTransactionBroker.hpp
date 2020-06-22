@@ -123,7 +123,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             }          
         }
     public:
-        virtual void start(typename M::EnvironmentType *env) {
+        virtual void start(typename M::EnvironmentType *env) override final {
             env_ = env;
             auto *handler = static_cast<TH *>(env);
             handler->initialize();
