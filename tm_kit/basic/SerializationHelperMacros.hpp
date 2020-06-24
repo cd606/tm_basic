@@ -30,12 +30,22 @@
     << x.BOOST_PP_TUPLE_ELEM(1,elem)
 #endif
 
+#define TM_BASIC_CBOR_CAPABLE_STRUCT_EQ_ITEM(r, data, elem) \
+    && (x.BOOST_PP_TUPLE_ELEM(1,elem) == y.BOOST_PP_TUPLE_ELEM(1,elem)) 
+
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_PRINT(name, content) \
-    std::ostream &operator<<(std::ostream &os, name const &x) { \
+    inline std::ostream &operator<<(std::ostream &os, name const &x) { \
         os << BOOST_PP_STRINGIZE(name) << '{' \
             BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_PRINT_ITEM,_,content) \
             << '}'; \
         return os; \
+    }
+
+#define TM_BASIC_CBOR_CAPABLE_STRUCT_EQ(name, content) \
+    inline bool operator==(name const &x, name const &y) { \
+        return (true \
+            BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EQ_ITEM,_,content) \
+            ); \
     }
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR(r, data, elem) \
@@ -129,6 +139,7 @@
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT(name, content) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_DEF(name, content) \
+    TM_BASIC_CBOR_CAPABLE_STRUCT_EQ(name, content) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_PRINT(name, content)
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_SERIALIZE(name, content) \
