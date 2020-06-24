@@ -26,7 +26,7 @@ namespace transaction { namespace v2 {
     template <class KeyType, class VersionSliceType, class DataSummaryType, class DataDeltaType>
     struct UpdateAction {
         KeyType key;
-        VersionSliceType oldVersionSlice;
+        VersionSliceType oldVersion;
         DataSummaryType oldDataSummary;
         DataDeltaType dataDelta;
     };
@@ -137,10 +137,10 @@ namespace bytedata_utils {
     template <class KeyType, class VersionSliceType, class DataSummaryType, class DataDeltaType>
     struct RunCBORSerializer<transaction::v2::UpdateAction<KeyType,VersionSliceType,DataSummaryType,DataDeltaType>, void> {
         static std::vector<uint8_t> apply(transaction::v2::UpdateAction<KeyType,VersionSliceType,DataSummaryType,DataDeltaType> const &x) {
-            std::tuple<KeyType const *, VersionSliceType const *, DataSummaryType const *, DataDeltaType const *, bool const *> t {&x.key, &x.oldVersionSlice, &x.oldDataSummary, &x.dataDelta, &x.ignoreVersionCheck};
+            std::tuple<KeyType const *, VersionSliceType const *, DataSummaryType const *, DataDeltaType const *, bool const *> t {&x.key, &x.oldVersion, &x.oldDataSummary, &x.dataDelta, &x.ignoreVersionCheck};
             return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, VersionType const *, DataSummaryType const *, DataDeltaType const *, bool const *>, 5>
                 ::apply(t, {
-                    "key", "old_version_slice", "old_data_summary", "data_delta", "ignore_version_check"
+                    "key", "old_version", "old_data_summary", "data_delta", "ignore_version_check"
                 });
         }
     };
@@ -149,7 +149,7 @@ namespace bytedata_utils {
         static std::optional<std::tuple<transaction::v2::UpdateAction<KeyType,VersionSliceType,DataSummaryType,DataDeltaType>,size_t>> apply(std::string_view const &data, size_t start) {
             auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, VersionSliceType, DataSummaryType, DataDeltaType, bool>, 5>
                 ::apply(data, start, {
-                    "key", "old_version_slice", "old_data_summary", "data_delta", "ignore_version_check"
+                    "key", "old_version", "old_data_summary", "data_delta", "ignore_version_check"
                 });
             if (!t) {
                 return std::nullopt;
