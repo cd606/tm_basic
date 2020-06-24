@@ -577,6 +577,36 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static auto wholeHistoryKleisli(WholeHistoryHandler &&handler) {
             return WholeHistoryKleisli<T,WholeHistoryHandler>(std::move(handler));
         }
+    public:
+        template <class Input, class Output, class ToSupplyDefaultValue>
+        static std::shared_ptr<typename M::template OnOrderFacility<
+            Input,Output>
+        > wrapTuple2OnOrderFacilityBySupplyingDefaultValue(
+            typename M::template OnOrderFacility<
+                std::tuple<ToSupplyDefaultValue, Input>, Output
+            > &&toBeWrapped
+            , ToSupplyDefaultValue const &v = ToSupplyDefaultValue()
+        ) {
+            ToSupplyDefaultValue vCopy = v;
+            return M::template wrappedOnOrderFacility<
+                Input, Output
+                , std::tuple<ToSupplyDefaultValue, Input>, Output
+            >(
+                std::move(toBeWrapped)
+                , std::move(*(M::template kleisli<typename M::template Key<Input>>(
+                    withKey<Input>(
+                        infra::KleisliUtils<M>::template liftPure<Input>(
+                            [vCopy](Input &&x) -> std::tuple<ToSupplyDefaultValue, Input> {
+                                return {vCopy, std::move(x)};
+                            }
+                        )
+                    )
+                )))
+                , std::move(*(M::template kleisli<typename M::template Key<Output>>(
+                    idFunc<typename M::template Key<Output>>()
+                )))
+            );
+        }
     };
 
 } } } }
