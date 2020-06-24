@@ -120,16 +120,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     reader_.startReadingByteDataWithTopicRecordFile(*is_);
                     env_ = env;
                 }
-                virtual typename infra::SinglePassIterationMonad<Env>::template InnerData<ByteDataWithTopic> 
+                virtual typename infra::SinglePassIterationMonad<Env>::template Data<ByteDataWithTopic> 
                 generate() override final {
                     if (!data_) {
                         //the first read
                         auto d = reader_.readByteDataWithTopicRecord(*is_);
                         if (!d) {
-                            return typename infra::SinglePassIterationMonad<Env>::template InnerData<ByteDataWithTopic> {
+                            return { typename infra::SinglePassIterationMonad<Env>::template InnerData<ByteDataWithTopic> {
                                 env_, 
                                 {env_->now(), ByteDataWithTopic {}, true}
-                            };
+                            } };
                         }
                         auto ret = typename infra::SinglePassIterationMonad<Env>::template InnerData<ByteDataWithTopic> {
                             env_, *d
