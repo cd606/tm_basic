@@ -8,22 +8,23 @@
 #include <mutex>
 #include <type_traits>
 
-namespace dev { namespace cd606 { namespace tm { namespace basic { namespace transaction {
+namespace dev { namespace cd606 { namespace tm { namespace basic { namespace transaction { namespace v2 {
 
     template <
         class DI
         , bool NeedOutput
         , class VersionDeltaMerger = TriviallyMerge<typename DI::Version, typename DI::VersionDelta>
         , class DataDeltaMerger = TriviallyMerge<typename DI::Data, typename DI::DataDelta>
-        , class KeyHash = std::hash<typename DI::Key>
+        , class KeyHashType = std::hash<typename DI::Key>
     >
     class TransactionDeltaMerger {
     private:
-        TransactionDataStorePtr<DI,KeyHash> dataStore_;
+        TransactionDataStorePtr<DI,KeyHashType> dataStore_;
         VersionDeltaMerger versionDeltaMerger_;
         DataDeltaMerger dataDeltaMerger_;
 
     public:
+        using KeyHash = KeyHashType;
         using RetType = std::conditional_t<NeedOutput, std::optional<typename DI::FullUpdate>, void>;
 
     private:
@@ -42,9 +43,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             }
             if constexpr (NeedOutput) {
                 return typename DI::FullUpdate {
-                    infra::withtime_utils::make_value_copy(iter->first)
-                    , infra::withtime_utils::make_value_copy(update.version)
-                    infra::withtime_utils::make_value_copy(iter->second)
+                    infra::withtime_utils::makeValueCopy(iter->first)
+                    , infra::withtime_utils::makeValueCopy(update.version)
+                    , infra::withtime_utils::makeValueCopy(iter->second)
                 };
             }
         }
@@ -62,19 +63,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             dataDeltaMerger_(*(iter->second.data), std::get<2>(update));
             if constexpr (NeedOutput) {
                 return typename DI::FullUpdate {
-                    infra::withtime_utils::make_value_copy(iter->first)
-                    , infra::withtime_utils::make_value_copy(update.version)
-                    infra::withtime_utils::make_value_copy(iter->second)
+                    infra::withtime_utils::makeValueCopy(iter->first)
+                    , infra::withtime_utils::makeValueCopy(update.version)
+                    , infra::withtime_utils::makeValueCopy(iter->second)
                 };
             }
         }
 
         struct SetGlobalVersion {
+            std::atomic<typename DI::GlobalVersion> *p_;
+            typename DI::GlobalVersion v_;
             SetGlobalVersion(std::atomic<typename DI::GlobalVersion> *p, typename DI::GlobalVersion v) 
                 : p_(p), v_(v)
             {}
             ~SetGlobalVersion() {
-                p_ = v;
+                p_ = v_;
             }
         };
 
@@ -93,7 +96,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             SetGlobalVersion _(&(dataStore_->globalVersion_), update.globalVersion);
             if constexpr (NeedOutput) {
                 std::visit([](auto &&u) -> RetType {
-                    using T = std::decay_t<decltype(arg)>;
+                    using T = std::decay_t<decltype(u)>;
                     if constexpr (std::is_same_v<T, typename DI::FullUpdate>) {
                         return handleFullUpdate(std::move(u));
                     } else if constexpr (std::is_same_v<T, typename DI::DeltaUpdate>) {
@@ -104,7 +107,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 }, std::move(update.data));
             } else {
                 std::visit([](auto &&u) {
-                    using T = std::decay_t<decltype(arg)>;
+                    using T = std::decay_t<decltype(u)>;
                     if constexpr (std::is_same_v<T, typename DI::FullUpdate>) {
                         handleFullUpdate(std::move(u));
                     } else if constexpr (std::is_same_v<T, typename DI::DeltaUpdate>) {
@@ -116,6 +119,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         }
     };
 
-} } } } }
+} } } } } }
 
 #endif

@@ -29,17 +29,17 @@ namespace transaction { namespace v2 { namespace single_pass_iteration {
             env_ = env;
             static_cast<DataStreamEnvComponent<DI> *>(env)->initialize(this);
         }
-        virtual void onUpdate(DI::Update &&u) override final {
+        virtual void onUpdate(typename DI::Update &&u) override final {
             updates_.push_back(
                 infra::withtime_utils::pureTimedDataWithEnvironment<
                     DI::Update
                     , TheEnvironment
                     , typename TheEnvironment::TimePointType
-                >(env_, std::move(u));
+                >(env_, std::move(u))
             );
         }
         virtual typename infra::SinglePassIterationMonad<TheEnvironment>::template Data<
-            DI::update
+            typename DI::Update
         > generate() override final {
             if (updates_.empty()) {
                 return std::nullopt;

@@ -4,20 +4,21 @@
 #include <tm_kit/basic/transaction/v2/TransactionInterface.hpp>
 #include <tm_kit/basic/transaction/v2/DataStreamInterface.hpp>
 #include <tm_kit/basic/transaction/v2/TransactionDataStore.hpp>
+#include <tm_kit/basic/transaction/v2/TransactionEnvComponent.hpp>
 #include <tm_kit/basic/transaction/v2/DefaultUtilities.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { 
     
 namespace transaction { namespace v2 {
 
-    template <class M, class TI>
+    template <class M, class TI, class DI, class KeyHash=std::hash<typename DI::Key>>
     class ITransactionFacility : public M::template AbstractOnOrderFacility<
             typename TI::TransactionWithAccountInfo
             , typename TI::TransactionResponse
         > {
     public:
         virtual TransactionDataStorePtr<DI,KeyHash> const &dataStorePtr() const = 0;
-    }
+    };
 
     template <
         class M, class TI, class DI
@@ -25,10 +26,10 @@ namespace transaction { namespace v2 {
         , class VersionSliceChecker = std::equal_to<typename TI::Version>
         , class DataSummaryChecker = ConstChecker<true, typename TI::Data, typename TI::DataSummary>
         , class DeltaProcessor = TriviallyProcess<typename TI::Data, typename TI::Delta, typename TI::ProcessedUpdate>
-        , class KeyHash = std::hash<typename TI::Key>
+        , class KeyHash = std::hash<typename DI::Key>
         , class Enable=void
     >
-    class TransactionFacility {}
+    class TransactionFacility {};
 
     template <
         class M, class TI, class DI
@@ -47,7 +48,7 @@ namespace transaction { namespace v2 {
         >
     >
         : 
-        public ITransactionFacility<M, TI> 
+        public ITransactionFacility<M, TI, DI, KeyHash> 
     {
     private:
         using TH = TransactionEnvComponent<TI>;
@@ -59,17 +60,17 @@ namespace transaction { namespace v2 {
         DataSummaryChecker dataSummaryChecker_;
         DeltaProcessor deltaProcessor_;
 
-        void publishResponse(typename M::TheEnvironment *env, typename M::TheEnvironment::IDType const &id, typename TI::TransactionResponse &&resp) {
+        void publishResponse(typename M::TheEnvironment *env, typename M::TheEnvironment::IDType const &id, typename TI::TransactionResponse &&response) {
             this->publish(
                 env
                 , typename M::template Key<typename TI::TransactionResponse> {
                     id, std::move(response)
                 }
-                , true;
-            )
+                , true
+            );
             //The busy wait is important, since it makes sure that our data store
             //is actually up to date
-            while (dataStore_->globalVersion_ < resp.globalVersion) {
+            while (dataStore_->globalVersion_ < response.globalVersion) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
@@ -82,7 +83,7 @@ namespace transaction { namespace v2 {
             ~ComponentLock() {
                 th_->releaseLock();
             }
-        }
+        };
 
         void handleInsert(typename M::TheEnvironment *env, std::string const &account, typename M::TheEnvironment::IDType const &requester, typename TI::InsertAction insertAction) {
             {
@@ -157,7 +158,7 @@ namespace transaction { namespace v2 {
         void handleDelete(typename M::TheEnvironment *env, std::string const &account, typename M::TheEnvironment::IDType const &requester, typename TI::DeleteAction deleteAction) {
             {
                 std::lock_guard<std::mutex> _(dataStore_->mutex_);
-                auto iter = dataStore_->dataMap_.find(updateAction.key);
+                auto iter = dataStore_->dataMap_.find(deleteAction.key);
                 if (iter == dataStore_->dataMap_.end()) {
                     if (!deleteAction.oldVersion) {
                         publishResponse(env, requester, typename TI::TransactionResponse {
@@ -190,7 +191,7 @@ namespace transaction { namespace v2 {
                         return;
                     }
                 }
-                if (updateAction.oldDataSummary) {
+                if (deleteAction.oldDataSummary) {
                     if (!dataSummaryChecker_(*(iter->second.data), *(deleteAction.oldDataSummary))) {
                         publishResponse(env, requester, typename TI::TransactionResponse {
                             dataStore_->globalVersion_, RequestDecision::FailurePrecondition

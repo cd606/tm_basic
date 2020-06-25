@@ -27,12 +27,12 @@ namespace transaction { namespace v2 {
         using Importer = single_pass_iteration::DataStreamImporter<Env, DI>;
     };
     
-    template <class R, class TI, class DI, class Enable=void>
+    template <class R, class TI, class DI, class KeyHash=std::hash<typename DI::Key>, class Enable=void>
     struct TransactionLogicCombinationResult {};
 
-    template <class R, class TI, class DI>
+    template <class R, class TI, class DI, class KeyHash>
     struct TransactionLogicCombinationResult<
-        R, TI, DI
+        R, TI, DI, KeyHash
         , std::enable_if_t<
             std::is_same_v<typename TI::GlobalVersion, typename DI::GlobalVersion>
             && std::is_same_v<typename TI::Key, typename DI::Key>
@@ -57,12 +57,12 @@ namespace transaction { namespace v2 {
     auto transactionLogicCombination(
         R &r
         , std::string const &componentPrefix
-        , ITransactionFacility<typename R::MonadType, TI> *transactionFacilityImpl
+        , ITransactionFacility<typename R::MonadType, TI, DI, typename DataStoreUpdater::KeyHash> *transactionFacilityImpl
         , typename GeneralSubscriberTypes<typename R::MonadType, DI>::IGeneralSubscriber *subscriptionFacilityImpl
-    ) -> TransactionLogicCombinationResult<R, TI, DI> {
-        using M = typenaem R::MonadType;
+    ) -> TransactionLogicCombinationResult<R, TI, DI, typename DataStoreUpdater::KeyHash> {
+        using M = typename R::MonadType;
 
-        auto transactionFacility = M::onOrderFacilityWithExternalEffects<
+        auto transactionFacility = M::template onOrderFacilityWithExternalEffects<
             typename TI::TransactionWithAccountInfo
             , typename TI::TransactionResponse
             , typename DI::Update
@@ -70,14 +70,14 @@ namespace transaction { namespace v2 {
             transactionFacilityImpl
             , new typename DataStreamImporterTypeResolver<M,DI>::Importer
         );
-        auto subscriptionFacility = M::localOnOrderFacility<
+        auto subscriptionFacility = M::template localOnOrderFacility<
             typename GeneralSubscriberTypes<typename R::MonadType, DI>::Input
             , typename GeneralSubscriberTypes<typename R::MonadType, DI>::Output
             , typename GeneralSubscriberTypes<typename R::MonadType, DI>::SubscriptionUpdate
         >(
             subscriptionFacilityImpl
         );
-        auto dataStoreUpdater = M::simpleExporter<typename DI::Update>(DataStoreUpdater {transactionFacilityImpl->dataStorePtr()});
+        auto dataStoreUpdater = M::template simpleExporter<typename DI::Update>(DataStoreUpdater {transactionFacilityImpl->dataStorePtr()});
         
         r.registerOnOrderFacilityWithExternalEffects(
             componentPrefix+"_transaction_handler"
@@ -92,12 +92,12 @@ namespace transaction { namespace v2 {
             , dataStoreUpdater
         );
         r.connect(
-            M::onOrderFacilityWithExternalEffectsAsSource(transactionFacility)
-            , M::localOnOrderFacilityAsSink(subscriptionFacility)
+            M::template onOrderFacilityWithExternalEffectsAsSource(transactionFacility)
+            , M::template localOnOrderFacilityAsSink(subscriptionFacility)
         );
         r.connect(
-            M::onOrderFacilityWithExternalEffectsAsSource(transactionFacility)
-            , M::exporterAsSink(dataStoreUpdater)
+            M::template onOrderFacilityWithExternalEffectsAsSource(transactionFacility)
+            , M::template exporterAsSink(dataStoreUpdater)
         );
         r.preservePointer(transactionFacility->dataStorePtr());
         r.markStateSharing(transactionFacility, subscriptionFacility, componentPrefix+"_data_store");

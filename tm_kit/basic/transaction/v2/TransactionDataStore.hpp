@@ -17,7 +17,7 @@ namespace transaction { namespace v2 {
         std::atomic<typename DI::GlobalVersion> globalVersion_;
     };   
 
-    template <class DI, class KeyHash = std::hash<typename T::Key>>
+    template <class DI, class KeyHash = std::hash<typename DI::Key>>
     using TransactionDataStorePtr = std::shared_ptr<TransactionDataStore<DI,KeyHash>>;
 
 } } 

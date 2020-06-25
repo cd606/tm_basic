@@ -97,7 +97,7 @@ namespace transaction { namespace v2 {
 
         using InsertAction = transaction::v2::InsertAction<KeyType,DataType>;
         using UpdateAction = transaction::v2::UpdateAction<KeyType,VersionSliceType,DataSummaryType,DataDeltaType>;
-        using DeleteAction = transaction::DeleteAction<KeyType,VersionType,DataSummaryType>;
+        using DeleteAction = transaction::v2::DeleteAction<KeyType,VersionType,DataSummaryType>;
 
         using Transaction = CBOR<std::variant<InsertAction,UpdateAction,DeleteAction>>;
         using TransactionResponse = CBOR<transaction::v2::TransactionResponse<GlobalVersionType>>;
@@ -151,7 +151,7 @@ namespace bytedata_utils {
     template <class KeyType, class VersionSliceType, class DataSummaryType, class DataDeltaType>
     struct RunCBORDeserializer<transaction::v2::UpdateAction<KeyType,VersionSliceType,DataSummaryType,DataDeltaType>, void> {
         static std::optional<std::tuple<transaction::v2::UpdateAction<KeyType,VersionSliceType,DataSummaryType,DataDeltaType>,size_t>> apply(std::string_view const &data, size_t start) {
-            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, sd::optional<VersionSliceType>, std::optional<DataSummaryType>, DataDeltaType>, 4>
+            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, std::optional<VersionSliceType>, std::optional<DataSummaryType>, DataDeltaType>, 4>
                 ::apply(data, start, {
                     "key", "old_version_slice", "old_data_summary", "data_delta"
                 });
@@ -212,8 +212,8 @@ namespace bytedata_utils {
     };
     template <class GlobalVersionType>
     struct RunCBORDeserializer<transaction::v2::TransactionResponse<GlobalVersionType>, void> {
-        static std::optional<std::tuple<transaction::v2::TransactionResponse<GlobalVersionType>>,size_t>> apply(std::string_view const &data, size_t start) {
-            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, int16_t>, 2>
+        static std::optional<std::tuple<transaction::v2::TransactionResponse<GlobalVersionType>,size_t>> apply(std::string_view const &data, size_t start) {
+            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<GlobalVersionType, int16_t>, 2>
                 ::apply(data, start, {
                     "global_version", "request_decision"
                 });

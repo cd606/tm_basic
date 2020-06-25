@@ -25,7 +25,7 @@ namespace transaction { namespace v2 { namespace real_time {
             env_ = env;
             static_cast<DataStreamEnvComponent<DI> *>(env)->initialize(this);
         }
-        virtual void onUpdate(DI::Update &&u) override final {
+        virtual void onUpdate(typename DI::Update &&u) override final {
             this->publish(env_, std::move(u));
         }
     };

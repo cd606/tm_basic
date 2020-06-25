@@ -57,7 +57,7 @@ namespace transaction { namespace v2 {
         return os;
     }
     template <class IDType, class KeyType>
-    inline std::ostream &operator<<(std::ostream &os, Unsubscription<IDType, KeyType> const &x) {
+    inline std::ostream &operator<<(std::ostream &os, Unsubscription<IDType> const &x) {
         os << "Unsubscription{id=" << x.id << "}";
         return os;
     }
@@ -66,7 +66,7 @@ namespace transaction { namespace v2 {
         return (x.keys == y.keys);
     }
     template <class IDType, class KeyType>
-    inline bool operator==(Unsubscription<IDType, KeyType> const &x, Unsubscription<IDType, KeyType> const &y) {
+    inline bool operator==(Unsubscription<IDType> const &x, Unsubscription<IDType> const &y) {
         return (x.id == y.id);
     }
 
@@ -81,8 +81,8 @@ namespace transaction { namespace v2 {
         using Key = typename DI::Key;
         using ID = typename M::EnvironmentType::IDType;
 
-        using Subscription = Subscription<typename DI::Key>;
-        using Unsubscription = Unsubscription<typename M::EnvironmentType::IDType, typename DI::Key>;
+        using Subscription = transaction::v2::Subscription<typename DI::Key>;
+        using Unsubscription = transaction::v2::Unsubscription<typename M::EnvironmentType::IDType>;
         using SubscriptionUpdate = typename DI::Update;
 
         using Input = CBOR<
@@ -90,26 +90,26 @@ namespace transaction { namespace v2 {
         >;
         using Output = CBOR<
             std::variant<Subscription, Unsubscription, SubscriptionUpdate>
-        >
+        >;
 
         using IGeneralSubscriber = typename M::template AbstractIntegratedLocalOnOrderFacility<
             Input
             , Output
             , SubscriptionUpdate
-        >
+        >;
     };
 
-    template <class M, class DI, class KeyHash = std::hash<typename DI::Key>>
+    template <class M, class DI, bool MutexProtected, class KeyHash = std::hash<typename DI::Key>>
     class GeneralSubscriber 
         : public GeneralSubscriberTypes<M,DI>::IGeneralSubscriber
     {       
     private:
         using Types = GeneralSubscriberTypes<M,DI>;
-        using SubscriptionMap = std::unordered_map<typename Types::Key, std::vector<typename Types::ID>, KeyHashType>;
-        Subscription subscriptionMap_;
-        using IDInfoMap = std::unordered_map<typename Types::ID, std::vector<Types::Key>, typename M::TheEnvironment::IDHash>;
+        using SubscriptionMap = std::unordered_map<typename Types::Key, std::vector<typename Types::ID>, KeyHash>;
+        typename Types::Subscription subscriptionMap_;
+        using IDInfoMap = std::unordered_map<typename Types::ID, std::vector<typename Types::Key>, typename M::TheEnvironment::IDHash>;
         IDInfoMap idInfoMap_;
-        std::mutex mutex_;
+        std::conditional_t<MutexProtected, std::mutex, bool> mutex_;
 
         std::vector<typename Types::Key> addSubscription(typename M::TheEnvironment *env, typename Types::ID id, typename Types::Subscription const &subscription) {
             std::vector<typename Types::Key> ret;
@@ -131,7 +131,7 @@ namespace transaction { namespace v2 {
             idInfoMap_.insert(std::make_pair(id, ret));
             return ret;
         }
-        void removeSubscription(typename M::TheEnvironment *env, typename Types::Unsubscription cpnst &unsubscription) {
+        void removeSubscription(typename M::TheEnvironment *env, typename Types::Unsubscription const &unsubscription) {
             auto idInfoIter = idInfoMap_.find(unsubscription.originalSubscriptionID);
             if (idInfoIter == idInfoMap_.end()) {
                 return;
@@ -167,10 +167,10 @@ namespace transaction { namespace v2 {
         void handle(typename M::template InnerData<typename M::template Key<typename Types::Input>> &&input) override final {
             auto *env = input.environment;
             typename Types::ID id = input.timedData.value.id();
-            std::visit([env,id](auto &&d) {
+            std::visit([this,env,id](auto &&d) {
                 using T = std::decay_t<decltype(d)>;
                 if constexpr (std::is_same_v<T, typename Types::Subscription>) {
-                    typename Type::Subscription subscription {std::move(d)};
+                    typename Types::Subscription subscription {std::move(d)};
                     std::vector<typename Types::Key> newKeys;
                     if constexpr (MutexProtected) {
                         std::lock_guard<std::mutex> _(mutex_);
@@ -187,7 +187,7 @@ namespace transaction { namespace v2 {
                             }
                         }
                         , false
-                    )
+                    );
                     for (auto const &newKey : newKeys) {
                         this->publish(
                             env
@@ -201,7 +201,7 @@ namespace transaction { namespace v2 {
                         );
                     }
                 } else if constexpr (std::is_same_v<T, typename Types::Unsubscription>) {
-                    typename Type::Unsubscription unsubscription {std::move(d)};
+                    typename Types::Unsubscription unsubscription {std::move(d)};
                     std::vector<typename Types::Key> removedKeys;
                     if constexpr (MutexProtected) {
                         std::lock_guard<std::mutex> _(mutex_);
@@ -233,6 +233,7 @@ namespace transaction { namespace v2 {
             }, std::move(input.timedData.value.key().value));
         }
         void handle(typename M::template InnerData<typename Types::SubscriptionUpdate> &&update) override final {
+            auto *env = update.environment;
             std::vector<typename Types::ID> affected;
             typename Types::Key k {update.timedData.value.groupID};
             if constexpr (MutexProtected) {
@@ -261,7 +262,7 @@ namespace transaction { namespace v2 {
                         , typename M::template Key<typename Types::Output> {
                             id
                             , typename Types::Output {
-                                { infra::withtime_utils::make_value_copy(update.timedData.value.groupID) }
+                                { infra::withtime_utils::makeValueCopy(update.timedData.value.groupID) }
                             }
                         }
                         , false
@@ -272,8 +273,9 @@ namespace transaction { namespace v2 {
     };
 
 } } 
-
-template <class KeyType>
+    
+namespace bytedata_utils {
+    template <class KeyType>
     struct RunCBORSerializer<transaction::v2::Subscription<KeyType>, void> {
         static std::vector<uint8_t> apply(transaction::v2::Subscription<KeyType> const &x) {
             std::tuple<std::vector<KeyType> const *> t {&x.keys};
@@ -322,13 +324,14 @@ template <class KeyType>
                 return std::nullopt;
             }
             return std::tuple<transaction::v2::Unsubscription<IDType>,size_t> {
-                transaction::v2::Unsubscription<IDType,KeyType> {
+                transaction::v2::Unsubscription<IDType> {
                     std::move(std::get<0>(std::get<0>(*t)))
                 }
                 , std::get<1>(*t)
             };
         }
     };
+}
 
 } } } }
 

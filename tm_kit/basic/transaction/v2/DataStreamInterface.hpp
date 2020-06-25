@@ -77,7 +77,7 @@ namespace transaction { namespace v2 {
 
         using Update = infra::VersionedData<
             GlobalVersion
-            , std::optional<FullUpdate, DeltaUpdate>
+            , std::variant<FullUpdate, DeltaUpdate>
             , GlobalVersionCmp
         >;
     };
