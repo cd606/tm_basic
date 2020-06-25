@@ -15,26 +15,6 @@ namespace transaction { namespace v2 {
         , class KeyType
         , class VersionType
         , class DataType
-        , class GlobalVersionCmpType = std::less<GlobalVersionType>
-        , class VersionCmpType = std::less<VersionType>
-    >
-    using DataStreamUpdate =
-        infra::VersionedData<
-            GlobalVersionType
-            , infra::GroupedVersionedData<
-                KeyType
-                , VersionType
-                , DataType
-                , VersionCmpType
-            >
-            , GlobalVersionCmpType
-        >;
-
-    template <
-        class GlobalVersionType
-        , class KeyType
-        , class VersionType
-        , class DataType
         , class VersionDeltaType = VersionType
         , class DataDeltaType = DataType
         , class GlobalVersionCmpType = std::less<GlobalVersionType>
@@ -81,11 +61,24 @@ namespace transaction { namespace v2 {
         using GlobalVersionCmp = GlobalVersionCmpType;
         using VersionCmp = VersionCmpType;
 
-        using FullUpdate = DataStreamUpdate<GlobalVersion,Key,Version,Data,GlobalVersionCmp,VersionCmp>;
-        using DeltaUpdate = DataStreamUpdate<GlobalVersion,Key,VersionDelta,DataDelta,GlobalVersionCmp,VersionCmp>;
+        using FullUpdate = infra::GroupedVersionedData<
+            KeyType
+            , VersionType
+            , std::optional<DataType>
+            , VersionCmpType
+        >;
+        using DeltaUpdate = std::tuple<
+            KeyType
+            , VersionDelta
+            , DataDelta
+        >;
 
-        using Update = CBOR<
-            std::variant<FullUpdate, DeltaUpdate>
+        using DownstreamFullData = FullUpdate;
+
+        using Update = infra::VersionedData<
+            GlobalVersion
+            , std::optional<FullUpdate, DeltaUpdate>
+            , GlobalVersionCmp
         >;
     };
 
