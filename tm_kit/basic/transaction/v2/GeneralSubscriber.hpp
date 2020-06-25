@@ -74,52 +74,37 @@ namespace transaction { namespace v2 {
 
     template <
         class M
-        , class KeyType
-        , class VersionType
-        , class UpdateType
-        , class VersionCmpType = std::less<VersionType>
-        , class KeyHashType = std::hash<KeyType>>
+        , class DI
+        >
     struct GeneralSubscriberTypes {
-        using Subscription = Subscription<KeyType>;
-        using Unsubscription = Unsubscription<typename M::EnvironmentType::IDType, KeyType>;
+        using Monad = M;
+        using Key = typename DI::Key;
         using ID = typename M::EnvironmentType::IDType;
-        using Key = KeyType;
-        using Version = VersionType;
-        using Update = UpdateType;
-        using VersionCmp = VersionCmpType;
-        using KeyHash = KeyHashType;
 
-        using SubscriptionUpdate = infra::GroupedVersionedData<
-            Key, Version, Update, VersionCmp
-        >;
+        using Subscription = Subscription<typename DI::Key>;
+        using Unsubscription = Unsubscription<typename M::EnvironmentType::IDType, typename DI::Key>;
+        using SubscriptionUpdate = typename DI::Update;
 
-        using InputType = CBOR<
+        using Input = CBOR<
             std::variant<Subscription, Unsubscription>
         >;
-        using OutputType = CBOR<
+        using Output = CBOR<
             std::variant<Subscription, Unsubscription, SubscriptionUpdate>
+        >
+
+        using IGeneralSubscriber = typename M::template AbstractIntegratedLocalOnOrderFacility<
+            Input
+            , Output
+            , SubscriptionUpdate
         >
     };
 
-    template <
-        class M
-        , class KeyType
-        , class VersionType
-        , class UpdateType
-        , bool MutexProtected = true
-        , class VersionCmpType = std::less<VersionType>
-        , class KeyHashType = std::hash<KeyType>>
+    template <class M, class DI, class KeyHash = std::hash<typename DI::Key>>
     class GeneralSubscriber 
-        : public M::template AbstractIntegratedLocalOnOrderFacility<
-            GeneralSubscriberTypes<M,KeyType,VersionType,UpdateType,VersionCmpType,KeyHashType>
-                ::InputType
-            , GeneralSubscriberTypes<M,KeyType,VersionType,UpdateType,VersionCmpType,KeyHashType>
-                ::OutputType
-            , GeneralSubscriberTypes<M,KeyType,VersionType,UpdateType,VersionCmpType,KeyHashType>
-                ::SubscriptionUpdate
-        > {       
+        : public GeneralSubscriberTypes<M,DI>::IGeneralSubscriber
+    {       
     private:
-        using Types = GeneralSubscriberTypes<M,KeyType,VersionType,UpdateType,VersionCmpType,KeyHashType>;
+        using Types = GeneralSubscriberTypes<M,DI>;
         using SubscriptionMap = std::unordered_map<typename Types::Key, std::vector<typename Types::ID>, KeyHashType>;
         Subscription subscriptionMap_;
         using IDInfoMap = std::unordered_map<typename Types::ID, std::vector<Types::Key>, typename M::TheEnvironment::IDHash>;
@@ -179,7 +164,7 @@ namespace transaction { namespace v2 {
 
         virtual typename Types::SubscriptionUpdate retrieveInitialUpdateForKey(typename Types::Key const &) = 0;
         
-        void handle(typename M::template InnerData<typename M::template Key<typename Types::InputType>> &&input) override final {
+        void handle(typename M::template InnerData<typename M::template Key<typename Types::Input>> &&input) override final {
             auto *env = input.environment;
             typename Types::ID id = input.timedData.value.id();
             std::visit([env,id](auto &&d) {
@@ -197,7 +182,7 @@ namespace transaction { namespace v2 {
                         env
                         , typename M::template Key<typename Types::OutputType> {
                             id
-                            , typename Types::OutputType {
+                            , typename Types::Output {
                                 { typename Types::Subscription { newKeys } }
                             }
                         }
@@ -208,7 +193,7 @@ namespace transaction { namespace v2 {
                             env
                             , typename M::template Key<typename Types::OutputType> {
                                 id
-                                , typename Types::OutputType {
+                                , typename Types::Output {
                                     { retrieveInitialUpdateForKey(newKey) }
                                 }
                             }
@@ -228,7 +213,7 @@ namespace transaction { namespace v2 {
                         env
                         , typename M::template Key<typename Types::OutputType> {
                             unsubscription.originalSubscriptionID
-                            , typename Types::OutputType {
+                            , typename Types::Output {
                                 { typename Types::Unsubscription { unsubscription.originalSubscriptionID } }
                             }
                         }
@@ -238,7 +223,7 @@ namespace transaction { namespace v2 {
                         env
                         , typename M::template Key<typename Types::OutputType> {
                             id
-                            , typename Types::OutputType {
+                            , typename Types::Output {
                                 { typename Types::Unsubscription { unsubscription.originalSubscriptionID } }
                             }
                         }
@@ -261,9 +246,9 @@ namespace transaction { namespace v2 {
             } else if (affected.size() == 1) {
                 this->publish(
                     env
-                    , typename M::template Key<typename Types::OutputType> {
+                    , typename M::template Key<typename Types::Output> {
                         affected[0]
-                        , typename Types::OutputType {
+                        , typename Types::Output {
                             { std::move(update.timedData.value.groupID) }
                         }
                     }
@@ -273,9 +258,9 @@ namespace transaction { namespace v2 {
                 for (auto const &id : affected) {
                     this->publish(
                         env
-                        , typename M::template Key<typename Types::OutputType> {
+                        , typename M::template Key<typename Types::Output> {
                             id
-                            , typename Types::OutputType {
+                            , typename Types::Output {
                                 { infra::withtime_utils::make_value_copy(update.timedData.value.groupID) }
                             }
                         }

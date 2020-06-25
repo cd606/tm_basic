@@ -8,6 +8,9 @@ tm_basic_transaction_v2_headers = [
       , 'DefaultUtilities.hpp'
       , 'TransactionDataStore.hpp'
       , 'TransactionDeltaMerger.hpp'
+      , 'RealTimeDataStreamImporter.hpp'
+      , 'SinglePassIterationDataStreamImporter.hpp'
+      , 'TransactionLogicCombination.hpp'
   ]
   
 install_headers(tm_basic_transaction_v2_headers, subdir : 'tm_kit/basic/transaction/v2')

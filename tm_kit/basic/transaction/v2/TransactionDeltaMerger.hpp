@@ -22,7 +22,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         VersionDeltaMerger versionDeltaMerger_;
         DataDeltaMerger dataDeltaMerger_;
 
-        std::optional<typename DI::DownstreamFullData> handleFullUpdate(typename DI::FullUpdate &&update) {
+        void handleFullUpdate(typename DI::FullUpdate &&update) {
             std::lock_guard<std::mutex> _(dataStore_->mutex_);
             auto iter = dataStore_->dataMap_.find(update.groupID);
             if (iter == dataStore_->dataMap_.end()) {
@@ -35,13 +35,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                     std::move(update.version), std::move(update.data)
                 });
             }
-            return typename DI::DownstreamFullData {
-                infra::withtime_utils::make_value_copy(iter->first)
-                , infra::withtime_utils::make_value_copy(iter->second.version)
-                , infra::withtime_utils::make_value_copy(iter->second.data)
-            };
         }
-        std::optional<typename DI::DownstreamFullData> handleFullUpdate(typename DI::DeltaUpdate &&update) {
+        void handleDeltaUpdate(typename DI::DeltaUpdate &&update) {
             std::lock_guard<std::mutex> _(dataStore_->mutex_);
             auto iter = dataStore_->dataMap_.find(std::get<0>(update));
             if (iter == dataStore_->dataMap_.end() || !iter->second.data) {
@@ -49,11 +44,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             }
             versionDeltaMerger_(iter->second.version, std::get<1>(update));
             dataDeltaMerger_(*(iter->second.data), std::get<2>(update));
-            return typename DI::DownstreamFullData {
-                infra::withtime_utils::make_value_copy(iter->first)
-                , infra::withtime_utils::make_value_copy(iter->second.version)
-                , infra::withtime_utils::make_value_copy(iter->second.data)
-            };
         }
 
         struct SetGlobalVersion {
@@ -76,16 +66,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             dataDeltaMerger_ = std::move(dm);
             return *this;
         }
-        std::optional<typename DI::DownstreamFullData> handle(typename DI::Update &&update) {
+        void handle(typename DI::Update &&update) {
             SetGlobalVersion _(&(dataStore_->globalVersion_), update.globalVersion);
-            return std::visit([](auto &&u) -> std::optional<typename DI::DownstreamFullData> {
+            std::visit([](auto &&u) {
                 using T = std::decay_t<decltype(arg)>;
                 if constexpr (std::is_same_v<T, typename DI::FullUpdate>) {
-                    return handleFullUpdate(std::move(u));
+                    handleFullUpdate(std::move(u));
                 } else if constexpr (std::is_same_v<T, typename DI::DeltaUpdate>) {
-                    return handleDeltaUpdate(std::move(u));
-                } else {
-                    return std::nullopt;
+                    handleDeltaUpdate(std::move(u));
                 }
             }, std::move(update.data));
         }

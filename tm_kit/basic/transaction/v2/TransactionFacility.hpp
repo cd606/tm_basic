@@ -10,6 +10,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     
 namespace transaction { namespace v2 {
 
+    template <class M, class TI>
+    class ITransactionFacility : public M::template AbstractOnOrderFacility<
+            typename TI::TransactionWithAccountInfo
+            , typename TI::TransactionResponse
+        > {
+    public:
+        virtual TransactionDataStorePtr<DI,KeyHash> const &dataStorePtr() const = 0;
+    }
+
     template <
         class M, class TI, class DI
         , class VersionChecker = std::equal_to<typename TI::Version>
@@ -38,10 +47,7 @@ namespace transaction { namespace v2 {
         >
     >
         : 
-        public M::template AbstractOnOrderFacility<
-            typename TI::TransactionWithAccountInfo
-            , typename TI::TransactionResponse
-        > 
+        public ITransactionFacility<M, TI> 
     {
     private:
         using TH = TransactionEnvComponent<TI>;
@@ -222,6 +228,9 @@ namespace transaction { namespace v2 {
         TransactionFacility &setDeltaProcessor(DeltaProcessor &&dp) {
             deltaProcessor_ = std::move(dp);
             return *this;
+        }
+        virtual TransactionDataStorePtr<DI,KeyHash> const &dataStorePtr() const override final {
+            return dataStore_;
         }
         void handle(typename M::template InnerData<typename M::template Key<
             typename TI::TransactionWithAccountInfo
