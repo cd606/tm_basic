@@ -67,7 +67,7 @@ namespace transaction { namespace v2 {
                 }
                 , true;
             )
-            //The busy wait is important to make sure that our data store
+            //The busy wait is important, since it makes sure that our data store
             //is actually up to date
             while (dataStore_->globalVersion_ < resp.globalVersion) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));

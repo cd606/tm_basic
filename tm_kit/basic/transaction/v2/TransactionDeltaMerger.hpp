@@ -12,6 +12,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
 
     template <
         class DI
+        , bool NeedOutput
         , class VersionDeltaMerger = TriviallyMerge<typename DI::Version, typename DI::VersionDelta>
         , class DataDeltaMerger = TriviallyMerge<typename DI::Data, typename DI::DataDelta>
         , class KeyHash = std::hash<typename DI::Key>
@@ -22,7 +23,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         VersionDeltaMerger versionDeltaMerger_;
         DataDeltaMerger dataDeltaMerger_;
 
-        void handleFullUpdate(typename DI::FullUpdate &&update) {
+    public:
+        using RetType = std::conditional_t<NeedOutput, std::optional<typename DI::FullUpdate>, void>;
+
+    private:
+        RetType handleFullUpdate(typename DI::FullUpdate &&update) {
             std::lock_guard<std::mutex> _(dataStore_->mutex_);
             auto iter = dataStore_->dataMap_.find(update.groupID);
             if (iter == dataStore_->dataMap_.end()) {
@@ -35,15 +40,33 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                     std::move(update.version), std::move(update.data)
                 });
             }
+            if constexpr (NeedOutput) {
+                return typename DI::FullUpdate {
+                    infra::withtime_utils::make_value_copy(iter->first)
+                    , infra::withtime_utils::make_value_copy(update.version)
+                    infra::withtime_utils::make_value_copy(iter->second)
+                };
+            }
         }
-        void handleDeltaUpdate(typename DI::DeltaUpdate &&update) {
+        RetType handleDeltaUpdate(typename DI::DeltaUpdate &&update) {
             std::lock_guard<std::mutex> _(dataStore_->mutex_);
             auto iter = dataStore_->dataMap_.find(std::get<0>(update));
             if (iter == dataStore_->dataMap_.end() || !iter->second.data) {
-                return std::nullopt;
+                if constexpr (NeedOutput) {
+                    return std::nullopt;
+                } else {
+                    return;
+                }
             }
             versionDeltaMerger_(iter->second.version, std::get<1>(update));
             dataDeltaMerger_(*(iter->second.data), std::get<2>(update));
+            if constexpr (NeedOutput) {
+                return typename DI::FullUpdate {
+                    infra::withtime_utils::make_value_copy(iter->first)
+                    , infra::withtime_utils::make_value_copy(update.version)
+                    infra::withtime_utils::make_value_copy(iter->second)
+                };
+            }
         }
 
         struct SetGlobalVersion {
@@ -66,16 +89,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             dataDeltaMerger_ = std::move(dm);
             return *this;
         }
-        void handle(typename DI::Update &&update) {
+        RetType operator()(typename DI::Update &&update) const {
             SetGlobalVersion _(&(dataStore_->globalVersion_), update.globalVersion);
-            std::visit([](auto &&u) {
-                using T = std::decay_t<decltype(arg)>;
-                if constexpr (std::is_same_v<T, typename DI::FullUpdate>) {
-                    handleFullUpdate(std::move(u));
-                } else if constexpr (std::is_same_v<T, typename DI::DeltaUpdate>) {
-                    handleDeltaUpdate(std::move(u));
-                }
-            }, std::move(update.data));
+            if constexpr (NeedOutput) {
+                std::visit([](auto &&u) -> RetType {
+                    using T = std::decay_t<decltype(arg)>;
+                    if constexpr (std::is_same_v<T, typename DI::FullUpdate>) {
+                        return handleFullUpdate(std::move(u));
+                    } else if constexpr (std::is_same_v<T, typename DI::DeltaUpdate>) {
+                        return handleDeltaUpdate(std::move(u));
+                    } else {
+                        return std::nullopt;
+                    }
+                }, std::move(update.data));
+            } else {
+                std::visit([](auto &&u) {
+                    using T = std::decay_t<decltype(arg)>;
+                    if constexpr (std::is_same_v<T, typename DI::FullUpdate>) {
+                        handleFullUpdate(std::move(u));
+                    } else if constexpr (std::is_same_v<T, typename DI::DeltaUpdate>) {
+                        handleDeltaUpdate(std::move(u));
+                    }
+                }, std::move(update.data));
+            }
+            
         }
     };
 
