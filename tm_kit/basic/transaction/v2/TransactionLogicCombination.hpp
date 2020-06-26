@@ -92,11 +92,23 @@ namespace transaction { namespace v2 {
             , dataStoreUpdater
         );
         r.connect(
-            M::template onOrderFacilityWithExternalEffectsAsSource(transactionFacility)
-            , M::template localOnOrderFacilityAsSink(subscriptionFacility)
+            M::template onOrderFacilityWithExternalEffectsAsSource<
+                typename TI::TransactionWithAccountInfo
+                , typename TI::TransactionResponse
+                , typename DI::Update
+            >(transactionFacility)
+            , M::template localOnOrderFacilityAsSink<
+                typename GeneralSubscriberTypes<typename R::MonadType, DI>::Input
+                , typename GeneralSubscriberTypes<typename R::MonadType, DI>::Output
+                , typename GeneralSubscriberTypes<typename R::MonadType, DI>::SubscriptionUpdate
+            >(subscriptionFacility)
         );
         r.connect(
-            M::template onOrderFacilityWithExternalEffectsAsSource(transactionFacility)
+            M::template onOrderFacilityWithExternalEffectsAsSource<
+                typename TI::TransactionWithAccountInfo
+                , typename TI::TransactionResponse
+                , typename DI::Update
+            >(transactionFacility)
             , M::template exporterAsSink(dataStoreUpdater)
         );
         r.preservePointer(transactionFacility->dataStorePtr());

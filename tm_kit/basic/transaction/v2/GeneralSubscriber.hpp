@@ -84,8 +84,8 @@ namespace transaction { namespace v2 {
         using Key = typename DI::Key;
         using ID = typename M::EnvironmentType::IDType;
 
-        using Subscription = transaction::v2::Subscription<typename DI::Key>;
-        using Unsubscription = transaction::v2::Unsubscription<typename M::EnvironmentType::IDType>;
+        using Subscription = transaction::v2::Subscription<Key>;
+        using Unsubscription = transaction::v2::Unsubscription<ID>;
         using SubscriptionUpdate = typename DI::Update;
 
         using Input = CBOR<
@@ -102,7 +102,7 @@ namespace transaction { namespace v2 {
         >;
     };
 
-    template <class M, class DI, bool MutexProtected=M::PossiblyMultiThreaded, class KeyHash = std::hash<typename DI::Key>>
+    template <class M, class DI, class KeyHash = std::hash<typename DI::Key>>
     class GeneralSubscriber 
         : public GeneralSubscriberTypes<M,DI>::IGeneralSubscriber
     {       
@@ -112,11 +112,15 @@ namespace transaction { namespace v2 {
         SubscriptionMap subscriptionMap_;
         using IDInfoMap = std::unordered_map<typename Types::ID, std::vector<typename Types::Key>, typename M::EnvironmentType::IDHash>;
         IDInfoMap idInfoMap_;
-        std::conditional_t<MutexProtected, std::mutex, bool> mutex_;
 
         using DataStorePtr = transaction::v2::TransactionDataStorePtr<
-            DI, KeyHash, MutexProtected
+            DI, KeyHash, M::PossiblyMultiThreaded
         >;
+        using DataStore = typename DataStorePtr::element_type;
+        using Mutex = typename DataStore::Mutex;
+
+        Mutex mutex_;
+
         DataStorePtr dataStorePtr_;
 
         std::vector<typename Types::Key> addSubscription(typename M::EnvironmentType *env, typename Types::ID id, typename Types::Subscription const &subscription) {
@@ -158,36 +162,6 @@ namespace transaction { namespace v2 {
             }
             idInfoMap_.erase(idInfoIter);
         }
-        std::vector<typename Types::ID> affectedIDs(typename Types::Key const &key) {
-            auto iter = subscriptionMap_.find(key);
-            if (iter == subscriptionMap_.end()) {
-                return std::vector<typename Types::ID> {};
-            }
-            return iter->second;
-        }
-        typename Types::SubscriptionUpdate retrieveInitialUpdateForKey(typename Types::Key const &key) {
-            typename DataStorePtr::element_type::Lock _(dataStorePtr_->mutex_);
-            auto iter = dataStorePtr_->dataMap_.find(key);
-            if (iter == dataStorePtr_->dataMap_.end()) {
-                return typename Types::SubscriptionUpdate {
-                    dataStorePtr_->globalVersion_
-                    , typename DI::FullUpdate {
-                        infra::withtime_utils::makeValueCopy(key)
-                        , typename DI::Version {}
-                        , std::nullopt
-                    }
-                };
-            } else {
-                return typename Types::SubscriptionUpdate {
-                    dataStorePtr_->globalVersion_
-                    , typename DI::FullUpdate {
-                        infra::withtime_utils::makeValueCopy(key)
-                        , infra::withtime_utils::makeValueCopy(iter->second.version)
-                        , infra::withtime_utils::makeValueCopy(iter->second.data)
-                    }
-                };
-            }
-        }
     public:
         GeneralSubscriber(DataStorePtr const &dataStorePtr) 
             : subscriptionMap_(), idInfoMap_(), mutex_(), dataStorePtr_(dataStorePtr) {}
@@ -203,11 +177,9 @@ namespace transaction { namespace v2 {
                 if constexpr (std::is_same_v<T, typename Types::Subscription>) {
                     typename Types::Subscription subscription {std::move(d)};
                     std::vector<typename Types::Key> newKeys;
-                    if constexpr (MutexProtected) {
-                        std::lock_guard<std::mutex> _(mutex_);
-                        newKeys = addSubscription(env, id, subscription);                       
-                    } else {
-                        newKeys = addSubscription(env, id, subscription);
+                    {
+                        typename DataStore::Lock _(mutex_);
+                        newKeys = addSubscription(env, id, subscription); 
                     }
                     this->publish(
                         env
@@ -219,25 +191,21 @@ namespace transaction { namespace v2 {
                         }
                         , false
                     );
-                    for (auto const &newKey : newKeys) {
-                        this->publish(
-                            env
-                            , typename M::template Key<typename Types::Output> {
-                                id
-                                , typename Types::Output {
-                                    { retrieveInitialUpdateForKey(newKey) }
-                                }
+                    this->publish(
+                        env
+                        , typename M::template Key<typename Types::Output> {
+                            id
+                            , typename Types::Output {
+                                { dataStorePtr_->createFullUpdateNotification(newKeys) }
                             }
-                            , false
-                        );
-                    }
+                        }
+                        , false
+                    );
                 } else if constexpr (std::is_same_v<T, typename Types::Unsubscription>) {
                     typename Types::Unsubscription unsubscription {std::move(d)};
                     std::vector<typename Types::Key> removedKeys;
-                    if constexpr (MutexProtected) {
-                        std::lock_guard<std::mutex> _(mutex_);
-                        removeSubscription(env, unsubscription);
-                    } else {
+                    {
+                        typename DataStore::Lock _(mutex_);
                         removeSubscription(env, unsubscription);
                     }
                     this->publish(
@@ -265,46 +233,46 @@ namespace transaction { namespace v2 {
         }
         void handle(typename M::template InnerData<typename Types::SubscriptionUpdate> &&update) override final {
             auto *env = update.environment;
-            std::vector<typename Types::ID> affected;
-            std::visit([this,env,&affected](auto const &u) {
-                using T = std::decay_t<decltype(u)>;
-                typename Types::Key k;
-                if constexpr (std::is_same_v<T, typename DI::FullUpdate>) {
-                    k = u.groupID;
-                    
-                } else if constexpr (std::is_same_v<T, typename DI::DeltaUpdate>) {
-                    k = std::get<0>(u);
+            auto globalVersion = update.timedData.value.version;
+            std::unordered_map<typename Types::ID, std::vector<typename DI::OneUpdateItem>, typename M::EnvironmentType::IDHash> updateMap;
+            for (auto &x : update.timedData.value.data) {
+                typename DI::OneUpdateItem item = std::move(x);
+                std::vector<typename Types::ID> *affected = nullptr;
+                std::visit([this,env,&affected](auto const &u) {
+                    using T = std::decay_t<decltype(u)>;
+                    typename Types::Key k;
+                    if constexpr (std::is_same_v<T, typename DI::OneFullUpdateItem>) {
+                        k = u.groupID;
+                    } else if constexpr (std::is_same_v<T, typename DI::OneDeltaUpdateItem>) {
+                        k = std::get<0>(u);
+                    }
+                    typename DataStorePtr::element_type::Lock _(mutex_);
+                    auto iter = subscriptionMap_.find(k);
+                    if (iter != subscriptionMap_.end()) {
+                        affected = &(iter->second);
+                    }
+                }, item);
+                if (affected == nullptr || affected->empty()) {
+                    continue;
+                } else if (affected->size() == 1) {
+                    updateMap[(*affected)[0]].push_back(std::move(item));
+                } else {
+                    for (auto const &id : *affected) {
+                        updateMap[id].push_back(infra::withtime_utils::makeValueCopy(item));
+                    }
                 }
-                typename DataStorePtr::element_type::Lock _(mutex_);
-                affected = affectedIDs(k);
-            }, update.timedData.value.data);
-
-            if (affected.size() == 0) {
-                return;
-            } else if (affected.size() == 1) {
+            }
+            for (auto &item : updateMap) {
                 this->publish(
                     env
                     , typename M::template Key<typename Types::Output> {
-                        affected[0]
+                        item.first
                         , typename Types::Output {
-                            { std::move(update.timedData.value) }
+                            typename Types::SubscriptionUpdate { globalVersion, std::move(item.second) }
                         }
                     }
                     , false
                 );
-            } else {
-                for (auto const &id : affected) {
-                    this->publish(
-                        env
-                        , typename M::template Key<typename Types::Output> {
-                            id
-                            , typename Types::Output {
-                                { infra::withtime_utils::makeValueCopy(update.timedData.value) }
-                            }
-                        }
-                        , false
-                    );
-                }
             }
         }
     };

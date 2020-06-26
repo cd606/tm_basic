@@ -61,23 +61,24 @@ namespace transaction { namespace v2 {
         using GlobalVersionCmp = GlobalVersionCmpType;
         using VersionCmp = VersionCmpType;
 
-        using FullUpdate = infra::GroupedVersionedData<
+        using OneFullUpdateItem = infra::GroupedVersionedData<
             KeyType
             , VersionType
             , std::optional<DataType>
             , VersionCmpType
         >;
-        using DeltaUpdate = std::tuple<
+        using OneDeltaUpdateItem = std::tuple<
             KeyType
             , VersionDelta
             , DataDelta
         >;
-
-        using DownstreamFullData = FullUpdate;
-
+        using OneUpdateItem = std::variant<
+            OneFullUpdateItem
+            , OneDeltaUpdateItem
+        >;
         using Update = infra::VersionedData<
             GlobalVersion
-            , std::variant<FullUpdate, DeltaUpdate>
+            , std::vector<OneUpdateItem>
             , GlobalVersionCmp
         >;
     };

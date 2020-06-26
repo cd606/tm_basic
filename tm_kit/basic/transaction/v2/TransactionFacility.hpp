@@ -73,9 +73,7 @@ namespace transaction { namespace v2 {
             );
             //The busy wait is important, since it makes sure that our data store
             //is actually up to date
-            while (dataStore_->globalVersion_ < response.value.globalVersion) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            }
+            dataStore_->waitForGlobalVersion(response.value.globalVersion);
         }
 
         struct ComponentLock {
@@ -91,6 +89,8 @@ namespace transaction { namespace v2 {
         };
 
         void handleInsert(typename M::EnvironmentType *env, std::string const &account, typename M::EnvironmentType::IDType const &requester, typename TI::InsertAction insertAction) {
+            auto *th = static_cast<TH *>(env);
+            ComponentLock cl(th, &account, &(insertAction.key));
             {
                 Lock _(dataStore_->mutex_);
                 auto iter = dataStore_->dataMap_.find(insertAction.key);
@@ -107,14 +107,12 @@ namespace transaction { namespace v2 {
                     return;
                 }
             }
-            {
-                auto *th = static_cast<TH *>(env);
-                ComponentLock cl(th, &account, &(insertAction.key));
-                publishResponse(env, requester, th->handleInsert(account, insertAction.key, insertAction.data));
-            }
+            publishResponse(env, requester, th->handleInsert(account, insertAction.key, insertAction.data));
         }
         void handleUpdate(typename M::EnvironmentType *env, std::string const &account, typename M::EnvironmentType::IDType const &requester, typename TI::UpdateAction updateAction) {
             std::optional<typename TI::ProcessedUpdate> processed = std::nullopt;
+            auto *th = static_cast<TH *>(env);
+            ComponentLock cl(th, &account, &(updateAction.key));
             {
                 Lock _(dataStore_->mutex_);
                 auto iter = dataStore_->dataMap_.find(updateAction.key);
@@ -154,13 +152,11 @@ namespace transaction { namespace v2 {
                     return;
                 }
             }
-            {
-                auto *th = static_cast<TH *>(env);
-                ComponentLock cl(th, &account, &(updateAction.key));
-                publishResponse(env, requester, th->handleUpdate(account, updateAction.key, updateAction.oldVersionSlice, *processed));
-            }
+            publishResponse(env, requester, th->handleUpdate(account, updateAction.key, updateAction.oldVersionSlice, *processed));
         }
         void handleDelete(typename M::EnvironmentType *env, std::string const &account, typename M::EnvironmentType::IDType const &requester, typename TI::DeleteAction deleteAction) {
+            auto *th = static_cast<TH *>(env);
+            ComponentLock cl(th, &account, &(deleteAction.key));
             {
                 Lock _(dataStore_->mutex_);
                 auto iter = dataStore_->dataMap_.find(deleteAction.key);
@@ -205,11 +201,7 @@ namespace transaction { namespace v2 {
                     }
                 }
             }
-            {
-                auto *th = static_cast<TH *>(env);
-                ComponentLock cl(th, &account, &(deleteAction.key));
-                publishResponse(env, requester, th->handleDelete(account, deleteAction.key, deleteAction.oldVersion));
-            }
+            publishResponse(env, requester, th->handleDelete(account, deleteAction.key, deleteAction.oldVersion));
         }
     public:
         TransactionFacility(TransactionDataStorePtr<DI,KeyHash,M::PossiblyMultiThreaded> const &dataStore) 

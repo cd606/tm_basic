@@ -13,26 +13,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     template <
         class DI
         , bool NeedOutput
+        , bool MutexProtected = true
         , class VersionDeltaMerger = TriviallyMerge<typename DI::Version, typename DI::VersionDelta>
         , class DataDeltaMerger = TriviallyMerge<typename DI::Data, typename DI::DataDelta>
         , class KeyHashType = std::hash<typename DI::Key>
-        , bool MutexProtected = true
     >
     class TransactionDeltaMerger {
     private:
-        TransactionDataStorePtr<DI,KeyHashType,MutexProtected> dataStore_;
+        using TransactionDataStorePtr = transaction::v2::TransactionDataStorePtr<DI,KeyHashType,MutexProtected>;
+        using TransactionDataStore = typename TransactionDataStorePtr::element_type;
+
+        TransactionDataStorePtr dataStore_;
         VersionDeltaMerger versionDeltaMerger_;
         DataDeltaMerger dataDeltaMerger_;
 
-        using Lock = typename TransactionDataStorePtr<DI,KeyHashType,MutexProtected>::Lock;
-        using GV = typename TransactionDataStorePtr<DI,KeyHashType,MutexProtected>::GlobalVersion;
+        using Lock = typename TransactionDataStore::Lock;
+        using SafeGV = typename TransactionDataStore::GlobalVersion;
 
     public:
         using KeyHash = KeyHashType;
-        using RetType = std::conditional_t<NeedOutput, std::optional<typename DI::FullUpdate>, void>;
+        using RetType = std::conditional_t<NeedOutput, typename DI::UpdateS, void>;
 
     private:
-        RetType handleFullUpdate(typename DI::FullUpdate &&update) {
+        void handleFullUpdate(typename DI::OneFullUpdateItem &&update) {
             Lock _(dataStore_->mutex_);
             auto iter = dataStore_->dataMap_.find(update.groupID);
             if (iter == dataStore_->dataMap_.end()) {
@@ -45,39 +48,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                     std::move(update.version), std::move(update.data)
                 });
             }
-            if constexpr (NeedOutput) {
-                return typename DI::FullUpdate {
-                    infra::withtime_utils::makeValueCopy(iter->first)
-                    , infra::withtime_utils::makeValueCopy(update.version)
-                    , infra::withtime_utils::makeValueCopy(iter->second)
-                };
-            }
         }
-        RetType handleDeltaUpdate(typename DI::DeltaUpdate &&update) {
+        void handleDeltaUpdate(typename DI::OneDeltaUpdateItem &&update) {
             Lock _(dataStore_->mutex_);
             auto iter = dataStore_->dataMap_.find(std::get<0>(update));
             if (iter == dataStore_->dataMap_.end() || !iter->second.data) {
-                if constexpr (NeedOutput) {
-                    return std::nullopt;
-                } else {
-                    return;
-                }
+                return;
             }
             versionDeltaMerger_(iter->second.version, std::get<1>(update));
             dataDeltaMerger_(*(iter->second.data), std::get<2>(update));
-            if constexpr (NeedOutput) {
-                return typename DI::FullUpdate {
-                    infra::withtime_utils::makeValueCopy(iter->first)
-                    , infra::withtime_utils::makeValueCopy(update.version)
-                    , infra::withtime_utils::makeValueCopy(iter->second)
-                };
-            }
         }
 
         struct SetGlobalVersion {
-            GV *p_;
+            SafeGV *p_;
             typename DI::GlobalVersion v_;
-            SetGlobalVersion(GV *p, typename DI::GlobalVersion v) 
+            SetGlobalVersion(SafeGV *p, typename DI::GlobalVersion v) 
                 : p_(p), v_(v)
             {}
             ~SetGlobalVersion() {
@@ -86,7 +71,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         };
 
     public:
-        TransactionDeltaMerger(TransactionDataStorePtr<DI,KeyHash> const &dataStore)
+        TransactionDeltaMerger(TransactionDataStorePtr const &dataStore)
             : dataStore_(dataStore), versionDeltaMerger_(), dataDeltaMerger_() {}
         TransactionDeltaMerger &setVersionDeltaMerger(VersionDeltaMerger &&vm) {
             versionDeltaMerger_ = std::move(vm);
@@ -98,28 +83,31 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         }
         RetType operator()(typename DI::Update &&update) const {
             SetGlobalVersion _(&(dataStore_->globalVersion_), update.globalVersion);
-            if constexpr (NeedOutput) {
-                std::visit([](auto &&u) -> RetType {
+            std::vector<typename DI::Key> keys;
+            std::unordered_set<typename DI::Key, KeyHash> keySet;
+            for (auto &&item : update.data) {
+                std::visit([&keys,&keySet](auto &&u) {
                     using T = std::decay_t<decltype(u)>;
-                    if constexpr (std::is_same_v<T, typename DI::FullUpdate>) {
-                        return handleFullUpdate(std::move(u));
-                    } else if constexpr (std::is_same_v<T, typename DI::DeltaUpdate>) {
-                        return handleDeltaUpdate(std::move(u));
-                    } else {
-                        return std::nullopt;
-                    }
-                }, std::move(update.data));
-            } else {
-                std::visit([](auto &&u) {
-                    using T = std::decay_t<decltype(u)>;
-                    if constexpr (std::is_same_v<T, typename DI::FullUpdate>) {
+                    if constexpr (std::is_same_v<T, typename DI::OneFullUpdateItem>) {
+                        if constexpr (NeedOutput) {
+                            if (keySet.find(u.groupID) == keySet.end()) {
+                                keys.push_back(u.groupID);
+                            }
+                        }
                         handleFullUpdate(std::move(u));
-                    } else if constexpr (std::is_same_v<T, typename DI::DeltaUpdate>) {
+                    } else if constexpr (std::is_same_v<T, typename DI::OneDeltaUpdateItem>) {
+                        if constexpr (NeedOutput) {
+                            if (keySet.find(std::get<0>(u)) == keySet.end()) {
+                                keys.push_back(std::get<0>(u));
+                            }
+                        }
                         handleDeltaUpdate(std::move(u));
                     }
-                }, std::move(update.data));
+                }, std::move(item));
             }
-            
+            if constexpr (NeedOutput) {
+                return dataStore_->createFullUpdateNotification(keys);
+            }
         }
     };
 
