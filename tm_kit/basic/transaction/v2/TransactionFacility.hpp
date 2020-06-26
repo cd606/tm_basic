@@ -17,6 +17,7 @@ namespace transaction { namespace v2 {
             , typename TI::TransactionResponse
         > {
     public:
+        using DataStore = TransactionDataStore<DI,KeyHash,M::PossiblyMultiThreaded>;
         using DataStorePtr = TransactionDataStorePtr<DI,KeyHash,M::PossiblyMultiThreaded>;
         virtual DataStorePtr const &dataStorePtr() const = 0;
     };
@@ -25,8 +26,8 @@ namespace transaction { namespace v2 {
         class M, class TI, class DI
         , class VersionChecker = std::equal_to<typename TI::Version>
         , class VersionSliceChecker = std::equal_to<typename TI::Version>
-        , class DataSummaryChecker = ConstChecker<true, typename TI::Data, typename TI::DataSummary>
-        , class DeltaProcessor = TriviallyProcess<typename TI::Data, typename TI::Delta, typename TI::ProcessedUpdate>
+        , class DataSummaryChecker = std::equal_to<typename TI::Data>
+        , class DeltaProcessor = TriviallyProcess<typename TI::Data, typename TI::DataDelta, typename TI::ProcessedUpdate>
         , class KeyHash = std::hash<typename DI::Key>
         , class Enable=void
     >
@@ -62,7 +63,7 @@ namespace transaction { namespace v2 {
         DataSummaryChecker dataSummaryChecker_;
         DeltaProcessor deltaProcessor_;
 
-        void publishResponse(typename M::TheEnvironment *env, typename M::TheEnvironment::IDType const &id, typename TI::TransactionResponse &&response) {
+        void publishResponse(typename M::EnvironmentType *env, typename M::EnvironmentType::IDType const &id, typename TI::TransactionResponse &&response) {
             this->publish(
                 env
                 , typename M::template Key<typename TI::TransactionResponse> {
@@ -72,22 +73,24 @@ namespace transaction { namespace v2 {
             );
             //The busy wait is important, since it makes sure that our data store
             //is actually up to date
-            while (dataStore_->globalVersion_ < response.globalVersion) {
+            while (dataStore_->globalVersion_ < response.value.globalVersion) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
 
         struct ComponentLock {
             TH *th_;
-            ComponentLock(TH *th) : th_(th) {
-                th_->acquireLock();
+            std::string const *acct_;
+            typename TI::Key const *key_;
+            ComponentLock(TH *th, std::string const *acct, typename TI::Key const *k) : th_(th), acct_(acct), key_(k) {
+                th_->acquireLock(*acct_, *key_);
             }
             ~ComponentLock() {
-                th_->releaseLock();
+                th_->releaseLock(*acct_, *key_);
             }
         };
 
-        void handleInsert(typename M::TheEnvironment *env, std::string const &account, typename M::TheEnvironment::IDType const &requester, typename TI::InsertAction insertAction) {
+        void handleInsert(typename M::EnvironmentType *env, std::string const &account, typename M::EnvironmentType::IDType const &requester, typename TI::InsertAction insertAction) {
             {
                 Lock _(dataStore_->mutex_);
                 auto iter = dataStore_->dataMap_.find(insertAction.key);
@@ -106,11 +109,11 @@ namespace transaction { namespace v2 {
             }
             {
                 auto *th = static_cast<TH *>(env);
-                ComponentLock cl(th);
+                ComponentLock cl(th, &account, &(insertAction.key));
                 publishResponse(env, requester, th->handleInsert(account, insertAction.key, insertAction.data));
             }
         }
-        void handleUpdate(typename M::TheEnvironment *env, std::string const &account, typename M::TheEnvironment::IDType const &requester, typename TI::UpdateAction updateAction) {
+        void handleUpdate(typename M::EnvironmentType *env, std::string const &account, typename M::EnvironmentType::IDType const &requester, typename TI::UpdateAction updateAction) {
             std::optional<typename TI::ProcessedUpdate> processed = std::nullopt;
             {
                 Lock _(dataStore_->mutex_);
@@ -153,11 +156,11 @@ namespace transaction { namespace v2 {
             }
             {
                 auto *th = static_cast<TH *>(env);
-                ComponentLock cl(th);
+                ComponentLock cl(th, &account, &(updateAction.key));
                 publishResponse(env, requester, th->handleUpdate(account, updateAction.key, updateAction.oldVersionSlice, *processed));
             }
         }
-        void handleDelete(typename M::TheEnvironment *env, std::string const &account, typename M::TheEnvironment::IDType const &requester, typename TI::DeleteAction deleteAction) {
+        void handleDelete(typename M::EnvironmentType *env, std::string const &account, typename M::EnvironmentType::IDType const &requester, typename TI::DeleteAction deleteAction) {
             {
                 Lock _(dataStore_->mutex_);
                 auto iter = dataStore_->dataMap_.find(deleteAction.key);
@@ -204,7 +207,7 @@ namespace transaction { namespace v2 {
             }
             {
                 auto *th = static_cast<TH *>(env);
-                ComponentLock cl(th);
+                ComponentLock cl(th, &account, &(deleteAction.key));
                 publishResponse(env, requester, th->handleDelete(account, deleteAction.key, deleteAction.oldVersion));
             }
         }
@@ -241,7 +244,7 @@ namespace transaction { namespace v2 {
             auto *env = transactionWithAccountInfo.environment;
             auto account = std::get<0>(transactionWithAccountInfo.timedData.value.key());
             auto requester = transactionWithAccountInfo.timedData.value.id();
-            std::visit([env,&account,&requester](auto &&tr) {
+            std::visit([this,env,&account,&requester](auto &&tr) {
                 using T = std::decay_t<decltype(tr)>;
                 if constexpr (std::is_same_v<T, typename TI::InsertAction>) {
                     auto insertAction = std::move(tr);

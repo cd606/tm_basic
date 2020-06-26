@@ -8,6 +8,9 @@
 #include <type_traits>
 #include <functional>
 
+#include <tm_kit/basic/transaction/v2/TransactionDataStore.hpp>
+#include <tm_kit/basic/transaction/v2/DataStreamInterface.hpp>
+
 namespace dev { namespace cd606 { namespace tm { namespace basic { 
     
 namespace transaction { namespace v2 {
@@ -99,7 +102,7 @@ namespace transaction { namespace v2 {
         >;
     };
 
-    template <class M, class DI, bool MutexProtected, class KeyHash = std::hash<typename DI::Key>>
+    template <class M, class DI, bool MutexProtected=M::PossiblyMultiThreaded, class KeyHash = std::hash<typename DI::Key>>
     class GeneralSubscriber 
         : public GeneralSubscriberTypes<M,DI>::IGeneralSubscriber
     {       
@@ -107,11 +110,16 @@ namespace transaction { namespace v2 {
         using Types = GeneralSubscriberTypes<M,DI>;
         using SubscriptionMap = std::unordered_map<typename Types::Key, std::vector<typename Types::ID>, KeyHash>;
         typename Types::Subscription subscriptionMap_;
-        using IDInfoMap = std::unordered_map<typename Types::ID, std::vector<typename Types::Key>, typename M::TheEnvironment::IDHash>;
+        using IDInfoMap = std::unordered_map<typename Types::ID, std::vector<typename Types::Key>, typename M::EnvironmentType::IDHash>;
         IDInfoMap idInfoMap_;
         std::conditional_t<MutexProtected, std::mutex, bool> mutex_;
 
-        std::vector<typename Types::Key> addSubscription(typename M::TheEnvironment *env, typename Types::ID id, typename Types::Subscription const &subscription) {
+        using DataStorePtr = transaction::v2::TransactionDataStorePtr<
+            DI, KeyHash, MutexProtected
+        >;
+        DataStorePtr dataStorePtr_;
+
+        std::vector<typename Types::Key> addSubscription(typename M::EnvironmentType *env, typename Types::ID id, typename Types::Subscription const &subscription) {
             std::vector<typename Types::Key> ret;
             for (auto const &key : subscription.keys) {
                 auto iter = subscriptionMap_.find(key);
@@ -131,7 +139,7 @@ namespace transaction { namespace v2 {
             idInfoMap_.insert(std::make_pair(id, ret));
             return ret;
         }
-        void removeSubscription(typename M::TheEnvironment *env, typename Types::Unsubscription const &unsubscription) {
+        void removeSubscription(typename M::EnvironmentType *env, typename Types::Unsubscription const &unsubscription) {
             auto idInfoIter = idInfoMap_.find(unsubscription.originalSubscriptionID);
             if (idInfoIter == idInfoMap_.end()) {
                 return;
@@ -150,20 +158,43 @@ namespace transaction { namespace v2 {
             }
             idInfoMap_.erase(idInfoIter);
         }
-        std::vector<typename Types::ID> affectedIDs(typename M::TheEnvironment *env, typename Types::Key const &key) {
+        std::vector<typename Types::ID> affectedIDs(typename Types::Key const &key) {
             auto iter = subscriptionMap_.find(key);
             if (iter == subscriptionMap_.end()) {
                 return std::vector<typename Types::ID> {};
             }
             return iter->second;
         }
+        typename Types::SubscriptionUpdate retrieveInitialUpdateForKey(typename Types::Key const &key) {
+            typename DataStorePtr::element_type::Lock _(dataStorePtr_->mutex_);
+            auto iter = dataStorePtr_->dataMap_.find(key);
+            if (iter == dataStorePtr_->dataMap_.end()) {
+                return typename Types::SubscriptionUpdate {
+                    dataStorePtr_->globalVersion_
+                    , typename DI::FullUpdate {
+                        infra::withtime_utils::makeValueCopy(key)
+                        , typename DI::Version {}
+                        , std::nullopt
+                    }
+                };
+            } else {
+                return typename Types::SubscriptionUpdate {
+                    dataStorePtr_->globalVersion_
+                    , typename DI::FullUpdate {
+                        infra::withtime_utils::makeValueCopy(key)
+                        , infra::withtime_utils::makeValueCopy(iter->second.version)
+                        , infra::withtime_utils::makeValueCopy(iter->second.data)
+                    }
+                };
+            }
+        }
     public:
-        GeneralSubscriber() 
-            : subscriptionMap_(), idInfoMap_(), mutex_() {}
-        virtual ~GeneralSubscriber() {}
-
-        virtual typename Types::SubscriptionUpdate retrieveInitialUpdateForKey(typename Types::Key const &) = 0;
+        GeneralSubscriber(DataStorePtr const &dataStorePtr) 
+            : subscriptionMap_(), idInfoMap_(), mutex_(), dataStorePtr_(dataStorePtr) {}
+        virtual ~GeneralSubscriber() {}       
         
+        void start(typename M::EnvironmentType *) override final {
+        }
         void handle(typename M::template InnerData<typename M::template Key<typename Types::Input>> &&input) override final {
             auto *env = input.environment;
             typename Types::ID id = input.timedData.value.id();
@@ -180,7 +211,7 @@ namespace transaction { namespace v2 {
                     }
                     this->publish(
                         env
-                        , typename M::template Key<typename Types::OutputType> {
+                        , typename M::template Key<typename Types::Output> {
                             id
                             , typename Types::Output {
                                 { typename Types::Subscription { newKeys } }
@@ -191,7 +222,7 @@ namespace transaction { namespace v2 {
                     for (auto const &newKey : newKeys) {
                         this->publish(
                             env
-                            , typename M::template Key<typename Types::OutputType> {
+                            , typename M::template Key<typename Types::Output> {
                                 id
                                 , typename Types::Output {
                                     { retrieveInitialUpdateForKey(newKey) }
@@ -211,7 +242,7 @@ namespace transaction { namespace v2 {
                     }
                     this->publish(
                         env
-                        , typename M::template Key<typename Types::OutputType> {
+                        , typename M::template Key<typename Types::Output> {
                             unsubscription.originalSubscriptionID
                             , typename Types::Output {
                                 { typename Types::Unsubscription { unsubscription.originalSubscriptionID } }
@@ -221,7 +252,7 @@ namespace transaction { namespace v2 {
                     );
                     this->publish(
                         env
-                        , typename M::template Key<typename Types::OutputType> {
+                        , typename M::template Key<typename Types::Output> {
                             id
                             , typename Types::Output {
                                 { typename Types::Unsubscription { unsubscription.originalSubscriptionID } }
@@ -235,13 +266,19 @@ namespace transaction { namespace v2 {
         void handle(typename M::template InnerData<typename Types::SubscriptionUpdate> &&update) override final {
             auto *env = update.environment;
             std::vector<typename Types::ID> affected;
-            typename Types::Key k {update.timedData.value.groupID};
-            if constexpr (MutexProtected) {
-                std::lock_guard<std::mutex> _(mutex_);
-                affected = affectedIDs(update.environment, k);
-            } else {
-                affected = affectedIDs(update.environment, k);
-            }
+            std::visit([this,env,&affected](auto const &u) {
+                using T = std::decay_t<decltype(u)>;
+                typename Types::Key k;
+                if constexpr (std::is_same_v<T, typename DI::FullUpdate>) {
+                    k = u.groupID;
+                    
+                } else if constexpr (std::is_same_v<T, typename DI::DeltaUpdate>) {
+                    k = std::get<0>(u);
+                }
+                typename DataStorePtr::element_type::Lock _(mutex_);
+                affected = affectedIDs(k);
+            }, update.timedData.value.data);
+
             if (affected.size() == 0) {
                 return;
             } else if (affected.size() == 1) {
@@ -250,7 +287,7 @@ namespace transaction { namespace v2 {
                     , typename M::template Key<typename Types::Output> {
                         affected[0]
                         , typename Types::Output {
-                            { std::move(update.timedData.value.groupID) }
+                            { std::move(update.timedData) }
                         }
                     }
                     , false
@@ -262,7 +299,7 @@ namespace transaction { namespace v2 {
                         , typename M::template Key<typename Types::Output> {
                             id
                             , typename Types::Output {
-                                { infra::withtime_utils::makeValueCopy(update.timedData.value.groupID) }
+                                { infra::withtime_utils::makeValueCopy(update.timedData) }
                             }
                         }
                         , false

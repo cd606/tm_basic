@@ -13,7 +13,7 @@ namespace transaction { namespace v2 {
             virtual ~Callback() {}
             virtual void onUpdate(typename DI::Update &&) = 0;
         };
-        virtual ~DataStreamEnvComponent() = 0;
+        virtual ~DataStreamEnvComponent() {}
         virtual void initialize(Callback *cb) = 0;
     };
 
