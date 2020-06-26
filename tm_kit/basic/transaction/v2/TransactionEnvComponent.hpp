@@ -8,6 +8,7 @@ namespace transaction { namespace v2 {
     template <class TI>
     class TransactionEnvComponent {
     public:
+        virtual ~TransactionEnvComponent() {}
         virtual typename TI::GlobalVersion acquireLock(std::string const &account, std::string const &name) = 0;
         virtual typename TI::GlobalVersion releaseLock(std::string const &account, std::string const &name) = 0;
         virtual typename TI::TransactionResponse handleInsert(std::string const &account, typename TI::Key const &key, typename TI::Data const &data) = 0;

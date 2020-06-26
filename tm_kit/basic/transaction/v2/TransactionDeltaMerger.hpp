@@ -16,12 +16,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         , class VersionDeltaMerger = TriviallyMerge<typename DI::Version, typename DI::VersionDelta>
         , class DataDeltaMerger = TriviallyMerge<typename DI::Data, typename DI::DataDelta>
         , class KeyHashType = std::hash<typename DI::Key>
+        , bool MutexProtected = true
     >
     class TransactionDeltaMerger {
     private:
-        TransactionDataStorePtr<DI,KeyHashType> dataStore_;
+        TransactionDataStorePtr<DI,KeyHashType,MutexProtected> dataStore_;
         VersionDeltaMerger versionDeltaMerger_;
         DataDeltaMerger dataDeltaMerger_;
+
+        using Lock = typename TransactionDataStorePtr<DI,KeyHashType,MutexProtected>::Lock;
+        using GV = typename TransactionDataStorePtr<DI,KeyHashType,MutexProtected>::GlobalVersion;
 
     public:
         using KeyHash = KeyHashType;
@@ -29,7 +33,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
 
     private:
         RetType handleFullUpdate(typename DI::FullUpdate &&update) {
-            std::lock_guard<std::mutex> _(dataStore_->mutex_);
+            Lock _(dataStore_->mutex_);
             auto iter = dataStore_->dataMap_.find(update.groupID);
             if (iter == dataStore_->dataMap_.end()) {
                 iter = dataStore_->dataMap_.insert(std::make_pair(
@@ -50,7 +54,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             }
         }
         RetType handleDeltaUpdate(typename DI::DeltaUpdate &&update) {
-            std::lock_guard<std::mutex> _(dataStore_->mutex_);
+            Lock _(dataStore_->mutex_);
             auto iter = dataStore_->dataMap_.find(std::get<0>(update));
             if (iter == dataStore_->dataMap_.end() || !iter->second.data) {
                 if constexpr (NeedOutput) {
@@ -71,9 +75,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         }
 
         struct SetGlobalVersion {
-            std::atomic<typename DI::GlobalVersion> *p_;
+            GV *p_;
             typename DI::GlobalVersion v_;
-            SetGlobalVersion(std::atomic<typename DI::GlobalVersion> *p, typename DI::GlobalVersion v) 
+            SetGlobalVersion(GV *p, typename DI::GlobalVersion v) 
                 : p_(p), v_(v)
             {}
             ~SetGlobalVersion() {

@@ -11,13 +11,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     
 namespace transaction { namespace v2 {
 
-    template <class M, class TI, class DI, class KeyHash=std::hash<typename DI::Key>>
+    template <class M, class TI, class DI, class KeyHash=std::hash<typename DI::Key>, bool MutexProtected=true>
     class ITransactionFacility : public M::template AbstractOnOrderFacility<
             typename TI::TransactionWithAccountInfo
             , typename TI::TransactionResponse
         > {
     public:
-        virtual TransactionDataStorePtr<DI,KeyHash> const &dataStorePtr() const = 0;
+        using DataStorePtr = TransactionDataStorePtr<DI,KeyHash,M::PossiblyMultiThreaded>;
+        virtual DataStorePtr const &dataStorePtr() const = 0;
     };
 
     template <
@@ -48,12 +49,13 @@ namespace transaction { namespace v2 {
         >
     >
         : 
-        public ITransactionFacility<M, TI, DI, KeyHash> 
+        public ITransactionFacility<M, TI, DI, KeyHash, M::PossiblyMultiThreaded> 
     {
     private:
         using TH = TransactionEnvComponent<TI>;
+        using Lock = typename TransactionDataStore<DI,KeyHash,M::PossiblyMultiThreaded>::Lock;
 
-        TransactionDataStorePtr<DI,KeyHash> dataStore_;
+        TransactionDataStorePtr<DI,KeyHash,M::PossiblyMultiThreaded> dataStore_;
 
         VersionChecker versionChecker_;
         VersionSliceChecker versionSliceChecker_;
@@ -87,7 +89,7 @@ namespace transaction { namespace v2 {
 
         void handleInsert(typename M::TheEnvironment *env, std::string const &account, typename M::TheEnvironment::IDType const &requester, typename TI::InsertAction insertAction) {
             {
-                std::lock_guard<std::mutex> _(dataStore_->mutex_);
+                Lock _(dataStore_->mutex_);
                 auto iter = dataStore_->dataMap_.find(insertAction.key);
                 if (iter != dataStore_->dataMap_.end()) {
                     publishResponse(env, requester, typename TI::TransactionResponse {
@@ -111,7 +113,7 @@ namespace transaction { namespace v2 {
         void handleUpdate(typename M::TheEnvironment *env, std::string const &account, typename M::TheEnvironment::IDType const &requester, typename TI::UpdateAction updateAction) {
             std::optional<typename TI::ProcessedUpdate> processed = std::nullopt;
             {
-                std::lock_guard<std::mutex> _(dataStore_->mutex_);
+                Lock _(dataStore_->mutex_);
                 auto iter = dataStore_->dataMap_.find(updateAction.key);
                 if (iter == dataStore_->dataMap_.end()) {
                     publishResponse(env, requester, typename TI::TransactionResponse {
@@ -157,7 +159,7 @@ namespace transaction { namespace v2 {
         }
         void handleDelete(typename M::TheEnvironment *env, std::string const &account, typename M::TheEnvironment::IDType const &requester, typename TI::DeleteAction deleteAction) {
             {
-                std::lock_guard<std::mutex> _(dataStore_->mutex_);
+                Lock _(dataStore_->mutex_);
                 auto iter = dataStore_->dataMap_.find(deleteAction.key);
                 if (iter == dataStore_->dataMap_.end()) {
                     if (!deleteAction.oldVersion) {
@@ -207,7 +209,7 @@ namespace transaction { namespace v2 {
             }
         }
     public:
-        TransactionFacility(TransactionDataStorePtr<DI,KeyHash> const &dataStore) 
+        TransactionFacility(TransactionDataStorePtr<DI,KeyHash,M::PossiblyMultiThreaded> const &dataStore) 
             : dataStore_(dataStore)
             , versionChecker_()
             , versionSliceChecker_()
