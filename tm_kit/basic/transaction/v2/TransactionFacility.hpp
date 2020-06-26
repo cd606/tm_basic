@@ -240,15 +240,66 @@ namespace transaction { namespace v2 {
                 using T = std::decay_t<decltype(tr)>;
                 if constexpr (std::is_same_v<T, typename TI::InsertAction>) {
                     auto insertAction = std::move(tr);
+                    if (!checkInsertPermission(env, account, insertAction)) {
+                        this->publish(
+                            env
+                            , typename M::template Key<typename TI::TransactionResponse> {
+                                requester
+                                , typename TI::TransactionResponse { {
+                                    typename TI::GlobalVersion {}
+                                    , RequestDecision::FailurePermission
+                                } }
+                            }
+                            , true
+                        );
+                        return;
+                    }
                     handleInsert(env, account, requester, insertAction);
                 } else if constexpr (std::is_same_v<T, typename TI::UpdateAction>) {
                     auto updateAction = std::move(tr);
+                    if (!checkUpdatePermission(env, account, updateAction)) {
+                        this->publish(
+                            env
+                            , typename M::template Key<typename TI::TransactionResponse> {
+                                requester
+                                , typename TI::TransactionResponse { {
+                                    typename TI::GlobalVersion {}
+                                    , RequestDecision::FailurePermission
+                                } }
+                            }
+                            , true
+                        );
+                        return;
+                    }
                     handleUpdate(env, account, requester, updateAction);
                 } else if constexpr (std::is_same_v<T, typename TI::DeleteAction>) {
                     auto deleteAction = std::move(tr);
+                    if (!checkDeletePermission(env, account, deleteAction)) {
+                        this->publish(
+                            env
+                            , typename M::template Key<typename TI::TransactionResponse> {
+                                requester
+                                , typename TI::TransactionResponse { {
+                                    typename TI::GlobalVersion {}
+                                    , RequestDecision::FailurePermission
+                                } }
+                            }
+                            , true
+                        );
+                        return;
+                    }
                     handleDelete(env, account, requester, deleteAction);
                 }
             }, std::move(std::get<1>(transactionWithAccountInfo.timedData.value.key())).value);
+        }
+        virtual bool checkInsertPermission(typename M::EnvironmentType *env, std::string const &account, typename TI::InsertAction const &) {
+            return true;
+        }
+        virtual bool checkUpdatePermission(typename M::EnvironmentType *env, std::string const &account, typename TI::UpdateAction const &) {
+            return true;
+        }
+        virtual bool checkDeletePermission(typename M::EnvironmentType *env, std::string const &account, typename TI::DeleteAction const &) {
+            return true;
         }
     };
 

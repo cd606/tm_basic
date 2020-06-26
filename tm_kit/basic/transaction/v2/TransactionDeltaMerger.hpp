@@ -31,25 +31,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         using SafeGV = typename TransactionDataStore::GlobalVersion;
 
     public:
+        static constexpr bool IsMutexProtected = MutexProtected;
+        using DataStreamInterfaceType = DI;
         using KeyHash = KeyHashType;
-        using RetType = std::conditional_t<NeedOutput, typename DI::UpdateS, void>;
+        using RetType = std::conditional_t<NeedOutput, typename DI::Update, void>;
 
     private:
-        void handleFullUpdate(typename DI::OneFullUpdateItem &&update) {
+        void handleFullUpdate(typename DI::OneFullUpdateItem &&update) const {
             Lock _(dataStore_->mutex_);
             auto iter = dataStore_->dataMap_.find(update.groupID);
             if (iter == dataStore_->dataMap_.end()) {
-                iter = dataStore_->dataMap_.insert(std::make_pair(
+                dataStore_->dataMap_.insert(typename TransactionDataStore::DataMap::value_type {
                     std::move(update.groupID)
-                    , {std::move(update.version), std::move(update.data)}
-                )).first;
+                    , typename TransactionDataStore::DataMap::mapped_type {std::move(update.version), { std::move(update.data) }}
+                });
             } else {
                 infra::withtime_utils::updateVersionedData(iter->second, {
                     std::move(update.version), std::move(update.data)
                 });
             }
         }
-        void handleDeltaUpdate(typename DI::OneDeltaUpdateItem &&update) {
+        void handleDeltaUpdate(typename DI::OneDeltaUpdateItem &&update) const {
             Lock _(dataStore_->mutex_);
             auto iter = dataStore_->dataMap_.find(std::get<0>(update));
             if (iter == dataStore_->dataMap_.end() || !iter->second.data) {
@@ -66,7 +68,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 : p_(p), v_(v)
             {}
             ~SetGlobalVersion() {
-                p_ = v_;
+                *p_ = v_;
             }
         };
 
@@ -82,11 +84,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             return *this;
         }
         RetType operator()(typename DI::Update &&update) const {
-            SetGlobalVersion _(&(dataStore_->globalVersion_), update.globalVersion);
+            SetGlobalVersion _(&(dataStore_->globalVersion_), update.version);
             std::vector<typename DI::Key> keys;
             std::unordered_set<typename DI::Key, KeyHash> keySet;
             for (auto &&item : update.data) {
-                std::visit([&keys,&keySet](auto &&u) {
+                std::visit([this,&keys,&keySet](auto &&u) {
                     using T = std::decay_t<decltype(u)>;
                     if constexpr (std::is_same_v<T, typename DI::OneFullUpdateItem>) {
                         if constexpr (NeedOutput) {

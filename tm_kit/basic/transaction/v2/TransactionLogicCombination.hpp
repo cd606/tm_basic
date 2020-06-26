@@ -60,6 +60,12 @@ namespace transaction { namespace v2 {
         , ITransactionFacility<typename R::MonadType, TI, DI, typename DataStoreUpdater::KeyHash> *transactionFacilityImpl
         , typename GeneralSubscriberTypes<typename R::MonadType, DI>::IGeneralSubscriber *subscriptionFacilityImpl
     ) -> TransactionLogicCombinationResult<R, TI, DI, typename DataStoreUpdater::KeyHash> {
+        static_assert(
+            ((DataStoreUpdater::IsMutexProtected == R::MonadType::PossiblyMultiThreaded)
+            && std::is_same_v<typename DataStoreUpdater::DataStreamInterfaceType, DI>)
+            , "DataStoreUpdater must be compatible with R and DI"
+        );
+
         using M = typename R::MonadType;
 
         auto transactionFacility = M::template onOrderFacilityWithExternalEffects<
@@ -77,7 +83,7 @@ namespace transaction { namespace v2 {
         >(
             subscriptionFacilityImpl
         );
-        auto dataStoreUpdater = M::template simpleExporter<typename DI::Update>(DataStoreUpdater {transactionFacilityImpl->dataStorePtr()});
+        auto dataStoreUpdater = M::template pureExporter<typename DI::Update>(DataStoreUpdater {transactionFacilityImpl->dataStorePtr()});
         
         r.registerOnOrderFacilityWithExternalEffects(
             componentPrefix+"_transaction_handler"
@@ -92,26 +98,14 @@ namespace transaction { namespace v2 {
             , dataStoreUpdater
         );
         r.connect(
-            M::template onOrderFacilityWithExternalEffectsAsSource<
-                typename TI::TransactionWithAccountInfo
-                , typename TI::TransactionResponse
-                , typename DI::Update
-            >(transactionFacility)
-            , M::template localOnOrderFacilityAsSink<
-                typename GeneralSubscriberTypes<typename R::MonadType, DI>::Input
-                , typename GeneralSubscriberTypes<typename R::MonadType, DI>::Output
-                , typename GeneralSubscriberTypes<typename R::MonadType, DI>::SubscriptionUpdate
-            >(subscriptionFacility)
+            r.facilityWithExternalEffectsAsSource(transactionFacility)
+            , r.localFacilityAsSink(subscriptionFacility)
         );
         r.connect(
-            M::template onOrderFacilityWithExternalEffectsAsSource<
-                typename TI::TransactionWithAccountInfo
-                , typename TI::TransactionResponse
-                , typename DI::Update
-            >(transactionFacility)
-            , M::template exporterAsSink(dataStoreUpdater)
+            r.facilityWithExternalEffectsAsSource(transactionFacility)
+            , r.exporterAsSink(dataStoreUpdater)
         );
-        r.preservePointer(transactionFacility->dataStorePtr());
+        r.preservePointer(transactionFacilityImpl->dataStorePtr());
         r.markStateSharing(transactionFacility, subscriptionFacility, componentPrefix+"_data_store");
         r.markStateSharing(transactionFacility, dataStoreUpdater, componentPrefix+"_data_store");
         r.markStateSharing(dataStoreUpdater, subscriptionFacility, componentPrefix+"_data_store");
