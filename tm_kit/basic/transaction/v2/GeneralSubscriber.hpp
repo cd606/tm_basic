@@ -109,7 +109,7 @@ namespace transaction { namespace v2 {
     private:
         using Types = GeneralSubscriberTypes<M,DI>;
         using SubscriptionMap = std::unordered_map<typename Types::Key, std::vector<typename Types::ID>, KeyHash>;
-        typename Types::Subscription subscriptionMap_;
+        SubscriptionMap subscriptionMap_;
         using IDInfoMap = std::unordered_map<typename Types::ID, std::vector<typename Types::Key>, typename M::EnvironmentType::IDHash>;
         IDInfoMap idInfoMap_;
         std::conditional_t<MutexProtected, std::mutex, bool> mutex_;
@@ -287,7 +287,7 @@ namespace transaction { namespace v2 {
                     , typename M::template Key<typename Types::Output> {
                         affected[0]
                         , typename Types::Output {
-                            { std::move(update.timedData) }
+                            { std::move(update.timedData.value) }
                         }
                     }
                     , false
@@ -299,7 +299,7 @@ namespace transaction { namespace v2 {
                         , typename M::template Key<typename Types::Output> {
                             id
                             , typename Types::Output {
-                                { infra::withtime_utils::makeValueCopy(update.timedData) }
+                                { infra::withtime_utils::makeValueCopy(update.timedData.value) }
                             }
                         }
                         , false
