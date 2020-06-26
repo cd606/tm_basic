@@ -165,6 +165,9 @@ namespace transaction { namespace v2 {
     public:
         using Input = typename Types::Input;
         using Output = typename Types::Output;
+        using Key = typename Types::Key;
+        using Subscription = typename Types::Subscription;
+        using Unsubscription = typename Types::Unsubscription;
         using SubscriptionUpdate = typename Types::SubscriptionUpdate;
 
         GeneralSubscriber(DataStorePtr const &dataStorePtr) 
