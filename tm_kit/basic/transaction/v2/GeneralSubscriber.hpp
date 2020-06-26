@@ -163,6 +163,10 @@ namespace transaction { namespace v2 {
             idInfoMap_.erase(idInfoIter);
         }
     public:
+        using Input = typename Types::Input;
+        using Output = typename Types::Output;
+        using SubscriptionUpdate = typename Types::SubscriptionUpdate;
+
         GeneralSubscriber(DataStorePtr const &dataStorePtr) 
             : subscriptionMap_(), idInfoMap_(), mutex_(), dataStorePtr_(dataStorePtr) {}
         virtual ~GeneralSubscriber() {}       
