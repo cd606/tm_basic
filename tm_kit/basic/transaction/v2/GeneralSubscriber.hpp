@@ -75,6 +75,18 @@ namespace transaction { namespace v2 {
             return true;
         }
     };
+    struct UnsubscribeAll {
+        void SerializeToString(std::string *s) const {
+            *s = bytedata_utils::RunSerializer<VoidStruct>::apply(VoidStruct {});
+        }
+        bool ParseFromString(std::string const &s) {
+            auto res = bytedata_utils::RunDeserializer<VoidStruct>::apply(s);
+            if (!res) {
+                return false;
+            }
+            return true;
+        }
+    };
 
     template <class KeyType>
     inline std::ostream &operator<<(std::ostream &os, Subscription<KeyType> const &x) {
@@ -121,6 +133,10 @@ namespace transaction { namespace v2 {
         os << "]}";
         return os;
     }
+    inline std::ostream &operator<<(std::ostream &os, UnsubscribeAll const &x) {
+        os << "UnsubscribeAll{}";
+        return os;
+    }
     template <class KeyType>
     inline bool operator==(Subscription<KeyType> const &x, Subscription<KeyType> const &y) {
         return (x.keys == y.keys);
@@ -136,6 +152,9 @@ namespace transaction { namespace v2 {
     inline bool operator==(SubscriptionInfo<IDType,KeyType> const &x, SubscriptionInfo<IDType,KeyType> const &y) {
         return (x.subscriptions == y.subscriptions);
     }
+    inline bool operator==(UnsubscribeAll const &, UnsubscribeAll const &) {
+        return true;
+    }
 
     //subscription and unsubscription ack's just use the exact same data types
 
@@ -150,12 +169,13 @@ namespace transaction { namespace v2 {
 
         using ListSubscriptions = transaction::v2::ListSubscriptions;
         using SubscriptionInfo = transaction::v2::SubscriptionInfo<ID,Key>;
+        using UnsubscribeAll = transaction::v2::UnsubscribeAll;
 
         using Input = CBOR<
-            std::variant<Subscription, Unsubscription, ListSubscriptions>
+            std::variant<Subscription, Unsubscription, ListSubscriptions, UnsubscribeAll>
         >;
         using Output = CBOR<
-            std::variant<Subscription, Unsubscription, SubscriptionUpdate, SubscriptionInfo>
+            std::variant<Subscription, Unsubscription, SubscriptionUpdate, SubscriptionInfo, UnsubscribeAll>
         >;
         using InputWithAccountInfo = std::tuple<std::string, Input>;
     };
@@ -251,6 +271,38 @@ namespace transaction { namespace v2 {
             }
             return true;
         }
+        std::vector<typename M::EnvironmentType::IDType> removeAllSubscriptions(typename M::EnvironmentType *env, std::string const &account) {
+            auto acctIter = accountInfoMap_.find(account);
+            if (acctIter == accountInfoMap_.end()) {
+                return std::vector<typename M::EnvironmentType::IDType> {};
+            }
+            std::vector<typename M::EnvironmentType::IDType> ret;
+            for (auto const &id : acctIter->second.ids) {
+                auto idInfoIter = idInfoMap_.find(id);
+                if (idInfoIter == idInfoMap_.end()) {
+                    continue;
+                }
+                if (idInfoIter->second.account != account) {
+                    continue;
+                }
+                for (auto const &key : idInfoIter->second.keys) {
+                    auto iter = subscriptionMap_.find(key);
+                    if (iter != subscriptionMap_.end()) {
+                        auto vecIter = std::find(iter->second.begin(), iter->second.end(), id);
+                        if (vecIter != iter->second.end()) {
+                            iter->second.erase(vecIter);
+                            if (iter->second.empty()) {
+                                subscriptionMap_.erase(iter);
+                            }
+                        }
+                    }
+                }
+                idInfoMap_.erase(idInfoIter);
+                ret.push_back(id);
+            }
+            accountInfoMap_.erase(acctIter);
+            return ret;
+        }
     public:
         using Input = typename Types::Input;
         using Output = typename Types::Output;
@@ -303,7 +355,6 @@ namespace transaction { namespace v2 {
                     );
                 } else if constexpr (std::is_same_v<T, typename Types::Unsubscription>) {
                     typename Types::Unsubscription unsubscription {std::move(d)};
-                    std::vector<typename Types::Key> removedKeys;
                     bool success = false;
                     {
                         typename DataStore::Lock _(mutex_);
@@ -354,6 +405,34 @@ namespace transaction { namespace v2 {
                             id
                             , typename Types::Output {
                                 { std::move(info) }
+                            }
+                        }
+                        , true
+                    );
+                } else if constexpr (std::is_same_v<T, typename Types::UnsubscribeAll>) {
+                    std::vector<typename M::EnvironmentType::IDType> removedIDs;
+                    {
+                        typename DataStore::Lock _(mutex_);
+                        removedIDs = removeAllSubscriptions(env, account);
+                    }
+                    for (auto const &removedID : removedIDs) {
+                        this->publish(
+                            env
+                            , typename M::template Key<typename Types::Output> {
+                                removedID
+                                , typename Types::Output {
+                                    { typename Types::Unsubscription { removedID } }
+                                }
+                            }
+                            , true
+                        );
+                    }
+                    this->publish(
+                        env
+                        , typename M::template Key<typename Types::Output> {
+                            id
+                            , typename Types::Output {
+                                { typename Types::UnsubscribeAll {} }
                             }
                         }
                         , true
@@ -511,6 +590,27 @@ namespace bytedata_utils {
                 transaction::v2::SubscriptionInfo<IDType,KeyType> {
                     std::move(std::get<0>(std::get<0>(*t)))
                 }
+                , std::get<1>(*t)
+            };
+        }
+    };
+    template <>
+    struct RunCBORSerializer<transaction::v2::UnsubscribeAll, void> {
+        static std::vector<uint8_t> apply(transaction::v2::UnsubscribeAll const &x) {
+            return bytedata_utils::RunCBORSerializer<VoidStruct>
+                ::apply(VoidStruct {});
+        }
+    };
+    template <>
+    struct RunCBORDeserializer<transaction::v2::UnsubscribeAll, void> {
+        static std::optional<std::tuple<transaction::v2::UnsubscribeAll,size_t>> apply(std::string_view const &data, size_t start) {
+            auto t = bytedata_utils::RunCBORDeserializer<VoidStruct>
+                ::apply(data, start);
+            if (!t) {
+                return std::nullopt;
+            }
+            return std::tuple<transaction::v2::UnsubscribeAll,size_t> {
+                transaction::v2::UnsubscribeAll {}
                 , std::get<1>(*t)
             };
         }
