@@ -12,7 +12,7 @@ namespace transaction { namespace v2 { namespace real_time {
     template <class TheEnvironment, class DI>
     class DataStreamImporter 
         :
-        public infra::RealTimeMonad<TheEnvironment>::AbstractImporter<
+        public infra::RealTimeMonad<TheEnvironment>::template AbstractImporter<
             typename DI::Update
         >
         , public DataStreamEnvComponent<DI>::Callback

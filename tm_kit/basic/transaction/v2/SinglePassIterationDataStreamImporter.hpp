@@ -12,7 +12,7 @@ namespace transaction { namespace v2 { namespace single_pass_iteration {
     template <class TheEnvironment, class DI>
     class DataStreamImporter 
         :
-        public infra::SinglePassIterationMonad<TheEnvironment>::AbstractImporter<
+        public infra::SinglePassIterationMonad<TheEnvironment>::template AbstractImporter<
             typename DI::Update
         >
         , public DataStreamEnvComponent<DI>::Callback

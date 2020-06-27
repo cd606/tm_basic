@@ -40,12 +40,12 @@ namespace transaction { namespace v2 {
             && std::is_same_v<typename TI::Data, typename DI::Data>
         >
     > {
-        typename R::OnOrderFacilityWithExternalEffectsPtr<
+        typename R::template OnOrderFacilityWithExternalEffectsPtr<
             typename TI::TransactionWithAccountInfo
             , typename TI::TransactionResponse
             , typename DI::Update
         > transactionFacility;
-        typename R::LocalOnOrderFacilityPtr<
+        typename R::template LocalOnOrderFacilityPtr<
             typename GeneralSubscriberTypes<typename R::MonadType, DI>::Input
             , typename GeneralSubscriberTypes<typename R::MonadType, DI>::Output
             , typename GeneralSubscriberTypes<typename R::MonadType, DI>::SubscriptionUpdate
