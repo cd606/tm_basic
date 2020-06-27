@@ -1,10 +1,19 @@
 #ifndef TM_KIT_BASIC_CONST_TYPE_HPP_
 #define TM_KIT_BASIC_CONST_TYPE_HPP_
 
+#include <iostream>
+#include <functional>
+
 namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <int32_t N>
     struct ConstType {
     };
+
+    template <int32_t N>
+    inline std::ostream &operator<<(std::ostream &os, ConstType<N> const &) {
+        os << "ConstType<" << N << ">{}";
+        return os;
+    }
 } } } }
 
 namespace std {
