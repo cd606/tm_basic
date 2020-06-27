@@ -46,6 +46,35 @@ namespace transaction { namespace v2 {
             return true;
         }
     };
+    struct ListSubscriptions {
+        void SerializeToString(std::string *s) const {
+            *s = bytedata_utils::RunSerializer<VoidStruct>::apply(VoidStruct {});
+        }
+        bool ParseFromString(std::string const &s) {
+            auto res = bytedata_utils::RunDeserializer<VoidStruct>::apply(s);
+            if (!res) {
+                return false;
+            }
+            return true;
+        }
+    };
+    template <class IDType, class KeyType>
+    struct SubscriptionInfo {
+        using Subscriptions = std::vector<std::tuple<IDType,std::vector<KeyType>>>;
+        Subscriptions subscriptions;
+        void SerializeToString(std::string *s) const {
+            std::tuple<Subscriptions const *> t {&subscriptions};
+            *s = bytedata_utils::RunSerializer<std::tuple<Subscriptions const *>>::apply(t);
+        }
+        bool ParseFromString(std::string const &s) {
+            auto res = bytedata_utils::RunDeserializer<std::tuple<Subscriptions>>::apply(s);
+            if (!res) {
+                return false;
+            }
+            subscriptions = std::move(std::get<0>(*res));
+            return true;
+        }
+    };
 
     template <class KeyType>
     inline std::ostream &operator<<(std::ostream &os, Subscription<KeyType> const &x) {
@@ -64,54 +93,102 @@ namespace transaction { namespace v2 {
         os << "Unsubscription{id=" << x.id << "}";
         return os;
     }
+    inline std::ostream &operator<<(std::ostream &os, ListSubscriptions const &x) {
+        os << "ListSubscriptions{}";
+        return os;
+    }
+    template <class IDType, class KeyType>
+    inline std::ostream &operator<<(std::ostream &os, SubscriptionInfo<IDType,KeyType> const &x) {
+        os << "SubscriptionInfo{subscriptions=[";
+        size_t ii = 0;
+        for (auto const &item : x.subscriptions) {
+            if (ii > 0) {
+                os << ',';
+            }
+            ++ii;
+            os << "{id=" << std::get<0>(item);
+            os << ",keys=[";
+            size_t jj = 0;
+            for (auto const &key : std::get<1>(item)) {
+                if (jj > 0) {
+                    os << ',';
+                }
+                ++jj;
+                os << key;
+            }
+            os << "]}";
+        }
+        os << "]}";
+        return os;
+    }
     template <class KeyType>
     inline bool operator==(Subscription<KeyType> const &x, Subscription<KeyType> const &y) {
         return (x.keys == y.keys);
     }
-    template <class IDType, class KeyType>
+    template <class IDType>
     inline bool operator==(Unsubscription<IDType> const &x, Unsubscription<IDType> const &y) {
         return (x.id == y.id);
+    }
+    inline bool operator==(ListSubscriptions const &, ListSubscriptions const &) {
+        return true;
+    }
+    template <class IDType, class KeyType>
+    inline bool operator==(SubscriptionInfo<IDType,KeyType> const &x, SubscriptionInfo<IDType,KeyType> const &y) {
+        return (x.subscriptions == y.subscriptions);
     }
 
     //subscription and unsubscription ack's just use the exact same data types
 
-    template <
-        class M
-        , class DI
-        >
+    template <class IDType, class DI>
     struct GeneralSubscriberTypes {
-        using Monad = M;
         using Key = typename DI::Key;
-        using ID = typename M::EnvironmentType::IDType;
+        using ID = IDType;
 
         using Subscription = transaction::v2::Subscription<Key>;
         using Unsubscription = transaction::v2::Unsubscription<ID>;
         using SubscriptionUpdate = typename DI::Update;
 
+        using ListSubscriptions = transaction::v2::ListSubscriptions;
+        using SubscriptionInfo = transaction::v2::SubscriptionInfo<ID,Key>;
+
         using Input = CBOR<
-            std::variant<Subscription, Unsubscription>
+            std::variant<Subscription, Unsubscription, ListSubscriptions>
         >;
         using Output = CBOR<
-            std::variant<Subscription, Unsubscription, SubscriptionUpdate>
+            std::variant<Subscription, Unsubscription, SubscriptionUpdate, SubscriptionInfo>
         >;
-
-        using IGeneralSubscriber = typename M::template AbstractIntegratedLocalOnOrderFacility<
-            Input
-            , Output
-            , SubscriptionUpdate
-        >;
+        using InputWithAccountInfo = std::tuple<std::string, Input>;
     };
+
+    template <class M, class DI>
+    using IGeneralSubscriber = typename M::template AbstractIntegratedLocalOnOrderFacility<
+        typename GeneralSubscriberTypes<typename M::EnvironmentType::IDType, DI>::InputWithAccountInfo
+        , typename GeneralSubscriberTypes<typename M::EnvironmentType::IDType, DI>::Output
+        , typename GeneralSubscriberTypes<typename M::EnvironmentType::IDType, DI>::SubscriptionUpdate
+    >;
 
     template <class M, class DI, class KeyHash = std::hash<typename DI::Key>>
     class GeneralSubscriber 
-        : public GeneralSubscriberTypes<M,DI>::IGeneralSubscriber
+        : public IGeneralSubscriber<M,DI>
     {       
     private:
-        using Types = GeneralSubscriberTypes<M,DI>;
+        using Types = GeneralSubscriberTypes<typename M::EnvironmentType::IDType, DI>;
+        
         using SubscriptionMap = std::unordered_map<typename Types::Key, std::vector<typename Types::ID>, KeyHash>;
         SubscriptionMap subscriptionMap_;
-        using IDInfoMap = std::unordered_map<typename Types::ID, std::vector<typename Types::Key>, typename M::EnvironmentType::IDHash>;
+        
+        struct IDInfo {
+            std::vector<typename Types::Key> keys;
+            std::string account;
+        };
+        using IDInfoMap = std::unordered_map<typename Types::ID, IDInfo, typename M::EnvironmentType::IDHash>;
         IDInfoMap idInfoMap_;
+
+        struct AccountInfo {
+            std::unordered_set<typename Types::ID, typename M::EnvironmentType::IDHash> ids;
+        };
+        using AccountInfoMap = std::unordered_map<std::string, AccountInfo>;
+        AccountInfoMap accountInfoMap_;
 
         using DataStorePtr = transaction::v2::TransactionDataStorePtr<
             DI, KeyHash, M::PossiblyMultiThreaded
@@ -123,7 +200,7 @@ namespace transaction { namespace v2 {
 
         DataStorePtr dataStorePtr_;
 
-        std::vector<typename Types::Key> addSubscription(typename M::EnvironmentType *env, typename Types::ID id, typename Types::Subscription const &subscription) {
+        std::vector<typename Types::Key> addSubscription(typename M::EnvironmentType *env, std::string const &account, typename Types::ID id, typename Types::Subscription const &subscription) {
             std::vector<typename Types::Key> ret;
             for (auto const &key : subscription.keys) {
                 auto iter = subscriptionMap_.find(key);
@@ -140,15 +217,19 @@ namespace transaction { namespace v2 {
                     }
                 }
             }
-            idInfoMap_.insert(std::make_pair(id, ret));
+            idInfoMap_.insert(std::make_pair(id, IDInfo {ret, account}));
+            accountInfoMap_[account].ids.insert(id);
             return ret;
         }
-        void removeSubscription(typename M::EnvironmentType *env, typename Types::Unsubscription const &unsubscription) {
+        bool removeSubscription(typename M::EnvironmentType *env, std::string const &account, typename Types::Unsubscription const &unsubscription) {
             auto idInfoIter = idInfoMap_.find(unsubscription.originalSubscriptionID);
             if (idInfoIter == idInfoMap_.end()) {
-                return;
+                return false;
             }
-            for (auto const &key : idInfoIter->second) {
+            if (idInfoIter->second.account != account) {
+                return false;
+            }
+            for (auto const &key : idInfoIter->second.keys) {
                 auto iter = subscriptionMap_.find(key);
                 if (iter != subscriptionMap_.end()) {
                     auto vecIter = std::find(iter->second.begin(), iter->second.end(), unsubscription.originalSubscriptionID);
@@ -161,6 +242,14 @@ namespace transaction { namespace v2 {
                 }
             }
             idInfoMap_.erase(idInfoIter);
+            auto acctIter = accountInfoMap_.find(account);
+            if (acctIter != accountInfoMap_.end()) {
+                acctIter->second.ids.erase(unsubscription.originalSubscriptionID);
+                if (acctIter->second.ids.empty()) {
+                    accountInfoMap_.erase(acctIter);
+                }
+            }
+            return true;
         }
     public:
         using Input = typename Types::Input;
@@ -169,24 +258,28 @@ namespace transaction { namespace v2 {
         using Subscription = typename Types::Subscription;
         using Unsubscription = typename Types::Unsubscription;
         using SubscriptionUpdate = typename Types::SubscriptionUpdate;
+        using ListSubscriptions = typename Types::ListSubscriptions;
+        using SubscriptionInfo = typename Types::SubscriptionInfo;
+        using InputWithAccountInfo = typename Types::InputWithAccountInfo;
 
         GeneralSubscriber(DataStorePtr const &dataStorePtr) 
-            : subscriptionMap_(), idInfoMap_(), mutex_(), dataStorePtr_(dataStorePtr) {}
+            : subscriptionMap_(), idInfoMap_(), accountInfoMap_(), mutex_(), dataStorePtr_(dataStorePtr) {}
         virtual ~GeneralSubscriber() {}       
         
         void start(typename M::EnvironmentType *) override final {
         }
-        void handle(typename M::template InnerData<typename M::template Key<typename Types::Input>> &&input) override final {
+        void handle(typename M::template InnerData<typename M::template Key<typename Types::InputWithAccountInfo>> &&input) override final {
             auto *env = input.environment;
+            std::string account = std::get<0>(input.timedData.value.key());
             typename Types::ID id = input.timedData.value.id();
-            std::visit([this,env,id](auto &&d) {
+            std::visit([this,env,id,&account](auto &&d) {
                 using T = std::decay_t<decltype(d)>;
                 if constexpr (std::is_same_v<T, typename Types::Subscription>) {
                     typename Types::Subscription subscription {std::move(d)};
                     std::vector<typename Types::Key> newKeys;
                     {
                         typename DataStore::Lock _(mutex_);
-                        newKeys = addSubscription(env, id, subscription); 
+                        newKeys = addSubscription(env, account, id, subscription); 
                     }
                     this->publish(
                         env
@@ -211,20 +304,23 @@ namespace transaction { namespace v2 {
                 } else if constexpr (std::is_same_v<T, typename Types::Unsubscription>) {
                     typename Types::Unsubscription unsubscription {std::move(d)};
                     std::vector<typename Types::Key> removedKeys;
+                    bool success = false;
                     {
                         typename DataStore::Lock _(mutex_);
-                        removeSubscription(env, unsubscription);
+                        success = removeSubscription(env, account, unsubscription);
                     }
-                    this->publish(
-                        env
-                        , typename M::template Key<typename Types::Output> {
-                            unsubscription.originalSubscriptionID
-                            , typename Types::Output {
-                                { typename Types::Unsubscription { unsubscription.originalSubscriptionID } }
+                    if (success) {
+                        this->publish(
+                            env
+                            , typename M::template Key<typename Types::Output> {
+                                unsubscription.originalSubscriptionID
+                                , typename Types::Output {
+                                    { typename Types::Unsubscription { unsubscription.originalSubscriptionID } }
+                                }
                             }
-                        }
-                        , true
-                    );
+                            , true
+                        );
+                    }
                     this->publish(
                         env
                         , typename M::template Key<typename Types::Output> {
@@ -235,8 +331,35 @@ namespace transaction { namespace v2 {
                         }
                         , true
                     );
+                } else if constexpr (std::is_same_v<T, typename Types::ListSubscriptions>) {
+                    typename Types::SubscriptionInfo info;
+                    {
+                        typename DataStore::Lock _(mutex_);
+                        auto acctIter = accountInfoMap_.find(account);
+                        if (acctIter != accountInfoMap_.end()) {
+                            for (auto const &existingID : acctIter->second.ids) {
+                                auto idIter = idInfoMap_.find(existingID);
+                                if (idIter != idInfoMap_.end()) {
+                                    info.subscriptions.push_back({
+                                        existingID
+                                        , idIter->second.keys
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    this->publish(
+                        env
+                        , typename M::template Key<typename Types::Output> {
+                            id
+                            , typename Types::Output {
+                                { std::move(info) }
+                            }
+                        }
+                        , true
+                    );
                 }
-            }, std::move(input.timedData.value.key().value));
+            }, std::move(std::get<1>(input.timedData.value.key()).value));
         }
         void handle(typename M::template InnerData<typename Types::SubscriptionUpdate> &&update) override final {
             auto *env = update.environment;
@@ -337,6 +460,55 @@ namespace bytedata_utils {
             }
             return std::tuple<transaction::v2::Unsubscription<IDType>,size_t> {
                 transaction::v2::Unsubscription<IDType> {
+                    std::move(std::get<0>(std::get<0>(*t)))
+                }
+                , std::get<1>(*t)
+            };
+        }
+    };
+    template <>
+    struct RunCBORSerializer<transaction::v2::ListSubscriptions, void> {
+        static std::vector<uint8_t> apply(transaction::v2::ListSubscriptions const &x) {
+            return bytedata_utils::RunCBORSerializer<VoidStruct>
+                ::apply(VoidStruct {});
+        }
+    };
+    template <>
+    struct RunCBORDeserializer<transaction::v2::ListSubscriptions, void> {
+        static std::optional<std::tuple<transaction::v2::ListSubscriptions,size_t>> apply(std::string_view const &data, size_t start) {
+            auto t = bytedata_utils::RunCBORDeserializer<VoidStruct>
+                ::apply(data, start);
+            if (!t) {
+                return std::nullopt;
+            }
+            return std::tuple<transaction::v2::ListSubscriptions,size_t> {
+                transaction::v2::ListSubscriptions {}
+                , std::get<1>(*t)
+            };
+        }
+    };
+    template <class IDType, class KeyType>
+    struct RunCBORSerializer<transaction::v2::SubscriptionInfo<IDType,KeyType>, void> {
+        static std::vector<uint8_t> apply(transaction::v2::SubscriptionInfo<IDType,KeyType> const &x) {
+            std::tuple<typename transaction::v2::SubscriptionInfo<IDType,KeyType>::Subscriptions const *> t {&x.subscriptions};
+            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<typename transaction::v2::SubscriptionInfo<IDType,KeyType>::Subscriptions const *>, 1>
+                ::apply(t, {
+                    "subscriptions"
+                });
+        }
+    };
+    template <class IDType, class KeyType>
+    struct RunCBORDeserializer<transaction::v2::SubscriptionInfo<IDType,KeyType>, void> {
+        static std::optional<std::tuple<transaction::v2::SubscriptionInfo<IDType,KeyType>,size_t>> apply(std::string_view const &data, size_t start) {
+            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<typename transaction::v2::SubscriptionInfo<IDType,KeyType>::Subscriptions>, 1>
+                ::apply(data, start, {
+                    "subscriptions"
+                });
+            if (!t) {
+                return std::nullopt;
+            }
+            return std::tuple<transaction::v2::SubscriptionInfo<IDType,KeyType>,size_t> {
+                transaction::v2::SubscriptionInfo<IDType,KeyType> {
                     std::move(std::get<0>(std::get<0>(*t)))
                 }
                 , std::get<1>(*t)

@@ -5,6 +5,7 @@
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <type_traits>
 #include <functional>
+#include <iostream>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { 
     
@@ -16,6 +17,27 @@ namespace transaction { namespace v2 {
         , FailurePermission = 2
         , FailureConsistency = 3
     };
+
+    inline std::ostream &operator<<(std::ostream &os, RequestDecision d) {
+        switch (d) {
+        case RequestDecision::Success:
+            os << "Success";
+            break;
+        case RequestDecision::FailurePrecondition:
+            os << "FailurePrecondition";
+            break;
+        case RequestDecision::FailurePermission:
+            os << "FailurePermission";
+            break;
+        case RequestDecision::FailureConsistency:
+            os << "FailureConsistency";
+            break;
+        default:
+            os << "(Unknown)";
+            break;
+        }
+        return os;
+    }
 
     template <class KeyType, class DataType>
     struct InsertAction {

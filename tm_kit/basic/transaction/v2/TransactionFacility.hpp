@@ -94,13 +94,7 @@ namespace transaction { namespace v2 {
             {
                 Lock _(dataStore_->mutex_);
                 auto iter = dataStore_->dataMap_.find(insertAction.key);
-                if (iter != dataStore_->dataMap_.end()) {
-                    publishResponse(env, requester, typename TI::TransactionResponse {
-                        dataStore_->globalVersion_, RequestDecision::FailurePrecondition
-                    });
-                    return;
-                }
-                if (iter->second.data) {
+                if (iter != dataStore_->dataMap_.end() && iter->second.data) {
                     publishResponse(env, requester, typename TI::TransactionResponse {
                         dataStore_->globalVersion_, RequestDecision::FailurePrecondition
                     });

@@ -46,9 +46,9 @@ namespace transaction { namespace v2 {
             , typename DI::Update
         > transactionFacility;
         typename R::template LocalOnOrderFacilityPtr<
-            typename GeneralSubscriberTypes<typename R::MonadType, DI>::Input
-            , typename GeneralSubscriberTypes<typename R::MonadType, DI>::Output
-            , typename GeneralSubscriberTypes<typename R::MonadType, DI>::SubscriptionUpdate
+            typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::InputWithAccountInfo
+            , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::Output
+            , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::SubscriptionUpdate
         > subscriptionFacility;
     };
 
@@ -58,7 +58,7 @@ namespace transaction { namespace v2 {
         R &r
         , std::string const &componentPrefix
         , ITransactionFacility<typename R::MonadType, TI, DI, typename DataStoreUpdater::KeyHash> *transactionFacilityImpl
-        , typename GeneralSubscriberTypes<typename R::MonadType, DI>::IGeneralSubscriber *subscriptionFacilityImpl
+        , IGeneralSubscriber<typename R::MonadType, DI> *subscriptionFacilityImpl
     ) -> TransactionLogicCombinationResult<R, TI, DI, typename DataStoreUpdater::KeyHash> {
         static_assert(
             ((DataStoreUpdater::IsMutexProtected == R::MonadType::PossiblyMultiThreaded)
@@ -77,9 +77,9 @@ namespace transaction { namespace v2 {
             , new typename DataStreamImporterTypeResolver<M,DI>::Importer
         );
         auto subscriptionFacility = M::template localOnOrderFacility<
-            typename GeneralSubscriberTypes<typename R::MonadType, DI>::Input
-            , typename GeneralSubscriberTypes<typename R::MonadType, DI>::Output
-            , typename GeneralSubscriberTypes<typename R::MonadType, DI>::SubscriptionUpdate
+            typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::InputWithAccountInfo
+            , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::Output
+            , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::SubscriptionUpdate
         >(
             subscriptionFacilityImpl
         );
