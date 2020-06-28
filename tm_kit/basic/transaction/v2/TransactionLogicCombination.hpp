@@ -26,7 +26,58 @@ namespace transaction { namespace v2 {
     struct DataStreamImporterTypeResolver<infra::SinglePassIterationMonad<Env>, DI> {
         using Importer = single_pass_iteration::DataStreamImporter<Env, DI>;
     };
+
+    template <class R, class TI, class DI, class DataStoreUpdater>
+    auto subscriptionLogicCombination(
+        R &r
+        , std::string const &componentPrefix
+        , typename R::template Source<typename DI::Update> updateSource
+        , TransactionDataStorePtr<DI,typename DataStoreUpdater::KeyHash,R::MonadType::PossiblyMultiThreaded> const &dataStorePtr
+        , IGeneralSubscriber<typename R::MonadType, DI> *subscriptionFacilityImpl
+    ) -> typename R::template LocalOnOrderFacilityPtr<
+            typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::InputWithAccountInfo
+            , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::Output
+            , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::SubscriptionUpdate
+        > {
+        static_assert(
+            ((DataStoreUpdater::IsMutexProtected == R::MonadType::PossiblyMultiThreaded)
+            && std::is_same_v<typename DataStoreUpdater::DataStreamInterfaceType, DI>)
+            , "DataStoreUpdater must be compatible with R and DI"
+        );
+
+        using M = typename R::MonadType;
+
+        auto subscriptionFacility = M::template localOnOrderFacility<
+            typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::InputWithAccountInfo
+            , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::Output
+            , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::SubscriptionUpdate
+        >(
+            subscriptionFacilityImpl
+        );
+        auto dataStoreUpdater = M::template pureExporter<typename DI::Update>(DataStoreUpdater {dataStorePtr});
+        
+        r.registerLocalOnOrderFacility(
+            componentPrefix+"_subscription_handler"
+            , subscriptionFacility
+        );
+        r.registerExporter(
+            componentPrefix+"_data_store_updater"
+            , dataStoreUpdater
+        );
+        r.connect(
+            updateSource
+            , r.localFacilityAsSink(subscriptionFacility)
+        );
+        r.connect(
+            updateSource
+            , r.exporterAsSink(dataStoreUpdater)
+        );
+        r.preservePointer(dataStorePtr);
+        r.markStateSharing(dataStoreUpdater, subscriptionFacility, componentPrefix+"_data_store");
     
+        return subscriptionFacility;
+    }
+   
     template <class R, class TI, class DI, class KeyHash=std::hash<typename DI::Key>, class Enable=void>
     struct TransactionLogicCombinationResult {};
 
