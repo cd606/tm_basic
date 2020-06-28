@@ -16,13 +16,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     public:
         template <class Input, class Output, class ToSupplyDefaultValue>
         static auto wrapTuple2FacilitioidBySupplyingDefaultValue(
-            typename R::FacilitioidConnector<
+            typename R::template FacilitioidConnector<
                 std::tuple<ToSupplyDefaultValue, Input>
                 , Output
             > toBeWrapped
             , std::string const &wrapPrefix
             , ToSupplyDefaultValue const &v = ToSupplyDefaultValue()
-        ) -> typename R::FacilitioidConnector<
+        ) -> typename R::template FacilitioidConnector<
                 Input
                 , Output
             >
