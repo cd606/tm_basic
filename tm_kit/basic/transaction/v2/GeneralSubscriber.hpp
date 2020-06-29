@@ -210,10 +210,10 @@ namespace transaction { namespace v2 {
         using AccountInfoMap = std::unordered_map<std::string, AccountInfo>;
         AccountInfoMap accountInfoMap_;
 
-        using DataStorePtr = transaction::v2::TransactionDataStorePtr<
+        using DataStorePtr = transaction::v2::TransactionDataStoreConstPtr<
             DI, KeyHash, M::PossiblyMultiThreaded
         >;
-        using DataStore = typename DataStorePtr::element_type;
+        using DataStore = std::decay_t<typename DataStorePtr::element_type>;
         using Mutex = typename DataStore::Mutex;
 
         Mutex mutex_;

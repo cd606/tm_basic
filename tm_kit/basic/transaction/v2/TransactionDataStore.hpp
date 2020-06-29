@@ -26,7 +26,7 @@ namespace transaction { namespace v2 {
             , KeyHash
         >;
         
-        Mutex mutex_;
+        mutable Mutex mutex_;
         DataMap dataMap_;
         GlobalVersion globalVersion_;
 
@@ -38,7 +38,7 @@ namespace transaction { namespace v2 {
             }
         }
 
-        typename DI::Update createFullUpdateNotification(std::vector<typename DI::Key> const &keys) {
+        typename DI::Update createFullUpdateNotification(std::vector<typename DI::Key> const &keys) const {
             Lock _(mutex_);
             std::vector<typename DI::OneUpdateItem> updates;  
             for (auto const &key : keys) {
@@ -66,6 +66,9 @@ namespace transaction { namespace v2 {
 
     template <class DI, class KeyHashType = std::hash<typename DI::Key>, bool MutexProtected=true>
     using TransactionDataStorePtr = std::shared_ptr<TransactionDataStore<DI,KeyHashType,MutexProtected>>;
+
+    template <class DI, class KeyHashType = std::hash<typename DI::Key>, bool MutexProtected=true>
+    using TransactionDataStoreConstPtr = std::shared_ptr<TransactionDataStore<DI,KeyHashType,MutexProtected> const>;
 
 } } 
 
