@@ -21,8 +21,7 @@ namespace transaction { namespace v2 {
 
     template <class Data, class DataDelta, class ProcessedUpdate>
     struct TriviallyProcess {
-        std::optional<ProcessedUpdate> operator()(Data &d, DataDelta const &delta) const {
-            d = delta;
+        std::optional<ProcessedUpdate> operator()(Data const &d, DataDelta const &delta) const {
             return ProcessedUpdate {delta};
         }
     };

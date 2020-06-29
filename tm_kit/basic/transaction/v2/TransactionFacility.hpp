@@ -109,7 +109,9 @@ namespace transaction { namespace v2 {
             ComponentLock cl(th, &account, &(updateAction.key));
             {
                 Lock _(dataStore_->mutex_);
-                auto iter = dataStore_->dataMap_.find(updateAction.key);
+                auto iter = const_cast<
+                    typename TransactionDataStore<DI,KeyHash,M::PossiblyMultiThreaded>::DataMap const &
+                >(dataStore_->dataMap_).find(updateAction.key);
                 if (iter == dataStore_->dataMap_.end()) {
                     publishResponse(env, requester, typename TI::TransactionResponse {
                         dataStore_->globalVersion_, RequestDecision::FailurePrecondition
