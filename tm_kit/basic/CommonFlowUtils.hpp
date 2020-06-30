@@ -607,6 +607,43 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 )))
             );
         }
+    public:
+        template <class VariantType, class OneOfVariants>
+        static typename infra::KleisliUtils<M>::template KleisliFunction<VariantType,OneOfVariants> pickOne() {
+            return infra::KleisliUtils<M>::template liftMaybe<VariantType>(
+                [](VariantType &&x) -> std::optional<OneOfVariants>
+                {
+                    return std::visit([](auto &&y) -> std::optional<OneOfVariants> {
+                        using T = std::decay_t<decltype(y)>;
+                        if constexpr (std::is_same_v<T, OneOfVariants>) {
+                            return std::optional<OneOfVariants> {
+                                std::move(y)
+                            };
+                        } else {
+                            return std::nullopt;
+                        }
+                    }, std::move(x));
+                }
+            );
+        }
+        template <class WrappedVariantType, class OneOfVariants>
+        static typename infra::KleisliUtils<M>::template KleisliFunction<WrappedVariantType,OneOfVariants> pickOneFromWrappedValue() {
+            return infra::KleisliUtils<M>::template liftMaybe<WrappedVariantType>(
+                [](WrappedVariantType &&x) -> std::optional<OneOfVariants>
+                {
+                    return std::visit([](auto &&y) -> std::optional<OneOfVariants> {
+                        using T = std::decay_t<decltype(y)>;
+                        if constexpr (std::is_same_v<T, OneOfVariants>) {
+                            return std::optional<OneOfVariants> {
+                                std::move(y)
+                            };
+                        } else {
+                            return std::nullopt;
+                        }
+                    }, std::move(x.value));
+                }
+            );
+        }
     };
 
 } } } }
