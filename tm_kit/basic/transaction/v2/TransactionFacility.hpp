@@ -7,6 +7,13 @@
 #include <tm_kit/basic/transaction/v2/TransactionEnvComponent.hpp>
 #include <tm_kit/basic/transaction/v2/DefaultUtilities.hpp>
 
+#include <queue>
+#include <array>
+#include <atomic>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+
 namespace dev { namespace cd606 { namespace tm { namespace basic { 
     
 namespace transaction { namespace v2 {
@@ -51,6 +58,7 @@ namespace transaction { namespace v2 {
     >
         : 
         public ITransactionFacility<M, TI, DI, KeyHash, M::PossiblyMultiThreaded> 
+        , public virtual M::IExternalComponent
     {
     private:
         using TH = TransactionEnvComponent<TI>;
@@ -62,6 +70,25 @@ namespace transaction { namespace v2 {
         VersionSliceChecker versionSliceChecker_;
         DataSummaryChecker dataSummaryChecker_;
         DeltaProcessor deltaProcessor_;
+
+        struct ThreadDataImpl {
+            using TransactionQueue = std::deque<
+                std::tuple<typename M::EnvironmentType *, typename M::EnvironmentType::IDType, typename TI::TransactionWithAccountInfo>
+            >;
+            std::array<TransactionQueue, 2> transactionQueues_;
+            size_t transactionQueueIncomingIndex_ = 0;
+
+            std::thread transactionThread_;
+            std::atomic<bool> running_ = false;
+            std::mutex transactionQueueMutex_;
+            std::condition_variable transactionQueueCond_;
+        };
+        using ThreadData = std::conditional_t<
+            M::PossiblyMultiThreaded
+            , ThreadDataImpl
+            , bool
+        >;
+        ThreadData threadData_;
 
         void publishResponse(typename M::EnvironmentType *env, typename M::EnvironmentType::IDType const &id, typename TI::TransactionResponse &&response) {
             this->publish(
@@ -199,39 +226,9 @@ namespace transaction { namespace v2 {
             }
             publishResponse(env, requester, th->handleDelete(account, deleteAction.key, deleteAction.oldVersion));
         }
-    public:
-        TransactionFacility(TransactionDataStorePtr<DI,KeyHash,M::PossiblyMultiThreaded> const &dataStore) 
-            : dataStore_(dataStore)
-            , versionChecker_()
-            , versionSliceChecker_()
-            , dataSummaryChecker_()
-            , deltaProcessor_()
-        {}
-        TransactionFacility &setVersionChecker(VersionChecker &&vc) {
-            versionChecker_ = std::move(vc);
-            return *this;
-        }
-        TransactionFacility &setVersionSliceChecker(VersionSliceChecker &&vc) {
-            versionSliceChecker_ = std::move(vc);
-            return *this;
-        }
-        TransactionFacility &setDataSummaryChecker(DataSummaryChecker &&dc) {
-            dataSummaryChecker_ = std::move(dc);
-            return *this;
-        }
-        TransactionFacility &setDeltaProcessor(DeltaProcessor &&dp) {
-            deltaProcessor_ = std::move(dp);
-            return *this;
-        }
-        virtual TransactionDataStorePtr<DI,KeyHash> const &dataStorePtr() const override final {
-            return dataStore_;
-        }
-        void handle(typename M::template InnerData<typename M::template Key<
-            typename TI::TransactionWithAccountInfo
-        >> &&transactionWithAccountInfo) override final {
-            auto *env = transactionWithAccountInfo.environment;
-            auto account = std::get<0>(transactionWithAccountInfo.timedData.value.key());
-            auto requester = transactionWithAccountInfo.timedData.value.id();
+        void reallyHandle(typename M::EnvironmentType *env, typename M::EnvironmentType::IDType &&id, typename TI::TransactionWithAccountInfo &&transactionWithAccountInfo) {
+            auto account = std::move(std::get<0>(transactionWithAccountInfo));
+            auto requester = std::move(id);
             std::visit([this,env,&account,&requester](auto &&tr) {
                 using T = std::decay_t<decltype(tr)>;
                 if constexpr (std::is_same_v<T, typename TI::InsertAction>) {
@@ -286,7 +283,106 @@ namespace transaction { namespace v2 {
                     }
                     handleDelete(env, account, requester, deleteAction);
                 }
-            }, std::move(std::get<1>(transactionWithAccountInfo.timedData.value.key())).value);
+            }, std::move(std::get<1>(transactionWithAccountInfo)).value);
+        }
+        void runTransactionThread() {
+            if constexpr (M::PossiblyMultiThreaded) {
+                while (threadData_.running_) {
+                    std::unique_lock<std::mutex> lock(threadData_.transactionQueueMutex_);
+                    threadData_.transactionQueueCond_.wait_for(lock, std::chrono::milliseconds(1));
+                    if (!threadData_.running_) {
+                        lock.unlock();
+                        break;
+                    }
+                    if (threadData_.transactionQueues_[threadData_.transactionQueueIncomingIndex_].empty()) {
+                        lock.unlock();
+                        continue;
+                    }
+                    int processingIndex = threadData_.transactionQueueIncomingIndex_;
+                    threadData_.transactionQueueIncomingIndex_ = 1-threadData_.transactionQueueIncomingIndex_;
+                    lock.unlock();
+
+                    {
+                        while (!threadData_.transactionQueues_[processingIndex].empty()) {
+                            auto &t = threadData_.transactionQueues_[processingIndex].front();
+                            reallyHandle(
+                                std::get<0>(t)
+                                , std::move(std::get<1>(t))
+                                , std::move(std::get<2>(t))
+                            );
+                            threadData_.transactionQueues_[processingIndex].pop_front();
+                        }
+                    }
+                }
+            }
+        }
+    public:
+        TransactionFacility(TransactionDataStorePtr<DI,KeyHash,M::PossiblyMultiThreaded> const &dataStore) 
+            : dataStore_(dataStore)
+            , versionChecker_()
+            , versionSliceChecker_()
+            , dataSummaryChecker_()
+            , deltaProcessor_()
+            , threadData_()
+        {
+        }
+        TransactionFacility &setVersionChecker(VersionChecker &&vc) {
+            versionChecker_ = std::move(vc);
+            return *this;
+        }
+        TransactionFacility &setVersionSliceChecker(VersionSliceChecker &&vc) {
+            versionSliceChecker_ = std::move(vc);
+            return *this;
+        }
+        TransactionFacility &setDataSummaryChecker(DataSummaryChecker &&dc) {
+            dataSummaryChecker_ = std::move(dc);
+            return *this;
+        }
+        TransactionFacility &setDeltaProcessor(DeltaProcessor &&dp) {
+            deltaProcessor_ = std::move(dp);
+            return *this;
+        }
+        ~TransactionFacility() {
+            if constexpr (M::PossiblyMultiThreaded) {
+                if (threadData_.running_) {
+                    threadData_.running_ = false;
+                    threadData_.transactionThread_.join();
+                }
+            }
+        }
+        virtual TransactionDataStorePtr<DI,KeyHash> const &dataStorePtr() const override final {
+            return dataStore_;
+        }
+        void start(typename M::EnvironmentType *) override final {
+            if constexpr (M::PossiblyMultiThreaded) {
+                threadData_.running_ = true;
+                threadData_.transactionThread_ = std::thread(&TransactionFacility::runTransactionThread, this);
+                threadData_.transactionThread_.detach();
+            }
+        }
+        void handle(typename M::template InnerData<typename M::template Key<
+            typename TI::TransactionWithAccountInfo
+        >> &&transactionWithAccountInfo) override final {
+            auto *env = transactionWithAccountInfo.environment;
+            if constexpr (M::PossiblyMultiThreaded) {
+                if (threadData_.running_) {
+                    {
+                        std::lock_guard<std::mutex> _(threadData_.transactionQueueMutex_);
+                        threadData_.transactionQueues_[threadData_.transactionQueueIncomingIndex_].push_back({
+                            env
+                            , std::move(transactionWithAccountInfo.timedData.value.id())
+                            , std::move(transactionWithAccountInfo.timedData.value.key())
+                        });
+                    }
+                    threadData_.transactionQueueCond_.notify_one();
+                }
+            } else {
+                reallyHandle(
+                    env
+                    , std::move(transactionWithAccountInfo.timedData.value.id())
+                    , std::move(transactionWithAccountInfo.timedData.value.key())
+                );
+            }
         }
         virtual bool checkInsertPermission(typename M::EnvironmentType *env, std::string const &account, typename TI::InsertAction const &) {
             return true;
