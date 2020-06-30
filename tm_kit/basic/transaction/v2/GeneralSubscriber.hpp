@@ -11,6 +11,12 @@
 #include <tm_kit/basic/transaction/v2/TransactionDataStore.hpp>
 #include <tm_kit/basic/transaction/v2/DataStreamInterface.hpp>
 
+#include <queue>
+#include <array>
+#include <atomic>
+#include <thread>
+#include <condition_variable>
+
 namespace dev { namespace cd606 { namespace tm { namespace basic { 
     
 namespace transaction { namespace v2 {
@@ -220,6 +226,29 @@ namespace transaction { namespace v2 {
 
         DataStorePtr dataStorePtr_;
 
+        struct ThreadDataImpl {
+            using QueueItem = std::variant<
+                std::tuple<typename M::EnvironmentType::IDType, typename Types::InputWithAccountInfo>
+                , typename Types::SubscriptionUpdate
+            >;
+            using InputQueue = std::deque<
+                std::tuple<typename M::EnvironmentType *, QueueItem>
+            >;
+            std::array<InputQueue, 2> inputQueues_;
+            size_t inputQueueIncomingIndex_ = 0;
+
+            std::thread workThread_;
+            std::atomic<bool> running_ = false;
+            std::mutex inputQueueMutex_;
+            std::condition_variable inputQueueCond_;
+        };
+        using ThreadData = std::conditional_t<
+            M::PossiblyMultiThreaded
+            , ThreadDataImpl
+            , bool
+        >;
+        ThreadData threadData_;
+
         std::vector<typename Types::Key> addSubscription(typename M::EnvironmentType *env, std::string const &account, typename Types::ID id, typename Types::Subscription const &subscription) {
             std::vector<typename Types::Key> ret;
             for (auto const &key : subscription.keys) {
@@ -303,27 +332,9 @@ namespace transaction { namespace v2 {
             accountInfoMap_.erase(acctIter);
             return ret;
         }
-    public:
-        using Input = typename Types::Input;
-        using Output = typename Types::Output;
-        using Key = typename Types::Key;
-        using Subscription = typename Types::Subscription;
-        using Unsubscription = typename Types::Unsubscription;
-        using SubscriptionUpdate = typename Types::SubscriptionUpdate;
-        using ListSubscriptions = typename Types::ListSubscriptions;
-        using SubscriptionInfo = typename Types::SubscriptionInfo;
-        using InputWithAccountInfo = typename Types::InputWithAccountInfo;
-
-        GeneralSubscriber(DataStorePtr const &dataStorePtr) 
-            : subscriptionMap_(), idInfoMap_(), accountInfoMap_(), mutex_(), dataStorePtr_(dataStorePtr) {}
-        virtual ~GeneralSubscriber() {}       
-        
-        void start(typename M::EnvironmentType *) override final {
-        }
-        void handle(typename M::template InnerData<typename M::template Key<typename Types::InputWithAccountInfo>> &&input) override final {
-            auto *env = input.environment;
-            std::string account = std::get<0>(input.timedData.value.key());
-            typename Types::ID id = input.timedData.value.id();
+        void reallyHandleUserInput(typename M::EnvironmentType *env, typename M::EnvironmentType::IDType &&inputID, typename Types::InputWithAccountInfo &&input) {
+            std::string account = std::move(std::get<0>(input));
+            typename Types::ID id = std::move(inputID);
             std::visit([this,env,id,&account](auto &&d) {
                 using T = std::decay_t<decltype(d)>;
                 if constexpr (std::is_same_v<T, typename Types::Subscription>) {
@@ -438,13 +449,12 @@ namespace transaction { namespace v2 {
                         , true
                     );
                 }
-            }, std::move(std::get<1>(input.timedData.value.key()).value));
+            }, std::move(std::get<1>(input).value));
         }
-        void handle(typename M::template InnerData<typename Types::SubscriptionUpdate> &&update) override final {
-            auto *env = update.environment;
-            auto globalVersion = update.timedData.value.version;
+        void reallyHandleDataUpdate(typename M::EnvironmentType *env, typename Types::SubscriptionUpdate &&update) {
+            auto globalVersion = update.version;
             std::unordered_map<typename Types::ID, std::vector<typename DI::OneUpdateItem>, typename M::EnvironmentType::IDHash> updateMap;
-            for (auto &x : update.timedData.value.data) {
+            for (auto &x : update.data) {
                 typename DI::OneUpdateItem item = std::move(x);
                 std::vector<typename Types::ID> *affected = nullptr;
                 std::visit([this,env,&affected](auto const &u) {
@@ -482,6 +492,110 @@ namespace transaction { namespace v2 {
                     }
                     , false
                 );
+            }
+        }
+        void runWorkThread() {
+            if constexpr (M::PossiblyMultiThreaded) {
+                while (threadData_.running_) {
+                    std::unique_lock<std::mutex> lock(threadData_.inputQueueMutex_);
+                    threadData_.inputQueueCond_.wait_for(lock, std::chrono::milliseconds(1));
+                    if (!threadData_.running_) {
+                        lock.unlock();
+                        break;
+                    }
+                    if (threadData_.inputQueues_[threadData_.inputQueueIncomingIndex_].empty()) {
+                        lock.unlock();
+                        continue;
+                    }
+                    int processingIndex = threadData_.inputQueueIncomingIndex_;
+                    threadData_.inputQueueIncomingIndex_ = 1-threadData_.inputQueueIncomingIndex_;
+                    lock.unlock();
+
+                    {
+                        while (!threadData_.inputQueues_[processingIndex].empty()) {
+                            auto &t = threadData_.inputQueues_[processingIndex].front();
+                            auto *env = std::get<0>(t);
+                            std::visit([this,env](auto &&item) {
+                                using T = std::decay_t<decltype(item)>;
+                                if constexpr (std::is_same_v<T, std::tuple<typename M::EnvironmentType::IDType, typename Types::InputWithAccountInfo>>) {
+                                    reallyHandleUserInput(env, std::move(std::get<0>(item)), std::move(std::get<1>(item)));
+                                } else if constexpr (std::is_same_v<T, typename Types::SubscriptionUpdate>) {
+                                    reallyHandleDataUpdate(env, std::move(item));
+                                }
+                            }, std::move(std::get<1>(t)));
+                            threadData_.inputQueues_[processingIndex].pop_front();
+                        }
+                    }
+                }
+            }            
+        }
+    public:
+        using Input = typename Types::Input;
+        using Output = typename Types::Output;
+        using Key = typename Types::Key;
+        using Subscription = typename Types::Subscription;
+        using Unsubscription = typename Types::Unsubscription;
+        using SubscriptionUpdate = typename Types::SubscriptionUpdate;
+        using ListSubscriptions = typename Types::ListSubscriptions;
+        using SubscriptionInfo = typename Types::SubscriptionInfo;
+        using InputWithAccountInfo = typename Types::InputWithAccountInfo;
+
+        GeneralSubscriber(DataStorePtr const &dataStorePtr) 
+            : subscriptionMap_(), idInfoMap_(), accountInfoMap_(), mutex_(), dataStorePtr_(dataStorePtr), threadData_() {}
+        virtual ~GeneralSubscriber() {
+            if constexpr (M::PossiblyMultiThreaded) {
+                if (threadData_.running_) {
+                    threadData_.running_ = false;
+                    threadData_.workThread_.join();
+                }
+            }
+        }       
+        
+        void start(typename M::EnvironmentType *) override final {
+            if constexpr (M::PossiblyMultiThreaded) {
+                threadData_.running_ = true;
+                threadData_.workThread_ = std::thread(&GeneralSubscriber::runWorkThread, this);
+                threadData_.workThread_.detach();
+            }
+        }
+        void handle(typename M::template InnerData<typename M::template Key<typename Types::InputWithAccountInfo>> &&input) override final {
+            auto *env = input.environment;
+            if constexpr (M::PossiblyMultiThreaded) {
+                if (threadData_.running_) {
+                    {
+                        std::lock_guard<std::mutex> _(threadData_.inputQueueMutex_);
+                        threadData_.inputQueues_[threadData_.inputQueueIncomingIndex_].push_back({
+                            env
+                            , std::tuple<typename M::EnvironmentType::IDType, typename Types::InputWithAccountInfo> {
+                                input.timedData.value.id()
+                                , input.timedData.value.key()
+                            }
+                        });
+                    }
+                    threadData_.inputQueueCond_.notify_one();
+                }
+            } else {
+                reallyHandleUserInput(env
+                    , input.timedData.value.id()
+                    , input.timedData.value.key()
+                );
+            }
+        }
+        void handle(typename M::template InnerData<typename Types::SubscriptionUpdate> &&update) override final {
+            auto *env = update.environment;
+            if constexpr (M::PossiblyMultiThreaded) {
+                if (threadData_.running_) {
+                    {
+                        std::lock_guard<std::mutex> _(threadData_.inputQueueMutex_);
+                        threadData_.inputQueues_[threadData_.inputQueueIncomingIndex_].push_back({
+                            env
+                            , std::move(update.timedData.value)
+                        });
+                    }
+                    threadData_.inputQueueCond_.notify_one();
+                }
+            } else {
+                reallyHandleDataUpdate(env, std::move(update.timedData.value));
             }
         }
     };
