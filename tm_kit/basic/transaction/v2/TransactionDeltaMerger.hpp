@@ -84,28 +84,32 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             return *this;
         }
         RetType operator()(typename DI::Update &&update) const {
-            SetGlobalVersion _(&(dataStore_->globalVersion_), update.version);
             std::vector<typename DI::Key> keys;
-            std::unordered_set<typename DI::Key, KeyHash> keySet;
-            for (auto &&item : update.data) {
-                std::visit([this,&keys,&keySet](auto &&u) {
-                    using T = std::decay_t<decltype(u)>;
-                    if constexpr (std::is_same_v<T, typename DI::OneFullUpdateItem>) {
-                        if constexpr (NeedOutput) {
-                            if (keySet.find(u.groupID) == keySet.end()) {
-                                keys.push_back(u.groupID);
+            {
+                SetGlobalVersion _(&(dataStore_->globalVersion_), update.version);
+                std::unordered_set<typename DI::Key, KeyHash> keySet;
+                for (auto &&item : update.data) {
+                    std::visit([this,&keys,&keySet](auto &&u) {
+                        using T = std::decay_t<decltype(u)>;
+                        if constexpr (std::is_same_v<T, typename DI::OneFullUpdateItem>) {
+                            if constexpr (NeedOutput) {
+                                if (keySet.find(u.groupID) == keySet.end()) {
+                                    keys.push_back(u.groupID);
+                                    keySet.insert(u.groupID);
+                                }
                             }
-                        }
-                        handleFullUpdate(std::move(u));
-                    } else if constexpr (std::is_same_v<T, typename DI::OneDeltaUpdateItem>) {
-                        if constexpr (NeedOutput) {
-                            if (keySet.find(std::get<0>(u)) == keySet.end()) {
-                                keys.push_back(std::get<0>(u));
+                            handleFullUpdate(std::move(u));
+                        } else if constexpr (std::is_same_v<T, typename DI::OneDeltaUpdateItem>) {
+                            if constexpr (NeedOutput) {
+                                if (keySet.find(std::get<0>(u)) == keySet.end()) {
+                                    keys.push_back(std::get<0>(u));
+                                    keySet.insert(std::get<0>(u));
+                                }
                             }
+                            handleDeltaUpdate(std::move(u));
                         }
-                        handleDeltaUpdate(std::move(u));
-                    }
-                }, std::move(item));
+                    }, std::move(item));
+                }
             }
             if constexpr (NeedOutput) {
                 return dataStore_->createFullUpdateNotification(keys);
