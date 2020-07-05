@@ -52,11 +52,37 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 );
                 toBeWrapped(
                     r
-                    , r.execute(prefix+"_convert_key", convertKey, std::move(source))
-                    , r.actionAsSink(prefix+"_convert_output", convertOutput)
+                    , r.execute(prefix+"/convert_key", convertKey, std::move(source))
+                    , r.actionAsSink(prefix+"/convert_output", convertOutput)
                 );
                 r.connect(r.actionAsSource(convertOutput), sink);
             };
+        }
+
+        template <class FacilityWithExternalEffects>
+        static typename R::template Source<typename infra::withtime_utils::ImporterTypeInfo<M, FacilityWithExternalEffects>::DataType> importWithTrigger(
+            R &r
+            , typename R::template Source<typename M::template Key<typename infra::withtime_utils::OnOrderFacilityTypeInfo<M, FacilityWithExternalEffects>::InputType>> &&trigger 
+            , std::shared_ptr<FacilityWithExternalEffects> const &triggerHandler
+            , std::optional<typename R::template Sink<typename M::template KeyedData<typename infra::withtime_utils::OnOrderFacilityTypeInfo<M, FacilityWithExternalEffects>::InputType, typename infra::withtime_utils::OnOrderFacilityTypeInfo<M, FacilityWithExternalEffects>::OutputType>>> const &triggerResponseProcessor = std::nullopt
+            , std::string const &triggerHandlerName = ""
+        ) {
+            if (triggerHandlerName != "") {
+                r.registerOnOrderFacilityWithExternalEffects(triggerHandlerName, triggerHandler);
+            }
+            if (triggerResponseProcessor) {
+                r.placeOrderWithFacilityWithExternalEffects(
+                    std::move(trigger)
+                    , triggerHandler
+                    , *triggerResponseProcessor
+                );
+            } else {
+                r.placeOrderWithFacilityWithExternalEffectsAndForget(
+                    std::move(trigger)
+                    , triggerHandler
+                );
+            }
+            return r.facilityWithExternalEffectsAsSource(triggerHandler);            
         }
     };
 
