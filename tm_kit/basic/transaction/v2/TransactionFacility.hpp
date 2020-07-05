@@ -107,17 +107,18 @@ namespace transaction { namespace v2 {
             TH *th_;
             std::string const *acct_;
             typename TI::Key const *key_;
-            ComponentLock(TH *th, std::string const *acct, typename TI::Key const *k) : th_(th), acct_(acct), key_(k) {
-                th_->acquireLock(*acct_, *key_);
+            TransactionDataStore<DI,KeyHash,M::PossiblyMultiThreaded> *dataStorePtr_;
+            ComponentLock(TH *th, std::string const *acct, typename TI::Key const *k, TransactionDataStore<DI,KeyHash,M::PossiblyMultiThreaded> *dataStorePtr) : th_(th), acct_(acct), key_(k), dataStorePtr_(dataStorePtr) {
+                dataStorePtr_->waitForGlobalVersion(th_->acquireLock(*acct_, *key_));
             }
             ~ComponentLock() {
-                th_->releaseLock(*acct_, *key_);
+                dataStorePtr_->waitForGlobalVersion(th_->releaseLock(*acct_, *key_));
             }
         };
 
         void handleInsert(typename M::EnvironmentType *env, std::string const &account, typename M::EnvironmentType::IDType const &requester, typename TI::InsertAction insertAction) {
             auto *th = static_cast<TH *>(env);
-            ComponentLock cl(th, &account, &(insertAction.key));
+            ComponentLock cl(th, &account, &(insertAction.key), dataStore_.get());
             {
                 Lock _(dataStore_->mutex_);
                 auto iter = dataStore_->dataMap_.find(insertAction.key);
@@ -133,7 +134,7 @@ namespace transaction { namespace v2 {
         void handleUpdate(typename M::EnvironmentType *env, std::string const &account, typename M::EnvironmentType::IDType const &requester, typename TI::UpdateAction updateAction) {
             std::optional<typename TI::ProcessedUpdate> processed = std::nullopt;
             auto *th = static_cast<TH *>(env);
-            ComponentLock cl(th, &account, &(updateAction.key));
+            ComponentLock cl(th, &account, &(updateAction.key), dataStore_.get());
             {
                 Lock _(dataStore_->mutex_);
                 auto iter = const_cast<
@@ -179,7 +180,7 @@ namespace transaction { namespace v2 {
         }
         void handleDelete(typename M::EnvironmentType *env, std::string const &account, typename M::EnvironmentType::IDType const &requester, typename TI::DeleteAction deleteAction) {
             auto *th = static_cast<TH *>(env);
-            ComponentLock cl(th, &account, &(deleteAction.key));
+            ComponentLock cl(th, &account, &(deleteAction.key), dataStore_.get());
             {
                 Lock _(dataStore_->mutex_);
                 auto iter = dataStore_->dataMap_.find(deleteAction.key);
