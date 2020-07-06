@@ -84,6 +84,86 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
             return r.facilityWithExternalEffectsAsSource(triggerHandler);            
         }
+
+        template <class A, class B>
+        static auto simulatedFacility(
+            typename R::template Sink<typename M::template Key<A>> const &inputHandler
+            , typename R::template Source<typename M::template KeyedData<A,B>> &&outputProducer
+        ) -> typename R::template FacilitioidConnector<A,B> 
+        {
+            return [&inputHandler,outputProducer=std::move(outputProducer)](
+                R &r
+                , typename R::template Source<typename M::template Key<A>> &&inputProvider
+                , typename R::template Sink<typename M::template KeyedData<A,B>> const &outputReceiver
+            ) {
+                r.connect(std::move(inputProvider), inputHandler);
+                r.connect(std::move(outputProducer), outputReceiver);
+            };
+        }
+
+        template <class A0, class B0, class A1, class B1>
+        static auto wrapFacilitioid(
+            typename infra::KleisliUtils<M>::template KleisliFunction<A0,A1> const &forwardKeyTranslator
+            , typename infra::KleisliUtils<M>::template KleisliFunction<A1,A0> const &backwardKeyTranslator
+            , typename infra::KleisliUtils<M>::template KleisliFunction<B1,B0> const &backwardDataTranslator
+            , typename R::template FacilitioidConnector<A1,B1> const &innerFacilitioid
+            , std::string const &prefix
+        ) -> typename R::template FacilitioidConnector<A0,B0>
+        {
+            return 
+            [
+                forwardKeyTranslator
+                , backwardKeyTranslator
+                , backwardDataTranslator
+                , &innerFacilitioid
+                , prefix
+            ](
+                R &r
+                , typename R::template Source<typename M::template Key<A0>> &&inputProvider
+                , typename R::template Sink<typename M::template KeyedData<A0,B0>> const &outputReceiver
+            ) {
+                auto forwardKeyTrans = M::template kleisli<M::template Key<A0>>(
+                    CommonFlowUtilComponents<M>::template withKey<A0>(std::move(forwardKeyTranslator))
+                );
+                r.registerAction(prefix+"/forwardKeyTranslator", forwardKeyTrans);
+                r.connect(std::move(inputProvider), r.actionAsSink(forwardKeyTrans));
+                auto backwardTrans = M::template kleisli<typename M::template KeyedData<A1,B1>>(
+                    [k=std::move(backwardKeyTranslator),d=std::move(backwardDataTranslator)](
+                        typename M::template InnerData<typename M::template KeyedData<A1,B1>> &&x
+                    ) -> typename M::template Data<typename M::template KeyedData<A0,B0>> {
+                        typename M::template InnerData<A1> a1 {
+                            x.env, {x.timedData.timePoint, x.timedData.value.key.key(), x.timedData.finalFlag}
+                        };
+                        auto a0 = k(std::move(a1));
+                        if (!a0) {
+                            return std::nullopt;
+                        }
+                        typename M::template InnerData<B1> b1 {
+                            x.env, {x.timedData.timePoint, std::move(x.timedData.value.data), x.timedData.finalFlag}
+                        };
+                        auto b0 = d(std::move(b1));
+                        if (!b0) {
+                            return std::nullopt;
+                        }
+                        return { typename M::template InnerData<typename M::template KeyedData<A0,B0>> {
+                            x.env, {
+                                std::max(a0.timedData.timePoint, b0.timedData.timePoint)
+                                , typename M::template KeyedData<A0,B0> {
+                                    typename M::template Key<A0> {
+                                        x.timedData.value.key.id()
+                                        , std::move(a0.timedData.value)
+                                    }   
+                                    , std::move(b0.timedData.value)
+                                }
+                                , (a0.timedData.finalFlag && b0.timedData.finalFlag)
+                            }
+                        } };
+                    }
+                );
+                r.registerAction(prefix+"/backwardTranslator", backwardTrans);
+                innerFacilitioid(r, r.actionAsSource(forwardKeyTrans), r.actionAsSink(backwardTrans));
+            };
+        }
     };
 
 } } } }

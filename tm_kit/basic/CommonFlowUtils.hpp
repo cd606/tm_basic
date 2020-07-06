@@ -644,6 +644,65 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             );
         }
+    private:
+        template <class A, class B, class F, bool MutexProtected=M::PossiblyMultiThreaded>
+        class Synchronizer2 {
+        private:
+            F f_;
+            std::deque<A> a_;
+            std::deque<B> b_;
+            std::conditional_t<
+                (MutexProtected && M::PossiblyMultiThreaded)
+                , std::mutex
+                , bool
+            > mutex_;
+        public:
+            Synchronizer2(F &&f) : f_(std::move(f)), a_(), b_(), mutex_() {}
+
+            using C = decltype(f_(std::move(*((A *) nullptr)), std::move(*((B *) nullptr))));
+            std::optional<C> operator()(int which, A &&a, B &&b) {
+                if (which == 0) {
+                    std::conditional_t<
+                        (MutexProtected && M::PossiblyMultiThreaded)
+                        , std::lock_guard<std::mutex>
+                        , bool
+                    > _(mutex_);
+                    if (b_.empty()) {
+                        a_.push_back(std::move(a));
+                        return std::nullopt;
+                    } else {
+                        C c = f_(std::move(a), std::move(b_.front()));
+                        b_.pop_front();
+                        return {std::move(c)};
+                    }
+                } else {
+                    std::conditional_t<
+                        (MutexProtected && M::PossiblyMultiThreaded)
+                        , std::lock_guard<std::mutex>
+                        , bool
+                    > _(mutex_);
+                    if (a_.empty()) {
+                        b_.push_back(std::move(b));
+                        return std::nullopt;
+                    } else {
+                        C c = f_(std::move(a_.front()), std::move(b));
+                        a_.pop_front();
+                        return {std::move(c)};
+                    }
+                }
+            }
+        };
+    public:
+        template <class A, class B, class F>
+        static std::shared_ptr<typename M::template Action<
+            std::variant<A,B>, typename Synchronizer2<A,B,F,M::PossiblyMultiThreaded>::C
+        >> synchronizer2(F &&f, bool useMutex=M::PossiblyMultiThreaded) {
+            if (useMutex) {
+                return M::template liftMaybe2<A,B>(Synchronizer2<A,B,F,true>(std::move(f)));
+            } else {
+                return M::template liftMaybe2<A,B>(Synchronizer2<A,B,F,false>(std::move(f)));
+            }
+        }
     };
 
 } } } }
