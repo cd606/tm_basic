@@ -658,6 +658,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             > mutex_;
         public:
             Synchronizer2(F &&f) : f_(std::move(f)), a_(), b_(), mutex_() {}
+            Synchronizer2(Synchronizer2 &&s) : f_(std::move(s.f_)), a_(std::move(s.a_)), b_(std::move(s.b_)), mutex_() {}
+            Synchronizer2 &operator=(Synchronizer2 &&) = delete;
+            Synchronizer2(Synchronizer2 const &) = delete;
+            Synchronizer2 &operator=(Synchronizer2 const &) = delete;
 
             using C = decltype(f_(std::move(*((A *) nullptr)), std::move(*((B *) nullptr))));
             std::optional<C> operator()(int which, A &&a, B &&b) {
