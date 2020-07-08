@@ -4,6 +4,7 @@
 #include <tm_kit/infra/KleisliUtils.hpp>
 #include <tm_kit/infra/WithTimeData.hpp>
 #include <tm_kit/basic/CommonFlowUtils.hpp>
+#include <tm_kit/basic/ForceDifferentType.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
 
@@ -181,7 +182,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             return r.facilityWithExternalEffectsAsSource(triggerHandler);            
         }
 
-        template <class OutsideBypassingData, class VIEFacility, class F>
+        template <class OutsideBypassingData, class VIEFacility>
         struct SetupVIEFacilitySelfLoopAndWaitOutput {
             typename R::template Sinkoid<
                 typename M::template Key<typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
@@ -199,43 +200,76 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 >
             > facilityOutput;
             typename R::template Source<
-                decltype((* (std::decay_t<F> *) nullptr)(
-                    std::move(*((
-                        typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
-                            M, VIEFacility
-                        >::ExtraOutputType
-                    *) nullptr))
-                    , std::move(*((OutsideBypassingData *) nullptr))
-                ))
-            > processedFacilityExtraOutput;
+                typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
+                    M, VIEFacility
+                >::ExtraOutputType
+            > facilityExtraOutput;
+            typename R::template Source<
+                OutsideBypassingData
+            > nextTriggeringSource;
         };
 
         //For this to work, injectF MUST be a pure 1-to-1 transformation,
         //moreover, each call into the facility on the "extra input" connector 
-        //MUST produce exactly one output on the "extra output" connector, 
-        //otherwise the synchronizer will simply fail to progress.
-        //The logic here has no way of enforcing the 1-to-1 correspondence between the 
-        //"extra input" and the "extra output" (in fact, there is no way to enforce 1-to-1
-        //correspondence between the input and output of any graph node, and that is a 
-        //basic property of this system). Therefore, it is the user's responsibility to
-        //enforce this (in general, the process from "extra input" to "extra output"
+        //MUST produce either exactly one "initial callback" or exactly one 
+        //output on the "extra output" connector, otherwise the synchronizer 
+        //will simply fail to progress.
+        //The logic here has no way of enforcing these 1-to-1 correspondences (in 
+        //fact, there is no way to enforce 1-to-1, correspondence between the 
+        //input and output of any graph node, and that is a basic property of
+        //this system). Therefore, it is the user's responsibility to
+        //enforce these (in general, the process from "extra input" to "extra output"
         //is fully locally controlled, and therefore absent some local failure --
         //which should cause the program to crash anyway --, the user should have
-        //control over this). If the user fails to enforce this, then failure to progress
+        //control over this). If the user fails to enforce these, then failure to progress
         //is going to happen.
-        template <class OutsideBypassingData, class VIEFacility, class InjectF, class SelfLoopCreatorF, class SynchronizingF>
-        static SetupVIEFacilitySelfLoopAndWaitOutput<OutsideBypassingData, VIEFacility, SynchronizingF> setupVIEFacilitySelfLoopAndWait(
+        template <class OutsideBypassingData, class VIEFacility, class InjectF, class ExtraOutputClassifierF, class SelfLoopCreatorF, class InitialCallbackFilterF>
+        static SetupVIEFacilitySelfLoopAndWaitOutput<OutsideBypassingData, VIEFacility> setupVIEFacilitySelfLoopAndWait(
             R &r
             , typename R::template Source<
                 OutsideBypassingData
             > &&triggeringSource
             , InjectF &&injectF
+            , ExtraOutputClassifierF const &extraOutputClassifierF //this is a predicate on extra output
+                                                              //true means self-loop (initial call) is
+                                                              //required, false means it is self-loop is
+                                                              //not required. This predicate must be copiable
+                                                              //because it will be used twice
             , SelfLoopCreatorF &&selfLoopCreatorF
             , std::shared_ptr<VIEFacility> const &facility
-            , SynchronizingF &&synchronizingF
+            , InitialCallbackFilterF &&initialCallbackFilterF //this is a predicate on output,
+                                                              //true means it is a callback corresponding
+                                                              //to an initial call
             , std::string const &prefix = ""
             , std::string const &facilityName = ""
         ) {
+            using FacilityOutput = typename M::template KeyedData<
+                typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
+                    M, VIEFacility
+                >::InputType
+                , typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
+                    M, VIEFacility
+                >::OutputType
+            >;
+            using FacilityExtraOutput = typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
+                M, VIEFacility
+            >::ExtraOutputType;
+            using TriggeredFirstResponse = SingleLayerWrapper<
+                std::variant<
+                    typename M::template KeyedData<
+                        typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
+                            M, VIEFacility
+                        >::InputType
+                        , typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
+                            M, VIEFacility
+                        >::OutputType
+                    >
+                    , typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
+                        M, VIEFacility
+                    >::ExtraOutputType
+                >
+            >;
+
             static_assert(std::is_same_v<
                 decltype(injectF(std::move(*(OutsideBypassingData *) nullptr)))
                 , typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
@@ -243,27 +277,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 >::ExtraInputType
             >, "injectF must convert OutsideByPassingData to ExtraInput");
             static_assert(std::is_same_v<
-                typename decltype(selfLoopCreatorF(
+                decltype(extraOutputClassifierF(
+                    * (FacilityExtraOutput *) nullptr
+                ))
+                , bool
+            >, "extraOutputClassifierF must be a predicate on ExtraOutput");
+            static_assert(std::is_same_v<
+                decltype(selfLoopCreatorF(
                     std::move(
-                        * (
-                            typename M::template InnerData<typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
-                                M, VIEFacility
-                            >::ExtraOutputType>
-                        *) nullptr
+                        * (FacilityExtraOutput *) nullptr
                     )
-                ))::value_type::ValueType
-                , typename M::template Key<
-                    typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
-                        M, VIEFacility
-                    >::InputType
-                >
-            >, "selfLoopCreatorF must convert ExtraOutput to Input");
-            static_assert(!std::is_same_v<
-                OutsideBypassingData
+                ))
                 , typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
                     M, VIEFacility
-                >::ExtraOutputType
-            >, "OutsideBypassingData and ExtraOutput must differ");
+                >::InputType
+            >, "selfLoopCreatorF must convert ExtraOutput to Input");
+            static_assert(std::is_same_v<
+                decltype(initialCallbackFilterF(
+                    * (FacilityOutput *) nullptr
+                ))
+                , bool
+            >, "initialCalbackFilterF must be a predicate on KeyedData<Input,Output>");
 
             if (facilityName != "") {
                 r.registerVIEOnOrderFacility(prefix+"/"+facilityName, facility);
@@ -278,20 +312,51 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 , r.vieFacilityAsSink(facility)
             );
 
-            auto selfLoopCreator = M::template kleisli<typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
+            auto filterForSelfLoop = M::template kleisli<typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
                 M, VIEFacility
-            >::ExtraOutputType>(std::move(selfLoopCreatorF));
-            r.registerAction(prefix+"/selfLoopCreation", selfLoopCreator);
-            auto selfLoopInput = r.execute(selfLoopCreator, r.vieFacilityAsSource(facility));
+            >::ExtraOutputType>(
+                CommonFlowUtilComponents<M>::template pureFilter<
+                    typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
+                        M, VIEFacility
+                    >::ExtraOutputType
+                >(ExtraOutputClassifierF {extraOutputClassifierF})
+            );
+            auto filterForNonSelfLoop = M::template kleisli<typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
+                M, VIEFacility
+            >::ExtraOutputType>(
+                CommonFlowUtilComponents<M>::template pureFilter<
+                    typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
+                        M, VIEFacility
+                    >::ExtraOutputType
+                >(std::not_fn(extraOutputClassifierF))
+            );
+            r.registerAction(prefix+"/filterForSelfLoop", filterForSelfLoop);
+            r.registerAction(prefix+"/filterForNonSelfLoop", filterForNonSelfLoop);
 
-            using FacilityOutput = typename M::template KeyedData<
-                typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
-                    M, VIEFacility
-                >::InputType
-                , typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
-                    M, VIEFacility
-                >::OutputType
-            >;
+            auto selfLoopCreator = M::template liftPure<FacilityExtraOutput>(
+                [selfLoopCreatorF=std::move(selfLoopCreatorF)](
+                    FacilityExtraOutput &&x
+                ) 
+                {
+                    return infra::withtime_utils::keyify<
+                        typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
+                            M, VIEFacility
+                        >::InputType
+                        , typename M::EnvironmentType>
+                    (
+                        selfLoopCreatorF(std::move(x))
+                    );
+                }
+            );
+            r.registerAction(prefix+"/selfLoopCreation", selfLoopCreator);
+            auto selfLoopInput = r.execute(
+                selfLoopCreator
+                , r.execute(
+                    filterForSelfLoop
+                    , r.vieFacilityAsSource(facility)
+                )
+            );
+
             auto facilityOutputDispatcher = M::template kleisli<FacilityOutput>(
                 CommonFlowUtilComponents<M>::template idFunc<FacilityOutput>()
             );
@@ -302,20 +367,43 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 , r.actionAsSink(facilityOutputDispatcher)
             );
 
+            auto initialCallbackFilter = M::template kleisli<FacilityOutput>(
+                CommonFlowUtilComponents<M>::template pureFilter<
+                    FacilityOutput
+                >(std::move(initialCallbackFilterF))
+            );
+            r.registerAction(prefix+"/initialCallbackFilter", initialCallbackFilter);
+
+            auto triggerCreator = M::template liftPure2<
+                FacilityOutput
+                , FacilityExtraOutput
+            >(
+                [](
+                    int which
+                    , FacilityOutput &&x
+                    , FacilityExtraOutput && y
+                ) -> ForceDifferentType<OutsideBypassingData> {
+                    return {};
+                }
+            );
+            r.registerAction(prefix+"/triggerCreator", triggerCreator);
+            r.execute(triggerCreator, r.execute(initialCallbackFilter, r.actionAsSource(facilityOutputDispatcher)));
+            r.execute(triggerCreator, r.execute(filterForNonSelfLoop, r.vieFacilityAsSource(facility)));
+
             auto synchronizer = CommonFlowUtilComponents<M>::template synchronizer2<
-                typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
-                    M, VIEFacility
-                >::ExtraOutputType
+                ForceDifferentType<OutsideBypassingData>
                 , OutsideBypassingData
-                , SynchronizingF
-            >(std::move(synchronizingF));
+            >([](ForceDifferentType<OutsideBypassingData> &&, OutsideBypassingData &&x) -> OutsideBypassingData {
+                return std::move(x);
+            });
             r.registerAction(prefix+"/synchronizer", synchronizer);
-            r.execute(synchronizer, r.vieFacilityAsSource(facility));
+            r.execute(synchronizer, r.actionAsSource(triggerCreator));
             r.execute(synchronizer, triggeringSource.clone());
 
-            return SetupVIEFacilitySelfLoopAndWaitOutput<OutsideBypassingData, VIEFacility, SynchronizingF> {
+            return SetupVIEFacilitySelfLoopAndWaitOutput<OutsideBypassingData, VIEFacility> {
                 r.vieFacilityAsSinkoid(facility)
                 , r.actionAsSource(facilityOutputDispatcher)
+                , r.vieFacilityAsSource(facility)
                 , r.actionAsSource(synchronizer)
             };
         }
