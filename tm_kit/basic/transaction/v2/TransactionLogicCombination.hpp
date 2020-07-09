@@ -56,11 +56,11 @@ namespace transaction { namespace v2 {
         auto dataStoreUpdater = M::template pureExporter<typename DI::Update>(DataStoreUpdater {dataStorePtr});
         
         r.registerLocalOnOrderFacility(
-            componentPrefix+"_subscription_handler"
+            componentPrefix+"/subscription_handler"
             , subscriptionFacility
         );
         r.registerExporter(
-            componentPrefix+"_data_store_updater"
+            componentPrefix+"/data_store_updater"
             , dataStoreUpdater
         );
         r.connect(
@@ -72,7 +72,7 @@ namespace transaction { namespace v2 {
             , r.exporterAsSink(dataStoreUpdater)
         );
         r.preservePointer(dataStorePtr);
-        r.markStateSharing(dataStoreUpdater, subscriptionFacility, componentPrefix+"_data_store");
+        r.markStateSharing(dataStoreUpdater, subscriptionFacility, componentPrefix+"/data_store");
     
         return subscriptionFacility;
     }
@@ -121,7 +121,7 @@ namespace transaction { namespace v2 {
         );
 
         r.registerOnOrderFacilityWithExternalEffects(
-            componentPrefix+"_transaction_handler"
+            componentPrefix+"/transaction_handler"
             , transactionFacility
         );
 
@@ -132,7 +132,7 @@ namespace transaction { namespace v2 {
             , transactionFacilityImpl->dataStorePtr()
         );
 
-        r.markStateSharing(transactionFacility, subscriptionFacility, componentPrefix+"_data_store");
+        r.markStateSharing(transactionFacility, subscriptionFacility, componentPrefix+"/data_store");
         
         return {transactionFacility, subscriptionFacility};
     }
