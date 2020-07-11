@@ -15,7 +15,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <class Env>
     class ByteDataWithTopicRecordFileImporterExporter<infra::RealTimeMonad<Env>, std::chrono::system_clock::time_point> {
     public:
-        template <class Format>
+        template <class Format, bool PublishFinalEmptyMessage=false>
         static std::shared_ptr<typename infra::RealTimeMonad<Env>::template Importer<ByteDataWithTopic>>
         createImporter(std::istream &is, std::vector<std::byte> const &fileMagic=std::vector<std::byte>(), std::vector<std::byte> const &recordMagic=std::vector<std::byte>()) {
             class LocalI : public infra::RealTimeMonad<Env>::template AbstractImporter<ByteDataWithTopic> {
@@ -29,6 +29,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     while (true) {
                         auto d = reader_.readByteDataWithTopicRecord(*is_);
                         if (!d) {
+                            if constexpr (PublishFinalEmptyMessage) {
+                                this->publish(typename infra::RealTimeMonad<Env>::template InnerData<ByteDataWithTopic> {
+                                    env_, {env_->now(), ByteDataWithTopic {std::string{}, std::string{}}, true}
+                                });
+                            }
                             break;
                         }
                         auto t = env_->now();
