@@ -4,6 +4,7 @@
 #include <tm_kit/infra/KleisliUtils.hpp>
 #include <tm_kit/infra/WithTimeData.hpp>
 #include <tm_kit/basic/CommonFlowUtils.hpp>
+#include <tm_kit/basic/SingleLayerWrapper.hpp>
 #include <tm_kit/basic/ForceDifferentType.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {

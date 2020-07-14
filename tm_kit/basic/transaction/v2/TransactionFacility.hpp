@@ -18,16 +18,26 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     
 namespace transaction { namespace v2 {
 
-    template <class M, class TI, class DI, class KeyHash=std::hash<typename DI::Key>, bool MutexProtected=true>
-    class ITransactionFacility : public M::template AbstractOnOrderFacility<
-            typename TI::TransactionWithAccountInfo
-            , typename TI::TransactionResponse
-        > {
+    template <class M, class TI, class DI, class KeyHash=std::hash<typename DI::Key>>
+    class ITransactionProcessorBase {
     public:
         using DataStore = TransactionDataStore<DI,KeyHash,M::PossiblyMultiThreaded>;
         using DataStorePtr = TransactionDataStorePtr<DI,KeyHash,M::PossiblyMultiThreaded>;
         virtual DataStorePtr const &dataStorePtr() const = 0;
     };
+
+    template <class M, class TI, class DI, class KeyHash=std::hash<typename DI::Key>>
+    class ITransactionFacility : public M::template AbstractOnOrderFacility<
+            typename TI::TransactionWithAccountInfo
+            , typename TI::TransactionResponse
+        >, public ITransactionProcessorBase<M, TI, DI, KeyHash>
+    {};
+
+    template <class M, class TI, class DI, class KeyHash=std::hash<typename DI::Key>>
+    class ISilentTransactionHandler : public M::template AbstractExporter<
+            typename TI::TransactionWithAccountInfo
+        >, public ITransactionProcessorBase<M, TI, DI, KeyHash>
+    {};
 
     template <
         class M, class TI, class DI
@@ -36,19 +46,20 @@ namespace transaction { namespace v2 {
         , class DataSummaryChecker = std::equal_to<typename TI::Data>
         , class DeltaProcessor = TriviallyProcess<typename TI::Data, typename TI::DataDelta, typename TI::ProcessedUpdate>
         , class KeyHash = std::hash<typename DI::Key>
-        , class Enable=void
+        , bool Silent = false
+        , class Enable = void
     >
-    class TransactionFacility {};
+    class TransactionProcessor {};
 
     template <
         class M, class TI, class DI
         , class VersionChecker, class VersionSliceChecker, class DataSummaryChecker
-        , class DeltaProcessor, class KeyHash
+        , class DeltaProcessor, class KeyHash, bool Silent
     >
-    class TransactionFacility<
+    class TransactionProcessor<
         M, TI, DI
         , VersionChecker, VersionSliceChecker, DataSummaryChecker
-        , DeltaProcessor, KeyHash
+        , DeltaProcessor, KeyHash, Silent
         , std::enable_if_t<
             std::is_same_v<typename TI::GlobalVersion, typename DI::GlobalVersion>
             && std::is_same_v<typename TI::Key, typename DI::Key>
@@ -57,9 +68,14 @@ namespace transaction { namespace v2 {
         >
     >
         : 
-        public ITransactionFacility<M, TI, DI, KeyHash, M::PossiblyMultiThreaded> 
+        public std::conditional_t<
+            Silent
+            , ISilentTransactionHandler<M, TI, DI, KeyHash>
+            , ITransactionFacility<M, TI, DI, KeyHash> 
+        >
         , public virtual M::IExternalComponent
     {
+    
     private:
         using TH = TransactionEnvComponent<TI>;
         using Lock = typename TransactionDataStore<DI,KeyHash,M::PossiblyMultiThreaded>::Lock;
@@ -91,13 +107,15 @@ namespace transaction { namespace v2 {
         ThreadData threadData_;
 
         void publishResponse(typename M::EnvironmentType *env, typename M::EnvironmentType::IDType const &id, typename TI::TransactionResponse &&response) {
-            this->publish(
-                env
-                , typename M::template Key<typename TI::TransactionResponse> {
-                    id, std::move(response)
-                }
-                , true
-            );
+            if constexpr (!Silent) {
+                this->publish(
+                    env
+                    , typename M::template Key<typename TI::TransactionResponse> {
+                        id, std::move(response)
+                    }
+                    , true
+                );
+            }
             //The busy wait is important, since it makes sure that our data store
             //is actually up to date
             dataStore_->waitForGlobalVersion(response.value.globalVersion);
@@ -235,51 +253,57 @@ namespace transaction { namespace v2 {
                 if constexpr (std::is_same_v<T, typename TI::InsertAction>) {
                     auto insertAction = std::move(tr);
                     if (!checkInsertPermission(env, account, insertAction)) {
-                        this->publish(
-                            env
-                            , typename M::template Key<typename TI::TransactionResponse> {
-                                requester
-                                , typename TI::TransactionResponse { {
-                                    typename TI::GlobalVersion {}
-                                    , RequestDecision::FailurePermission
-                                } }
-                            }
-                            , true
-                        );
+                        if constexpr (!Silent) {
+                            this->publish(
+                                env
+                                , typename M::template Key<typename TI::TransactionResponse> {
+                                    requester
+                                    , typename TI::TransactionResponse { {
+                                        typename TI::GlobalVersion {}
+                                        , RequestDecision::FailurePermission
+                                    } }
+                                }
+                                , true
+                            );
+                        }
                         return;
                     }
                     handleInsert(env, account, requester, insertAction);
                 } else if constexpr (std::is_same_v<T, typename TI::UpdateAction>) {
                     auto updateAction = std::move(tr);
                     if (!checkUpdatePermission(env, account, updateAction)) {
-                        this->publish(
-                            env
-                            , typename M::template Key<typename TI::TransactionResponse> {
-                                requester
-                                , typename TI::TransactionResponse { {
-                                    typename TI::GlobalVersion {}
-                                    , RequestDecision::FailurePermission
-                                } }
-                            }
-                            , true
-                        );
+                        if constexpr (!Silent) {
+                            this->publish(
+                                env
+                                , typename M::template Key<typename TI::TransactionResponse> {
+                                    requester
+                                    , typename TI::TransactionResponse { {
+                                        typename TI::GlobalVersion {}
+                                        , RequestDecision::FailurePermission
+                                    } }
+                                }
+                                , true
+                            );
+                        }
                         return;
                     }
                     handleUpdate(env, account, requester, updateAction);
                 } else if constexpr (std::is_same_v<T, typename TI::DeleteAction>) {
                     auto deleteAction = std::move(tr);
                     if (!checkDeletePermission(env, account, deleteAction)) {
-                        this->publish(
-                            env
-                            , typename M::template Key<typename TI::TransactionResponse> {
-                                requester
-                                , typename TI::TransactionResponse { {
-                                    typename TI::GlobalVersion {}
-                                    , RequestDecision::FailurePermission
-                                } }
-                            }
-                            , true
-                        );
+                        if constexpr (!Silent) {
+                            this->publish(
+                                env
+                                , typename M::template Key<typename TI::TransactionResponse> {
+                                    requester
+                                    , typename TI::TransactionResponse { {
+                                        typename TI::GlobalVersion {}
+                                        , RequestDecision::FailurePermission
+                                    } }
+                                }
+                                , true
+                            );
+                        }
                         return;
                     }
                     handleDelete(env, account, requester, deleteAction);
@@ -318,7 +342,7 @@ namespace transaction { namespace v2 {
             }
         }
     public:
-        TransactionFacility(TransactionDataStorePtr<DI,KeyHash,M::PossiblyMultiThreaded> const &dataStore) 
+        TransactionProcessor(TransactionDataStorePtr<DI,KeyHash,M::PossiblyMultiThreaded> const &dataStore) 
             : dataStore_(dataStore)
             , versionChecker_()
             , versionSliceChecker_()
@@ -327,23 +351,23 @@ namespace transaction { namespace v2 {
             , threadData_()
         {
         }
-        TransactionFacility &setVersionChecker(VersionChecker &&vc) {
+        TransactionProcessor &setVersionChecker(VersionChecker &&vc) {
             versionChecker_ = std::move(vc);
             return *this;
         }
-        TransactionFacility &setVersionSliceChecker(VersionSliceChecker &&vc) {
+        TransactionProcessor &setVersionSliceChecker(VersionSliceChecker &&vc) {
             versionSliceChecker_ = std::move(vc);
             return *this;
         }
-        TransactionFacility &setDataSummaryChecker(DataSummaryChecker &&dc) {
+        TransactionProcessor &setDataSummaryChecker(DataSummaryChecker &&dc) {
             dataSummaryChecker_ = std::move(dc);
             return *this;
         }
-        TransactionFacility &setDeltaProcessor(DeltaProcessor &&dp) {
+        TransactionProcessor &setDeltaProcessor(DeltaProcessor &&dp) {
             deltaProcessor_ = std::move(dp);
             return *this;
         }
-        ~TransactionFacility() {
+        ~TransactionProcessor() {
             if constexpr (M::PossiblyMultiThreaded) {
                 if (threadData_.running_) {
                     threadData_.running_ = false;
@@ -357,32 +381,63 @@ namespace transaction { namespace v2 {
         void start(typename M::EnvironmentType *) override final {
             if constexpr (M::PossiblyMultiThreaded) {
                 threadData_.running_ = true;
-                threadData_.transactionThread_ = std::thread(&TransactionFacility::runTransactionThread, this);
+                threadData_.transactionThread_ = std::thread(&TransactionProcessor::runTransactionThread, this);
                 threadData_.transactionThread_.detach();
             }
         }
-        void handle(typename M::template InnerData<typename M::template Key<
-            typename TI::TransactionWithAccountInfo
-        >> &&transactionWithAccountInfo) override final {
-            auto *env = transactionWithAccountInfo.environment;
-            if constexpr (M::PossiblyMultiThreaded) {
-                if (threadData_.running_) {
-                    {
-                        std::lock_guard<std::mutex> _(threadData_.transactionQueueMutex_);
-                        threadData_.transactionQueues_[threadData_.transactionQueueIncomingIndex_].push_back({
-                            env
-                            , std::move(transactionWithAccountInfo.timedData.value.id())
-                            , std::move(transactionWithAccountInfo.timedData.value.key())
-                        });
+        void handle(typename M::template InnerData<
+            std::conditional_t<
+                Silent
+                , typename TI::TransactionWithAccountInfo
+                , typename M::template Key<
+                    typename TI::TransactionWithAccountInfo
+                >
+            >
+        > &&transactionWithAccountInfo) override final {
+            if constexpr (!Silent) {
+                auto *env = transactionWithAccountInfo.environment;
+                if constexpr (M::PossiblyMultiThreaded) {
+                    if (threadData_.running_) {
+                        {
+                            std::lock_guard<std::mutex> _(threadData_.transactionQueueMutex_);
+                            threadData_.transactionQueues_[threadData_.transactionQueueIncomingIndex_].push_back({
+                                env
+                                , std::move(transactionWithAccountInfo.timedData.value.id())
+                                , std::move(transactionWithAccountInfo.timedData.value.key())
+                            });
+                        }
+                        threadData_.transactionQueueCond_.notify_one();
                     }
-                    threadData_.transactionQueueCond_.notify_one();
+                } else {
+                    reallyHandle(
+                        env
+                        , std::move(transactionWithAccountInfo.timedData.value.id())
+                        , std::move(transactionWithAccountInfo.timedData.value.key())
+                    );
                 }
             } else {
-                reallyHandle(
-                    env
-                    , std::move(transactionWithAccountInfo.timedData.value.id())
-                    , std::move(transactionWithAccountInfo.timedData.value.key())
-                );
+                static typename M::EnvironmentType::IDType emptyID;
+
+                auto *env = transactionWithAccountInfo.environment;
+                if constexpr (M::PossiblyMultiThreaded) {
+                    if (threadData_.running_) {
+                        {
+                            std::lock_guard<std::mutex> _(threadData_.transactionQueueMutex_);
+                            threadData_.transactionQueues_[threadData_.transactionQueueIncomingIndex_].push_back({
+                                env
+                                , emptyID
+                                , std::move(transactionWithAccountInfo.timedData.value)
+                            });
+                        }
+                        threadData_.transactionQueueCond_.notify_one();
+                    }
+                } else {
+                    reallyHandle(
+                        env
+                        , emptyID
+                        , std::move(transactionWithAccountInfo.timedData.value)
+                    );
+                }
             }
         }
         virtual bool checkInsertPermission(typename M::EnvironmentType *env, std::string const &account, typename TI::InsertAction const &) {
@@ -395,6 +450,50 @@ namespace transaction { namespace v2 {
             return true;
         }
     };
+
+    template <
+        class M, class TI, class DI
+        , class VersionChecker = std::equal_to<typename TI::Version>
+        , class VersionSliceChecker = std::equal_to<typename TI::Version>
+        , class DataSummaryChecker = std::equal_to<typename TI::Data>
+        , class DeltaProcessor = TriviallyProcess<typename TI::Data, typename TI::DataDelta, typename TI::ProcessedUpdate>
+        , class KeyHash = std::hash<typename DI::Key>
+    >
+    using TransactionFacility = 
+        TransactionProcessor<
+            M, TI, DI
+            , VersionChecker, VersionSliceChecker, DataSummaryChecker
+            , DeltaProcessor, KeyHash
+            , false
+            , std::enable_if_t<
+                std::is_same_v<typename TI::GlobalVersion, typename DI::GlobalVersion>
+                && std::is_same_v<typename TI::Key, typename DI::Key>
+                && std::is_same_v<typename TI::Version, typename DI::Version>
+                && std::is_same_v<typename TI::Data, typename DI::Data>
+            >
+        >;
+
+    template <
+        class M, class TI, class DI
+        , class VersionChecker = std::equal_to<typename TI::Version>
+        , class VersionSliceChecker = std::equal_to<typename TI::Version>
+        , class DataSummaryChecker = std::equal_to<typename TI::Data>
+        , class DeltaProcessor = TriviallyProcess<typename TI::Data, typename TI::DataDelta, typename TI::ProcessedUpdate>
+        , class KeyHash = std::hash<typename DI::Key>
+    >
+    using TransactionHandlingExporter = 
+        TransactionProcessor<
+            M, TI, DI
+            , VersionChecker, VersionSliceChecker, DataSummaryChecker
+            , DeltaProcessor, KeyHash
+            , true
+            , std::enable_if_t<
+                std::is_same_v<typename TI::GlobalVersion, typename DI::GlobalVersion>
+                && std::is_same_v<typename TI::Key, typename DI::Key>
+                && std::is_same_v<typename TI::Version, typename DI::Version>
+                && std::is_same_v<typename TI::Data, typename DI::Data>
+            >
+        >;
 
 } } 
 

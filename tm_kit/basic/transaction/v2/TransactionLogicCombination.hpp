@@ -137,6 +137,73 @@ namespace transaction { namespace v2 {
         return {transactionFacility, subscriptionFacility};
     }
 
+    template <class R, class TI, class DI, class KeyHash=std::hash<typename DI::Key>, class Enable=void>
+    struct SilentTransactionLogicCombinationResult {};
+
+    template <class R, class TI, class DI, class KeyHash>
+    struct SilentTransactionLogicCombinationResult<
+        R, TI, DI, KeyHash
+        , std::enable_if_t<
+            std::is_same_v<typename TI::GlobalVersion, typename DI::GlobalVersion>
+            && std::is_same_v<typename TI::Key, typename DI::Key>
+            && std::is_same_v<typename TI::Version, typename DI::Version>
+            && std::is_same_v<typename TI::Data, typename DI::Data>
+        >
+    > {
+        typename R::template Sinkoid<
+            typename TI::TransactionWithAccountInfo
+        > transactionHandler;
+        typename R::template LocalOnOrderFacilityPtr<
+            typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::InputWithAccountInfo
+            , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::Output
+            , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::SubscriptionUpdate
+        > subscriptionFacility;
+    };
+
+    template <class R, class TI, class DI, class DataStoreUpdater>
+    auto silentTransactionLogicCombination(
+        R &r
+        , std::string const &componentPrefix
+        , ISilentTransactionHandler<typename R::MonadType, TI, DI, typename DataStoreUpdater::KeyHash> *transactionHandlerImpl
+    ) -> SilentTransactionLogicCombinationResult<R, TI, DI, typename DataStoreUpdater::KeyHash> {
+        using M = typename R::MonadType;
+
+        auto transactionHandlingExporter = M::template exporter<
+            typename TI::TransactionWithAccountInfo
+        >(
+            transactionHandlerImpl
+        );
+
+        auto dataSource = M::template importer<
+            typename DI::Update
+        >(
+            new typename DataStreamImporterTypeResolver<M,DI>::Importer
+        );
+
+        r.registerExporter(
+            componentPrefix+"/transaction_handler"
+            , transactionHandlingExporter
+        );
+        r.registerImporter(
+            componentPrefix+"/data_source"
+            , dataSource
+        );
+
+        auto subscriptionFacility = subscriptionLogicCombination<R,DI,DataStoreUpdater>(
+            r
+            , componentPrefix
+            , r.importerAsSource(dataSource)
+            , transactionHandlerImpl->dataStorePtr()
+        );
+
+        r.markStateSharing(transactionHandlingExporter, subscriptionFacility, componentPrefix+"/data_store");
+
+        return {
+            r.sinkAsSinkoid(r.exporterAsSink(transactionHandlingExporter))
+            , subscriptionFacility
+        };
+    }
+
 } } 
 
 } } } }
