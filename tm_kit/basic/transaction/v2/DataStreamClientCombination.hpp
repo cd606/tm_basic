@@ -26,7 +26,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     auto basicDataStreamClientCombination(
         R &r
         , std::string const &componentPrefix
-        , typename R::template Sourceoid<typename R::MonadType::KeyedData<
+        , typename R::template Sourceoid<typename R::MonadType::template KeyedData<
             Input
             , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::Output
         >> subscriptionCallbackReceiver
