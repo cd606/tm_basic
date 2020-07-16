@@ -34,7 +34,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         static constexpr bool IsMutexProtected = MutexProtected;
         using DataStreamInterfaceType = DI;
         using KeyHash = KeyHashType;
-        using RetType = std::conditional_t<NeedOutput, typename DI::Update, void>;
+        using RetType = std::conditional_t<NeedOutput, typename DI::FullUpdate, void>;
 
     private:
         void handleFullUpdate(typename DI::OneFullUpdateItem &&update) const {
@@ -112,7 +112,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                 }
             }
             if constexpr (NeedOutput) {
-                return dataStore_->createFullUpdateNotification(keys);
+                return dataStore_->createFullUpdateNotificationWithoutVariant(keys);
             }
         }
     };

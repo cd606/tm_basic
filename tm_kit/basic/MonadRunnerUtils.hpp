@@ -34,7 +34,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             return [toBeWrapped,vCopy,prefix](
                 R &r
                 , typename R::template Source<typename M::template Key<Input>> &&source
-                , typename R::template Sink<typename M::template KeyedData<Input,Output>> const &sink) 
+                , std::optional<typename R::template Sink<typename M::template KeyedData<Input,Output>>> const &sink) 
             {
                 auto convertKey = M::template kleisli<typename M::template Key<Input>>(
                     CU::template withKey<Input>(
@@ -45,19 +45,28 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         )
                     )
                 );
-                auto convertOutput = M::template liftPure<typename M::template KeyedData<std::tuple<ToSupplyDefaultValue,Input>,Output>>(                   
-                    [](typename M::template KeyedData<std::tuple<ToSupplyDefaultValue,Input>,Output> &&x) 
-                        -> typename M::template KeyedData<Input,Output> 
-                    {
-                        return {{x.key.id(), std::get<1>(x.key.key())}, std::move(x.data)};
-                    }
-                );
-                toBeWrapped(
-                    r
-                    , r.execute(prefix+"/convert_key", convertKey, std::move(source))
-                    , r.actionAsSink(prefix+"/convert_output", convertOutput)
-                );
-                r.connect(r.actionAsSource(convertOutput), sink);
+                
+                if (sink) {
+                    auto convertOutput = M::template liftPure<typename M::template KeyedData<std::tuple<ToSupplyDefaultValue,Input>,Output>>(                   
+                        [](typename M::template KeyedData<std::tuple<ToSupplyDefaultValue,Input>,Output> &&x) 
+                            -> typename M::template KeyedData<Input,Output> 
+                        {
+                            return {{x.key.id(), std::get<1>(x.key.key())}, std::move(x.data)};
+                        }
+                    );
+                    toBeWrapped(
+                        r
+                        , r.execute(prefix+"/convert_key", convertKey, std::move(source))
+                        , r.actionAsSink(prefix+"/convert_output", convertOutput)
+                    );
+                    r.connect(r.actionAsSource(convertOutput), *sink);
+                } else {
+                    toBeWrapped(
+                        r
+                        , r.execute(prefix+"/convert_key", convertKey, std::move(source))
+                        , std::nullopt
+                    );
+                }
             };
         }
 
@@ -70,10 +79,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             return [&inputHandler,outputProducer=std::move(outputProducer)](
                 R &r
                 , typename R::template Source<typename M::template Key<A>> &&inputProvider
-                , typename R::template Sink<typename M::template KeyedData<A,B>> const &outputReceiver
+                , std::optional<typename R::template Sink<typename M::template KeyedData<A,B>>> const &outputReceiver
             ) {
                 r.connect(std::move(inputProvider), inputHandler);
-                r.connect(std::move(outputProducer), outputReceiver);
+                if (outputReceiver) {
+                    r.connect(std::move(outputProducer), *outputReceiver);
+                }
             };
         }
 
@@ -86,10 +97,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             return [&inputHandler,&outputProducer](
                 R &r
                 , typename R::template Source<typename M::template Key<A>> &&inputProvider
-                , typename R::template Sink<typename M::template KeyedData<A,B>> const &outputReceiver
+                , std::optional<typename R::template Sink<typename M::template KeyedData<A,B>>> const &outputReceiver
             ) {
                 inputHandler(r, std::move(inputProvider));
-                outputProducer(r, outputReceiver);
+                if (outputReceiver) {
+                    outputProducer(r, *outputReceiver);
+                }
             };
         }
 
@@ -112,48 +125,53 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             ](
                 R &r
                 , typename R::template Source<typename M::template Key<A0>> &&inputProvider
-                , typename R::template Sink<typename M::template KeyedData<A0,B0>> const &outputReceiver
+                , std::optional<typename R::template Sink<typename M::template KeyedData<A0,B0>>> const &outputReceiver
             ) {
                 auto forwardKeyTrans = M::template kleisli<M::template Key<A0>>(
                     CommonFlowUtilComponents<M>::template withKey<A0>(std::move(forwardKeyTranslator))
                 );
                 r.registerAction(prefix+"/forwardKeyTranslator", forwardKeyTrans);
                 r.connect(std::move(inputProvider), r.actionAsSink(forwardKeyTrans));
-                auto backwardTrans = M::template kleisli<typename M::template KeyedData<A1,B1>>(
-                    [k=std::move(backwardKeyTranslator),d=std::move(backwardDataTranslator)](
-                        typename M::template InnerData<typename M::template KeyedData<A1,B1>> &&x
-                    ) -> typename M::template Data<typename M::template KeyedData<A0,B0>> {
-                        typename M::template InnerData<A1> a1 {
-                            x.env, {x.timedData.timePoint, x.timedData.value.key.key(), x.timedData.finalFlag}
-                        };
-                        auto a0 = k(std::move(a1));
-                        if (!a0) {
-                            return std::nullopt;
-                        }
-                        typename M::template InnerData<B1> b1 {
-                            x.env, {x.timedData.timePoint, std::move(x.timedData.value.data), x.timedData.finalFlag}
-                        };
-                        auto b0 = d(std::move(b1));
-                        if (!b0) {
-                            return std::nullopt;
-                        }
-                        return { typename M::template InnerData<typename M::template KeyedData<A0,B0>> {
-                            x.env, {
-                                std::max(a0.timedData.timePoint, b0.timedData.timePoint)
-                                , typename M::template KeyedData<A0,B0> {
-                                    typename M::template Key<A0> {
-                                        x.timedData.value.key.id()
-                                        , std::move(a0.timedData.value)
-                                    }   
-                                    , std::move(b0.timedData.value)
-                                }
-                                , (a0.timedData.finalFlag && b0.timedData.finalFlag)
+                if (outputReceiver) {
+                    auto backwardTrans = M::template kleisli<typename M::template KeyedData<A1,B1>>(
+                        [k=std::move(backwardKeyTranslator),d=std::move(backwardDataTranslator)](
+                            typename M::template InnerData<typename M::template KeyedData<A1,B1>> &&x
+                        ) -> typename M::template Data<typename M::template KeyedData<A0,B0>> {
+                            typename M::template InnerData<A1> a1 {
+                                x.env, {x.timedData.timePoint, x.timedData.value.key.key(), x.timedData.finalFlag}
+                            };
+                            auto a0 = k(std::move(a1));
+                            if (!a0) {
+                                return std::nullopt;
                             }
-                        } };
-                    }
-                );
-                r.registerAction(prefix+"/backwardTranslator", backwardTrans);
-                innerFacilitioid(r, r.actionAsSource(forwardKeyTrans), r.actionAsSink(backwardTrans));
+                            typename M::template InnerData<B1> b1 {
+                                x.env, {x.timedData.timePoint, std::move(x.timedData.value.data), x.timedData.finalFlag}
+                            };
+                            auto b0 = d(std::move(b1));
+                            if (!b0) {
+                                return std::nullopt;
+                            }
+                            return { typename M::template InnerData<typename M::template KeyedData<A0,B0>> {
+                                x.env, {
+                                    std::max(a0.timedData.timePoint, b0.timedData.timePoint)
+                                    , typename M::template KeyedData<A0,B0> {
+                                        typename M::template Key<A0> {
+                                            x.timedData.value.key.id()
+                                            , std::move(a0.timedData.value)
+                                        }   
+                                        , std::move(b0.timedData.value)
+                                    }
+                                    , (a0.timedData.finalFlag && b0.timedData.finalFlag)
+                                }
+                            } };
+                        }
+                    );
+                    r.registerAction(prefix+"/backwardTranslator", backwardTrans);
+                    innerFacilitioid(r, r.actionAsSource(forwardKeyTrans), r.actionAsSink(backwardTrans));
+                    r.connect(r.actionAsSource(backwardTrans), *outputReceiver);
+                } else {
+                    innerFacilitioid(r, r.actionAsSource(forwardKeyTrans), std::nullopt);
+                }
             };
         }
         

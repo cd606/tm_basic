@@ -81,6 +81,29 @@ namespace transaction { namespace v2 {
             , std::vector<OneUpdateItem>
             , GlobalVersionCmp
         >;
+        //This is for client's convenience
+        using FullUpdate = infra::VersionedData<
+            GlobalVersion
+            , std::vector<OneFullUpdateItem>
+            , GlobalVersionCmp
+        >;
+        static std::optional<FullUpdate> getFullUpdatesOnly(Update &&u) {
+            std::vector<OneFullUpdateItem> v;
+            for (auto &item : u.data) {
+                std::visit([&v](auto &&x) {
+                    using T = std::decay_t<decltype(x)>;
+                    if constexpr (std::is_same_v<T, OneFullUpdateItem>) {
+                        v.push_back(std::move(x));
+                    }
+                }, std::move(item));
+            }
+            if (v.empty()) {
+                return std::nullopt;
+            }
+            return FullUpdate {
+                std::move(u.version), std::move(v)
+            };
+        }
     };
 
 } }

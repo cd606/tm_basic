@@ -62,6 +62,30 @@ namespace transaction { namespace v2 {
                 , std::move(updates)
             };
         }
+        typename DI::FullUpdate createFullUpdateNotificationWithoutVariant(std::vector<typename DI::Key> const &keys) const {
+            Lock _(mutex_);
+            std::vector<typename DI::OneFullUpdateItem> updates;  
+            for (auto const &key : keys) {
+                auto iter = dataMap_.find(key);
+                if (iter == dataMap_.end()) {
+                    updates.push_back(typename DI::OneFullUpdateItem {
+                        infra::withtime_utils::makeValueCopy(key)
+                        , typename DI::Version {}
+                        , std::nullopt
+                    });
+                } else {
+                    updates.push_back(typename DI::OneFullUpdateItem {
+                        infra::withtime_utils::makeValueCopy(key)
+                        , infra::withtime_utils::makeValueCopy(iter->second.version)
+                        , infra::withtime_utils::makeValueCopy(iter->second.data)
+                    });
+                }
+            }
+            return typename DI::FullUpdate {
+                globalVersion_
+                , std::move(updates)
+            };
+        }
     };   
 
     template <class DI, class KeyHashType = std::hash<typename DI::Key>, bool MutexProtected=true>

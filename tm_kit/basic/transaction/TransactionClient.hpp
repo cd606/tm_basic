@@ -8,6 +8,7 @@
 #include <tm_kit/basic/transaction/v2/DefaultUtilities.hpp>
 #include <tm_kit/basic/transaction/v2/TransactionFacility.hpp>
 #include <tm_kit/basic/transaction/v2/TransactionDeltaMerger.hpp>
+#include <tm_kit/basic/transaction/v2/DataStreamClientCombination.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace transaction {
     namespace current = v2;
