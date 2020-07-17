@@ -33,6 +33,7 @@ namespace transaction { namespace v2 {
         , std::string const &componentPrefix
         , typename R::template Source<typename DI::Update> &&updateSource
         , TransactionDataStorePtr<DI,typename DataStoreUpdater::KeyHash,R::MonadType::PossiblyMultiThreaded> const &dataStorePtr
+            = std::make_shared<TransactionDataStore<DI,typename DataStoreUpdater::KeyHash,R::MonadType::PossiblyMultiThreaded>>()
     ) -> typename R::template LocalOnOrderFacilityPtr<
             typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::InputWithAccountInfo
             , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::Output
