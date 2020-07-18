@@ -9,8 +9,11 @@ namespace transaction { namespace v2 {
     class TransactionEnvComponent {
     public:
         virtual ~TransactionEnvComponent() {}
-        virtual typename TI::GlobalVersion acquireLock(std::string const &account, typename TI::Key const &key) = 0;
-        virtual typename TI::GlobalVersion releaseLock(std::string const &account, typename TI::Key const &key) = 0;
+        //In acquireLock and releaseLock, dataDelta pointer might be nullptr.
+        //If present, dataDelta pointer provides hint on partially locking the
+        //transaction data structure
+        virtual typename TI::GlobalVersion acquireLock(std::string const &account, typename TI::Key const &key, typename TI::DataDelta const *dataDelta) = 0;
+        virtual typename TI::GlobalVersion releaseLock(std::string const &account, typename TI::Key const &key, typename TI::DataDelta const *dataDelta) = 0;
         virtual typename TI::TransactionResponse handleInsert(std::string const &account, typename TI::Key const &key, typename TI::Data const &data) = 0;
         virtual typename TI::TransactionResponse handleUpdate(std::string const &account, typename TI::Key const &key, std::optional<typename TI::VersionSlice> const &updateVersionSlice, typename TI::ProcessedUpdate const &processedUpdate) = 0;
         virtual typename TI::TransactionResponse handleDelete(std::string const &account, typename TI::Key const &key, std::optional<typename TI::Version> const &versionToDelete) = 0;
