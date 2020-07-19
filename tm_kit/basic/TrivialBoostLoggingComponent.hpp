@@ -6,6 +6,8 @@
 #include <chrono>
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
+#include <boost/log/attributes.hpp>
+#include <boost/log/utility/setup/console.hpp>
 
 #include <tm_kit/infra/LogLevel.hpp>
 #include <tm_kit/infra/ChronoUtils.hpp>
@@ -52,8 +54,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
     template <class TimeComponent, bool LogThreadID=true>
     class TimeComponentEnhancedWithBoostTrivialLogging : public TimeComponent {
+    private:
+        class LocalInitializer {
+        public:
+            LocalInitializer() {
+                boost::log::add_console_log(
+                    std::cout
+                    , boost::log::keywords::format = "%Message%"
+                );
+            }
+        };
     public:
         TimeComponentEnhancedWithBoostTrivialLogging() : TimeComponent() {
+            static LocalInitializer s_localInitializer; //Force running initializer
         }
         void log(infra::LogLevel l, std::string const &s) {
             std::ostringstream oss;
