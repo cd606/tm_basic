@@ -110,7 +110,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                 [wrapUpFunc](typename M::template InnerData<ClockFacilityOutput> &&data) {
                     data.environment->resolveTime(data.timedData.timePoint);
                     wrapUpFunc(data.environment);
-                    exit(0);
+                    data.environment->exit();
                 }
             );
 

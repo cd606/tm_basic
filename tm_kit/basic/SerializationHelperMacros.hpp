@@ -19,7 +19,8 @@
 //in the same line as "<<" or ";" always creates problems, therefore, 
 //for VC compiler, the generated print code will have a different print
 //format
-#ifdef _MSC_VER
+//#ifdef _MSC_VER
+#if 1
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_PRINT_ITEM(r, data, elem) \
     << BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(1,elem)) << '=' \
     << x.BOOST_PP_TUPLE_ELEM(1,elem) << ' '
