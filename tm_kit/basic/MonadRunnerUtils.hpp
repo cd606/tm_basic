@@ -6,6 +6,8 @@
 #include <tm_kit/basic/CommonFlowUtils.hpp>
 #include <tm_kit/basic/SingleLayerWrapper.hpp>
 #include <tm_kit/basic/ForceDifferentType.hpp>
+#include <tm_kit/basic/real_time_clock/ClockOnOrderFacility.hpp>
+#include <tm_kit/basic/single_pass_iteration_clock/ClockOnOrderFacility.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
 
@@ -426,6 +428,74 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 , r.actionAsSource(synchronizer)
             };
         }
+
+    private:
+        template <class T>
+        struct DefaultClockFacility {};
+        template <class Env>
+        struct DefaultClockFacility<infra::RealTimeMonad<Env>> {
+            using TheFacility = real_time_clock::ClockOnOrderFacility<Env>;
+        };
+        template <class Env>
+        struct DefaultClockFacility<infra::SinglePassIterationMonad<Env>> {
+            using TheFacility = single_pass_iteration_clock::ClockOnOrderFacility<Env>;
+        };
+
+    public:
+
+        //This utility function is provided because in SinglePassIterationMonad
+        //it is difficult to ensure a smooth exit. Even though we can pass down
+        //finalFlag, the flag might get lost. An example is where an action happens
+        //to return a std::nullopt at the input with the final flag, and at this point
+        //the finalFlag is lost forever.
+        //To help exit from SinglePassIterationMonad where the final flag may get lost
+        //, we can set up this exit timer.
+        //However, this is not limited to SinglePassIterationMonad, it is completely ok
+        //to use this in RealTimeMonad too.
+        template <class T, class ClockFacility = typename DefaultClockFacility<M>::TheFacility>
+        static void setupExitTimer(
+            R &r
+            , std::chrono::system_clock::duration const &exitAfterThisDurationFromFirstInput
+            , typename R::template Source<T> &&inputSource
+            , std::function<void(TheEnvironment *)> wrapUpFunc
+            , std::string const &componentNamePrefix) 
+        {
+            auto exitTimer = ClockFacility::template createClockCallback<VoidStruct, VoidStruct>(
+                [](std::chrono::system_clock::time_point const &, std::size_t thisIdx, std::size_t totalCount) {
+                    return VoidStruct {};
+                }
+            );
+            auto setupExitTimer = M::template liftMaybe<T>(
+                [exitAfterThisDurationFromFirstInput](T &&) -> std::optional<typename M::template Key<typename ClockFacility::template FacilityInput<VoidStruct>>> {
+                    static bool timerSet { false };
+                    if (!timerSet) {
+                        timerSet = true;
+                        return infra::withtime_utils::keyify<typename ClockFacility::template FacilityInput<VoidStruct>,TheEnvironment>(
+                            typename ClockFacility::template FacilityInput<VoidStruct> {
+                                VoidStruct {}
+                                , {exitAfterThisDurationFromFirstInput}
+                            }
+                        );
+                    } else {
+                        return std::nullopt;
+                    }
+                }
+            );
+            using ClockFacilityOutput = typename M::template KeyedData<typename ClockFacility::template FacilityInput<VoidStruct>, VoidStruct>;
+            auto doExit = M::template simpleExporter<ClockFacilityOutput>(
+                [wrapUpFunc](typename M::template InnerData<ClockFacilityOutput> &&data) {
+                    data.environment->resolveTime(data.timedData.timePoint);
+                    wrapUpFunc(data.environment);
+                    data.environment->exit();
+                }
+            );
+
+            r.placeOrderWithFacility(
+                r.execute(componentNamePrefix+"/setupExitTimer", setupExitTimer, std::move(inputSource))
+                , componentNamePrefix+"/exitTimer", exitTimer
+                , r.exporterAsSink(componentNamePrefix+"/doExit", doExit)
+            );
+        } 
     };
 
 } } } }
