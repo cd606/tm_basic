@@ -467,19 +467,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
             auto setupExitTimer = M::template liftMaybe<T>(
                 [exitAfterThisDurationFromFirstInput](T &&) -> std::optional<typename M::template Key<typename ClockFacility::template FacilityInput<VoidStruct>>> {
-                    static bool timerSet { false };
-                    if (!timerSet) {
-                        timerSet = true;
-                        return infra::withtime_utils::keyify<typename ClockFacility::template FacilityInput<VoidStruct>,TheEnvironment>(
-                            typename ClockFacility::template FacilityInput<VoidStruct> {
-                                VoidStruct {}
-                                , {exitAfterThisDurationFromFirstInput}
-                            }
-                        );
-                    } else {
-                        return std::nullopt;
-                    }
+                    return infra::withtime_utils::keyify<typename ClockFacility::template FacilityInput<VoidStruct>,TheEnvironment>(
+                        typename ClockFacility::template FacilityInput<VoidStruct> {
+                            VoidStruct {}
+                            , {exitAfterThisDurationFromFirstInput}
+                        }
+                    );
                 }
+                , infra::LiftParameters<typename M::TimePoint>().FireOnceOnly(true)
             );
             using ClockFacilityOutput = typename M::template KeyedData<typename ClockFacility::template FacilityInput<VoidStruct>, VoidStruct>;
             auto doExit = M::template simpleExporter<ClockFacilityOutput>(
