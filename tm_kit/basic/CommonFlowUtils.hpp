@@ -415,10 +415,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         
         template <class T>
         static std::shared_ptr<typename M::template Action<T,T>> simpleFinalizer() {
-            return M::template kleisli<T>([](typename M::template InnerData<T> &&d) -> typename M::template Data<T> {
-                d.timedData.finalFlag = true;
-                return {std::move(d)};
-            });
+            return M::template liftPure<T>([](T &&t) {
+                return std::move(t);
+            }, infra::LiftParameters<typename M::TimePoint>().FireOnceOnly(true));
         }
 
     private:

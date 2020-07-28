@@ -17,6 +17,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
             });
             th.detach();
         }
+        ~ClockComponentImpl() {
+            service_->stop();
+        }
         void scheduleOneTimeCallback(std::chrono::system_clock::time_point const &t, std::function<void()> callback) {
             auto timer = std::make_shared<boost::asio::system_timer>(*service_, t);
             timer->async_wait([timer,callback](boost::system::error_code const &err) {
