@@ -41,17 +41,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
 
-    template <class TimeType>
-    std::string localTimeStringForLogging(TimeType const &t) {
-        std::ostringstream oss;
-        oss << t;
-        return oss.str();
-    }
-    template <>
-    std::string localTimeStringForLogging<std::chrono::system_clock::time_point>(std::chrono::system_clock::time_point const &t) {
-        return infra::withtime_utils::localTimeString(t);
-    }
-
     template <class TimeComponent, bool LogThreadID=true>
     class TimeComponentEnhancedWithBoostTrivialLogging : public TimeComponent {
     private:
@@ -71,7 +60,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         void log(infra::LogLevel l, std::string const &s) {
             std::ostringstream oss;
             oss << '[' << infra::logLevelToString(l) << "] ";
-            oss << '[' << localTimeStringForLogging(TimeComponent::now()) << "] ";
+            oss << '[' << infra::withtime_utils::genericLocalTimeString(TimeComponent::now()) << "] ";
             if (LogThreadID) {
                 oss << "[Thread " << std::this_thread::get_id() << "] ";
             }
