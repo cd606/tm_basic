@@ -38,48 +38,81 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
 
-    template <class TimeComponent, bool LogThreadID=true>
+    template <class TimeComponent, bool LogThreadID=true, bool ForceActualTimeLogging=false>
     class TimeComponentEnhancedWithSpdLogging : public TimeComponent {
     private:
-        class LocalInitializer {
-        public:
-            LocalInitializer() {
-                spdlog::set_pattern("%v");
-            }
-        };
+        std::conditional_t<(TimeComponent::CanBeActualTimeClock&&!ForceActualTimeLogging),std::atomic<bool>,bool> firstTime_;
+        std::conditional_t<(TimeComponent::CanBeActualTimeClock&&!ForceActualTimeLogging),std::mutex,bool> firstTimeMutex_;
+        bool isActualClock_;
     public:
-        TimeComponentEnhancedWithSpdLogging() : TimeComponent() {
-            static LocalInitializer s_localInitializer; //Force running initializer
+        TimeComponentEnhancedWithSpdLogging() : TimeComponent(), firstTime_(true), firstTimeMutex_(), isActualClock_(false) {
+            if constexpr (ForceActualTimeLogging) {
+                if constexpr (LogThreadID) {
+                    spdlog::set_pattern("[%l] [%Y-%m-%d %H:%M:%S.%f] [Thread %t] %v");
+                } else {
+                    spdlog::set_pattern("[%l] [%Y-%m-%d %H:%M:%S.%f] %v");
+                }
+            } else {
+                if constexpr (!TimeComponent::CanBeActualTimeClock) {
+                    spdlog::set_pattern("%v");
+                }
+            }
         }
         void log(infra::LogLevel l, std::string const &s) {
-            std::ostringstream oss;
-            oss << '[' << infra::logLevelToString(l) << "] ";
-            oss << '[' << infra::withtime_utils::genericLocalTimeString(TimeComponent::now()) << "] ";
-            if (LogThreadID) {
-                oss << "[Thread " << std::this_thread::get_id() << "] ";
-            }
-            oss << s;
-            switch (l) {
-                case infra::LogLevel::Trace:
-                    spdlog::trace(oss.str());
-                    break;
-                case infra::LogLevel::Debug:
-                    spdlog::debug(oss.str());
-                    break;
-                case infra::LogLevel::Info:
-                    spdlog::info(oss.str());
-                    break;
-                case infra::LogLevel::Warning:
-                    spdlog::warn(oss.str());
-                    break;
-                case infra::LogLevel::Error:
-                    spdlog::error(oss.str());
-                    break;
-                case infra::LogLevel::Critical:
-                    spdlog::critical(oss.str());
-                    break;
-                default:
-                    break;
+            if constexpr (ForceActualTimeLogging) {
+                SpdLoggingComponent::log(l, s);
+            } else {
+                if constexpr (TimeComponent::CanBeActualTimeClock) {
+                    if (firstTime_) {
+                        std::lock_guard<std::mutex> _(firstTimeMutex_);
+                        if (firstTime_) {
+                            isActualClock_ = this->isActualClock();
+                            if (isActualClock_) {
+                                if constexpr (LogThreadID) {
+                                    spdlog::set_pattern("[%l] [%Y-%m-%d %H:%M:%S.%f] [Thread %t] %v");
+                                } else {
+                                    spdlog::set_pattern("[%l] [%Y-%m-%d %H:%M:%S.%f] %v");
+                                }
+                            } else {
+                                spdlog::set_pattern("%v");
+                            }
+                            firstTime_ = false;
+                        }
+                    }
+                    if (isActualClock_) {
+                        SpdLoggingComponent::log(l, s);
+                        return;
+                    }
+                }
+                std::ostringstream oss;
+                oss << '[' << infra::logLevelToString(l) << "] ";
+                oss << '[' << infra::withtime_utils::genericLocalTimeString(TimeComponent::now()) << "] ";
+                if constexpr (LogThreadID) {
+                    oss << "[Thread " << std::this_thread::get_id() << "] ";
+                }
+                oss << s;
+                switch (l) {
+                    case infra::LogLevel::Trace:
+                        spdlog::trace(oss.str());
+                        break;
+                    case infra::LogLevel::Debug:
+                        spdlog::debug(oss.str());
+                        break;
+                    case infra::LogLevel::Info:
+                        spdlog::info(oss.str());
+                        break;
+                    case infra::LogLevel::Warning:
+                        spdlog::warn(oss.str());
+                        break;
+                    case infra::LogLevel::Error:
+                        spdlog::error(oss.str());
+                        break;
+                    case infra::LogLevel::Critical:
+                        spdlog::critical(oss.str());
+                        break;
+                    default:
+                        break;
+                }
             }
         }
     };

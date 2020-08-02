@@ -63,6 +63,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
         std::chrono::system_clock::time_point virtualTime(std::chrono::system_clock::time_point const &actualT);
         std::chrono::system_clock::duration actualDuration(std::chrono::system_clock::duration const &virtualD);
         std::chrono::system_clock::duration virtualDuration(std::chrono::system_clock::duration const &actualD);
+
+        bool isActualClock() const {
+            return (!settings_);
+        }
     };
 
 } } } } }

@@ -15,6 +15,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
         using TimePointType = std::chrono::system_clock::time_point;
         using DurationType = std::chrono::system_clock::duration;
         static constexpr bool PreserveInputRelativeOrder = false;
+        static constexpr bool CanBeActualTimeClock = true;
 
         ClockComponent();
         ClockComponent(Clock::ClockSettings const &);

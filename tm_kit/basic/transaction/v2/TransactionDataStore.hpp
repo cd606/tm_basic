@@ -33,7 +33,7 @@ namespace transaction { namespace v2 {
         void waitForGlobalVersion(typename DI::GlobalVersion const &v) {
             if constexpr (IsMutexProtected) {
                 while (globalVersion_ < v) {
-                    std::this_thread::sleep_for(std::chrono::microseconds(10));
+                    ;//std::this_thread::sleep_for(std::chrono::microseconds(10));
                 }
             }
         }

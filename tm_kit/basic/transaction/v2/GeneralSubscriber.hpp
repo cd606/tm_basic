@@ -583,17 +583,31 @@ namespace transaction { namespace v2 {
         }
         void handle(typename M::template InnerData<typename Types::SubscriptionUpdate> &&update) override final {
             auto *env = update.environment;
+            //std::chrono::steady_clock::time_point t1, t2, t3, t4;
             if constexpr (M::PossiblyMultiThreaded) {
+                //t1 = std::chrono::steady_clock::now();
                 if (threadData_.running_) {
                     {
                         std::lock_guard<std::mutex> _(threadData_.inputQueueMutex_);
+                        //t2 = std::chrono::steady_clock::now();
                         threadData_.inputQueues_[threadData_.inputQueueIncomingIndex_].push_back({
                             env
                             , std::move(update.timedData.value)
                         });
+                        //t3 = std::chrono::steady_clock::now();
                     }
                     threadData_.inputQueueCond_.notify_one();
                 }
+                /*
+                t4 = std::chrono::steady_clock::now();
+                env->log(infra::LogLevel::Info
+                    , std::string("From entrance to obtain lock: ")
+                        +std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count())
+                        +std::string(", push queue: ")
+                        +std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(t3-t2).count())
+                        +std::string(", until end: ")
+                        +std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(t4-t3).count())
+                );*/
             } else {
                 reallyHandleDataUpdate(env, std::move(update.timedData.value));
             }

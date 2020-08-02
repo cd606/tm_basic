@@ -12,6 +12,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
         using TimePointType = TimePoint;
         using DurationType = decltype(TimePoint()-TimePoint());
         static constexpr bool PreserveInputRelativeOrder = true;
+        static constexpr bool CanBeActualTimeClock = false;
         
         TimePointType resolveTime() {
             return Clock<TimePoint>::now();
