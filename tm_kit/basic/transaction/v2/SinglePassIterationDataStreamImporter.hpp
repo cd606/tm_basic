@@ -1,7 +1,7 @@
 #ifndef TM_KIT_BASIC_TRANSACTION_V2_SINGLE_PASS_ITERATION_DATA_STREAM_IMPORTER_HPP_
 #define TM_KIT_BASIC_TRANSACTION_V2_SINGLE_PASS_ITERATION_DATA_STREAM_IMPORTER_HPP_
 
-#include <tm_kit/infra/SinglePassIterationMonad.hpp>
+#include <tm_kit/infra/SinglePassIterationApp.hpp>
 #include <tm_kit/basic/transaction/v2/DataStreamInterface.hpp>
 #include <tm_kit/basic/transaction/v2/DataStreamEnvComponent.hpp>
 
@@ -12,13 +12,13 @@ namespace transaction { namespace v2 { namespace single_pass_iteration {
     template <class TheEnvironment, class DI>
     class DataStreamImporter 
         :
-        public infra::SinglePassIterationMonad<TheEnvironment>::template AbstractImporter<
+        public infra::SinglePassIterationApp<TheEnvironment>::template AbstractImporter<
             typename DI::Update
         >
         , public DataStreamEnvComponent<DI>::Callback
     {
     private:
-        using DataItem = typename infra::SinglePassIterationMonad<TheEnvironment>::template InnerData<
+        using DataItem = typename infra::SinglePassIterationApp<TheEnvironment>::template InnerData<
             DI::Update
         >;
         TheEnvironment *env_;
@@ -38,7 +38,7 @@ namespace transaction { namespace v2 { namespace single_pass_iteration {
                 >(env_, std::move(u))
             );
         }
-        virtual typename infra::SinglePassIterationMonad<TheEnvironment>::template Data<
+        virtual typename infra::SinglePassIterationApp<TheEnvironment>::template Data<
             typename DI::Update
         > generate() override final {
             if (updates_.empty()) {

@@ -2,7 +2,7 @@
 #define TM_KIT_BASIC_REAL_TIME_CLOCK_CLOCK_ON_ORDER_FACILITY_HPP_
 
 #include <type_traits>
-#include <tm_kit/infra/RealTimeMonad.hpp>
+#include <tm_kit/infra/RealTimeApp.hpp>
 #include <tm_kit/basic/ConstGenerator.hpp>
 #include <tm_kit/basic/real_time_clock/ClockComponent.hpp>
 
@@ -11,7 +11,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
     template <class Env, std::enable_if_t<std::is_base_of_v<ClockComponent, Env>, int> = 0>
     class ClockOnOrderFacility {
     public:
-        using M = infra::RealTimeMonad<Env>;
+        using M = infra::RealTimeApp<Env>;
         using Duration = typename Env::DurationType;
         template <class S>
         struct FacilityInput {

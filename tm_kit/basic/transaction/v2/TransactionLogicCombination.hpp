@@ -19,11 +19,11 @@ namespace transaction { namespace v2 {
     struct DataStreamImporterTypeResolver {
     };
     template <class Env, class DI>
-    struct DataStreamImporterTypeResolver<infra::RealTimeMonad<Env>, DI> {
+    struct DataStreamImporterTypeResolver<infra::RealTimeApp<Env>, DI> {
         using Importer = real_time::DataStreamImporter<Env, DI>;
     };
     template <class Env, class DI>
-    struct DataStreamImporterTypeResolver<infra::SinglePassIterationMonad<Env>, DI> {
+    struct DataStreamImporterTypeResolver<infra::SinglePassIterationApp<Env>, DI> {
         using Importer = single_pass_iteration::DataStreamImporter<Env, DI>;
     };
 
@@ -32,20 +32,20 @@ namespace transaction { namespace v2 {
         R &r
         , std::string const &componentPrefix
         , typename R::template Source<typename DI::Update> &&updateSource
-        , TransactionDataStorePtr<DI,typename DataStoreUpdater::KeyHash,R::MonadType::PossiblyMultiThreaded> const &dataStorePtr
-            = std::make_shared<TransactionDataStore<DI,typename DataStoreUpdater::KeyHash,R::MonadType::PossiblyMultiThreaded>>()
+        , TransactionDataStorePtr<DI,typename DataStoreUpdater::KeyHash,R::AppType::PossiblyMultiThreaded> const &dataStorePtr
+            = std::make_shared<TransactionDataStore<DI,typename DataStoreUpdater::KeyHash,R::AppType::PossiblyMultiThreaded>>()
     ) -> typename R::template LocalOnOrderFacilityPtr<
             typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::InputWithAccountInfo
             , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::Output
             , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::SubscriptionUpdate
         > {
         static_assert(
-            ((DataStoreUpdater::IsMutexProtected == R::MonadType::PossiblyMultiThreaded)
+            ((DataStoreUpdater::IsMutexProtected == R::AppType::PossiblyMultiThreaded)
             && std::is_same_v<typename DataStoreUpdater::DataStreamInterfaceType, DI>)
             , "DataStoreUpdater must be compatible with R and DI"
         );
 
-        using M = typename R::MonadType;
+        using M = typename R::AppType;
 
         auto subscriptionFacility = M::template localOnOrderFacility<
             typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::InputWithAccountInfo
@@ -108,9 +108,9 @@ namespace transaction { namespace v2 {
     auto transactionLogicCombination(
         R &r
         , std::string const &componentPrefix
-        , ITransactionFacility<typename R::MonadType, TI, DI, typename DataStoreUpdater::KeyHash> *transactionFacilityImpl
+        , ITransactionFacility<typename R::AppType, TI, DI, typename DataStoreUpdater::KeyHash> *transactionFacilityImpl
     ) -> TransactionLogicCombinationResult<R, TI, DI, typename DataStoreUpdater::KeyHash> {
-        using M = typename R::MonadType;
+        using M = typename R::AppType;
 
         auto transactionFacility = M::template onOrderFacilityWithExternalEffects<
             typename TI::TransactionWithAccountInfo
@@ -165,9 +165,9 @@ namespace transaction { namespace v2 {
     auto silentTransactionLogicCombination(
         R &r
         , std::string const &componentPrefix
-        , ISilentTransactionHandler<typename R::MonadType, TI, DI, typename DataStoreUpdater::KeyHash> *transactionHandlerImpl
+        , ISilentTransactionHandler<typename R::AppType, TI, DI, typename DataStoreUpdater::KeyHash> *transactionHandlerImpl
     ) -> SilentTransactionLogicCombinationResult<R, TI, DI, typename DataStoreUpdater::KeyHash> {
-        using M = typename R::MonadType;
+        using M = typename R::AppType;
 
         auto transactionHandlingExporter = M::template exporter<
             typename TI::TransactionWithAccountInfo

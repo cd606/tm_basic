@@ -15,7 +15,7 @@
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace transaction { namespace v2 {
     template <class R, class DI, class Input=typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::Input>
     using BasicDataStreamClientCombinationResult 
-        = typename R::template Source<typename R::MonadType::template KeyedData<Input, typename DI::FullUpdate>>;
+        = typename R::template Source<typename R::AppType::template KeyedData<Input, typename DI::FullUpdate>>;
 
     template <
         class R, class DI, class Input=typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::Input
@@ -26,14 +26,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     auto basicDataStreamClientCombination(
         R &r
         , std::string const &componentPrefix
-        , typename R::template Sourceoid<typename R::MonadType::template KeyedData<
+        , typename R::template Sourceoid<typename R::AppType::template KeyedData<
             Input
             , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::Output
         >> subscriptionCallbackReceiver
-        , std::shared_ptr<TransactionDataStore<DI,KeyHashType,R::MonadType::PossiblyMultiThreaded>> *dataStorePtrOutput = nullptr
+        , std::shared_ptr<TransactionDataStore<DI,KeyHashType,R::AppType::PossiblyMultiThreaded>> *dataStorePtrOutput = nullptr
     ) -> BasicDataStreamClientCombinationResult<R, DI, Input>
     {
-        using M = typename R::MonadType;
+        using M = typename R::AppType;
         using GS = GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>;
 
         auto dataStorePtr = std::make_shared<TransactionDataStore<DI,KeyHashType,M::PossiblyMultiThreaded>>();
@@ -75,7 +75,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
 
     template <class R, class DI, class Input=typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::Input>
     struct DataStreamClientCombinationResult {
-        using M = typename R::MonadType;
+        using M = typename R::AppType;
         using GS = GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>;
 
         typename R::template Source<typename M::template KeyedData<Input, typename DI::FullUpdate>> fullUpdates;
@@ -96,12 +96,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::Output
         > subscriptionFacility
         , typename R::template Source<
-            typename R::MonadType::template Key<Input>
+            typename R::AppType::template Key<Input>
         > &&subscriptionKeySource
-        , std::shared_ptr<TransactionDataStore<DI,KeyHashType,R::MonadType::PossiblyMultiThreaded>> *dataStorePtrOutput = nullptr
+        , std::shared_ptr<TransactionDataStore<DI,KeyHashType,R::AppType::PossiblyMultiThreaded>> *dataStorePtrOutput = nullptr
     ) -> DataStreamClientCombinationResult<R, DI>
     {
-        using M = typename R::MonadType;
+        using M = typename R::AppType;
         using GS = GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>;
 
         auto outputMultiplexer = M::template kleisli<typename M::template KeyedData<Input, typename GS::Output>>(

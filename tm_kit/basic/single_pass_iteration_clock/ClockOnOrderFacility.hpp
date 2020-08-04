@@ -4,7 +4,7 @@
 #include <type_traits>
 #include <vector>
 #include <queue>
-#include <tm_kit/infra/SinglePassIterationMonad.hpp>
+#include <tm_kit/infra/SinglePassIterationApp.hpp>
 #include <tm_kit/basic/ConstGenerator.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <tm_kit/basic/single_pass_iteration_clock/ClockComponent.hpp>
@@ -14,7 +14,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
     template <class Env, std::enable_if_t<std::is_base_of_v<ClockComponent<typename Env::TimePointType>, Env>, int> = 0>
     class ClockOnOrderFacility {
     public:
-        using M = infra::SinglePassIterationMonad<Env>;
+        using M = infra::SinglePassIterationApp<Env>;
         using Duration = typename Env::DurationType;
         template <class S>
         struct FacilityInput {

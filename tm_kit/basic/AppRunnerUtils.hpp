@@ -1,5 +1,5 @@
-#ifndef TM_KIT_BASIC_MONAD_RUNNER_UTILS_HPP_
-#define TM_KIT_BASIC_MONAD_RUNNER_UTILS_HPP_
+#ifndef TM_KIT_BASIC_APP_RUNNER_UTILS_HPP_
+#define TM_KIT_BASIC_APP_RUNNER_UTILS_HPP_
 
 #include <tm_kit/infra/KleisliUtils.hpp>
 #include <tm_kit/infra/WithTimeData.hpp>
@@ -12,9 +12,9 @@
 namespace dev { namespace cd606 { namespace tm { namespace basic {
 
     template <class R>
-    class MonadRunnerUtilComponents {
+    class AppRunnerUtilComponents {
     private:
-        using M = typename R::MonadType;
+        using M = typename R::AppType;
         using TheEnvironment = typename M::EnvironmentType;
         using CU = CommonFlowUtilComponents<M>;
     public:
@@ -433,25 +433,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <class T>
         struct DefaultClockFacility {};
         template <class Env>
-        struct DefaultClockFacility<infra::RealTimeMonad<Env>> {
+        struct DefaultClockFacility<infra::RealTimeApp<Env>> {
             using TheFacility = real_time_clock::ClockOnOrderFacility<Env>;
         };
         template <class Env>
-        struct DefaultClockFacility<infra::SinglePassIterationMonad<Env>> {
+        struct DefaultClockFacility<infra::SinglePassIterationApp<Env>> {
             using TheFacility = single_pass_iteration_clock::ClockOnOrderFacility<Env>;
         };
 
     public:
 
-        //This utility function is provided because in SinglePassIterationMonad
+        //This utility function is provided because in SinglePassIterationApp
         //it is difficult to ensure a smooth exit. Even though we can pass down
         //finalFlag, the flag might get lost. An example is where an action happens
         //to return a std::nullopt at the input with the final flag, and at this point
         //the finalFlag is lost forever.
-        //To help exit from SinglePassIterationMonad where the final flag may get lost
+        //To help exit from SinglePassIterationApp where the final flag may get lost
         //, we can set up this exit timer.
-        //However, this is not limited to SinglePassIterationMonad, it is completely ok
-        //to use this in RealTimeMonad too.
+        //However, this is not limited to SinglePassIterationApp, it is completely ok
+        //to use this in RealTimeApp too.
         template <class T, class ClockFacility = typename DefaultClockFacility<M>::TheFacility>
         static void setupExitTimer(
             R &r
