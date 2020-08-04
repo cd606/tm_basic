@@ -8,6 +8,8 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/attributes.hpp>
 #include <boost/log/utility/setup/console.hpp>
+#include <boost/log/utility/setup/file.hpp>
+#include <boost/log/utility/setup/common_attributes.hpp>
 
 #include <tm_kit/infra/LogLevel.hpp>
 #include <tm_kit/infra/ChronoUtils.hpp>
@@ -47,15 +49,96 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         std::conditional_t<(TimeComponent::CanBeActualTimeClock&&!ForceActualTimeLogging),std::atomic<bool>,bool> firstTime_;
         std::conditional_t<(TimeComponent::CanBeActualTimeClock&&!ForceActualTimeLogging),std::mutex,bool> firstTimeMutex_;
         bool isActualClock_;
-    public:
-        TimeComponentEnhancedWithBoostTrivialLogging() : TimeComponent(), firstTime_(true), firstTimeMutex_(), isActualClock_(false) {
+        boost::shared_ptr<boost::log::sinks::sink> originalSink_;
+        void initialSetup() {
+            boost::log::add_common_attributes();
+            boost::log::register_simple_formatter_factory< boost::log::trivial::severity_level, char >("Severity");
             if constexpr (!ForceActualTimeLogging) {
                 if constexpr (!TimeComponent::CanBeActualTimeClock) {
-                    boost::log::add_console_log(
+                    originalSink_ = boost::log::add_console_log(
                         std::cout
                         , boost::log::keywords::format = "%Message%"
                     );
                 }
+            }
+        }
+        void doSetLogFilePrefix(std::string const &prefix, bool containTimePart) {
+            std::string nowStr;
+            if constexpr (ForceActualTimeLogging) {
+                nowStr = infra::withtime_utils::genericLocalTimeString(std::chrono::system_clock::now()).substr(0, (containTimePart?19:10));
+            } else {
+                nowStr = infra::withtime_utils::genericLocalTimeString(TimeComponent::now()).substr(0, (containTimePart?19:10));
+            }
+            std::replace(nowStr.begin(), nowStr.end(), '-', '_');
+            std::replace(nowStr.begin(), nowStr.end(), ':', '_');
+            std::replace(nowStr.begin(), nowStr.end(), ' ', '_');
+            if (originalSink_) {
+                boost::log::core::get()->remove_sink(originalSink_);
+            }
+            if constexpr (ForceActualTimeLogging) {
+                if constexpr (LogThreadID) {
+                    boost::log::add_file_log(
+                        prefix+"."+nowStr+".log"
+                        , boost::log::keywords::format = "[%Severity%] [%TimeStamp%] [Thread %ThreadID%] %Message%"
+                        , boost::log::keywords::open_mode = std::ios_base::app
+                        , boost::log::keywords::auto_flush = true
+                    );
+                } else {
+                    boost::log::add_file_log(
+                        prefix+"."+nowStr+".log"
+                        , boost::log::keywords::format = "[%Severity%] [%TimeStamp%] %Message%"
+                        , boost::log::keywords::open_mode = std::ios_base::app
+                        , boost::log::keywords::auto_flush = true
+                    );
+                }
+            } else {
+                if constexpr (!TimeComponent::CanBeActualTimeClock) {
+                    boost::log::add_file_log(
+                        prefix+"."+nowStr+".log"
+                        , boost::log::keywords::format = "%Message%"
+                        , boost::log::keywords::open_mode = std::ios_base::app
+                        , boost::log::keywords::auto_flush = true
+                    );
+                } else {
+                    if (isActualClock_) {
+                        if constexpr (LogThreadID) {
+                            boost::log::add_file_log(
+                                prefix+"."+nowStr+".log"
+                                , boost::log::keywords::format = "[%Severity%] [%TimeStamp%] [Thread %ThreadID%] %Message%"
+                                , boost::log::keywords::open_mode = std::ios_base::app
+                                , boost::log::keywords::auto_flush = true
+                            );
+                        } else {
+                            boost::log::add_file_log(
+                                prefix+"."+nowStr+".log"
+                                , boost::log::keywords::format = "[%Severity%] [%TimeStamp%] %Message%"
+                                , boost::log::keywords::open_mode = std::ios_base::app
+                                , boost::log::keywords::auto_flush = true
+                            );
+                        }
+                    } else {
+                        boost::log::add_file_log(
+                            prefix+"."+nowStr+".log"
+                            , boost::log::keywords::format = "%Message%"
+                            , boost::log::keywords::open_mode = std::ios_base::app
+                            , boost::log::keywords::auto_flush = true
+                        );
+                    }
+                }
+            }
+        }
+        std::optional<std::string> logFilePrefix_;
+        bool logFilePrefixContainTimePart_;
+    public:
+        TimeComponentEnhancedWithBoostTrivialLogging() : TimeComponent(), firstTime_(true), firstTimeMutex_(), isActualClock_(false), logFilePrefix_(std::nullopt), logFilePrefixContainTimePart_(false), originalSink_() {
+            initialSetup();
+        }
+        void setLogFilePrefix(std::string const &prefix, bool containTimePart=false) {
+            if constexpr (ForceActualTimeLogging) {
+                doSetLogFilePrefix(prefix, containTimePart);
+            } else {
+                logFilePrefix_ = prefix;
+                logFilePrefixContainTimePart_ = containTimePart;
             }
         }
         void log(infra::LogLevel l, std::string const &s) {
@@ -67,11 +150,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         std::lock_guard<std::mutex> _(firstTimeMutex_);
                         if (firstTime_) {
                             isActualClock_ = this->isActualClock();
-                            if (!isActualClock_) {
-                                boost::log::add_console_log(
-                                    std::cout
-                                    , boost::log::keywords::format = "%Message%"
-                                );
+                            if (logFilePrefix_) {
+                                doSetLogFilePrefix(*logFilePrefix_, logFilePrefixContainTimePart_);
+                            } else {
+                                if (!isActualClock_) {
+                                    boost::log::add_console_log(
+                                        std::cout
+                                        , boost::log::keywords::format = "%Message%"
+                                    );
+                                }
                             }
                             firstTime_ = false;
                         }
@@ -79,6 +166,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     if (isActualClock_) {
                         TrivialBoostLoggingComponent::log(l, s);
                         return;
+                    }
+                } else {
+                    if (firstTime_) {
+                        if (TimeComponent::now() != typename TimeComponent::TimePointType {}) {
+                            if (logFilePrefix_) {
+                                doSetLogFilePrefix(*logFilePrefix_, logFilePrefixContainTimePart_);
+                            }
+                            firstTime_ = false;
+                        }
                     }
                 }
                 std::ostringstream oss;

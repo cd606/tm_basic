@@ -5,6 +5,7 @@
 #include <sstream>
 #include <chrono>
 #include <spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h>
 
 #include <tm_kit/infra/LogLevel.hpp>
 #include <tm_kit/infra/ChronoUtils.hpp>
@@ -44,8 +45,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         std::conditional_t<(TimeComponent::CanBeActualTimeClock&&!ForceActualTimeLogging),std::atomic<bool>,bool> firstTime_;
         std::conditional_t<(TimeComponent::CanBeActualTimeClock&&!ForceActualTimeLogging),std::mutex,bool> firstTimeMutex_;
         bool isActualClock_;
-    public:
-        TimeComponentEnhancedWithSpdLogging() : TimeComponent(), firstTime_(true), firstTimeMutex_(), isActualClock_(false) {
+        void initialSetup() {
             if constexpr (ForceActualTimeLogging) {
                 if constexpr (LogThreadID) {
                     spdlog::set_pattern("[%l] [%Y-%m-%d %H:%M:%S.%f] [Thread %t] %v");
@@ -58,6 +58,35 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         }
+        void doSetLogFilePrefix(std::string const &prefix, bool containTimePart) {
+            std::string nowStr;
+            if constexpr (ForceActualTimeLogging) {
+                nowStr = infra::withtime_utils::genericLocalTimeString(std::chrono::system_clock::now()).substr(0, (containTimePart?19:10));
+            } else {
+                nowStr = infra::withtime_utils::genericLocalTimeString(TimeComponent::now()).substr(0, (containTimePart?19:10));
+            }
+            std::replace(nowStr.begin(), nowStr.end(), '-', '_');
+            std::replace(nowStr.begin(), nowStr.end(), ':', '_');
+            std::replace(nowStr.begin(), nowStr.end(), ' ', '_');
+            auto logger = spdlog::basic_logger_mt("logger", prefix+"."+nowStr+".log");
+            logger->flush_on(spdlog::level::trace); //always flush
+            spdlog::set_default_logger(logger);
+        }
+        std::optional<std::string> logFilePrefix_;
+        bool logFilePrefixContainTimePart_;
+    public:
+        TimeComponentEnhancedWithSpdLogging() : TimeComponent(), firstTime_(true), firstTimeMutex_(), isActualClock_(false), logFilePrefix_(std::nullopt), logFilePrefixContainTimePart_(false) {
+            initialSetup();
+        }
+        void setLogFilePrefix(std::string const &prefix, bool containTimePart=false) {
+            if constexpr (ForceActualTimeLogging) {
+                doSetLogFilePrefix(prefix, containTimePart);
+                initialSetup();
+            } else {
+                logFilePrefix_ = prefix;
+                logFilePrefixContainTimePart_ = containTimePart;
+            }
+        }
         void log(infra::LogLevel l, std::string const &s) {
             if constexpr (ForceActualTimeLogging) {
                 SpdLoggingComponent::log(l, s);
@@ -66,6 +95,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     if (firstTime_) {
                         std::lock_guard<std::mutex> _(firstTimeMutex_);
                         if (firstTime_) {
+                            if (logFilePrefix_) {
+                                doSetLogFilePrefix(*logFilePrefix_, logFilePrefixContainTimePart_);
+                            }
                             isActualClock_ = this->isActualClock();
                             if (isActualClock_) {
                                 if constexpr (LogThreadID) {
@@ -82,6 +114,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     if (isActualClock_) {
                         SpdLoggingComponent::log(l, s);
                         return;
+                    }
+                } else {
+                    if (firstTime_) {
+                        if (TimeComponent::now() != typename TimeComponent::TimePointType {}) {
+                            if (logFilePrefix_) {
+                                doSetLogFilePrefix(*logFilePrefix_, logFilePrefixContainTimePart_);
+                                initialSetup();
+                            }
+                            firstTime_ = false;
+                        }
                     }
                 }
                 std::ostringstream oss;
