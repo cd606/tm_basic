@@ -59,6 +59,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         }
         void doSetLogFilePrefix(std::string const &prefix, bool containTimePart) {
+            if (prefixSet_) {
+                return;
+            }
             std::string nowStr;
             if constexpr (ForceActualTimeLogging) {
                 nowStr = infra::withtime_utils::genericLocalTimeString(std::chrono::system_clock::now()).substr(0, (containTimePart?19:10));
@@ -71,11 +74,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             auto logger = spdlog::basic_logger_mt("logger", prefix+"."+nowStr+".log");
             logger->flush_on(spdlog::level::trace); //always flush
             spdlog::set_default_logger(logger);
+            prefixSet_ = true;
         }
         std::optional<std::string> logFilePrefix_;
         bool logFilePrefixContainTimePart_;
+        bool prefixSet_;
     public:
-        TimeComponentEnhancedWithSpdLogging() : TimeComponent(), firstTime_(true), firstTimeMutex_(), isActualClock_(false), logFilePrefix_(std::nullopt), logFilePrefixContainTimePart_(false) {
+        TimeComponentEnhancedWithSpdLogging() : TimeComponent(), firstTime_(true), firstTimeMutex_(), isActualClock_(false), logFilePrefix_(std::nullopt), logFilePrefixContainTimePart_(false), prefixSet_(false) {
             initialSetup();
         }
         void setLogFilePrefix(std::string const &prefix, bool containTimePart=false) {

@@ -63,6 +63,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         }
         void doSetLogFilePrefix(std::string const &prefix, bool containTimePart) {
+            if (prefixSet_) {
+                return;
+            }
             std::string nowStr;
             if constexpr (ForceActualTimeLogging) {
                 nowStr = infra::withtime_utils::genericLocalTimeString(std::chrono::system_clock::now()).substr(0, (containTimePart?19:10));
@@ -126,11 +129,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     }
                 }
             }
+            prefixSet_ = true;
         }
         std::optional<std::string> logFilePrefix_;
         bool logFilePrefixContainTimePart_;
+        bool prefixSet_;
     public:
-        TimeComponentEnhancedWithBoostTrivialLogging() : TimeComponent(), firstTime_(true), firstTimeMutex_(), isActualClock_(false), logFilePrefix_(std::nullopt), logFilePrefixContainTimePart_(false), originalSink_() {
+        TimeComponentEnhancedWithBoostTrivialLogging() : TimeComponent(), firstTime_(true), firstTimeMutex_(), isActualClock_(false), logFilePrefix_(std::nullopt), logFilePrefixContainTimePart_(false), originalSink_(), prefixSet_(false) {
             initialSetup();
         }
         void setLogFilePrefix(std::string const &prefix, bool containTimePart=false) {
