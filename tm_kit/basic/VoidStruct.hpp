@@ -11,6 +11,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         os << "VoidStruct{}";
         return os;
     }
+    inline bool operator==(VoidStruct const &, VoidStruct const &) {
+        return true;
+    }
 } } } }
 
 namespace std {

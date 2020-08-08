@@ -6,6 +6,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     struct SingleLayerWrapper {
         T value;
     };
+    template <class T>
+    inline bool operator==(SingleLayerWrapper<T> const &a, SingleLayerWrapper<T> const &b) {
+        return (a.value == b.value);
+    }
 } } } }
 
 #endif
