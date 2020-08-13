@@ -1851,76 +1851,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
         template <class T, size_t N>
         struct RunCBORSerializerWithNameList {};
-
-        template <class T>
-        struct RunCBORSerializerWithNameList<T, 0> {
-            static std::vector<uint8_t> apply(T const &data, std::array<std::string,0> const &) {
-                return RunCBORSerializer<T>::apply(data);
-            }
-        };
-
-        template <class T>
-        struct RunCBORSerializerWithNameList<T, 1> {
-            static std::vector<uint8_t> apply(T const &data, std::array<std::string,1> const &names) {
-                auto r = RunCBORSerializer<size_t>::apply(1);
-                r[0] = r[0] | 0xA0;
-                for (auto const &item : data) {
-                    auto r1 = RunCBORSerializer<std::string>::apply(names[0]);
-                    r.insert(r.end(), r1.begin(), r1.end());
-                    auto r2 = RunCBORSerializer<T>::apply(data);
-                    r.insert(r.end(), r2.begin(), r2.end());
-                }
-                return r;
-            }
-        };
         template <class T, size_t N>
         struct RunCBORDeserializerWithNameList {};
-
-        template <class T>
-        struct RunCBORDeserializerWithNameList<T, 0> {
-            static std::optional<std::tuple<T,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string,0> const &) {
-                return RunCBORDeserializer<T>::apply(data, start);
-            }
-        };
-
-        template <class T>
-        struct RunCBORDeserializerWithNameList<T, 1> {
-            static std::optional<std::tuple<T,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string,1> const &names) {
-                if (data.length() < start+1) {
-                    return std::nullopt;
-                }
-                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0xa0) {
-                    return std::nullopt;
-                }
-                auto v = parseCBORUnsignedInt<size_t>(data, start);
-                if (!v) {
-                    return std::nullopt;
-                }
-                if (std::get<0>(*v) != 1) {
-                    return std::nullopt;
-                }
-                size_t len = std::get<1>(*v);
-                size_t newStart = start+len;
-                if (data.length() < newStart) {
-                    return std::nullopt;
-                }
-                auto r1 = RunCBORDeserializer<std::string>::apply(data, newStart);
-                if (!r1) {
-                    return std::nullopt;
-                }
-                if (std::get<0>(*r1) != names[0]) {
-                    return std::nullopt;
-                }
-                len += std::get<1>(*r1);
-                newStart += std::get<1>(*r1);
-                auto r2 = RunCBORDeserializer<T>::apply(data, newStart);
-                if (!r2) {
-                    return std::nullopt;
-                }
-                len += std::get<1>(*r2);
-                return std::tuple<T,size_t>(std::move(std::get<0>(*r2)), len);
-            }
-        };
 
         #include <tm_kit/basic/ByteData_Tuple_Variant_Piece.hpp>
 
