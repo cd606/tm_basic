@@ -101,6 +101,37 @@
         }; \
     } } } } }
 
+#define TM_BASIC_CBOR_CAPABLE_STRUCT_ENCODE_NO_FIELD_NAMES(name, content) \
+    namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
+        template <> \
+        struct RunCBORSerializer<name, void> { \
+            static std::vector<std::uint8_t> apply(name const &x) { \
+                std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                > y { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_PTRS,_,content) \
+                }; \
+                return RunCBORSerializer<std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                    > \
+                >::apply(y); \
+            } \
+        }; \
+        template <> \
+        struct RunSerializer<name, void> { \
+            static std::string apply(name const &x) { \
+                std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                > y { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_PTRS,_,content) \
+                }; \
+                return RunSerializer<std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                >>::apply(y); \
+            } \
+        }; \
+    } } } } }
+
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_DECODE(name, content) \
     namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
         template <> \
@@ -138,6 +169,41 @@
         }; \
     } } } } }
 
+#define TM_BASIC_CBOR_CAPABLE_STRUCT_DECODE_NO_FIELD_NAMES(name, content) \
+    namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
+        template <> \
+        struct RunCBORDeserializer<name, void> { \
+            static std::optional<std::tuple<name, size_t>> apply(std::string_view const &s, size_t start) { \
+                auto t = RunCBORDeserializer<std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE,_,content) \
+                    > \
+                >::apply(s, start); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                return std::tuple<name, size_t> { \
+                    name { \
+                        BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_MOVE_VALUE,_,content) \
+                    }, std::get<1>(*t) \
+                }; \
+            } \
+        }; \
+        template <> \
+        struct RunDeserializer<name, void> { \
+            static std::optional<name> apply(std::string const &s) { \
+                auto t = RunDeserializer<std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE,_,content) \
+                    >>::apply(s); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                return name { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_MOVE_VALUE_PLAIN,_,content) \
+                }; \
+            } \
+        }; \
+    } } } } }
+
 #define TM_BASIC_CBOR_CAPABLE_STRUCT(name, content) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_DEF(name, content) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_EQ(name, content) \
@@ -146,5 +212,9 @@
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_SERIALIZE(name, content) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_ENCODE(name, content) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_DECODE(name, content) 
+
+#define TM_BASIC_CBOR_CAPABLE_STRUCT_SERIALIZE_NO_FIELD_NAMES(name, content) \
+    TM_BASIC_CBOR_CAPABLE_STRUCT_ENCODE_NO_FIELD_NAMES(name, content) \
+    TM_BASIC_CBOR_CAPABLE_STRUCT_DECODE_NO_FIELD_NAMES(name, content) 
 
 #endif
