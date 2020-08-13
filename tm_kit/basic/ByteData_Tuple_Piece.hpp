@@ -113,6 +113,68 @@ namespace bytedata_tuple_helper {
     }
 }
 
+template <>
+struct RunSerializer<std::tuple<>> {
+    static std::string apply(std::tuple<> const &data) {
+        return "";
+    }
+};
+template <>
+struct RunCBORSerializer<std::tuple<>> {
+    static std::vector<uint8_t> apply(std::tuple<> const &data) {
+        return std::vector<uint8_t> {0x80};
+    }
+};
+template <>
+struct RunCBORSerializerWithNameList<std::tuple<>, 0> {
+    static std::vector<uint8_t> apply(std::tuple<> const &data, std::array<std::string, 0> const &nameList) {
+        return std::vector<uint8_t> {0xA0};
+    }
+};
+template <>
+struct RunDeserializer<std::tuple<>> {
+    static std::optional<std::tuple<>> apply(std::string const &data) {
+        if (data.length() != 0) {
+            return std::nullopt;
+        }
+        return std::tuple<> {};
+    }
+};
+template <>
+struct RunCBORDeserializer<std::tuple<>> {
+    static std::optional<std::tuple<std::tuple<>,size_t>> apply(std::string_view const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if (static_cast<uint8_t>(data[start]) != 0x80) {
+            return std::nullopt;
+        }
+        return std::optional<std::tuple<std::tuple<>,size_t>> {
+            std::tuple<std::tuple<>,size_t> {
+                std::tuple<> {}
+                , 1
+            }
+        };
+    }
+};
+template <>
+struct RunCBORDeserializerWithNameList<std::tuple<>, 0> {
+    static std::optional<std::tuple<std::tuple<>,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string, 0> const &nameList) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if (static_cast<uint8_t>(data[start]) != 0xA0) {
+            return std::nullopt;
+        }
+        return std::optional<std::tuple<std::tuple<>,size_t>> {
+            std::tuple<std::tuple<>,size_t> {
+                std::tuple<> {}
+                , 1
+            }
+        };
+    }
+};
+
 template <class... As>
 struct RunSerializer<std::tuple<As...>> {
     static std::string apply(std::tuple<As...> const &data) {

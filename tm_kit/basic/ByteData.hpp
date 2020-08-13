@@ -2040,6 +2040,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return std::nullopt;
             }
         }
+
+        inline std::string_view extractCBORSerializerResult(std::vector<uint8_t> const &v) {
+            return std::string_view {reinterpret_cast<const char *>(v.data()), v.size()};
+        }
+        template <class T>
+        inline std::optional<T> extractCBORDeserializerResult(std::optional<std::tuple<T, size_t>> &&v) {
+            if (!v) {
+                return std::nullopt;
+            }
+            return std::optional<T> {std::move(std::get<0>(*v))};
+        }
     }
 
     template <class M>
