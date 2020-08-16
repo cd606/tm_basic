@@ -99,7 +99,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         , typename R::template Source<
             typename R::AppType::template Key<typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::Input>
         > &&subscriptionKeySource
-        , std::optional<decltype(typename R::EnvironmentType::TimePointType {}-typename R::EnvironmentType::TimePointType {})> automaticallyUnsubscribeAfterThisDuration = std::nullopt
+        , std::optional<decltype(typename R::AppType::TimePoint()-typename R::AppType::TimePoint())> automaticallyUnsubscribeAfterThisDuration = std::nullopt
         , std::shared_ptr<TransactionDataStore<DI,KeyHashType,R::AppType::PossiblyMultiThreaded>> *dataStorePtrOutput = nullptr
     ) -> DataStreamClientCombinationResult<R, DI>
     {
