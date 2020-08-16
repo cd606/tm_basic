@@ -33,41 +33,51 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         {
             ToSupplyDefaultValue vCopy = v;
             std::string prefix = wrapPrefix;
-            return [toBeWrapped,vCopy,prefix](
+            auto convertKey = M::template kleisli<typename M::template Key<Input>>(
+                CU::template withKey<Input>(
+                    infra::KleisliUtils<M>::template liftPure<Input>(
+                        [vCopy](Input &&x) -> std::tuple<ToSupplyDefaultValue, Input> {
+                            return {vCopy, std::move(x)};
+                        }
+                    )
+                )
+            );
+            auto convertOutput = M::template liftPure<typename M::template KeyedData<std::tuple<ToSupplyDefaultValue,Input>,Output>>(                   
+                [](typename M::template KeyedData<std::tuple<ToSupplyDefaultValue,Input>,Output> &&x) 
+                    -> typename M::template KeyedData<Input,Output> 
+                {
+                    return {{x.key.id(), std::get<1>(x.key.key())}, std::move(x.data)};
+                }
+            );
+            auto discardOutput = M::template trivialExporter<typename M::template KeyedData<Input,Output>>();                  
+            return [toBeWrapped,prefix,convertKey,convertOutput,discardOutput](
                 R &r
                 , typename R::template Source<typename M::template Key<Input>> &&source
                 , std::optional<typename R::template Sink<typename M::template KeyedData<Input,Output>>> const &sink) 
             {
-                auto convertKey = M::template kleisli<typename M::template Key<Input>>(
-                    CU::template withKey<Input>(
-                        infra::KleisliUtils<M>::template liftPure<Input>(
-                            [vCopy](Input &&x) -> std::tuple<ToSupplyDefaultValue, Input> {
-                                return {vCopy, std::move(x)};
-                            }
-                        )
-                    )
-                );
+                static bool insideConnected = false;
+
+                auto convertKeyCopy = convertKey;
+                auto convertOutputCopy = convertOutput;
+                auto discardOutputCopy = discardOutput;
+
+                if (!insideConnected) {
+                    r.registerAction(prefix+"/convert_key", convertKeyCopy);
+                    r.registerAction(prefix+"/convert_output", convertOutputCopy);
+                    r.registerExporter(prefix+"/discard_output", discardOutputCopy);
+                    toBeWrapped(
+                        r
+                        , r.actionAsSource(convertKeyCopy)
+                        , r.actionAsSink(convertOutputCopy)
+                    );
+                    r.exportItem(discardOutputCopy, r.actionAsSource(convertOutputCopy));
+                    insideConnected = true;
+                }
+
+                r.execute(convertKeyCopy, std::move(source));
                 
                 if (sink) {
-                    auto convertOutput = M::template liftPure<typename M::template KeyedData<std::tuple<ToSupplyDefaultValue,Input>,Output>>(                   
-                        [](typename M::template KeyedData<std::tuple<ToSupplyDefaultValue,Input>,Output> &&x) 
-                            -> typename M::template KeyedData<Input,Output> 
-                        {
-                            return {{x.key.id(), std::get<1>(x.key.key())}, std::move(x.data)};
-                        }
-                    );
-                    toBeWrapped(
-                        r
-                        , r.execute(prefix+"/convert_key", convertKey, std::move(source))
-                        , r.actionAsSink(prefix+"/convert_output", convertOutput)
-                    );
-                    r.connect(r.actionAsSource(convertOutput), *sink);
-                } else {
-                    toBeWrapped(
-                        r
-                        , r.execute(prefix+"/convert_key", convertKey, std::move(source))
-                        , std::nullopt
-                    );
+                    r.connect(r.actionAsSource(convertOutputCopy), *sink);
                 }
             };
         }
