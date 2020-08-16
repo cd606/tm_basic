@@ -706,6 +706,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return M::template liftMaybe2<A,B>(Synchronizer2<A,B,F,false>(std::move(f)));
             }
         }
+
+    public:
+        template <class T>
+        static std::shared_ptr<typename M::template Action<T,T>> delayer(
+            decltype(typename M::TimePoint {}-typename M::TimePoint {}) duration
+        ) {
+            if constexpr (std::is_same_v<M, infra::RealTimeApp<TheEnvironment>>) {
+                return M::template kleisli<T>(
+                    [duration](typename M::template InnerData<T> &&t) -> typename M::template Data<T> {
+                        t.environment->sleepFor(duration);
+                        return std::move(t);
+                    }
+                    , infra::LiftParameters<typename M::TimePoint>().SuggestThreaded(true)
+                );
+            } else {
+                return M::template kleisli<T>(
+                    idFunc<T>()
+                    , infra::LiftParameters<typename M::TimePoint>()
+                        .DelaySimulator([duration](int, typename M::TimePoint const &) -> decltype(typename M::TimePoint {}-typename M::TimePoint {}) {
+                            return duration;
+                        })
+                );
+            }
+        }
     };
 
 } } } }

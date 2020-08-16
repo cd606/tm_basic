@@ -99,6 +99,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
         , typename R::template Source<
             typename R::AppType::template Key<typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::Input>
         > &&subscriptionKeySource
+        , std::optional<decltype(typename R::EnvironmentType::TimePointType {}-typename R::EnvironmentType::TimePointType {})> automaticallyUnsubscribeAfterThisDuration = std::nullopt
         , std::shared_ptr<TransactionDataStore<DI,KeyHashType,R::AppType::PossiblyMultiThreaded>> *dataStorePtrOutput = nullptr
     ) -> DataStreamClientCombinationResult<R, DI>
     {
@@ -121,6 +122,39 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             R, DI, Input, VersionDeltaMerger, DataDeltaMerger, KeyHashType
         >(r, componentPrefix, r.sourceAsSourceoid(r.actionAsSource(outputMultiplexer)), dataStorePtrOutput);
 
+        if (automaticallyUnsubscribeAfterThisDuration) {
+            auto delayer = CommonFlowUtilComponents<M>::template delayer<typename M::template KeyedData<Input, typename GS::Output>>(
+                *automaticallyUnsubscribeAfterThisDuration
+            );
+            auto unsubscriber = M::template liftMaybe<typename M::template KeyedData<Input, typename GS::Output>>(
+                [](typename M::template KeyedData<Input, typename GS::Output> &&subscriptionResult)
+                    -> std::optional<typename M::template Key<Input>>
+                {
+                    auto id = subscriptionResult.key.id();
+                    return std::visit([&id](auto &&x) -> std::optional<typename M::template Key<Input>> {
+                        using T = std::decay_t<decltype(x)>;
+                        if constexpr (std::is_same_v<T, typename GS::Subscription>) {
+                            return typename M::template Key<Input> {
+                                Input {
+                                    typename GS::Unsubscription { id }
+                                }
+                            };
+                        } else {
+                            return std::nullopt;
+                        }
+                    }, std::move(subscriptionResult.data.value));
+                }
+                , infra::LiftParameters<typename M::TimePoint>().FireOnceOnly(true)
+            );
+            r.registerAction(componentPrefix+"/delayer", delayer);
+            r.registerAction(componentPrefix+"/unsubscriber", unsubscriber);
+            r.execute(unsubscriber, r.execute(delayer, r.actionAsSource(outputMultiplexer)));
+            subscriptionFacility(
+                r 
+                , r.actionAsSource(unsubscriber)
+                , r.actionAsSink(outputMultiplexer)
+            );
+        }
         return {
             std::move(fullUpdates)
             , r.actionAsSource(outputMultiplexer)

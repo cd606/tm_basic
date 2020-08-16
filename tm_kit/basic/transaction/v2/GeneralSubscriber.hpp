@@ -93,6 +93,21 @@ namespace transaction { namespace v2 {
             return true;
         }
     };
+    template <class KeyType>
+    struct SnapshotRequest {
+        std::vector<KeyType> keys;
+        void SerializeToString(std::string *s) const {
+            *s = bytedata_utils::RunSerializer<std::vector<KeyType> const *>::apply(&keys);
+        }
+        bool ParseFromString(std::string const &s) {
+            auto res = bytedata_utils::RunDeserializer<std::vector<KeyType>>::apply(s);
+            if (!res) {
+                return false;
+            }
+            keys = std::move(*res);
+            return true;
+        }
+    };
 
     template <class KeyType>
     inline std::ostream &operator<<(std::ostream &os, Subscription<KeyType> const &x) {
@@ -144,6 +159,18 @@ namespace transaction { namespace v2 {
         return os;
     }
     template <class KeyType>
+    inline std::ostream &operator<<(std::ostream &os, SnapshotRequest<KeyType> const &x) {
+        os << "SnapshotRequest{keys=[";
+        for (size_t ii = 0; ii < x.keys.size(); ++ii) {
+            if (ii > 0) {
+                os << ',';
+            }
+            os << x.keys[ii];
+        }
+        os << "]}";
+        return os;
+    }
+    template <class KeyType>
     inline bool operator==(Subscription<KeyType> const &x, Subscription<KeyType> const &y) {
         return (x.keys == y.keys);
     }
@@ -161,6 +188,10 @@ namespace transaction { namespace v2 {
     inline bool operator==(UnsubscribeAll const &, UnsubscribeAll const &) {
         return true;
     }
+    template <class KeyType>
+    inline bool operator==(SnapshotRequest<KeyType> const &x, SnapshotRequest<KeyType> const &y) {
+        return (x.keys == y.keys);
+    }
 
     //subscription and unsubscription ack's just use the exact same data types
 
@@ -177,8 +208,10 @@ namespace transaction { namespace v2 {
         using SubscriptionInfo = transaction::v2::SubscriptionInfo<ID,Key>;
         using UnsubscribeAll = transaction::v2::UnsubscribeAll;
 
+        using SnapshotRequest = transaction::v2::SnapshotRequest<Key>;
+
         using Input = CBOR<
-            std::variant<Subscription, Unsubscription, ListSubscriptions, UnsubscribeAll>
+            std::variant<Subscription, Unsubscription, ListSubscriptions, UnsubscribeAll, SnapshotRequest>
         >;
         using Output = CBOR<
             std::variant<Subscription, Unsubscription, SubscriptionUpdate, SubscriptionInfo, UnsubscribeAll>
@@ -444,6 +477,17 @@ namespace transaction { namespace v2 {
                             id
                             , typename Types::Output {
                                 { typename Types::UnsubscribeAll {} }
+                            }
+                        }
+                        , true
+                    );
+                } else if constexpr (std::is_same_v<T, typename Types::SnapshotRequest>) {
+                    this->publish(
+                        env
+                        , typename M::template Key<typename Types::Output> {
+                            id
+                            , typename Types::Output {
+                                { dataStorePtr_->createFullUpdateNotification(d.keys) }
                             }
                         }
                         , true
@@ -739,6 +783,34 @@ namespace bytedata_utils {
             }
             return std::tuple<transaction::v2::UnsubscribeAll,size_t> {
                 transaction::v2::UnsubscribeAll {}
+                , std::get<1>(*t)
+            };
+        }
+    };
+    template <class KeyType>
+    struct RunCBORSerializer<transaction::v2::SnapshotRequest<KeyType>, void> {
+        static std::vector<uint8_t> apply(transaction::v2::SnapshotRequest<KeyType> const &x) {
+            std::tuple<std::vector<KeyType> const *> t {&x.keys};
+            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<std::vector<KeyType> const *>, 1>
+                ::apply(t, {
+                    "keys"
+                });
+        }
+    };
+    template <class KeyType>
+    struct RunCBORDeserializer<transaction::v2::SnapshotRequest<KeyType>, void> {
+        static std::optional<std::tuple<transaction::v2::SnapshotRequest<KeyType>,size_t>> apply(std::string_view const &data, size_t start) {
+            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<std::vector<KeyType>>, 1>
+                ::apply(data, start, {
+                    "keys"
+                });
+            if (!t) {
+                return std::nullopt;
+            }
+            return std::tuple<transaction::v2::SnapshotRequest<KeyType>,size_t> {
+                transaction::v2::SnapshotRequest<KeyType> {
+                    std::move(std::get<0>(std::get<0>(*t)))
+                }
                 , std::get<1>(*t)
             };
         }
