@@ -22,9 +22,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
         TimePoint now() const {
             return latestTime_;
         }
-        TimePoint currentTimeMillis() {
-            return latestTime_;
-        }
     };
 
 } } } } }
