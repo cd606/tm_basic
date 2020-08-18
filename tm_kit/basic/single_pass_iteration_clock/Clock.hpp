@@ -22,6 +22,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
         TimePoint now() const {
             return latestTime_;
         }
+        void sleepFor(decltype(TimePoint()-TimePoint()) const &duration) {
+            latestTime_ += duration;
+        }
     };
 
 } } } } }
