@@ -19,7 +19,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         , public infra::RealTimeApp<Env>::template ThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>>
         , public infra::RealTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType> {
     private:
-        Chain const *chain_;
+        Chain *chain_;
         typename Chain::ItemType currentItem_;
         ChainItemFolder folder_;
         InputHandler inputHandler_;
@@ -30,19 +30,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 currentState_ = folder_.fold(currentState_, currentItem_);
             }
         }
-        virtual void actuallyHandle(typename infra::RealTimeApp<Env>::template Data<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
+        virtual void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
             while (true) {
                 while (chain_->fetchNext(&currentItem_)) {
                     currentState_ = folder_.fold(currentState_, currentItem_);
                 }
-                typename Chain::ItemType itemToBeWritten;
                 typename InputHandler::ResponseType response;
-                if (inputHandler_.handleInput(data.timedData.value.key(), currentState_, &itemToBeWritten, &response)) {
-                    if (chain_->append(&currentItem_, std::move(itemToBeWritten))) {
+                typename Chain::ItemType *itemToBeWritten = inputHandler_.handleInput(data.timedData.value.key(), currentState_, &response);
+                if (itemToBeWritten) {    
+                    if (chain_->append(&currentItem_, itemToBeWritten)) {
                         this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
                             data.timedData.value.id(), std::move(response)
                         }, true);
                         break;
+                    } else {
+                        delete itemToBeWritten;
                     }
                 } else {
                     this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
@@ -53,12 +55,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
     public:
-        ChainWriter(Chain const *chain) : 
+        ChainWriter(Chain *chain) : 
             infra::RealTimeApp<Env>::IExternalComponent()
             , infra::RealTimeApp<Env>::template ThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>>()
             , infra::RealTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>()
             , chain_(chain)
-            , currentItem_(chain->initialItem())
+            , currentItem_()
             , folder_()
             , inputHandler_()
             , currentState_() 
@@ -70,6 +72,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainWriter(ChainWriter &&) = default;
         ChainWriter &operator=(ChainWriter &&) = default;
         virtual void start(Env *env) override final {
+            currentItem_ = chain_->head(env);
             currentState_ = folder_.initialize(env);
             inputHandler_.initialize(env);
         }
@@ -81,25 +84,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         public infra::SinglePassIterationApp<Env>::IExternalComponent
         , public infra::SinglePassIterationApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType> {
     private:
-        Chain const *chain_;
+        Chain *chain_;
         typename Chain::ItemType currentItem_;
         ChainItemFolder folder_;
         InputHandler inputHandler_;
         typename ChainItemFolder::ResultType currentState_;
     protected:
-        virtual void handle(typename infra::SinglePassIterationApp<Env>::template Data<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
+        virtual void handle(typename infra::SinglePassIterationApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
             while (true) {
                 while (chain_->fetchNext(&currentItem_)) {
                     currentState_ = folder_.fold(currentState_, currentItem_);
                 }
-                typename Chain::ItemType itemToBeWritten;
                 typename InputHandler::ResponseType response;
-                if (inputHandler_.handleInput(data.timedData.value.key(), currentState_, &itemToBeWritten, &response)) {
+                typename Chain::ItemType *itemToBeWritten = inputHandler_.handleInput(data.timedData.value.key(), currentState_, &response);
+                if (itemToBeWritten) {
                     if (chain_->append(&currentItem_, itemToBeWritten)) {
                         this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
                             data.timedData.value.id(), std::move(response)
                         }, true);
                         break;
+                    } else {
+                        delete itemToBeWritten;
                     }
                 } else {
                     this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
@@ -110,11 +115,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
     public:
-        ChainWriter(Chain const *chain) :
+        ChainWriter(Chain *chain) :
             infra::SinglePassIterationApp<Env>::IExternalComponent()
             , infra::SinglePassIterationApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>()
             , chain_(chain)
-            , currentItem_(chain->initialItem())
+            , currentItem_()
             , folder_()
             , inputHandler_()
             , currentState_() 
@@ -126,6 +131,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainWriter(ChainWriter &&) = default;
         ChainWriter &operator=(ChainWriter &&) = default;
         virtual void start(Env *env) override final {
+            currentItem_ = chain_->head(env);
             currentState_ = folder_.initialize(env);
             inputHandler_.initialize(env);
         }

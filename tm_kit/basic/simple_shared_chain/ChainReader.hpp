@@ -5,16 +5,21 @@
 #include <optional>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace simple_shared_chain {
-    template <class Env, class Chain, class ChainItemFolder>
+    template <class App, class Chain, class ChainItemFolder>
     class ChainReader {
     private:
-        Chain const *chain_;
+        using Env = typename App::EnvironmentType;
+        Chain *chain_;
         typename Chain::ItemType currentItem_;
         ChainItemFolder folder_;
         typename ChainItemFolder::ResultType currentValue_;
     public:
-        ChainReader(Env *env, Chain const *chain) : chain_(chain), currentItem_(), folder_(), currentValue_() {
-            currentValue_ = folder_.initialize(env);
+        ChainReader(Env *env, Chain *chain) : 
+            chain_(chain)
+            , currentItem_(chain->head(env))
+            , folder_()
+            , currentValue_(folder_.initialize(env)) 
+        {
         }
         ~ChainReader() = default;
         ChainReader(ChainReader const &) = delete;
