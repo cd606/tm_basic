@@ -18,37 +18,36 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         typename ChainItemFolder::ResultType currentState_;
 
         virtual typename ChainItemFolder::ResultType fetchInitialState(Env *) = 0;
-        void readChain() {
-            while (chain_->fetchNext(&currentItem_)) {
+    protected:
+        virtual void idleWork() override final {
+            if (chain_->fetchNext(&currentItem_)) {
                 currentState_ = folder_.fold(currentState_, currentItem_);
             }
         }
-    protected:
-        virtual void idleWork() override final {
-            readChain();
-        }
-        virtual void actuallyHandle(public infra::RealTimeApp<Env>::template Data<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
+        virtual void actuallyHandle(typename infra::RealTimeApp<Env>::template Data<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
             while (true) {
-                readChain();
+                while (chain_->fetchNext(&currentItem_)) {
+                    currentState_ = folder_.fold(currentState_, currentItem_);
+                }
                 typename Chain::ItemType itemToBeWritten;
                 typename InputHandler::ResponseType response;
-                if (inputHandler_.handleInput(data.key(), currentState_, &itemToBeWritten, &response)) {
+                if (inputHandler_.handleInput(data.timedData.value.key(), currentState_, &itemToBeWritten, &response)) {
                     if (chain_->append(&currentItem_, itemToBeWritten)) {
-                        this->publish(env, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
-                            data.id(), std::move(response)
+                        this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
+                            data.timedData.value.id(), std::move(response)
                         });
                         break;
                     }
                 } else {
-                    this->publish(env, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
-                        data.id(), std::move(response)
+                    this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
+                        data.timedData.value.id(), std::move(response)
                     });
                     break;
                 }
             }
         }
     public:
-        ChainWriter(Chain const *chain) : typename infra::RealTimeApp<Env>::template ThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>>(), chain_(chain), currentItem_(chain->initialItem()), folder_(), inputHandler_(), currentState_() {}
+        ChainWriter(Chain const *chain) : infra::RealTimeApp<Env>::template ThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>>(), chain_(chain), currentItem_(chain->initialItem()), folder_(), inputHandler_(), currentState_() {}
         virtual ~ChainWriter() {
         }
         virtual void start(Env *env) override final {
