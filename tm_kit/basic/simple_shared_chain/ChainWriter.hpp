@@ -38,7 +38,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 typename Chain::ItemType itemToBeWritten;
                 typename InputHandler::ResponseType response;
                 if (inputHandler_.handleInput(data.timedData.value.key(), currentState_, &itemToBeWritten, &response)) {
-                    if (chain_->append(&currentItem_, itemToBeWritten)) {
+                    if (chain_->append(&currentItem_, std::move(itemToBeWritten))) {
                         this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
                             data.timedData.value.id(), std::move(response)
                         }, true);
