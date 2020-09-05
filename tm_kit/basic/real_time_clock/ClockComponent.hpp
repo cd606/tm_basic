@@ -32,6 +32,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
         void createOneShotTimer(TimePointType const &fireAtTime, std::function<void()> callback);
         void createOneShotDurationTimer(DurationType const &fireAfterDuration, std::function<void()> callback);
         void createRecurringTimer(TimePointType const &firstFireAtTime, TimePointType const &lastFireAtTime, DurationType const &period, std::function<void()> callback);
+        void createVariableDurationRecurringTimer(TimePointType const &firstFireAtTime, TimePointType const &lastFireAtTime, std::function<DurationType(TimePointType const &)> periodCalc, std::function<void()> callback);
     };
 
 } } } } }

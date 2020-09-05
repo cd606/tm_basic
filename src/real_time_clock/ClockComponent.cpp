@@ -40,6 +40,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                 }
             });
         }
+        void scheduleVariableDurationRecurringCallback(std::chrono::system_clock::time_point const &start, std::chrono::system_clock::time_point const &end, std::function<std::chrono::system_clock::duration(std::chrono::system_clock::time_point const &)> periodCalc, std::function<void()> callback) {
+            auto timer = std::make_shared<boost::asio::system_timer>(*service_, start);
+            timer->async_wait([this,timer,start,end,periodCalc,callback](boost::system::error_code const &err) {
+                if (!err) {
+                    std::chrono::system_clock::time_point t = start+periodCalc(start);
+                    if (t <= end) {
+                        scheduleVariableDurationRecurringCallback(t,end,periodCalc,callback);
+                    }
+                    callback();
+                }
+            });
+        }
     };
 
     ClockComponent::ClockComponent() : Clock(), impl_(std::make_unique<ClockComponentImpl>()) {}
@@ -70,6 +82,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
         }
         if (t1 <= t2) {
             impl_->scheduleRecurringCallback(t1,t2,d,callback);
+        }
+    }
+    void ClockComponent::createVariableDurationRecurringTimer(ClockComponent::TimePointType const &firstFireAtTime, ClockComponent::TimePointType const &lastFireAtTime, std::function<ClockComponent::DurationType(ClockComponent::TimePointType const &)> periodCalc, std::function<void()> callback) {
+        auto t1 = Clock::actualTime(firstFireAtTime);
+        auto t2 = Clock::actualTime(lastFireAtTime);
+        auto d = Clock::actualDuration(periodCalc(firstFireAtTime));
+        auto n = std::chrono::system_clock::now();
+        while (t1 < n) {
+            t1 += d;
+        }
+        if (t1 <= t2) {
+            impl_->scheduleVariableDurationRecurringCallback(t1,t2,periodCalc,callback);
         }
     }
 } } } } }

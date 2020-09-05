@@ -82,6 +82,46 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
         static std::shared_ptr<typename M::template Importer<T>> createRecurringClockConstImporter(typename Env::TimePointType start, typename Env::TimePointType end, typename Env::DurationType period, T &&value) {
             return createRecurringClockImporter<T>(start, end, period, ConstGenerator<T,typename Env::TimePointType> {std::move(value)});
         }
+
+        template <class T>
+        static std::shared_ptr<typename M::template Importer<T>> createVariableDurationRecurringClockImporter(typename Env::TimePointType start, typename Env::TimePointType end, std::function<typename Env::DurationType(typename Env::TimePointType const &)> periodCalc, std::function<T(typename Env::TimePointType const &)> generator) {
+            class LocalI final : public M::template AbstractImporterCore<T> {
+            private:
+                typename Env::TimePointType start_, end_;
+                std::function<typename Env::DurationType(typename Env::TimePointType const &)> periodCalc_;
+                typename Env::TimePointType current_;
+                std::function<T(typename Env::TimePointType const &)> generator_;
+                Env *env_;
+            public:
+                LocalI(typename Env::TimePointType const &start, typename Env::TimePointType const &end, std::function<typename Env::DurationType(typename Env::TimePointType const &)> periodCalc, std::function<T(typename Env::TimePointType const &)> generator)
+                    : start_(start), end_(end), periodCalc_(periodCalc), current_(start_), generator_(generator), env_(nullptr)
+                {
+                }
+                virtual typename M::template Data<T> generate() override final {
+                    auto period = periodCalc_(current_);
+                    typename M::template InnerData<T> ret = typename M::template InnerData<T> {
+                        env_, {current_, generator_(current_), (current_+period > end_)}
+                    };
+                    if (current_ < end_) {
+                        current_ += period;
+                    }
+                    return ret;
+                }
+                virtual void start(Env *env) override final {
+                    env_ = env;
+                }
+            };
+            return M::importer(new LocalI(start, end, periodCalc, generator));
+        }
+
+        template <class T>
+        static std::shared_ptr<typename M::template Importer<T>> createVariableDurationRecurringClockConstImporter(typename Env::TimePointType start, typename Env::TimePointType end, std::function<typename Env::DurationType(typename Env::TimePointType const &)> periodCalc, T const &value) {
+            return createVariableDurationRecurringClockImporter<T>(start, end, periodCalc, ConstGenerator<T,typename Env::TimePointType> {value});
+        }
+        template <class T>
+        static std::shared_ptr<typename M::template Importer<T>> createVariableDurationRecurringClockConstImporter(typename Env::TimePointType start, typename Env::TimePointType end, std::function<typename Env::DurationType(typename Env::TimePointType const &)> periodCalc, T &&value) {
+            return createVariableDurationRecurringClockImporter<T>(start, end, periodCalc, ConstGenerator<T,typename Env::TimePointType> {std::move(value)});
+        }
     };
 
 } } } } }
