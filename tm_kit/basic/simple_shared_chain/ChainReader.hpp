@@ -28,7 +28,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainReader &operator=(ChainReader &&) = default;
         typename std::optional<typename ChainItemFolder::ResultType> operator()(VoidStruct &&) {
             bool hasNew = false;
-            while (chain_->fetchNext(&currentItem_)) {
+            while (true) {
+                std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+                if (!nextItem) {
+                    break;
+                }
+                currentItem_ = std::move(*nextItem);
                 currentValue_ = folder_.fold(currentValue_, currentItem_);
                 hasNew = true;
             }

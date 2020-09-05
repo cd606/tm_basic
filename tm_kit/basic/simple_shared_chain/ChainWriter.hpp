@@ -26,29 +26,37 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         typename ChainItemFolder::ResultType currentState_;
     protected:
         virtual void idleWork() override final {
-            if (chain_->fetchNext(&currentItem_)) {
+            std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+            if (nextItem) {
+                currentItem_ = std::move(*nextItem);
                 currentState_ = folder_.fold(currentState_, currentItem_);
             }
         }
         virtual void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
+            auto id = data.timedData.value.id();
             while (true) {
-                while (chain_->fetchNext(&currentItem_)) {
+                while (true) {
+                    std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+                    if (!nextItem) {
+                        break;
+                    }
+                    currentItem_ = std::move(*nextItem);
                     currentState_ = folder_.fold(currentState_, currentItem_);
                 }
-                typename InputHandler::ResponseType response;
-                typename Chain::ItemType *itemToBeWritten = inputHandler_.handleInput(data.timedData.value.key(), currentState_, &response);
-                if (itemToBeWritten) {    
-                    if (chain_->append(&currentItem_, itemToBeWritten)) {
+                std::tuple<
+                    typename InputHandler::ResponseType
+                    , std::optional<typename Chain::ItemType>
+                > processResult = inputHandler_.handleInput(data.environment, std::move(data.timedData.value), currentState_);
+                if (std::get<1>(processResult)) {    
+                    if (chain_->appendAfter(currentItem_, std::move(*std::get<1>(processResult)))) {
                         this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
-                            data.timedData.value.id(), std::move(response)
+                            id, std::move(std::get<0>(processResult))
                         }, true);
                         break;
-                    } else {
-                        delete itemToBeWritten;
                     }
                 } else {
                     this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
-                        data.timedData.value.id(), std::move(response)
+                        id, std::move(std::get<0>(processResult))
                     }, true);
                     break;
                 }
@@ -91,24 +99,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         typename ChainItemFolder::ResultType currentState_;
     protected:
         virtual void handle(typename infra::SinglePassIterationApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
+            auto id = data.timedData.value.id();
             while (true) {
-                while (chain_->fetchNext(&currentItem_)) {
+                while (true) {
+                    std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+                    if (!nextItem) {
+                        break;
+                    }
+                    currentItem_ = std::move(*nextItem);
                     currentState_ = folder_.fold(currentState_, currentItem_);
                 }
-                typename InputHandler::ResponseType response;
-                typename Chain::ItemType *itemToBeWritten = inputHandler_.handleInput(data.timedData.value.key(), currentState_, &response);
-                if (itemToBeWritten) {
-                    if (chain_->append(&currentItem_, itemToBeWritten)) {
+                std::tuple<
+                    typename InputHandler::ResponseType
+                    , std::optional<typename Chain::ItemType>
+                > processResult = inputHandler_.handleInput(data.environment, std::move(data.timedData.value), currentState_);
+                if (std::get<1>(processResult)) {    
+                    if (chain_->appendAfter(currentItem_, std::move(*std::get<1>(processResult)))) {
                         this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
-                            data.timedData.value.id(), std::move(response)
+                            id, std::move(std::get<0>(processResult))
                         }, true);
                         break;
-                    } else {
-                        delete itemToBeWritten;
                     }
                 } else {
                     this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
-                        data.timedData.value.id(), std::move(response)
+                        id, std::move(std::get<0>(processResult))
                     }, true);
                     break;
                 }
