@@ -55,7 +55,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             os << "[";
             for (size_t ii=0; ii<d.content.length(); ++ii) {
                 if (ii > 0) {
-                    std::cout << ", ";
+                    os << ", ";
                 }
                 os << "0x" << std::hex << std::setw(2)
                     << std::setfill('0') << static_cast<uint16_t>(static_cast<uint8_t>(d.content[ii]))

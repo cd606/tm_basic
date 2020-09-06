@@ -292,5 +292,72 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             os << '}';
         }
     };
+
+    template <>
+    class PrintHelper<ByteData> {
+    public:
+        static void print(std::ostream &os, ByteData const &d) {
+            os << "bytedata[";
+            for (size_t ii=0; ii<d.content.size() && ii<5; ++ii) {
+                if (ii > 0) {
+                    os << ',';
+                }
+                os << "0x" << std::hex << std::setw(2)
+                    << std::setfill('0') << static_cast<uint16_t>(static_cast<uint8_t>(d.content[ii]))
+                    << std::dec;
+            }
+            if (d.content.size() > 5) {
+                os << ",...";
+            }
+            os << "](" << d.content.size() << " bytes)";
+        }
+    };
+    template <>
+    class PrintHelper<ByteDataWithTopic> {
+    public:
+        static void print(std::ostream &os, ByteDataWithTopic const &d) {
+            os << "ByteDataWithTopic{topic='" << d.topic << "',content=bytedata[";
+            for (size_t ii=0; ii<d.content.size() && ii<5; ++ii) {
+                if (ii > 0) {
+                    os << ',';
+                }
+                os << "0x" << std::hex << std::setw(2)
+                    << std::setfill('0') << static_cast<uint16_t>(static_cast<uint8_t>(d.content[ii]))
+                    << std::dec;
+            }
+            if (d.content.size() > 5) {
+                os << ",...";
+            }
+            os << "](" << d.content.size() << " bytes)}";
+        }
+    };
+    template <>
+    class PrintHelper<ByteDataWithID> {
+    public:
+        static void print(std::ostream &os, ByteDataWithID const &d) {
+            os << "ByteDataWithID{id='" << d.id << "',content=bytedata[";
+            for (size_t ii=0; ii<d.content.size() && ii<5; ++ii) {
+                if (ii > 0) {
+                    os << ',';
+                }
+                os << "0x" << std::hex << std::setw(2)
+                    << std::setfill('0') << static_cast<uint16_t>(static_cast<uint8_t>(d.content[ii]))
+                    << std::dec;
+            }
+            if (d.content.size() > 5) {
+                os << ",...";
+            }
+            os << "](" << d.content.size() << " bytes)}";
+        }
+    };
+    template <class T>
+    class PrintHelper<TypedDataWithTopic<T>> {
+    public:
+        static void print(std::ostream &os, TypedDataWithTopic<T> const &d) {
+            os << "TypedDataWithTopic{topic='" << d.topic << "',content=";
+            PrintHelper<T>::print(os, d.content);
+            os << '}';
+        }
+    };
 }}}}
 #endif
