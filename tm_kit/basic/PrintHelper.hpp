@@ -182,7 +182,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 PrintHelper<V>::print(os, x.second);
                 start = false;
             }
-            os << ']';
+            os << '}';
         }
     };
     template <class K, class V>
@@ -200,7 +200,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 PrintHelper<V>::print(os, x.second);
                 start = false;
             }
-            os << ']';
+            os << '}';
         }
     };
     template <class T>
