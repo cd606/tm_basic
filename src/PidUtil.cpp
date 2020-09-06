@@ -13,7 +13,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pid
         #ifdef _MSC_VER
             return (int64_t) GetCurrentProcessId();
         #else
-            return (int64_t) getpid();
+            return (int64_t) ::getpid();
         #endif
     }
 } } } } }
