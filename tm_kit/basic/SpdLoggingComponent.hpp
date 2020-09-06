@@ -11,7 +11,6 @@
 #include <tm_kit/infra/ChronoUtils.hpp>
 
 #ifdef _MSC_VER
-#include <windows.h>
 #include <processthreadsapi.h>
 #else
 #include <sys/types.h>
