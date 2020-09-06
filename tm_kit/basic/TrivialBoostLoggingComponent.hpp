@@ -14,6 +14,14 @@
 #include <tm_kit/infra/LogLevel.hpp>
 #include <tm_kit/infra/ChronoUtils.hpp>
 
+#ifdef _MSC_VER
+#include <windows.h>
+#include <processthreadsapi.h>
+#else
+#include <sys/types.h>
+#include <unistd.h>
+#endif
+
 namespace dev { namespace cd606 { namespace tm { namespace basic {
 
     struct TrivialBoostLoggingComponent {
@@ -75,20 +83,26 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             std::replace(nowStr.begin(), nowStr.end(), '-', '_');
             std::replace(nowStr.begin(), nowStr.end(), ':', '_');
             std::replace(nowStr.begin(), nowStr.end(), ' ', '_');
+            int64_t pid = 0;
+            #ifdef _MSC_VER
+                pid = (int64_t) GetCurrentProcessId();
+            #else
+                pid = (int64_t) getpid();
+            #endif
             if (originalSink_) {
                 boost::log::core::get()->remove_sink(originalSink_);
             }
             if constexpr (ForceActualTimeLogging) {
                 if constexpr (LogThreadID) {
                     boost::log::add_file_log(
-                        prefix+"."+nowStr+".log"
+                        prefix+"."+nowStr+"."+std::to_string(pid)+".log"
                         , boost::log::keywords::format = "[%Severity%] [%TimeStamp%] [Thread %ThreadID%] %Message%"
                         , boost::log::keywords::open_mode = std::ios_base::app
                         , boost::log::keywords::auto_flush = true
                     );
                 } else {
                     boost::log::add_file_log(
-                        prefix+"."+nowStr+".log"
+                        prefix+"."+nowStr+"."+std::to_string(pid)+".log"
                         , boost::log::keywords::format = "[%Severity%] [%TimeStamp%] %Message%"
                         , boost::log::keywords::open_mode = std::ios_base::app
                         , boost::log::keywords::auto_flush = true
@@ -97,7 +111,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             } else {
                 if constexpr (!TimeComponent::CanBeActualTimeClock) {
                     boost::log::add_file_log(
-                        prefix+"."+nowStr+".log"
+                        prefix+"."+nowStr+"."+std::to_string(pid)+".log"
                         , boost::log::keywords::format = "%Message%"
                         , boost::log::keywords::open_mode = std::ios_base::app
                         , boost::log::keywords::auto_flush = true
@@ -106,14 +120,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     if (isActualClock_) {
                         if constexpr (LogThreadID) {
                             boost::log::add_file_log(
-                                prefix+"."+nowStr+".log"
+                                prefix+"."+nowStr+"."+std::to_string(pid)+".log"
                                 , boost::log::keywords::format = "[%Severity%] [%TimeStamp%] [Thread %ThreadID%] %Message%"
                                 , boost::log::keywords::open_mode = std::ios_base::app
                                 , boost::log::keywords::auto_flush = true
                             );
                         } else {
                             boost::log::add_file_log(
-                                prefix+"."+nowStr+".log"
+                                prefix+"."+nowStr+"."+std::to_string(pid)+".log"
                                 , boost::log::keywords::format = "[%Severity%] [%TimeStamp%] %Message%"
                                 , boost::log::keywords::open_mode = std::ios_base::app
                                 , boost::log::keywords::auto_flush = true
@@ -121,7 +135,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         }
                     } else {
                         boost::log::add_file_log(
-                            prefix+"."+nowStr+".log"
+                            prefix+"."+nowStr+"."+std::to_string(pid)+".log"
                             , boost::log::keywords::format = "%Message%"
                             , boost::log::keywords::open_mode = std::ios_base::app
                             , boost::log::keywords::auto_flush = true
