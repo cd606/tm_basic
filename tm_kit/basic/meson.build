@@ -15,6 +15,7 @@ tm_basic_headers = [
     , 'ForceDifferentType.hpp'
     , 'SpdLoggingComponent.hpp'
     , 'PrintHelper.hpp'
+    , 'PidUtil.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')

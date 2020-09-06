@@ -10,12 +10,7 @@
 #include <tm_kit/infra/LogLevel.hpp>
 #include <tm_kit/infra/ChronoUtils.hpp>
 
-#ifdef _MSC_VER
-#include <processthreadsapi.h>
-#else
-#include <sys/types.h>
-#include <unistd.h>
-#endif
+#include <tm_kit/basic/PidUtil.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
 
@@ -78,12 +73,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             std::replace(nowStr.begin(), nowStr.end(), '-', '_');
             std::replace(nowStr.begin(), nowStr.end(), ':', '_');
             std::replace(nowStr.begin(), nowStr.end(), ' ', '_');
-            int64_t pid = 0;
-            #ifdef _MSC_VER
-                pid = (int64_t) GetCurrentProcessId();
-            #else
-                pid = (int64_t) getpid();
-            #endif
+            int64_t pid = pid_util::getpid();
             auto logger = spdlog::basic_logger_mt("logger", prefix+"."+nowStr+"."+std::to_string(pid)+".log");
             logger->flush_on(spdlog::level::trace); //always flush
             spdlog::set_default_logger(logger);
