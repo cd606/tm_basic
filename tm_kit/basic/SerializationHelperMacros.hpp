@@ -7,6 +7,8 @@
 #include <boost/preprocessor/punctuation/comma_if.hpp>
 #include <boost/preprocessor/arithmetic/sub.hpp>
 
+#include <tm_kit/basic/PrintHelper.hpp>
+
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_ITEM_DEF(r, data, elem) \
     BOOST_PP_TUPLE_ELEM(0,elem) BOOST_PP_TUPLE_ELEM(1,elem);
 
@@ -15,30 +17,19 @@
         BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_ITEM_DEF,_,content) \
     };
 
-//Because of a VC compiler issue, putting a three-level BOOST_PP call
-//in the same line as "<<" or ";" always creates problems, therefore, 
-//for VC compiler, the generated print code will have a different print
-//format
-//#ifdef _MSC_VER
-#if 1
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_PRINT_ITEM(r, data, elem) \
-    << BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(1,elem)) << '=' \
-    << x.BOOST_PP_TUPLE_ELEM(1,elem) << ' '
-#else
-#define TM_BASIC_CBOR_CAPABLE_STRUCT_PRINT_ITEM(r, data, elem) \
-    << BOOST_PP_STRINGIZE(BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2))) \
-    << BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(1,elem)) << '=' \
-    << x.BOOST_PP_TUPLE_ELEM(1,elem)
-#endif
+    os << BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(1,elem)) << '='; \
+    dev::cd606::tm::basic::PrintHelper<BOOST_PP_TUPLE_ELEM(0,elem)>::print(os, x.BOOST_PP_TUPLE_ELEM(1,elem)); \
+    os << ' ';    
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_EQ_ITEM(r, data, elem) \
     && (x.BOOST_PP_TUPLE_ELEM(1,elem) == y.BOOST_PP_TUPLE_ELEM(1,elem)) 
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_PRINT(name, content) \
     inline std::ostream &operator<<(std::ostream &os, name const &x) { \
-        os << BOOST_PP_STRINGIZE(name) << '{' \
-            BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_PRINT_ITEM,_,content) \
-            << '}'; \
+        os << BOOST_PP_STRINGIZE(name) << '{'; \
+        BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_PRINT_ITEM,_,content) \
+        os << '}'; \
         return os; \
     }
 

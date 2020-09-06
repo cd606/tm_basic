@@ -2061,6 +2061,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
 
+    template <class T>
+    inline bool operator==(CBOR<T> const &a, CBOR<T> const &b) {
+        return (a.value == b.value);
+    }
+    inline bool operator==(ByteData const &a, ByteData const &b) {
+        return (a.content == b.content);
+    }
+    inline bool operator==(ByteDataWithTopic const &a, ByteDataWithTopic const &b) {
+        return (a.topic == b.topic && a.content == b.content);
+    }
+    inline bool operator==(ByteDataWithID const &a, ByteDataWithID const &b) {
+        return (a.id == b.id && a.content == b.content);
+    }
+    template <class T>
+    inline bool operator==(TypedDataWithTopic<T> const &a, TypedDataWithTopic<T> const &b) {
+        return (a.topic == b.topic && a.content == b.content);
+    }
 } } } } 
 
 namespace std {
