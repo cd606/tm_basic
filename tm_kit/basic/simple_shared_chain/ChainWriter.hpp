@@ -73,9 +73,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         typename ChainItemFolder::ResultType currentState_;   
     public:
         ChainWriter(Chain *chain) : 
-            infra::RealTimeApp<Env>::IExternalComponent()
-            , infra::RealTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>()
-            , innerHandler_(nullptr)
+#ifndef _MSC_VER
+            infra::RealTimeApp<Env>::IExternalComponent(), 
+            infra::RealTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>(), 
+#endif
+            innerHandler_(nullptr)
             , chain_(chain)
             , currentItem_()
             , folder_()
