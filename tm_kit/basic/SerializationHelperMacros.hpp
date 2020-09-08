@@ -16,8 +16,18 @@
     struct name { \
         BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_ITEM_DEF,_,content) \
     };
-#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_1_STRUCT_DEF(templateTypeParam, name, content) \
-    template <typename templateTypeParam> \
+
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST_ITEM(r, data, elem) \
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) BOOST_PP_TUPLE_ELEM(0,elem) BOOST_PP_TUPLE_ELEM(1,elem)
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams) \
+    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST_ITEM,_,templateParams)
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST_ITEM(r, data, elem) \
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) BOOST_PP_TUPLE_ELEM(1,elem)
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams) \
+    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST_ITEM,_,templateParams)
+
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_DEF(templateParams, name, content) \
+    template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
     struct name { \
         BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_ITEM_DEF,_,content) \
     };
@@ -37,9 +47,9 @@
         os << '}'; \
         return os; \
     }
-#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_1_STRUCT_PRINT(templateTypeParam, name, content) \
-    template <typename templateTypeParam> \
-    inline std::ostream &operator<<(std::ostream &os, name<templateTypeParam> const &x) { \
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_PRINT(templateParams, name, content) \
+    template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+    inline std::ostream &operator<<(std::ostream &os, name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x) { \
         os << BOOST_PP_STRINGIZE(name) << '{'; \
         BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_PRINT_ITEM,_,content) \
         os << '}'; \
@@ -52,9 +62,9 @@
             BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EQ_ITEM,_,content) \
             ); \
     }
-#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_1_STRUCT_EQ(templateTypeParam, name, content) \
-    template <typename templateTypeParam> \
-    inline bool operator==(name<templateTypeParam> const &x, name<templateTypeParam> const &y) { \
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_EQ(templateParams, name, content) \
+    template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+    inline bool operator==(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x, name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &y) { \
         return (true \
             BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EQ_ITEM,_,content) \
             ); \
@@ -215,11 +225,11 @@
         }; \
     } } } } }
 
-#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_1_STRUCT_ENCODE(templateTypeParam, name, content) \
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_ENCODE(templateParams, name, content) \
     namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
-        template <typename templateTypeParam> \
-        struct RunCBORSerializer<name<templateTypeParam>, void> { \
-            static std::vector<std::uint8_t> apply(name<templateTypeParam> const &x) { \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        struct RunCBORSerializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
+            static std::vector<std::uint8_t> apply(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x) { \
                 std::tuple< \
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
                 > y { \
@@ -233,9 +243,9 @@
                 }); \
             } \
         }; \
-        template <typename templateTypeParam> \
-        struct RunSerializer<name<templateTypeParam>, void> { \
-            static std::string apply(name<templateTypeParam> const &x) { \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        struct RunSerializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
+            static std::string apply(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x) { \
                 std::tuple< \
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
                 > y { \
@@ -248,11 +258,11 @@
         }; \
     } } } } }
 
-#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_1_STRUCT_ENCODE_NO_FIELD_NAMES(templateTypeParam, name, content) \
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_ENCODE_NO_FIELD_NAMES(templateParams, name, content) \
     namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
-        template <typename templateTypeParam> \
-        struct RunCBORSerializer<name<templateTypeParam>, void> { \
-            static std::vector<std::uint8_t> apply(name<templateTypeParam> const &x) { \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        struct RunCBORSerializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
+            static std::vector<std::uint8_t> apply(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x) { \
                 std::tuple< \
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
                 > y { \
@@ -264,9 +274,9 @@
                 >::apply(y); \
             } \
         }; \
-        template <typename templateTypeParam> \
-        struct RunSerializer<name<templateTypeParam>, void> { \
-            static std::string apply(name<templateTypeParam> const &x) { \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        struct RunSerializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
+            static std::string apply(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x) { \
                 std::tuple< \
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
                 > y { \
@@ -279,11 +289,11 @@
         }; \
     } } } } }
 
-#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_1_STRUCT_DECODE(templateTypeParam, name, content) \
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_DECODE(templateParams, name, content) \
     namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
-        template <typename templateTypeParam> \
-        struct RunCBORDeserializer<name<templateTypeParam>, void> { \
-            static std::optional<std::tuple<name<templateTypeParam>, size_t>> apply(std::string_view const &s, size_t start) { \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        struct RunCBORDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
+            static std::optional<std::tuple<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, size_t>> apply(std::string_view const &s, size_t start) { \
                 auto t = RunCBORDeserializerWithNameList<std::tuple< \
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE,_,content) \
                     >, BOOST_PP_SEQ_SIZE(content) \
@@ -293,34 +303,34 @@
                 if (!t) {\
                     return std::nullopt; \
                 } \
-                return std::tuple<name<templateTypeParam>, size_t> { \
-                    name<templateTypeParam> { \
+                return std::tuple<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, size_t> { \
+                    name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> { \
                         BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_MOVE_VALUE,_,content) \
                     }, std::get<1>(*t) \
                 }; \
             } \
         }; \
-        template <typename templateTypeParam> \
-        struct RunDeserializer<name<templateTypeParam>, void> { \
-            static std::optional<name<templateTypeParam>> apply(std::string const &s) { \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        struct RunDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
+            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
                 auto t = RunDeserializer<std::tuple< \
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE,_,content) \
                     >>::apply(s); \
                 if (!t) {\
                     return std::nullopt; \
                 } \
-                return name<templateTypeParam> { \
+                return name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> { \
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_MOVE_VALUE_PLAIN,_,content) \
                 }; \
             } \
         }; \
     } } } } }
 
-#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_1_STRUCT_DECODE_NO_FIELD_NAMES(templateTypeParam, name, content) \
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_DECODE_NO_FIELD_NAMES(templateParams, name, content) \
     namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
-        template <typename templateTypeParam> \
-        struct RunCBORDeserializer<name<templateTypeParam>, void> { \
-            static std::optional<std::tuple<name<templateTypeParam>, size_t>> apply(std::string_view const &s, size_t start) { \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        struct RunCBORDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
+            static std::optional<std::tuple<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, size_t>> apply(std::string_view const &s, size_t start) { \
                 auto t = RunCBORDeserializer<std::tuple< \
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE,_,content) \
                     > \
@@ -328,23 +338,23 @@
                 if (!t) {\
                     return std::nullopt; \
                 } \
-                return std::tuple<name<templateTypeParam>, size_t> { \
-                    name<templateTypeParam> { \
+                return std::tuple<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, size_t> { \
+                    name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> { \
                         BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_MOVE_VALUE,_,content) \
                     }, std::get<1>(*t) \
                 }; \
             } \
         }; \
-        template <typename templateTypeParam> \
-        struct RunDeserializer<name<templateTypeParam>, void> { \
-            static std::optional<name<templateTypeParam>> apply(std::string const &s) { \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        struct RunDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
+            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
                 auto t = RunDeserializer<std::tuple< \
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE,_,content) \
                     >>::apply(s); \
                 if (!t) {\
                     return std::nullopt; \
                 } \
-                return name<templateTypeParam> { \
+                return name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> { \
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_MOVE_VALUE_PLAIN,_,content) \
                 }; \
             } \
@@ -364,17 +374,17 @@
     TM_BASIC_CBOR_CAPABLE_STRUCT_ENCODE_NO_FIELD_NAMES(name, content) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_DECODE_NO_FIELD_NAMES(name, content) 
 
-#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_1_STRUCT(templateTypeParam, name, content) \
-    TM_BASIC_CBOR_CAPABLE_TEMPLATE_1_STRUCT_DEF(templateTypeParam, name, content) \
-    TM_BASIC_CBOR_CAPABLE_TEMPLATE_1_STRUCT_EQ(templateTypeParam, name, content) \
-    TM_BASIC_CBOR_CAPABLE_TEMPLATE_1_STRUCT_PRINT(templateTypeParam, name, content)
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT(templateParams, name, content) \
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_DEF(templateParams, name, content) \
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_EQ(templateParams, name, content) \
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_PRINT(templateParams, name, content)
 
-#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_1_STRUCT_SERIALIZE(templateTypeParam, name, content) \
-    TM_BASIC_CBOR_CAPABLE_TEMPLATE_1_STRUCT_ENCODE(templateTypeParam, name, content) \
-    TM_BASIC_CBOR_CAPABLE_TEMPLATE_1_STRUCT_DECODE(templateTypeParam, name, content) 
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_SERIALIZE(templateParams, name, content) \
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_ENCODE(templateParams, name, content) \
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_DECODE(templateParams, name, content) 
 
-#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_1_STRUCT_SERIALIZE_NO_FIELD_NAMES(templateTypeParam, name, content) \
-    TM_BASIC_CBOR_CAPABLE_TEMPLATE_1_STRUCT_ENCODE_NO_FIELD_NAMES(templateTypeParam, name, content) \
-    TM_BASIC_CBOR_CAPABLE_TEMPLATE_1_STRUCT_DECODE_NO_FIELD_NAMES(templateTypeParam, name, content) 
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_SERIALIZE_NO_FIELD_NAMES(templateParams, name, content) \
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_ENCODE_NO_FIELD_NAMES(templateParams, name, content) \
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_DECODE_NO_FIELD_NAMES(templateParams, name, content) 
 
 #endif
