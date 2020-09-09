@@ -6,6 +6,7 @@
 #include <deque>
 
 #include <tm_kit/infra/KleisliUtils.hpp>
+#include <tm_kit/basic/VoidStruct.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
 
@@ -729,6 +730,39 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         })
                 );
             }
+        }
+    private:
+        template <class A, class B, class F>
+        class SnapshotOnRight {
+        private:
+            F f_;
+        public:
+            SnapshotOnRight(F &&f) : f_(std::move(f)) {}
+            SnapshotOnRight(SnapshotOnRight &&s) : f_(std::move(s.f_)) {}
+            SnapshotOnRight &operator=(SnapshotOnRight &&) = delete;
+            SnapshotOnRight(SnapshotOnRight const &) = delete;
+            SnapshotOnRight &operator=(SnapshotOnRight const &) = delete;
+
+            using C = decltype(f_(std::move(*((A *) nullptr)), std::move(*((B *) nullptr))));
+            std::optional<C> operator()(int which, A &&a, B &&b) {
+                if (which == 1) {
+                    return f_(std::move(a), std::move(b));
+                } else {
+                    return std::nullopt;
+                }
+            }
+        };
+    public:
+        template <class A, class B, class F>
+        static std::shared_ptr<typename M::template Action<
+            std::variant<A,B>, typename SnapshotOnRight<A,B,F>::C
+        >> snapshotOnRight(F &&f, bool suggestThreaded=false) {
+            return M::template liftMaybe2<A,B>(
+                SnapshotOnRight<A,B,F>(std::move(f))
+                , infra::LiftParameters<typename M::TimePoint>()
+                    .SuggestThreaded(suggestThreaded)
+                    .RequireMask("11")
+            );
         }
     };
 

@@ -4,8 +4,10 @@
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <optional>
 
+#include <boost/hana/type.hpp>
+
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace simple_shared_chain {
-    template <class App, class Chain, class ChainItemFolder>
+    template <class App, class Chain, class ChainItemFolder, class TriggerT=VoidStruct>
     class ChainReader {
     private:
         using Env = typename App::EnvironmentType;
@@ -16,17 +18,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
     public:
         ChainReader(Env *env, Chain *chain) : 
             chain_(chain)
-            , currentItem_(chain->head(env))
+            , currentItem_()
             , folder_()
             , currentValue_(folder_.initialize(env)) 
         {
+            auto checker = boost::hana::is_valid(
+                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForValue(*v)))) {}
+            );
+            if constexpr (checker(
+                (Chain *) nullptr
+                , (ChainItemFolder *) nullptr
+                , (typename ChainItemFolder::ResultType const *) nullptr
+            )) {
+                currentItem_ = chain_->loadUntil(env, folder_.chainIDForValue(currentValue_));
+            } else {
+                currentItem_ = chain_->head(env);
+            }
         }
         ~ChainReader() = default;
         ChainReader(ChainReader const &) = delete;
         ChainReader &operator=(ChainReader const &) = delete;
         ChainReader(ChainReader &&) = default;
         ChainReader &operator=(ChainReader &&) = default;
-        typename std::optional<typename ChainItemFolder::ResultType> operator()(VoidStruct &&) {
+        typename std::optional<typename ChainItemFolder::ResultType> operator()(TriggerT &&) {
             bool hasNew = false;
             while (true) {
                 std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);

@@ -8,6 +8,8 @@
 #include <mutex>
 #include <condition_variable>
 
+#include <boost/hana/type.hpp>
+
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace simple_shared_chain {
     template <class App, class Chain, class ChainItemFolder, class InputHandler>
     class ChainWriter {};
@@ -94,8 +96,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainWriter(ChainWriter &&) = default;
         ChainWriter &operator=(ChainWriter &&) = default;
         virtual void start(Env *env) override final {
-            currentItem_ = chain_->head(env);
             currentState_ = folder_.initialize(env);
+            auto checker = boost::hana::is_valid(
+                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForValue(*v)))) {}
+            );
+            if constexpr (checker(
+                (Chain *) nullptr
+                , (ChainItemFolder *) nullptr
+                , (typename ChainItemFolder::ResultType const *) nullptr
+            )) {
+                currentItem_ = chain_->loadUntil(env, folder_.chainIDForValue(currentState_));
+            } else {
+                currentItem_ = chain_->head(env);
+            }
             inputHandler_.initialize(env);
             innerHandler_ = new InnerHandler(this);
         }
