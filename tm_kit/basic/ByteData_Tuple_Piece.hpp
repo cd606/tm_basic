@@ -143,7 +143,7 @@ struct RunCBORSerializer<std::tuple<>> {
         return std::vector<uint8_t> {0x80};
     }
     static std::size_t apply(std::tuple<> const &data, char *output) {
-        *output = 0x80;
+        *output = static_cast<char>(0x80);
         return 1;
     }
 };
@@ -153,7 +153,7 @@ struct RunCBORSerializerWithNameList<std::tuple<>, 0> {
         return std::vector<uint8_t> {0xA0};
     }
     static std::size_t apply(std::tuple<> const &data, std::array<std::string, 0> const &nameList, char *output) {
-        *output = 0xA0;
+        *output = static_cast<char>(0xA0);
         return 1;
     }
 };
