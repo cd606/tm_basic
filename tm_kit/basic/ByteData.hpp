@@ -211,6 +211,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return 3;
                 }
             }
+            static std::size_t calculateSize(uint16_t const &data) {
+                if (data <= std::numeric_limits<uint8_t>::max()) {
+                    return RunCBORSerializer<uint8_t>::calculateSize(static_cast<uint8_t>(data));
+                } else {
+                    return 3;
+                }
+            }
         };
         template <>
         struct RunCBORSerializer<uint32_t, void> {
@@ -236,6 +243,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     output[0] = static_cast<char>(26);
                     uint32_t bigEndianVersion = boost::endian::native_to_big<uint32_t>(data);
                     std::memcpy(&output[1], &bigEndianVersion, 4);
+                    return 5;
+                }
+            }
+            static std::size_t calculateSize(uint32_t const &data) {
+                if (data <= std::numeric_limits<uint8_t>::max()) {
+                    return RunCBORSerializer<uint8_t>::calculateSize(static_cast<uint8_t>(data));
+                } else if (data <= std::numeric_limits<uint16_t>::max()) {
+                    return RunCBORSerializer<uint16_t>::calculateSize(static_cast<uint16_t>(data));
+                } else {
                     return 5;
                 }
             }
@@ -271,6 +287,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return 9;
                 }
             }
+            static std::size_t calculateSize(uint64_t const &data) {
+                if (data <= std::numeric_limits<uint8_t>::max()) {
+                    return RunCBORSerializer<uint8_t>::calculateSize(static_cast<uint8_t>(data));
+                } else if (data <= std::numeric_limits<uint16_t>::max()) {
+                    return RunCBORSerializer<uint16_t>::calculateSize(static_cast<uint16_t>(data));
+                } else if (data <= std::numeric_limits<uint32_t>::max()) {
+                    return RunCBORSerializer<uint32_t>::calculateSize(static_cast<uint32_t>(data));
+                } else {
+                    return 9;
+                }
+            }
         };
         template <class T>
         struct RunCBORSerializer<T, std::enable_if_t<
@@ -302,6 +329,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return s;
                 }
             }
+            static std::size_t calculateSize(T const &data) {
+                if (data >= 0) {
+                    return RunCBORSerializer<std::make_unsigned_t<T>>::calculateSize(
+                        static_cast<std::make_unsigned_t<T>>(data)
+                    );
+                } else {
+                    std::make_unsigned_t<T> v = static_cast<std::make_unsigned_t<T>>(-(data+1));
+                    return RunCBORSerializer<std::make_unsigned_t<T>>::calculateSize(v);
+                }
+            }
         };
         template <>
         struct RunCBORSerializer<float, void> {
@@ -320,6 +357,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::memcpy(&dBuf, &data, 4);
                 boost::endian::native_to_big_inplace<uint32_t>(dBuf);
                 std::memcpy(&output[1], &dBuf, 4);
+                return 5;
+            }
+            static std::size_t calculateSize(float const &data) {
                 return 5;
             }
         };
@@ -342,6 +382,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::memcpy(&output[1], &dBuf, 8);
                 return 9;
             }
+            static std::size_t calculateSize(double const &data) {
+                return 9;
+            }
         };
         template <>
         struct RunCBORSerializer<std::string, void> {
@@ -357,6 +400,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 auto prefixLen = RunCBORSerializer<size_t>::apply(data.length(), output);
                 std::memcpy(output+prefixLen, data.c_str(), data.length());
                 output[0] = static_cast<char>(static_cast<uint8_t>(output[0]) | 0x60);
+                return prefixLen+data.length();
+            }
+            static std::size_t calculateSize(std::string const &data) {
+                auto prefixLen = RunCBORSerializer<size_t>::calculateSize(data.length());
                 return prefixLen+data.length();
             }
         };
@@ -376,6 +423,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 output[0] = static_cast<char>(static_cast<uint8_t>(output[0]) | 0x60);
                 return prefixLen+data.length();
             }
+            static std::size_t calculateSize(std::string_view const &data) {
+                auto prefixLen = RunCBORSerializer<size_t>::calculateSize(data.length());
+                return prefixLen+data.length();
+            }
         };
         template <>
         struct RunCBORSerializer<ByteData, void> {
@@ -391,6 +442,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 auto prefixLen = RunCBORSerializer<size_t>::apply(data.content.length(), output);
                 std::memcpy(output+prefixLen, data.content.c_str(), data.content.length());
                 output[0] = static_cast<char>(static_cast<uint8_t>(output[0]) | 0x40);
+                return prefixLen+data.content.length();
+            }
+            static std::size_t calculateSize(ByteData const &data) {
+                auto prefixLen = RunCBORSerializer<size_t>::calculateSize(data.content.length());
                 return prefixLen+data.content.length();
             }
         };
@@ -420,6 +475,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 *v2Start = static_cast<char>(static_cast<uint8_t>(*v2Start) | 0x40);
                 return s+s1+s2+data.content.length();
             }
+            static std::size_t calculateSize(ByteDataWithTopic const &data) {
+                auto s = RunCBORSerializer<size_t>::calculateSize(2);
+                auto s1 = RunCBORSerializer<std::string>::calculateSize(data.topic);
+                auto s2 = RunCBORSerializer<size_t>::calculateSize(data.content.length());
+                return s+s1+s2+data.content.length();
+            }
         };
         template <>
         struct RunCBORSerializer<ByteDataWithID, void> {
@@ -447,6 +508,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 *v2Start = static_cast<char>(static_cast<uint8_t>(*v2Start) | 0x40);
                 return s+s1+s2+data.content.length();
             }
+            static std::size_t calculateSize(ByteDataWithID const &data) {
+                auto s = RunCBORSerializer<size_t>::calculateSize(2);
+                auto s1 = RunCBORSerializer<std::string>::calculateSize(data.id);
+                auto s2 = RunCBORSerializer<size_t>::calculateSize(data.content.length());
+                return s+s1+s2+data.content.length();
+            }
         };
         template <class A>
         struct RunCBORSerializer<std::vector<A>, void> {
@@ -468,6 +535,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     p += s1;
                 }
                 return (p-output);
+            }
+            static std::size_t calculateSize(std::vector<A> const &data) {
+                auto s = RunCBORSerializer<size_t>::calculateSize(data.size());
+                for (auto const &item : data) {
+                    s += RunCBORSerializer<A>::calculateSize(item);
+                }
+                return s;
             }
         };
         template <class A, size_t N>
@@ -491,6 +565,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return (p-output);
             }
+            static std::size_t calculateSize(std::array<A, N> const &data) {
+                auto s = RunCBORSerializer<size_t>::calculateSize(data.size());
+                for (auto const &item : data) {
+                    s += RunCBORSerializer<A>::calculateSize(item);
+                }
+                return s;
+            }
         };
         template <class A>
         struct RunCBORSerializer<std::list<A>, void> {
@@ -512,6 +593,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     p += s1;
                 }
                 return (p-output);
+            }
+            static std::size_t calculateSize(std::list<A> const &data) {
+                auto s = RunCBORSerializer<size_t>::calculateSize(data.size());
+                for (auto const &item : data) {
+                    s += RunCBORSerializer<A>::calculateSize(item);
+                }
+                return s;
             }
         };
         template <class A, class Cmp>
@@ -535,6 +623,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return (p-output);
             }
+            static std::size_t calculateSize(std::set<A, Cmp> const &data) {
+                auto s = RunCBORSerializer<size_t>::calculateSize(data.size());
+                for (auto const &item : data) {
+                    s += RunCBORSerializer<A>::calculateSize(item);
+                }
+                return s;
+            }
         };
         template <class A, class Hash>
         struct RunCBORSerializer<std::unordered_set<A, Hash>, void> {
@@ -556,6 +651,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     p += s1;
                 }
                 return (p-output);
+            }
+            static std::size_t calculateSize(std::unordered_set<A, Hash> const &data) {
+                auto s = RunCBORSerializer<size_t>::calculateSize(data.size());
+                for (auto const &item : data) {
+                    s += RunCBORSerializer<A>::calculateSize(item);
+                }
+                return s;
             }
         };
         template <class A, class B, class Cmp>
@@ -583,6 +685,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return (p-output);
             }
+            static std::size_t calculateSize(std::map<A, B, Cmp> const &data) {
+                auto s = RunCBORSerializer<size_t>::calculateSize(data.size());
+                for (auto const &item : data) {
+                    s += RunCBORSerializer<A>::calculateSize(item.first);
+                    s += RunCBORSerializer<B>::calculateSize(item.second);
+                }
+                return s;
+            }
         };
         template <class A, class B, class Hash>
         struct RunCBORSerializer<std::unordered_map<A, B, Hash>, void> {
@@ -609,6 +719,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return (p-output);
             }
+            static std::size_t calculateSize(std::unordered_map<A, B, Hash> const &data) {
+                auto s = RunCBORSerializer<size_t>::calculateSize(data.size());
+                for (auto const &item : data) {
+                    s += RunCBORSerializer<A>::calculateSize(item.first);
+                    s += RunCBORSerializer<B>::calculateSize(item.second);
+                }
+                return s;
+            }
         };
         template <class A>
         struct RunCBORSerializer<std::unique_ptr<A>, void> {
@@ -624,6 +742,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return RunCBORSerializer<std::vector<A>>::apply(std::vector<A> {}, output);
                 } else {
                     return RunCBORSerializer<std::vector<A const *>>::apply(std::vector<A const *> {data.get()}, output);
+                }
+            }
+            static std::size_t calculateSize(std::unique_ptr<A> const &data) {
+                if (!data) {
+                    return RunCBORSerializer<std::vector<A>>::calculateSize(std::vector<A> {});
+                } else {
+                    return RunCBORSerializer<std::vector<A const *>>::calculateSize(std::vector<A const *> {data.get()});
                 }
             }
         };
@@ -643,6 +768,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return RunCBORSerializer<std::vector<A const *>>::apply(std::vector<A const *> {data.get()}, output);
                 }
             }
+            static std::size_t calculateSize(std::shared_ptr<A> const &data) {
+                if (!data) {
+                    return RunCBORSerializer<std::vector<A>>::calculateSize(std::vector<A> {});
+                } else {
+                    return RunCBORSerializer<std::vector<A const *>>::calculateSize(std::vector<A const *> {data.get()});
+                }
+            }
         };
         template <class A>
         struct RunCBORSerializer<std::optional<A>, void> {
@@ -660,6 +792,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return RunCBORSerializer<std::vector<A const *>>::apply(std::vector<A const *> {&(*data)}, output);
                 }
             }
+            static std::size_t calculateSize(std::optional<A> const &data) {
+                if (!data) {
+                    return RunCBORSerializer<std::vector<A>>::calculateSize(std::vector<A> {});
+                } else {
+                    return RunCBORSerializer<std::vector<A const *>>::calculateSize(std::vector<A const *> {&(*data)});
+                }
+            }
         };
         template <>
         struct RunCBORSerializer<VoidStruct, void> {
@@ -668,6 +807,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
             static std::size_t apply(VoidStruct const &data, char *output) {
                 return RunCBORSerializer<int32_t>::apply(0, output);
+            }
+            static std::size_t calculateSize(VoidStruct const &data) {
+                return RunCBORSerializer<int32_t>::calculateSize(0);
             }
         };
         template <class T>
@@ -678,6 +820,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             static std::size_t apply(SingleLayerWrapper<T> const &data, char *output) {
                 return RunCBORSerializer<T>::apply(data.value, output);
             }
+            static std::size_t calculateSize(SingleLayerWrapper<T> const &data) {
+                return RunCBORSerializer<T>::calculateSize(data.value);
+            }
         };
         template <int32_t N>
         struct RunCBORSerializer<ConstType<N>, void> {
@@ -686,6 +831,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
             static std::size_t apply(ConstType<N> const &data, char *output) {
                 return RunCBORSerializer<int32_t>::apply(N, output);
+            }
+            static std::size_t calculateSize(ConstType<N> const &data) {
+                return RunCBORSerializer<int32_t>::calculateSize(N);
             }
         };
 
@@ -1351,7 +1499,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         struct RunSerializer<CBORWithMaxSizeHint<T>, void> {
             static std::string apply(CBORWithMaxSizeHint<T> const &data) {
                 std::string s;
-                s.resize(data.maxSizeHint);
+                if (data.maxSizeHint == 0) {
+                    auto actualSize = RunCBORSerializer<T>::calculateSize(data.value);
+                    s.resize(actualSize);
+                } else {
+                    s.resize(data.maxSizeHint);
+                }
                 auto res = RunCBORSerializer<T>::apply(data.value, const_cast<char *>(s.c_str()));
                 s.resize(res);
                 return s;
@@ -2213,6 +2366,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     , output
                 );
             }
+            static std::size_t calculateSize(infra::VersionedData<VersionType,DataType,Cmp> const &data) {
+                std::tuple<VersionType const *, DataType const *> t {
+                    &(data.version), &(data.data)
+                };
+                return RunCBORSerializerWithNameList<std::tuple<VersionType const *, DataType const *>, 2>::calculateSize(
+                    t
+                    , {"version", "data"}
+                );
+            }
         };
         template <class GroupIDType, class VersionType, class DataType, class Cmp>
         struct RunCBORSerializer<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>> {
@@ -2233,6 +2395,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     t
                     , {"groupID", "version", "data"}
                     , output
+                );
+            }
+            static std::size_t calculateSize(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> const &data) {
+                std::tuple<GroupIDType const *, VersionType const *, DataType const *> t {
+                    &(data.groupID), &(data.version), &(data.data)
+                };
+                return RunCBORSerializerWithNameList<std::tuple<GroupIDType const *, VersionType const *, DataType const *>, 3>::calculateSize(
+                    t
+                    , {"groupID", "version", "data"}
                 );
             }
         };
@@ -2318,6 +2489,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         std::size_t RunCBORSerializer<T,Enable>::apply(T const &data, char *output) {
             std::string s = RunSerializer<T>::apply(data);
             return RunCBORSerializer<ByteData>::apply(ByteData {s}, output);
+        }
+        //This is the only case where we might have to encode the data twice
+        //during the CBOR serializing, but that is unavoidable since we don't
+        //know how much space the data will take without encoding it. Anyway,
+        //size calculation is optional in CBOR serializing
+        template <class T, typename Enable>
+        std::size_t RunCBORSerializer<T,Enable>::calculateSize(T const &data) {
+            std::string s = RunSerializer<T>::apply(data);
+            return RunCBORSerializer<ByteData>::calculateSize(ByteData {s});
         }
         template <class T, class Enable>
         std::optional<std::tuple<T,size_t>> RunCBORDeserializer<T,Enable>::apply(std::string_view const &data, size_t start) {

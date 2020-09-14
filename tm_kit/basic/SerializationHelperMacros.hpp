@@ -163,6 +163,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_NAMES,_,content) \
                 }, output); \
             } \
+            static std::size_t calculateSize(name const &x) { \
+                std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                > y { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_PTRS,_,content) \
+                }; \
+                return RunCBORSerializerWithNameList<std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                    >, BOOST_PP_SEQ_SIZE(content) \
+                >::calculateSize(y, { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_NAMES,_,content) \
+                }); \
+            } \
         }; \
         template <> \
         struct RunSerializer<name, void> { \
@@ -204,6 +217,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
                     > \
                 >::apply(y, output); \
+            } \
+            static std::size_t calculateSize(name const &x) { \
+                std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                > y { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_PTRS,_,content) \
+                }; \
+                return RunCBORSerializer<std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                    > \
+                >::calculateSize(y); \
             } \
         }; \
         template <> \
@@ -303,6 +327,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             static std::size_t apply(name const &x, char *output) { \
                 return RunCBORSerializerWithNameList<std::tuple<>, 0>::apply(std::tuple<> {}, {}, output); \
             } \
+            static std::size_t calculateSize(name const &x) { \
+                return RunCBORSerializerWithNameList<std::tuple<>, 0>::calculateSize(std::tuple<> {}, {}); \
+            } \
         }; \
         template <> \
         struct RunSerializer<name, void> { \
@@ -321,6 +348,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             } \
             static std::size_t apply(name const &x, char *output) { \
                 return RunCBORSerializer<std::tuple<>>::apply(std::tuple<> {}, output); \
+            } \
+            static std::size_t calculateSize(name const &x) { \
+                return RunCBORSerializer<std::tuple<>>::calculateSize(std::tuple<> {}); \
             } \
         }; \
         template <> \
@@ -413,6 +443,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_NAMES,_,content) \
                 }, output); \
             } \
+            static std::size_t calculateSize(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x) { \
+                std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                > y { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_PTRS,_,content) \
+                }; \
+                return RunCBORSerializerWithNameList<std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                    >, BOOST_PP_SEQ_SIZE(content) \
+                >::calculateSize(y, { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_NAMES,_,content) \
+                }); \
+            } \
         }; \
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
         struct RunSerializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
@@ -454,6 +497,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
                     > \
                 >::apply(y, output); \
+            } \
+            static std::size_t calculateSize(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x) { \
+                std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                > y { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_PTRS,_,content) \
+                }; \
+                return RunCBORSerializer<std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                    > \
+                >::calculateSize(y); \
             } \
         }; \
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
@@ -553,6 +607,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             static std::size_t apply(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x, char *output) { \
                 return RunCBORSerializerWithNameList<std::tuple<>, 0>::apply(std::tuple<> {}, {}, output); \
             } \
+            static std::size_t calculateSize(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x) { \
+                return RunCBORSerializerWithNameList<std::tuple<>, 0>::calculateSize(std::tuple<> {}, {}); \
+            } \
         }; \
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
         struct RunSerializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
@@ -571,6 +628,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             } \
             static std::size_t apply(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x, char *output) { \
                 return RunCBORSerializer<std::tuple<>>::apply(std::tuple<> {}, output); \
+            } \
+            static std::size_t calculateSize(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x) { \
+                return RunCBORSerializer<std::tuple<>>::calculateSize(std::tuple<> {}); \
             } \
         }; \
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \

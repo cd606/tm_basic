@@ -68,6 +68,28 @@ struct RunCBORSerializer<std::variant<A0,A1>> {
         }
         return s;
     }
+    static std::size_t calculateSize(std::variant<A0,A1> const &data) {
+        auto s = RunCBORSerializer<size_t>::calculateSize(2);
+        auto idxS = RunCBORSerializer<uint8_t>::calculateSize((uint8_t) data.index());
+        s += idxS;
+        switch (data.index()) {
+        case 0:
+            {
+                s += RunCBORSerializer<A0>::calculateSize(std::get<0>(data));
+                break;
+            }
+            break;
+        case 1:
+            {
+                s += RunCBORSerializer<A1>::calculateSize(std::get<1>(data));
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return s;
+    }
 };
 template <class A0, class A1>
 struct RunDeserializer<std::variant<A0,A1>> {
@@ -227,6 +249,34 @@ struct RunCBORSerializer<std::variant<A0,A1,A2>> {
         case 2:
             {
                 s += RunCBORSerializer<A2>::apply(std::get<2>(data), output+s);
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return s;
+    }
+    static std::size_t calculateSize(std::variant<A0,A1,A2> const &data) {
+        auto s = RunCBORSerializer<size_t>::calculateSize(2);
+        auto idxS = RunCBORSerializer<uint8_t>::calculateSize((uint8_t) data.index());
+        s += idxS;
+        switch (data.index()) {
+        case 0:
+            {
+                s += RunCBORSerializer<A0>::calculateSize(std::get<0>(data));
+                break;
+            }
+            break;
+        case 1:
+            {
+                s += RunCBORSerializer<A1>::calculateSize(std::get<1>(data));
+                break;
+            }
+            break;
+        case 2:
+            {
+                s += RunCBORSerializer<A2>::calculateSize(std::get<2>(data));
                 break;
             }
             break;
@@ -427,6 +477,40 @@ struct RunCBORSerializer<std::variant<A0,A1,A2,A3>> {
         case 3:
             {
                 s += RunCBORSerializer<A3>::apply(std::get<3>(data), output+s);
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return s;
+    }
+    static std::size_t calculateSize(std::variant<A0,A1,A2,A3> const &data) {
+        auto s = RunCBORSerializer<size_t>::calculateSize(2);
+        auto idxS = RunCBORSerializer<uint8_t>::calculateSize((uint8_t) data.index());
+        s += idxS;
+        switch (data.index()) {
+        case 0:
+            {
+                s += RunCBORSerializer<A0>::calculateSize(std::get<0>(data));
+                break;
+            }
+            break;
+        case 1:
+            {
+                s += RunCBORSerializer<A1>::calculateSize(std::get<1>(data));
+                break;
+            }
+            break;
+        case 2:
+            {
+                s += RunCBORSerializer<A2>::calculateSize(std::get<2>(data));
+                break;
+            }
+            break;
+        case 3:
+            {
+                s += RunCBORSerializer<A3>::calculateSize(std::get<3>(data));
                 break;
             }
             break;
@@ -660,6 +744,46 @@ struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4>> {
         case 4:
             {
                 s += RunCBORSerializer<A4>::apply(std::get<4>(data), output+s);
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return s;
+    }
+    static std::size_t calculateSize(std::variant<A0,A1,A2,A3,A4> const &data) {
+        auto s = RunCBORSerializer<size_t>::calculateSize(2);
+        auto idxS = RunCBORSerializer<uint8_t>::calculateSize((uint8_t) data.index());
+        s += idxS;
+        switch (data.index()) {
+        case 0:
+            {
+                s += RunCBORSerializer<A0>::calculateSize(std::get<0>(data));
+                break;
+            }
+            break;
+        case 1:
+            {
+                s += RunCBORSerializer<A1>::calculateSize(std::get<1>(data));
+                break;
+            }
+            break;
+        case 2:
+            {
+                s += RunCBORSerializer<A2>::calculateSize(std::get<2>(data));
+                break;
+            }
+            break;
+        case 3:
+            {
+                s += RunCBORSerializer<A3>::calculateSize(std::get<3>(data));
+                break;
+            }
+            break;
+        case 4:
+            {
+                s += RunCBORSerializer<A4>::calculateSize(std::get<4>(data));
                 break;
             }
             break;
@@ -926,6 +1050,52 @@ struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5>> {
         case 5:
             {
                 s += RunCBORSerializer<A5>::apply(std::get<5>(data), output+s);
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return s;
+    }
+    static std::size_t calculateSize(std::variant<A0,A1,A2,A3,A4,A5> const &data) {
+        auto s = RunCBORSerializer<size_t>::calculateSize(2);
+        auto idxS = RunCBORSerializer<uint8_t>::calculateSize((uint8_t) data.index());
+        s += idxS;
+        switch (data.index()) {
+        case 0:
+            {
+                s += RunCBORSerializer<A0>::calculateSize(std::get<0>(data));
+                break;
+            }
+            break;
+        case 1:
+            {
+                s += RunCBORSerializer<A1>::calculateSize(std::get<1>(data));
+                break;
+            }
+            break;
+        case 2:
+            {
+                s += RunCBORSerializer<A2>::calculateSize(std::get<2>(data));
+                break;
+            }
+            break;
+        case 3:
+            {
+                s += RunCBORSerializer<A3>::calculateSize(std::get<3>(data));
+                break;
+            }
+            break;
+        case 4:
+            {
+                s += RunCBORSerializer<A4>::calculateSize(std::get<4>(data));
+                break;
+            }
+            break;
+        case 5:
+            {
+                s += RunCBORSerializer<A5>::calculateSize(std::get<5>(data));
                 break;
             }
             break;
@@ -1225,6 +1395,58 @@ struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
         case 6:
             {
                 s += RunCBORSerializer<A6>::apply(std::get<6>(data), output+s);
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return s;
+    }
+    static std::size_t calculateSize(std::variant<A0,A1,A2,A3,A4,A5,A6> const &data) {
+        auto s = RunCBORSerializer<size_t>::calculateSize(2);
+        auto idxS = RunCBORSerializer<uint8_t>::calculateSize((uint8_t) data.index());
+        s += idxS;
+        switch (data.index()) {
+        case 0:
+            {
+                s += RunCBORSerializer<A0>::calculateSize(std::get<0>(data));
+                break;
+            }
+            break;
+        case 1:
+            {
+                s += RunCBORSerializer<A1>::calculateSize(std::get<1>(data));
+                break;
+            }
+            break;
+        case 2:
+            {
+                s += RunCBORSerializer<A2>::calculateSize(std::get<2>(data));
+                break;
+            }
+            break;
+        case 3:
+            {
+                s += RunCBORSerializer<A3>::calculateSize(std::get<3>(data));
+                break;
+            }
+            break;
+        case 4:
+            {
+                s += RunCBORSerializer<A4>::calculateSize(std::get<4>(data));
+                break;
+            }
+            break;
+        case 5:
+            {
+                s += RunCBORSerializer<A5>::calculateSize(std::get<5>(data));
+                break;
+            }
+            break;
+        case 6:
+            {
+                s += RunCBORSerializer<A6>::calculateSize(std::get<6>(data));
                 break;
             }
             break;
@@ -1557,6 +1779,64 @@ struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
         case 7:
             {
                 s += RunCBORSerializer<A7>::apply(std::get<7>(data), output+s);
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return s;
+    }
+    static std::size_t calculateSize(std::variant<A0,A1,A2,A3,A4,A5,A6,A7> const &data) {
+        auto s = RunCBORSerializer<size_t>::calculateSize(2);
+        auto idxS = RunCBORSerializer<uint8_t>::calculateSize((uint8_t) data.index());
+        s += idxS;
+        switch (data.index()) {
+        case 0:
+            {
+                s += RunCBORSerializer<A0>::calculateSize(std::get<0>(data));
+                break;
+            }
+            break;
+        case 1:
+            {
+                s += RunCBORSerializer<A1>::calculateSize(std::get<1>(data));
+                break;
+            }
+            break;
+        case 2:
+            {
+                s += RunCBORSerializer<A2>::calculateSize(std::get<2>(data));
+                break;
+            }
+            break;
+        case 3:
+            {
+                s += RunCBORSerializer<A3>::calculateSize(std::get<3>(data));
+                break;
+            }
+            break;
+        case 4:
+            {
+                s += RunCBORSerializer<A4>::calculateSize(std::get<4>(data));
+                break;
+            }
+            break;
+        case 5:
+            {
+                s += RunCBORSerializer<A5>::calculateSize(std::get<5>(data));
+                break;
+            }
+            break;
+        case 6:
+            {
+                s += RunCBORSerializer<A6>::calculateSize(std::get<6>(data));
+                break;
+            }
+            break;
+        case 7:
+            {
+                s += RunCBORSerializer<A7>::calculateSize(std::get<7>(data));
                 break;
             }
             break;
@@ -1922,6 +2202,70 @@ struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
         case 8:
             {
                 s += RunCBORSerializer<A8>::apply(std::get<8>(data), output+s);
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return s;
+    }
+    static std::size_t calculateSize(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> const &data) {
+        auto s = RunCBORSerializer<size_t>::calculateSize(2);
+        auto idxS = RunCBORSerializer<uint8_t>::calculateSize((uint8_t) data.index());
+        s += idxS;
+        switch (data.index()) {
+        case 0:
+            {
+                s += RunCBORSerializer<A0>::calculateSize(std::get<0>(data));
+                break;
+            }
+            break;
+        case 1:
+            {
+                s += RunCBORSerializer<A1>::calculateSize(std::get<1>(data));
+                break;
+            }
+            break;
+        case 2:
+            {
+                s += RunCBORSerializer<A2>::calculateSize(std::get<2>(data));
+                break;
+            }
+            break;
+        case 3:
+            {
+                s += RunCBORSerializer<A3>::calculateSize(std::get<3>(data));
+                break;
+            }
+            break;
+        case 4:
+            {
+                s += RunCBORSerializer<A4>::calculateSize(std::get<4>(data));
+                break;
+            }
+            break;
+        case 5:
+            {
+                s += RunCBORSerializer<A5>::calculateSize(std::get<5>(data));
+                break;
+            }
+            break;
+        case 6:
+            {
+                s += RunCBORSerializer<A6>::calculateSize(std::get<6>(data));
+                break;
+            }
+            break;
+        case 7:
+            {
+                s += RunCBORSerializer<A7>::calculateSize(std::get<7>(data));
+                break;
+            }
+            break;
+        case 8:
+            {
+                s += RunCBORSerializer<A8>::calculateSize(std::get<8>(data));
                 break;
             }
             break;
@@ -2320,6 +2664,76 @@ struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
         case 9:
             {
                 s += RunCBORSerializer<A9>::apply(std::get<9>(data), output+s);
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        return s;
+    }
+    static std::size_t calculateSize(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> const &data) {
+        auto s = RunCBORSerializer<size_t>::calculateSize(2);
+        auto idxS = RunCBORSerializer<uint8_t>::calculateSize((uint8_t) data.index());
+        s += idxS;
+        switch (data.index()) {
+        case 0:
+            {
+                s += RunCBORSerializer<A0>::calculateSize(std::get<0>(data));
+                break;
+            }
+            break;
+        case 1:
+            {
+                s += RunCBORSerializer<A1>::calculateSize(std::get<1>(data));
+                break;
+            }
+            break;
+        case 2:
+            {
+                s += RunCBORSerializer<A2>::calculateSize(std::get<2>(data));
+                break;
+            }
+            break;
+        case 3:
+            {
+                s += RunCBORSerializer<A3>::calculateSize(std::get<3>(data));
+                break;
+            }
+            break;
+        case 4:
+            {
+                s += RunCBORSerializer<A4>::calculateSize(std::get<4>(data));
+                break;
+            }
+            break;
+        case 5:
+            {
+                s += RunCBORSerializer<A5>::calculateSize(std::get<5>(data));
+                break;
+            }
+            break;
+        case 6:
+            {
+                s += RunCBORSerializer<A6>::calculateSize(std::get<6>(data));
+                break;
+            }
+            break;
+        case 7:
+            {
+                s += RunCBORSerializer<A7>::calculateSize(std::get<7>(data));
+                break;
+            }
+            break;
+        case 8:
+            {
+                s += RunCBORSerializer<A8>::calculateSize(std::get<8>(data));
+                break;
+            }
+            break;
+        case 9:
+            {
+                s += RunCBORSerializer<A9>::calculateSize(std::get<9>(data));
                 break;
             }
             break;

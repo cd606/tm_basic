@@ -147,6 +147,13 @@ namespace bytedata_utils {
                     "key", "data"
                 }, output);
         }
+        static std::size_t calculateSize(transaction::v2::InsertAction<KeyType,DataType> const &x) {
+            std::tuple<KeyType const *, DataType const *> t {&x.key, &x.data};
+            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, DataType const *>, 2>
+                ::calculateSize(t, {
+                    "key", "data"
+                });
+        }
     };
     template <class KeyType, class DataType>
     struct RunCBORDeserializer<transaction::v2::InsertAction<KeyType,DataType>, void> {
@@ -182,6 +189,13 @@ namespace bytedata_utils {
                 ::apply(t, {
                     "key", "old_version_slice", "old_data_summary", "data_delta"
                 }, output);
+        }
+        static std::size_t calculateSize(transaction::v2::UpdateAction<KeyType,VersionSliceType,DataSummaryType,DataDeltaType> const &x) {
+            std::tuple<KeyType const *, std::optional<VersionSliceType> const *, std::optional<DataSummaryType> const *, DataDeltaType const *> t {&x.key, &x.oldVersionSlice, &x.oldDataSummary, &x.dataDelta};
+            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, std::optional<VersionSliceType> const *, std::optional<DataSummaryType> const *, DataDeltaType const *>, 4>
+                ::calculateSize(t, {
+                    "key", "old_version_slice", "old_data_summary", "data_delta"
+                });
         }
     };
     template <class KeyType, class VersionSliceType, class DataSummaryType, class DataDeltaType>
@@ -221,6 +235,13 @@ namespace bytedata_utils {
                     "key", "old_version", "old_data_summary"
                 }, output);
         }
+        static std::size_t calculateSize(transaction::v2::DeleteAction<KeyType,VersionType,DataSummaryType> const &x) {
+            std::tuple<KeyType const *, std::optional<VersionType> const *, std::optional<DataSummaryType> const *> t {&x.key, &x.oldVersion, &x.oldDataSummary};
+            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, std::optional<VersionType> const *, std::optional<DataSummaryType> const *>, 3>
+                ::calculateSize(t, {
+                    "key", "old_version", "old_data_summary"
+                });
+        }
     };
     template <class KeyType, class VersionType, class DataSummaryType>
     struct RunCBORDeserializer<transaction::v2::DeleteAction<KeyType,VersionType,DataSummaryType>, void> {
@@ -259,6 +280,14 @@ namespace bytedata_utils {
                 ::apply(t, {
                     "global_version", "request_decision"
                 }, output);
+        }
+        static std::size_t calculateSize(transaction::v2::TransactionResponse<GlobalVersionType> const &x) {
+            int16_t d = static_cast<int16_t>(x.requestDecision);
+            std::tuple<GlobalVersionType const *, int16_t const *> t {&x.globalVersion, &d};
+            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<GlobalVersionType const *, int16_t const *>, 2>
+                ::calculateSize(t, {
+                    "global_version", "request_decision"
+                });
         }
     };
     template <class GlobalVersionType>
