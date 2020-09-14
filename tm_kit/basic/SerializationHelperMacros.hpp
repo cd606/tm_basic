@@ -9,8 +9,18 @@
 
 #include <tm_kit/basic/PrintHelper.hpp>
 
+namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils {
+    //This implementation of type with parenthesis is from
+    // https://stackoverflow.com/questions/13842468/comma-in-c-c-macro
+    template <typename T> struct macro_type_resolver {};
+    template <typename T, typename U> struct macro_type_resolver<T(U)> { using type_name = U; };
+} } } } }
+
+#define TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(x) \
+    typename dev::cd606::tm::basic::bytedata_utils::macro_type_resolver<void(x)>::type_name
+
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_ITEM_DEF(r, data, elem) \
-    BOOST_PP_TUPLE_ELEM(0,elem) BOOST_PP_TUPLE_ELEM(1,elem);
+    TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem)) BOOST_PP_TUPLE_ELEM(1,elem);
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_DEF(name, content) \
     struct name { \
@@ -39,7 +49,7 @@
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_PRINT_ITEM(r, data, elem) \
     os << BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(1,elem)) << '='; \
-    dev::cd606::tm::basic::PrintHelper<BOOST_PP_TUPLE_ELEM(0,elem)>::print(os, x.BOOST_PP_TUPLE_ELEM(1,elem)); \
+    dev::cd606::tm::basic::PrintHelper<TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem))>::print(os, x.BOOST_PP_TUPLE_ELEM(1,elem)); \
     os << ' ';    
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_EQ_ITEM(r, data, elem) \
@@ -97,10 +107,10 @@
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR(r, data, elem) \
     BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) \
-    BOOST_PP_TUPLE_ELEM(0,elem) const *
+    TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem)) const *
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE(r, data, elem) \
     BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) \
-    BOOST_PP_TUPLE_ELEM(0,elem)
+    TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem))
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_PTRS(r, data, elem) \
     BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) \
     &(x.BOOST_PP_TUPLE_ELEM(1,elem))
@@ -130,6 +140,19 @@
                 >::apply(y, { \
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_NAMES,_,content) \
                 }); \
+            } \
+            static std::size_t apply(name const &x, char *output) { \
+                std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                > y { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_PTRS,_,content) \
+                }; \
+                return RunCBORSerializerWithNameList<std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                    >, BOOST_PP_SEQ_SIZE(content) \
+                >::apply(y, { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_NAMES,_,content) \
+                }, output); \
             } \
         }; \
         template <> \
@@ -161,6 +184,17 @@
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
                     > \
                 >::apply(y); \
+            } \
+            static std::size_t apply(name const &x, char *output) { \
+                std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                > y { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_PTRS,_,content) \
+                }; \
+                return RunCBORSerializer<std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                    > \
+                >::apply(y, output); \
             } \
         }; \
         template <> \
@@ -257,6 +291,9 @@
             static std::vector<std::uint8_t> apply(name const &x) { \
                 return RunCBORSerializerWithNameList<std::tuple<>, 0>::apply(std::tuple<> {}, {}); \
             } \
+            static std::size_t apply(name const &x, char *output) { \
+                return RunCBORSerializerWithNameList<std::tuple<>, 0>::apply(std::tuple<> {}, {}, output); \
+            } \
         }; \
         template <> \
         struct RunSerializer<name, void> { \
@@ -272,6 +309,9 @@
         struct RunCBORSerializer<name, void> { \
             static std::vector<std::uint8_t> apply(name const &x) { \
                 return RunCBORSerializer<std::tuple<>>::apply(std::tuple<> {}); \
+            } \
+            static std::size_t apply(name const &x, char *output) { \
+                return RunCBORSerializer<std::tuple<>>::apply(std::tuple<> {}, output); \
             } \
         }; \
         template <> \
@@ -351,6 +391,19 @@
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_NAMES,_,content) \
                 }); \
             } \
+            static std::size_t apply(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x, char *output) { \
+                std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                > y { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_PTRS,_,content) \
+                }; \
+                return RunCBORSerializerWithNameList<std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                    >, BOOST_PP_SEQ_SIZE(content) \
+                >::apply(y, { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_NAMES,_,content) \
+                }, output); \
+            } \
         }; \
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
         struct RunSerializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
@@ -381,6 +434,17 @@
                     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
                     > \
                 >::apply(y); \
+            } \
+            static std::size_t apply(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x, char *output) { \
+                std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                > y { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_PTRS,_,content) \
+                }; \
+                return RunCBORSerializer<std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR,_,content) \
+                    > \
+                >::apply(y, output); \
             } \
         }; \
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
@@ -477,6 +541,9 @@
             static std::vector<std::uint8_t> apply(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x) { \
                 return RunCBORSerializerWithNameList<std::tuple<>, 0>::apply(std::tuple<> {}, {}); \
             } \
+            static std::size_t apply(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x, char *output) { \
+                return RunCBORSerializerWithNameList<std::tuple<>, 0>::apply(std::tuple<> {}, {}, output); \
+            } \
         }; \
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
         struct RunSerializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
@@ -492,6 +559,9 @@
         struct RunCBORSerializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
             static std::vector<std::uint8_t> apply(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x) { \
                 return RunCBORSerializer<std::tuple<>>::apply(std::tuple<> {}); \
+            } \
+            static std::size_t apply(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x, char *output) { \
+                return RunCBORSerializer<std::tuple<>>::apply(std::tuple<> {}, output); \
             } \
         }; \
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \

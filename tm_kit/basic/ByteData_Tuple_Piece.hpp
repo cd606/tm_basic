@@ -31,6 +31,24 @@ namespace bytedata_tuple_helper {
         }
     }
     template <class TupleType, int Idx, class FirstRemainingA, class... OtherRemainingAs>
+    std::size_t runTupleUnsafeCBORSerializerPiece(TupleType const &data, char *output) {
+        auto s = RunCBORSerializer<FirstRemainingA>::apply(std::get<Idx>(data), output);
+        if constexpr (sizeof...(OtherRemainingAs) > 0) {
+            s += runTupleUnsafeCBORSerializerPiece<TupleType, Idx+1, OtherRemainingAs...>(data, output+s);
+        }
+        return s;
+    }
+    template <class TupleType, int Idx, class FirstRemainingA, class... OtherRemainingAs>
+    std::size_t runTupleUnsafeCBORSerializerWithNameListPiece(TupleType const &data, std::array<std::string, Idx+sizeof...(OtherRemainingAs)+1> const &nameList, char *output) {
+        auto s = RunCBORSerializer<std::string>::apply(nameList[Idx], output);
+        auto v = RunCBORSerializer<FirstRemainingA>::apply(std::get<Idx>(data), output+s);
+        s += v;
+        if constexpr (sizeof...(OtherRemainingAs) > 0) {
+            s += runTupleUnsafeCBORSerializerWithNameListPiece<TupleType, Idx+1, OtherRemainingAs...>(data, nameList, output+s);
+        }
+        return s;
+    }
+    template <class TupleType, int Idx, class FirstRemainingA, class... OtherRemainingAs>
     bool runTupleDeserializerPiece(TupleType &output, char const *p, size_t len) {
         if constexpr (sizeof...(OtherRemainingAs) > 0) {
             if (len < sizeof(int32_t)) {
@@ -124,11 +142,19 @@ struct RunCBORSerializer<std::tuple<>> {
     static std::vector<uint8_t> apply(std::tuple<> const &data) {
         return std::vector<uint8_t> {0x80};
     }
+    static std::size_t apply(std::tuple<> const &data, char *output) {
+        *output = 0x80;
+        return 1;
+    }
 };
 template <>
 struct RunCBORSerializerWithNameList<std::tuple<>, 0> {
     static std::vector<uint8_t> apply(std::tuple<> const &data, std::array<std::string, 0> const &nameList) {
         return std::vector<uint8_t> {0xA0};
+    }
+    static std::size_t apply(std::tuple<> const &data, std::array<std::string, 0> const &nameList, char *output) {
+        *output = 0xA0;
+        return 1;
     }
 };
 template <>
@@ -199,6 +225,16 @@ struct RunCBORSerializer<std::tuple<As...>> {
         >(v, data);
         return v;
     }
+    static std::size_t apply(std::tuple<As...> const &data, char *output) {
+        auto s = RunCBORSerializer<size_t>::apply(sizeof...(As), output);
+        output[0] = static_cast<char>(static_cast<uint8_t>(output[0]) | 0x80);
+        s += bytedata_tuple_helper::runTupleUnsafeCBORSerializerPiece<
+            std::tuple<As...>
+            , 0
+            , As...
+        >(data, output+s);
+        return s;
+    }
 };
 template <class... As, size_t N>
 struct RunCBORSerializerWithNameList<std::tuple<As...>, N> {
@@ -212,6 +248,17 @@ struct RunCBORSerializerWithNameList<std::tuple<As...>, N> {
             , As...
         >(v, data, nameList);
         return v;
+    }
+    static std::size_t apply(std::tuple<As...> const &data, std::array<std::string, N> const &nameList, char *output) {
+        static_assert(N == sizeof...(As), "name list size must match tuple size");
+        auto s = RunCBORSerializer<size_t>::apply(sizeof...(As), output);
+        output[0] = static_cast<char>(static_cast<uint8_t>(output[0]) | 0xA0);
+        s += bytedata_tuple_helper::runTupleUnsafeCBORSerializerWithNameListPiece<
+            std::tuple<As...>
+            , 0
+            , As...
+        >(data, nameList, output+s);
+        return s;
     }
 };
 template <class... As>

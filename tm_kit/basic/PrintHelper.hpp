@@ -88,6 +88,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
     template <class T>
+    class PrintHelper<CBORWithMaxSizeHint<T>> {
+    public:
+        static void print(std::ostream &os, CBORWithMaxSizeHint<T> const &t) {
+            os << "CBORWithMaxSizeHint{";
+            PrintHelper<T>::print(os, t.value);
+            os << "}(max-size:" << t.maxSizeHint << " bytes)";
+        }
+    };
+    template <class T>
     class PrintHelper<std::list<T>> {
     public:
         static void print(std::ostream &os, std::list<T> const &t) {
@@ -297,6 +306,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     class PrintHelper<ByteData> {
     public:
         static void print(std::ostream &os, ByteData const &d) {
+            os << "bytedata[";
+            for (size_t ii=0; ii<d.content.size() && ii<5; ++ii) {
+                if (ii > 0) {
+                    os << ',';
+                }
+                os << "0x" << std::hex << std::setw(2)
+                    << std::setfill('0') << static_cast<uint16_t>(static_cast<uint8_t>(d.content[ii]))
+                    << std::dec;
+            }
+            if (d.content.size() > 5) {
+                os << ",...";
+            }
+            os << "](" << d.content.size() << " bytes)";
+        }
+    };
+    template <>
+    class PrintHelper<ByteDataView> {
+    public:
+        static void print(std::ostream &os, ByteDataView const &d) {
             os << "bytedata[";
             for (size_t ii=0; ii<d.content.size() && ii<5; ++ii) {
                 if (ii > 0) {
