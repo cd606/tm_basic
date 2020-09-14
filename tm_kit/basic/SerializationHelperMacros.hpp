@@ -16,8 +16,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
     template <typename T, typename U> struct macro_type_resolver<T(U)> { using type_name = U; };
 } } } } }
 
-#define TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(x) \
-    typename dev::cd606::tm::basic::bytedata_utils::template macro_type_resolver<void(x)>::type_name
+#ifdef _MSC_VER
+    #define TM_BASIC_CBOR_CAPABLE_STRUCT_PROTECT_TYPE(...) \
+        typename dev::cd606::tm::basic::bytedata_utils::macro_type_resolver<void(__VA_ARGS__)>::type_name 
+    #define TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(x) \
+        x
+#else
+    #define TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(x) \
+        typename dev::cd606::tm::basic::bytedata_utils::macro_type_resolver<void(x)>::type_name
+#endif
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_ITEM_DEF(r, data, elem) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem)) BOOST_PP_TUPLE_ELEM(1,elem);
