@@ -17,7 +17,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(x) \
-    typename dev::cd606::tm::basic::bytedata_utils::macro_type_resolver<void(x)>::type_name
+    typename dev::cd606::tm::basic::bytedata_utils::template macro_type_resolver<void(x)>::type_name
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_ITEM_DEF(r, data, elem) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem)) BOOST_PP_TUPLE_ELEM(1,elem);
