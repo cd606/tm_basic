@@ -17,6 +17,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 } } } } }
 
 #ifdef _MSC_VER
+    //The reason why we need "PROTECT_TYPE" is also explained on 
+    // https://stackoverflow.com/questions/13842468/comma-in-c-c-macro
     #define TM_BASIC_CBOR_CAPABLE_STRUCT_PROTECT_TYPE(...) \
         typename dev::cd606::tm::basic::bytedata_utils::macro_type_resolver<void(__VA_ARGS__)>::type_name 
     #define TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(x) \
