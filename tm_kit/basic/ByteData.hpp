@@ -92,6 +92,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         struct RunCBORSerializer {
             static std::vector<uint8_t> apply(T const &data);
             static std::size_t apply(T const &data, char *output); //this is the "unsafe" encoder, it assumes that output memory is already allocated and is enough, the return value is the actual used memory size
+            static std::size_t calculateSize(T const &data);
         };
 
         template <class T>
@@ -99,8 +100,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             static std::vector<uint8_t> apply(CBOR<T> const &data) {
                 return RunCBORSerializer<T>::apply(data.value);
             }
-            static std::size_t apply(T const &data, char *output) {
+            static std::size_t apply(CBOR<T> const &data, char *output) {
                 return RunCBORSerializer<T>::apply(data, output);
+            }
+            static std::size_t calculateSize(CBOR<T> const &data) {
+                return RunCBORSerializer<T>::calculateSize(data.value);
             }
         };
         template <class T>
@@ -110,6 +114,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
             static std::size_t apply(CBORWithMaxSizeHint<T> const &data, char *output) {
                 return RunCBORSerializer<T>::apply(data.value, output);
+            }
+            static std::size_t calculateSize(CBORWithMaxSizeHint<T> const &data) {
+                return RunCBORSerializer<T>::calculateSize(data.value);
             }
         };
         template <class A>
@@ -128,6 +135,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return 0;
                 }
             }
+            static std::size_t calculateSize(A const *data) {
+                if (data) {
+                    return RunCBORSerializer<A>::calculateSize(*data);
+                } else {
+                    return 0;
+                }
+            }
         };
         template <>
         struct RunCBORSerializer<bool, void> {
@@ -137,6 +151,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
             static std::size_t apply(bool const &data, char *output) {
                 *output = static_cast<char>(data?1:0);
+                return 1;
+            }
+            static std::size_t calculateSize(bool const &data) {
                 return 1;
             }
         };
@@ -160,7 +177,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 } else {
                     output[0] = static_cast<char>(24);
                     output[1] = static_cast<char>(data);
+                    return 2;
+                }
+            }
+            static std::size_t calculateSize(uint8_t const &data) {
+                if (data <= 23) {
                     return 1;
+                } else {
+                    return 2;
                 }
             }
         };
