@@ -3,6 +3,7 @@
 
 #include <tm_kit/basic/ByteData.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
+#include <tm_kit/basic/SerializationHelperMacros.hpp>
 #include <type_traits>
 #include <functional>
 #include <iostream>
@@ -39,32 +40,28 @@ namespace transaction { namespace v2 {
         return os;
     }
 
-    template <class KeyType, class DataType>
-    struct InsertAction {
-        KeyType key;
-        DataType data;
-    };
+    #define InsertActionFields \
+        ((KeyType, key)) \
+        ((DataType, data))
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT(((typename, KeyType)) ((typename, DataType)), InsertAction, InsertActionFields);
 
-    template <class KeyType, class VersionSliceType, class DataSummaryType, class DataDeltaType>
-    struct UpdateAction {
-        KeyType key;
-        std::optional<VersionSliceType> oldVersionSlice;
-        std::optional<DataSummaryType> oldDataSummary;
-        DataDeltaType dataDelta;
-    };
+    #define UpdateActionFields \
+        ((KeyType, key)) \
+        ((std::optional<VersionSliceType>, oldVersionSlice)) \
+        ((std::optional<DataSummaryType>, oldDataSummary)) \
+        ((DataDeltaType, dataDelta))
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT(((typename, KeyType)) ((typename, VersionSliceType)) ((typename, DataSummaryType)) ((typename, DataDeltaType)), UpdateAction, UpdateActionFields);
 
-    template <class KeyType, class VersionType, class DataSummaryType>
-    struct DeleteAction {
-        KeyType key;
-        std::optional<VersionType> oldVersion;
-        std::optional<DataSummaryType> oldDataSummary;
-    };
+    #define DeleteActionFields \
+        ((KeyType, key)) \
+        ((std::optional<VersionType>, oldVersion)) \
+        ((std::optional<DataSummaryType>, oldDataSummary))
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT(((typename, KeyType)) ((typename, VersionType)) ((typename, DataSummaryType)), DeleteAction, DeleteActionFields);
 
-    template <class GlobalVersionType>
-    struct TransactionResponse {
-        GlobalVersionType globalVersion;
-        RequestDecision requestDecision;
-    };
+    #define TransactionResponseFields \
+        ((GlobalVersionType, globalVersion)) \
+        ((dev::cd606::tm::basic::transaction::v2::RequestDecision, requestDecision))
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT(((typename, GlobalVersionType)), TransactionResponse, TransactionResponseFields);
 
     template <
         class GlobalVersionType
@@ -130,188 +127,11 @@ namespace transaction { namespace v2 {
 
 } }
 
-namespace bytedata_utils {
-    template <class KeyType, class DataType>
-    struct RunCBORSerializer<transaction::v2::InsertAction<KeyType,DataType>, void> {
-        static std::vector<uint8_t> apply(transaction::v2::InsertAction<KeyType,DataType> const &x) {
-            std::tuple<KeyType const *, DataType const *> t {&x.key, &x.data};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, DataType const *>, 2>
-                ::apply(t, {
-                    "key", "data"
-                });
-        }
-        static std::size_t apply(transaction::v2::InsertAction<KeyType,DataType> const &x, char *output) {
-            std::tuple<KeyType const *, DataType const *> t {&x.key, &x.data};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, DataType const *>, 2>
-                ::apply(t, {
-                    "key", "data"
-                }, output);
-        }
-        static std::size_t calculateSize(transaction::v2::InsertAction<KeyType,DataType> const &x) {
-            std::tuple<KeyType const *, DataType const *> t {&x.key, &x.data};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, DataType const *>, 2>
-                ::calculateSize(t, {
-                    "key", "data"
-                });
-        }
-    };
-    template <class KeyType, class DataType>
-    struct RunCBORDeserializer<transaction::v2::InsertAction<KeyType,DataType>, void> {
-        static std::optional<std::tuple<transaction::v2::InsertAction<KeyType,DataType>,size_t>> apply(std::string_view const &data, size_t start) {
-            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, DataType>,2>
-                ::apply(data, start, {
-                    "key", "data"
-                });
-            if (!t) {
-                return std::nullopt;
-            }
-            return std::tuple<transaction::v2::InsertAction<KeyType,DataType>,size_t> {
-                transaction::v2::InsertAction<KeyType,DataType> {
-                    std::move(std::get<0>(std::get<0>(*t)))
-                    , std::move(std::get<1>(std::get<0>(*t)))
-                }
-                , std::get<1>(*t)
-            };
-        }
-    };
-    template <class KeyType, class VersionSliceType, class DataSummaryType, class DataDeltaType>
-    struct RunCBORSerializer<transaction::v2::UpdateAction<KeyType,VersionSliceType,DataSummaryType,DataDeltaType>, void> {
-        static std::vector<uint8_t> apply(transaction::v2::UpdateAction<KeyType,VersionSliceType,DataSummaryType,DataDeltaType> const &x) {
-            std::tuple<KeyType const *, std::optional<VersionSliceType> const *, std::optional<DataSummaryType> const *, DataDeltaType const *> t {&x.key, &x.oldVersionSlice, &x.oldDataSummary, &x.dataDelta};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, std::optional<VersionSliceType> const *, std::optional<DataSummaryType> const *, DataDeltaType const *>, 4>
-                ::apply(t, {
-                    "key", "old_version_slice", "old_data_summary", "data_delta"
-                });
-        }
-        static std::size_t apply(transaction::v2::UpdateAction<KeyType,VersionSliceType,DataSummaryType,DataDeltaType> const &x, char *output) {
-            std::tuple<KeyType const *, std::optional<VersionSliceType> const *, std::optional<DataSummaryType> const *, DataDeltaType const *> t {&x.key, &x.oldVersionSlice, &x.oldDataSummary, &x.dataDelta};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, std::optional<VersionSliceType> const *, std::optional<DataSummaryType> const *, DataDeltaType const *>, 4>
-                ::apply(t, {
-                    "key", "old_version_slice", "old_data_summary", "data_delta"
-                }, output);
-        }
-        static std::size_t calculateSize(transaction::v2::UpdateAction<KeyType,VersionSliceType,DataSummaryType,DataDeltaType> const &x) {
-            std::tuple<KeyType const *, std::optional<VersionSliceType> const *, std::optional<DataSummaryType> const *, DataDeltaType const *> t {&x.key, &x.oldVersionSlice, &x.oldDataSummary, &x.dataDelta};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, std::optional<VersionSliceType> const *, std::optional<DataSummaryType> const *, DataDeltaType const *>, 4>
-                ::calculateSize(t, {
-                    "key", "old_version_slice", "old_data_summary", "data_delta"
-                });
-        }
-    };
-    template <class KeyType, class VersionSliceType, class DataSummaryType, class DataDeltaType>
-    struct RunCBORDeserializer<transaction::v2::UpdateAction<KeyType,VersionSliceType,DataSummaryType,DataDeltaType>, void> {
-        static std::optional<std::tuple<transaction::v2::UpdateAction<KeyType,VersionSliceType,DataSummaryType,DataDeltaType>,size_t>> apply(std::string_view const &data, size_t start) {
-            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, std::optional<VersionSliceType>, std::optional<DataSummaryType>, DataDeltaType>, 4>
-                ::apply(data, start, {
-                    "key", "old_version_slice", "old_data_summary", "data_delta"
-                });
-            if (!t) {
-                return std::nullopt;
-            }
-            return std::tuple<transaction::v2::UpdateAction<KeyType,VersionSliceType,DataSummaryType,DataDeltaType>,size_t> {
-                transaction::v2::UpdateAction<KeyType,VersionSliceType,DataSummaryType,DataDeltaType> {
-                    std::move(std::get<0>(std::get<0>(*t)))
-                    , std::move(std::get<1>(std::get<0>(*t)))
-                    , std::move(std::get<2>(std::get<0>(*t)))
-                    , std::move(std::get<3>(std::get<0>(*t)))
-                }
-                , std::get<1>(*t)
-            };
-        }
-    };
-    template <class KeyType, class VersionType, class DataSummaryType>
-    struct RunCBORSerializer<transaction::v2::DeleteAction<KeyType,VersionType,DataSummaryType>, void> {
-        static std::vector<uint8_t> apply(transaction::v2::DeleteAction<KeyType,VersionType,DataSummaryType> const &x) {
-            std::tuple<KeyType const *, std::optional<VersionType> const *, std::optional<DataSummaryType> const *> t {&x.key, &x.oldVersion, &x.oldDataSummary};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, std::optional<VersionType> const *, std::optional<DataSummaryType> const *>, 3>
-                ::apply(t, {
-                    "key", "old_version", "old_data_summary"
-                });
-        }
-        static std::size_t apply(transaction::v2::DeleteAction<KeyType,VersionType,DataSummaryType> const &x, char *output) {
-            std::tuple<KeyType const *, std::optional<VersionType> const *, std::optional<DataSummaryType> const *> t {&x.key, &x.oldVersion, &x.oldDataSummary};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, std::optional<VersionType> const *, std::optional<DataSummaryType> const *>, 3>
-                ::apply(t, {
-                    "key", "old_version", "old_data_summary"
-                }, output);
-        }
-        static std::size_t calculateSize(transaction::v2::DeleteAction<KeyType,VersionType,DataSummaryType> const &x) {
-            std::tuple<KeyType const *, std::optional<VersionType> const *, std::optional<DataSummaryType> const *> t {&x.key, &x.oldVersion, &x.oldDataSummary};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<KeyType const *, std::optional<VersionType> const *, std::optional<DataSummaryType> const *>, 3>
-                ::calculateSize(t, {
-                    "key", "old_version", "old_data_summary"
-                });
-        }
-    };
-    template <class KeyType, class VersionType, class DataSummaryType>
-    struct RunCBORDeserializer<transaction::v2::DeleteAction<KeyType,VersionType,DataSummaryType>, void> {
-        static std::optional<std::tuple<transaction::v2::DeleteAction<KeyType,VersionType,DataSummaryType>,size_t>> apply(std::string_view const &data, size_t start) {
-            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<KeyType, std::optional<VersionType>, std::optional<DataSummaryType>>, 3>
-                ::apply(data, start, {
-                    "key", "old_version", "old_data_summary"
-                });
-            if (!t) {
-                return std::nullopt;
-            }
-            return std::tuple<transaction::v2::DeleteAction<KeyType,VersionType,DataSummaryType>,size_t> {
-                transaction::v2::DeleteAction<KeyType,VersionType,DataSummaryType> {
-                    std::move(std::get<0>(std::get<0>(*t)))
-                    , std::move(std::get<1>(std::get<0>(*t)))
-                    , std::move(std::get<2>(std::get<0>(*t)))
-                }
-                , std::get<1>(*t)
-            };
-        }
-    };
-    template <class GlobalVersionType>
-    struct RunCBORSerializer<transaction::v2::TransactionResponse<GlobalVersionType>, void> {
-        static std::vector<uint8_t> apply(transaction::v2::TransactionResponse<GlobalVersionType> const &x) {
-            int16_t d = static_cast<int16_t>(x.requestDecision);
-            std::tuple<GlobalVersionType const *, int16_t const *> t {&x.globalVersion, &d};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<GlobalVersionType const *, int16_t const *>, 2>
-                ::apply(t, {
-                    "global_version", "request_decision"
-                });
-        }
-        static std::size_t apply(transaction::v2::TransactionResponse<GlobalVersionType> const &x, char *output) {
-            int16_t d = static_cast<int16_t>(x.requestDecision);
-            std::tuple<GlobalVersionType const *, int16_t const *> t {&x.globalVersion, &d};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<GlobalVersionType const *, int16_t const *>, 2>
-                ::apply(t, {
-                    "global_version", "request_decision"
-                }, output);
-        }
-        static std::size_t calculateSize(transaction::v2::TransactionResponse<GlobalVersionType> const &x) {
-            int16_t d = static_cast<int16_t>(x.requestDecision);
-            std::tuple<GlobalVersionType const *, int16_t const *> t {&x.globalVersion, &d};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<GlobalVersionType const *, int16_t const *>, 2>
-                ::calculateSize(t, {
-                    "global_version", "request_decision"
-                });
-        }
-    };
-    template <class GlobalVersionType>
-    struct RunCBORDeserializer<transaction::v2::TransactionResponse<GlobalVersionType>, void> {
-        static std::optional<std::tuple<transaction::v2::TransactionResponse<GlobalVersionType>,size_t>> apply(std::string_view const &data, size_t start) {
-            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<GlobalVersionType, int16_t>, 2>
-                ::apply(data, start, {
-                    "global_version", "request_decision"
-                });
-            if (!t) {
-                return std::nullopt;
-            }
-            return std::tuple<transaction::v2::TransactionResponse<GlobalVersionType>,size_t> {
-                transaction::v2::TransactionResponse<GlobalVersionType> {
-                    std::move(std::get<0>(std::get<0>(*t)))
-                    , static_cast<transaction::v2::RequestDecision>(std::get<1>(std::get<0>(*t)))
-                }
-                , std::get<1>(*t)
-            };
-        }
-    };
-}
-
 } } } }
 
+TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_SERIALIZE(((typename, KeyType)) ((typename, DataType)), dev::cd606::tm::basic::transaction::v2::InsertAction, InsertActionFields);
+TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_SERIALIZE(((typename, KeyType)) ((typename, VersionSliceType)) ((typename, DataSummaryType)) ((typename, DataDeltaType)), dev::cd606::tm::basic::transaction::v2::UpdateAction, UpdateActionFields);
+TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_SERIALIZE(((typename, KeyType)) ((typename, VersionType)) ((typename, DataSummaryType)), dev::cd606::tm::basic::transaction::v2::DeleteAction, DeleteActionFields);
+TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_SERIALIZE(((typename, GlobalVersionType)), dev::cd606::tm::basic::transaction::v2::TransactionResponse, TransactionResponseFields);
 
 #endif

@@ -10,6 +10,7 @@
 
 #include <tm_kit/basic/transaction/v2/TransactionDataStore.hpp>
 #include <tm_kit/basic/transaction/v2/DataStreamInterface.hpp>
+#include <tm_kit/basic/SerializationHelperMacros.hpp>
 
 #include <queue>
 #include <array>
@@ -21,177 +22,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     
 namespace transaction { namespace v2 {
 
-    template <class KeyType>
-    struct Subscription {
-        std::vector<KeyType> keys;
-        void SerializeToString(std::string *s) const {
-            *s = bytedata_utils::RunSerializer<std::vector<KeyType> const *>::apply(&keys);
-        }
-        bool ParseFromString(std::string const &s) {
-            auto res = bytedata_utils::RunDeserializer<std::vector<KeyType>>::apply(s);
-            if (!res) {
-                return false;
-            }
-            keys = std::move(*res);
-            return true;
-        }
-    };
-    template <class IDType>
-    struct Unsubscription {
-        IDType originalSubscriptionID;
-        void SerializeToString(std::string *s) const {
-            std::tuple<IDType const *> t {&originalSubscriptionID};
-            *s = bytedata_utils::RunSerializer<std::tuple<IDType const *>>::apply(t);
-        }
-        bool ParseFromString(std::string const &s) {
-            auto res = bytedata_utils::RunDeserializer<std::tuple<IDType>>::apply(s);
-            if (!res) {
-                return false;
-            }
-            originalSubscriptionID = std::move(std::get<0>(*res));
-            return true;
-        }
-    };
-    struct ListSubscriptions {
-        void SerializeToString(std::string *s) const {
-            *s = bytedata_utils::RunSerializer<VoidStruct>::apply(VoidStruct {});
-        }
-        bool ParseFromString(std::string const &s) {
-            auto res = bytedata_utils::RunDeserializer<VoidStruct>::apply(s);
-            if (!res) {
-                return false;
-            }
-            return true;
-        }
-    };
-    template <class IDType, class KeyType>
-    struct SubscriptionInfo {
-        using Subscriptions = std::vector<std::tuple<IDType,std::vector<KeyType>>>;
-        Subscriptions subscriptions;
-        void SerializeToString(std::string *s) const {
-            std::tuple<Subscriptions const *> t {&subscriptions};
-            *s = bytedata_utils::RunSerializer<std::tuple<Subscriptions const *>>::apply(t);
-        }
-        bool ParseFromString(std::string const &s) {
-            auto res = bytedata_utils::RunDeserializer<std::tuple<Subscriptions>>::apply(s);
-            if (!res) {
-                return false;
-            }
-            subscriptions = std::move(std::get<0>(*res));
-            return true;
-        }
-    };
-    struct UnsubscribeAll {
-        void SerializeToString(std::string *s) const {
-            *s = bytedata_utils::RunSerializer<VoidStruct>::apply(VoidStruct {});
-        }
-        bool ParseFromString(std::string const &s) {
-            auto res = bytedata_utils::RunDeserializer<VoidStruct>::apply(s);
-            if (!res) {
-                return false;
-            }
-            return true;
-        }
-    };
-    template <class KeyType>
-    struct SnapshotRequest {
-        std::vector<KeyType> keys;
-        void SerializeToString(std::string *s) const {
-            *s = bytedata_utils::RunSerializer<std::vector<KeyType> const *>::apply(&keys);
-        }
-        bool ParseFromString(std::string const &s) {
-            auto res = bytedata_utils::RunDeserializer<std::vector<KeyType>>::apply(s);
-            if (!res) {
-                return false;
-            }
-            keys = std::move(*res);
-            return true;
-        }
-    };
+    #define SubscriptionFields \
+        ((std::vector<KeyType>, keys))
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT(((typename, KeyType)), Subscription, SubscriptionFields);
+    
+    #define UnsubscriptionFields \
+        ((IDType, originalSubscriptionID))
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT(((typename, IDType)), Unsubscription, UnsubscriptionFields);
+    
+    TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT(ListSubscriptions);
 
-    template <class KeyType>
-    inline std::ostream &operator<<(std::ostream &os, Subscription<KeyType> const &x) {
-        os << "Subscription{keys=[";
-        for (size_t ii = 0; ii < x.keys.size(); ++ii) {
-            if (ii > 0) {
-                os << ',';
-            }
-            os << x.keys[ii];
-        }
-        os << "]}";
-        return os;
-    }
-    template <class IDType, class KeyType>
-    inline std::ostream &operator<<(std::ostream &os, Unsubscription<IDType> const &x) {
-        os << "Unsubscription{id=" << x.id << "}";
-        return os;
-    }
-    inline std::ostream &operator<<(std::ostream &os, ListSubscriptions const &x) {
-        os << "ListSubscriptions{}";
-        return os;
-    }
-    template <class IDType, class KeyType>
-    inline std::ostream &operator<<(std::ostream &os, SubscriptionInfo<IDType,KeyType> const &x) {
-        os << "SubscriptionInfo{subscriptions=[";
-        size_t ii = 0;
-        for (auto const &item : x.subscriptions) {
-            if (ii > 0) {
-                os << ',';
-            }
-            ++ii;
-            os << "{id=" << std::get<0>(item);
-            os << ",keys=[";
-            size_t jj = 0;
-            for (auto const &key : std::get<1>(item)) {
-                if (jj > 0) {
-                    os << ',';
-                }
-                ++jj;
-                os << key;
-            }
-            os << "]}";
-        }
-        os << "]}";
-        return os;
-    }
-    inline std::ostream &operator<<(std::ostream &os, UnsubscribeAll const &x) {
-        os << "UnsubscribeAll{}";
-        return os;
-    }
-    template <class KeyType>
-    inline std::ostream &operator<<(std::ostream &os, SnapshotRequest<KeyType> const &x) {
-        os << "SnapshotRequest{keys=[";
-        for (size_t ii = 0; ii < x.keys.size(); ++ii) {
-            if (ii > 0) {
-                os << ',';
-            }
-            os << x.keys[ii];
-        }
-        os << "]}";
-        return os;
-    }
-    template <class KeyType>
-    inline bool operator==(Subscription<KeyType> const &x, Subscription<KeyType> const &y) {
-        return (x.keys == y.keys);
-    }
-    template <class IDType>
-    inline bool operator==(Unsubscription<IDType> const &x, Unsubscription<IDType> const &y) {
-        return (x.id == y.id);
-    }
-    inline bool operator==(ListSubscriptions const &, ListSubscriptions const &) {
-        return true;
-    }
-    template <class IDType, class KeyType>
-    inline bool operator==(SubscriptionInfo<IDType,KeyType> const &x, SubscriptionInfo<IDType,KeyType> const &y) {
-        return (x.subscriptions == y.subscriptions);
-    }
-    inline bool operator==(UnsubscribeAll const &, UnsubscribeAll const &) {
-        return true;
-    }
-    template <class KeyType>
-    inline bool operator==(SnapshotRequest<KeyType> const &x, SnapshotRequest<KeyType> const &y) {
-        return (x.keys == y.keys);
-    }
+    #ifdef _MSC_VER
+        #define SubscriptionInfoFields \
+            ((TM_BASIC_CBOR_CAPABLE_STRUCT_PROTECT_TYPE(std::vector<std::tuple<IDType,std::vector<KeyType>>>), subscriptions))
+    #else
+        #define SubscriptionInfoFields \
+            (((std::vector<std::tuple<IDType,std::vector<KeyType>>>), subscriptions))
+    #endif
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT(((typename, IDType)) ((typename, KeyType)), SubscriptionInfo, SubscriptionInfoFields);
+    
+    TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT(UnsubscribeAll);
+
+    #define SnapshotRequestFields \
+        ((std::vector<KeyType>, keys))
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT(((typename, KeyType)), SnapshotRequest, SnapshotRequestFields);
 
     //subscription and unsubscription ack's just use the exact same data types
 
@@ -660,235 +514,13 @@ namespace transaction { namespace v2 {
 
 } } 
     
-namespace bytedata_utils {
-    template <class KeyType>
-    struct RunCBORSerializer<transaction::v2::Subscription<KeyType>, void> {
-        static std::vector<uint8_t> apply(transaction::v2::Subscription<KeyType> const &x) {
-            std::tuple<std::vector<KeyType> const *> t {&x.keys};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<std::vector<KeyType> const *>, 1>
-                ::apply(t, {
-                    "keys"
-                });
-        }
-        static std::size_t apply(transaction::v2::Subscription<KeyType> const &x, char *output) {
-            std::tuple<std::vector<KeyType> const *> t {&x.keys};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<std::vector<KeyType> const *>, 1>
-                ::apply(t, {
-                    "keys"
-                }, output);
-        }
-        static std::size_t calculateSize(transaction::v2::Subscription<KeyType> const &x) {
-            std::tuple<std::vector<KeyType> const *> t {&x.keys};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<std::vector<KeyType> const *>, 1>
-                ::calculateSize(t, {
-                    "keys"
-                });
-        }
-    };
-    template <class KeyType>
-    struct RunCBORDeserializer<transaction::v2::Subscription<KeyType>, void> {
-        static std::optional<std::tuple<transaction::v2::Subscription<KeyType>,size_t>> apply(std::string_view const &data, size_t start) {
-            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<std::vector<KeyType>>, 1>
-                ::apply(data, start, {
-                    "keys"
-                });
-            if (!t) {
-                return std::nullopt;
-            }
-            return std::tuple<transaction::v2::Subscription<KeyType>,size_t> {
-                transaction::v2::Subscription<KeyType> {
-                    std::move(std::get<0>(std::get<0>(*t)))
-                }
-                , std::get<1>(*t)
-            };
-        }
-    };
-    template <class IDType>
-    struct RunCBORSerializer<transaction::v2::Unsubscription<IDType>, void> {
-        static std::vector<uint8_t> apply(transaction::v2::Unsubscription<IDType> const &x) {
-            std::tuple<IDType const *> t {&x.originalSubscriptionID};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<IDType const *>, 1>
-                ::apply(t, {
-                    "original_subscription_id"
-                });
-        }
-        static std::size_t apply(transaction::v2::Unsubscription<IDType> const &x, char *output) {
-            std::tuple<IDType const *> t {&x.originalSubscriptionID};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<IDType const *>, 1>
-                ::apply(t, {
-                    "original_subscription_id"
-                }, output);
-        }
-        static std::size_t calculateSize(transaction::v2::Unsubscription<IDType> const &x) {
-            std::tuple<IDType const *> t {&x.originalSubscriptionID};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<IDType const *>, 1>
-                ::calculateSize(t, {
-                    "original_subscription_id"
-                });
-        }
-    };
-    template <class IDType>
-    struct RunCBORDeserializer<transaction::v2::Unsubscription<IDType>, void> {
-        static std::optional<std::tuple<transaction::v2::Unsubscription<IDType>,size_t>> apply(std::string_view const &data, size_t start) {
-            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<IDType>, 1>
-                ::apply(data, start, {
-                    "original_subscription_id"
-                });
-            if (!t) {
-                return std::nullopt;
-            }
-            return std::tuple<transaction::v2::Unsubscription<IDType>,size_t> {
-                transaction::v2::Unsubscription<IDType> {
-                    std::move(std::get<0>(std::get<0>(*t)))
-                }
-                , std::get<1>(*t)
-            };
-        }
-    };
-    template <>
-    struct RunCBORSerializer<transaction::v2::ListSubscriptions, void> {
-        static std::vector<uint8_t> apply(transaction::v2::ListSubscriptions const &x) {
-            return bytedata_utils::RunCBORSerializer<VoidStruct>
-                ::apply(VoidStruct {});
-        }
-        static std::size_t apply(transaction::v2::ListSubscriptions const &x, char *output) {
-            return bytedata_utils::RunCBORSerializer<VoidStruct>
-                ::apply(VoidStruct {}, output);
-        }
-        static std::size_t calculateSize(transaction::v2::ListSubscriptions const &x) {
-            return bytedata_utils::RunCBORSerializer<VoidStruct>
-                ::calculateSize(VoidStruct {});
-        }
-    };
-    template <>
-    struct RunCBORDeserializer<transaction::v2::ListSubscriptions, void> {
-        static std::optional<std::tuple<transaction::v2::ListSubscriptions,size_t>> apply(std::string_view const &data, size_t start) {
-            auto t = bytedata_utils::RunCBORDeserializer<VoidStruct>
-                ::apply(data, start);
-            if (!t) {
-                return std::nullopt;
-            }
-            return std::tuple<transaction::v2::ListSubscriptions,size_t> {
-                transaction::v2::ListSubscriptions {}
-                , std::get<1>(*t)
-            };
-        }
-    };
-    template <class IDType, class KeyType>
-    struct RunCBORSerializer<transaction::v2::SubscriptionInfo<IDType,KeyType>, void> {
-        static std::vector<uint8_t> apply(transaction::v2::SubscriptionInfo<IDType,KeyType> const &x) {
-            std::tuple<typename transaction::v2::SubscriptionInfo<IDType,KeyType>::Subscriptions const *> t {&x.subscriptions};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<typename transaction::v2::SubscriptionInfo<IDType,KeyType>::Subscriptions const *>, 1>
-                ::apply(t, {
-                    "subscriptions"
-                });
-        }
-        static std::size_t apply(transaction::v2::SubscriptionInfo<IDType,KeyType> const &x, char *output) {
-            std::tuple<typename transaction::v2::SubscriptionInfo<IDType,KeyType>::Subscriptions const *> t {&x.subscriptions};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<typename transaction::v2::SubscriptionInfo<IDType,KeyType>::Subscriptions const *>, 1>
-                ::apply(t, {
-                    "subscriptions"
-                }, output);
-        }
-        static std::size_t calculateSize(transaction::v2::SubscriptionInfo<IDType,KeyType> const &x) {
-            std::tuple<typename transaction::v2::SubscriptionInfo<IDType,KeyType>::Subscriptions const *> t {&x.subscriptions};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<typename transaction::v2::SubscriptionInfo<IDType,KeyType>::Subscriptions const *>, 1>
-                ::calculateSize(t, {
-                    "subscriptions"
-                });
-        }
-    };
-    template <class IDType, class KeyType>
-    struct RunCBORDeserializer<transaction::v2::SubscriptionInfo<IDType,KeyType>, void> {
-        static std::optional<std::tuple<transaction::v2::SubscriptionInfo<IDType,KeyType>,size_t>> apply(std::string_view const &data, size_t start) {
-            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<typename transaction::v2::SubscriptionInfo<IDType,KeyType>::Subscriptions>, 1>
-                ::apply(data, start, {
-                    "subscriptions"
-                });
-            if (!t) {
-                return std::nullopt;
-            }
-            return std::tuple<transaction::v2::SubscriptionInfo<IDType,KeyType>,size_t> {
-                transaction::v2::SubscriptionInfo<IDType,KeyType> {
-                    std::move(std::get<0>(std::get<0>(*t)))
-                }
-                , std::get<1>(*t)
-            };
-        }
-    };
-    template <>
-    struct RunCBORSerializer<transaction::v2::UnsubscribeAll, void> {
-        static std::vector<uint8_t> apply(transaction::v2::UnsubscribeAll const &x) {
-            return bytedata_utils::RunCBORSerializer<VoidStruct>
-                ::apply(VoidStruct {});
-        }
-        static std::size_t apply(transaction::v2::UnsubscribeAll const &x, char *output) {
-            return bytedata_utils::RunCBORSerializer<VoidStruct>
-                ::apply(VoidStruct {}, output);
-        }
-        static std::size_t calculateSize(transaction::v2::UnsubscribeAll const &x) {
-            return bytedata_utils::RunCBORSerializer<VoidStruct>
-                ::calculateSize(VoidStruct {});
-        }
-    };
-    template <>
-    struct RunCBORDeserializer<transaction::v2::UnsubscribeAll, void> {
-        static std::optional<std::tuple<transaction::v2::UnsubscribeAll,size_t>> apply(std::string_view const &data, size_t start) {
-            auto t = bytedata_utils::RunCBORDeserializer<VoidStruct>
-                ::apply(data, start);
-            if (!t) {
-                return std::nullopt;
-            }
-            return std::tuple<transaction::v2::UnsubscribeAll,size_t> {
-                transaction::v2::UnsubscribeAll {}
-                , std::get<1>(*t)
-            };
-        }
-    };
-    template <class KeyType>
-    struct RunCBORSerializer<transaction::v2::SnapshotRequest<KeyType>, void> {
-        static std::vector<uint8_t> apply(transaction::v2::SnapshotRequest<KeyType> const &x) {
-            std::tuple<std::vector<KeyType> const *> t {&x.keys};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<std::vector<KeyType> const *>, 1>
-                ::apply(t, {
-                    "keys"
-                });
-        }
-        static std::size_t apply(transaction::v2::SnapshotRequest<KeyType> const &x, char *output) {
-            std::tuple<std::vector<KeyType> const *> t {&x.keys};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<std::vector<KeyType> const *>, 1>
-                ::apply(t, {
-                    "keys"
-                }, output);
-        }
-        static std::size_t calculateSize(transaction::v2::SnapshotRequest<KeyType> const &x) {
-            std::tuple<std::vector<KeyType> const *> t {&x.keys};
-            return bytedata_utils::RunCBORSerializerWithNameList<std::tuple<std::vector<KeyType> const *>, 1>
-                ::calculateSize(t, {
-                    "keys"
-                });
-        }
-    };
-    template <class KeyType>
-    struct RunCBORDeserializer<transaction::v2::SnapshotRequest<KeyType>, void> {
-        static std::optional<std::tuple<transaction::v2::SnapshotRequest<KeyType>,size_t>> apply(std::string_view const &data, size_t start) {
-            auto t = bytedata_utils::RunCBORDeserializerWithNameList<std::tuple<std::vector<KeyType>>, 1>
-                ::apply(data, start, {
-                    "keys"
-                });
-            if (!t) {
-                return std::nullopt;
-            }
-            return std::tuple<transaction::v2::SnapshotRequest<KeyType>,size_t> {
-                transaction::v2::SnapshotRequest<KeyType> {
-                    std::move(std::get<0>(std::get<0>(*t)))
-                }
-                , std::get<1>(*t)
-            };
-        }
-    };
-}
-
 } } } }
+
+TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_SERIALIZE(((typename, KeyType)), dev::cd606::tm::basic::transaction::v2::Subscription, SubscriptionFields);
+TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_SERIALIZE(((typename, IDType)), dev::cd606::tm::basic::transaction::v2::Unsubscription, UnsubscriptionFields);
+TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_SERIALIZE(dev::cd606::tm::basic::transaction::v2::ListSubscriptions);
+TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_SERIALIZE(((typename, IDType)) ((typename, KeyType)), dev::cd606::tm::basic::transaction::v2::SubscriptionInfo, SubscriptionInfoFields);
+TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_SERIALIZE(dev::cd606::tm::basic::transaction::v2::UnsubscribeAll);
+TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_SERIALIZE(((typename, KeyType)), dev::cd606::tm::basic::transaction::v2::SnapshotRequest, SnapshotRequestFields);
 
 #endif

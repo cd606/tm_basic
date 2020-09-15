@@ -20,30 +20,11 @@ struct RunSerializer<std::variant<A0,A1>> {
 };
 template <class A0, class A1>
 struct RunCBORSerializer<std::variant<A0,A1>> {
-    static std::vector<uint8_t> apply(std::variant<A0,A1> const &data) {
-        auto v = RunCBORSerializer<size_t>::apply(2);
-        v[0] = v[0] | 0x80;
-        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
-        v.insert(v.end(), idx.begin(), idx.end());
-        switch (data.index()) {
-        case 0:
-            {
-                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
-                v.insert(v.end(), a0.begin(), a0.end());
-                break;
-            }
-            break;
-        case 1:
-            {
-                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
-                v.insert(v.end(), a1.begin(), a1.end());
-                break;
-            }
-            break;
-        default:
-            break;
-        }
-        return v;
+    static std::string apply(std::variant<A0,A1> const &data) {
+        std::string s;
+        s.resize(calculateSize(data));
+        apply(data, const_cast<char *>(s.data()));
+        return s;
     }
     static std::size_t apply(std::variant<A0,A1> const &data, char *output) {
         auto s = RunCBORSerializer<size_t>::apply(2, output);
@@ -196,37 +177,11 @@ struct RunSerializer<std::variant<A0,A1,A2>> {
 };
 template <class A0, class A1, class A2>
 struct RunCBORSerializer<std::variant<A0,A1,A2>> {
-    static std::vector<uint8_t> apply(std::variant<A0,A1,A2> const &data) {
-        auto v = RunCBORSerializer<size_t>::apply(2);
-        v[0] = v[0] | 0x80;
-        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
-        v.insert(v.end(), idx.begin(), idx.end());
-        switch (data.index()) {
-        case 0:
-            {
-                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
-                v.insert(v.end(), a0.begin(), a0.end());
-                break;
-            }
-            break;
-        case 1:
-            {
-                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
-                v.insert(v.end(), a1.begin(), a1.end());
-                break;
-            }
-            break;
-        case 2:
-            {
-                auto a2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
-                v.insert(v.end(), a2.begin(), a2.end());
-                break;
-            }
-            break;
-        default:
-            break;
-        }
-        return v;
+    static std::string apply(std::variant<A0,A1,A2> const &data) {
+        std::string s;
+        s.resize(calculateSize(data));
+        apply(data, const_cast<char *>(s.data()));
+        return s;
     }
     static std::size_t apply(std::variant<A0,A1,A2> const &data, char *output) {
         auto s = RunCBORSerializer<size_t>::apply(2, output);
@@ -411,44 +366,11 @@ struct RunSerializer<std::variant<A0,A1,A2,A3>> {
 };
 template <class A0, class A1, class A2, class A3>
 struct RunCBORSerializer<std::variant<A0,A1,A2,A3>> {
-    static std::vector<uint8_t> apply(std::variant<A0,A1,A2,A3> const &data) {
-        auto v = RunCBORSerializer<size_t>::apply(2);
-        v[0] = v[0] | 0x80;
-        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
-        v.insert(v.end(), idx.begin(), idx.end());
-        switch (data.index()) {
-        case 0:
-            {
-                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
-                v.insert(v.end(), a0.begin(), a0.end());
-                break;
-            }
-            break;
-        case 1:
-            {
-                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
-                v.insert(v.end(), a1.begin(), a1.end());
-                break;
-            }
-            break;
-        case 2:
-            {
-                auto a2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
-                v.insert(v.end(), a2.begin(), a2.end());
-                break;
-            }
-            break;
-        case 3:
-            {
-                auto a3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
-                v.insert(v.end(), a3.begin(), a3.end());
-                break;
-            }
-            break;
-        default:
-            break;
-        }
-        return v;
+    static std::string apply(std::variant<A0,A1,A2,A3> const &data) {
+        std::string s;
+        s.resize(calculateSize(data));
+        apply(data, const_cast<char *>(s.data()));
+        return s;
     }
     static std::size_t apply(std::variant<A0,A1,A2,A3> const &data, char *output) {
         auto s = RunCBORSerializer<size_t>::apply(2, output);
@@ -665,51 +587,11 @@ struct RunSerializer<std::variant<A0,A1,A2,A3,A4>> {
 };
 template <class A0, class A1, class A2, class A3, class A4>
 struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4>> {
-    static std::vector<uint8_t> apply(std::variant<A0,A1,A2,A3,A4> const &data) {
-        auto v = RunCBORSerializer<size_t>::apply(2);
-        v[0] = v[0] | 0x80;
-        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
-        v.insert(v.end(), idx.begin(), idx.end());
-        switch (data.index()) {
-        case 0:
-            {
-                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
-                v.insert(v.end(), a0.begin(), a0.end());
-                break;
-            }
-            break;
-        case 1:
-            {
-                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
-                v.insert(v.end(), a1.begin(), a1.end());
-                break;
-            }
-            break;
-        case 2:
-            {
-                auto a2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
-                v.insert(v.end(), a2.begin(), a2.end());
-                break;
-            }
-            break;
-        case 3:
-            {
-                auto a3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
-                v.insert(v.end(), a3.begin(), a3.end());
-                break;
-            }
-            break;
-        case 4:
-            {
-                auto a4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
-                v.insert(v.end(), a4.begin(), a4.end());
-                break;
-            }
-            break;
-        default:
-            break;
-        }
-        return v;
+    static std::string apply(std::variant<A0,A1,A2,A3,A4> const &data) {
+        std::string s;
+        s.resize(calculateSize(data));
+        apply(data, const_cast<char *>(s.data()));
+        return s;
     }
     static std::size_t apply(std::variant<A0,A1,A2,A3,A4> const &data, char *output) {
         auto s = RunCBORSerializer<size_t>::apply(2, output);
@@ -958,58 +840,11 @@ struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5>
 struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5>> {
-    static std::vector<uint8_t> apply(std::variant<A0,A1,A2,A3,A4,A5> const &data) {
-        auto v = RunCBORSerializer<size_t>::apply(2);
-        v[0] = v[0] | 0x80;
-        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
-        v.insert(v.end(), idx.begin(), idx.end());
-        switch (data.index()) {
-        case 0:
-            {
-                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
-                v.insert(v.end(), a0.begin(), a0.end());
-                break;
-            }
-            break;
-        case 1:
-            {
-                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
-                v.insert(v.end(), a1.begin(), a1.end());
-                break;
-            }
-            break;
-        case 2:
-            {
-                auto a2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
-                v.insert(v.end(), a2.begin(), a2.end());
-                break;
-            }
-            break;
-        case 3:
-            {
-                auto a3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
-                v.insert(v.end(), a3.begin(), a3.end());
-                break;
-            }
-            break;
-        case 4:
-            {
-                auto a4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
-                v.insert(v.end(), a4.begin(), a4.end());
-                break;
-            }
-            break;
-        case 5:
-            {
-                auto a5 = RunCBORSerializer<A5>::apply(std::get<5>(data));
-                v.insert(v.end(), a5.begin(), a5.end());
-                break;
-            }
-            break;
-        default:
-            break;
-        }
-        return v;
+    static std::string apply(std::variant<A0,A1,A2,A3,A4,A5> const &data) {
+        std::string s;
+        s.resize(calculateSize(data));
+        apply(data, const_cast<char *>(s.data()));
+        return s;
     }
     static std::size_t apply(std::variant<A0,A1,A2,A3,A4,A5> const &data, char *output) {
         auto s = RunCBORSerializer<size_t>::apply(2, output);
@@ -1290,65 +1125,11 @@ struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6>
 struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
-    static std::vector<uint8_t> apply(std::variant<A0,A1,A2,A3,A4,A5,A6> const &data) {
-        auto v = RunCBORSerializer<size_t>::apply(2);
-        v[0] = v[0] | 0x80;
-        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
-        v.insert(v.end(), idx.begin(), idx.end());
-        switch (data.index()) {
-        case 0:
-            {
-                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
-                v.insert(v.end(), a0.begin(), a0.end());
-                break;
-            }
-            break;
-        case 1:
-            {
-                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
-                v.insert(v.end(), a1.begin(), a1.end());
-                break;
-            }
-            break;
-        case 2:
-            {
-                auto a2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
-                v.insert(v.end(), a2.begin(), a2.end());
-                break;
-            }
-            break;
-        case 3:
-            {
-                auto a3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
-                v.insert(v.end(), a3.begin(), a3.end());
-                break;
-            }
-            break;
-        case 4:
-            {
-                auto a4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
-                v.insert(v.end(), a4.begin(), a4.end());
-                break;
-            }
-            break;
-        case 5:
-            {
-                auto a5 = RunCBORSerializer<A5>::apply(std::get<5>(data));
-                v.insert(v.end(), a5.begin(), a5.end());
-                break;
-            }
-            break;
-        case 6:
-            {
-                auto a6 = RunCBORSerializer<A6>::apply(std::get<6>(data));
-                v.insert(v.end(), a6.begin(), a6.end());
-                break;
-            }
-            break;
-        default:
-            break;
-        }
-        return v;
+    static std::string apply(std::variant<A0,A1,A2,A3,A4,A5,A6> const &data) {
+        std::string s;
+        s.resize(calculateSize(data));
+        apply(data, const_cast<char *>(s.data()));
+        return s;
     }
     static std::size_t apply(std::variant<A0,A1,A2,A3,A4,A5,A6> const &data, char *output) {
         auto s = RunCBORSerializer<size_t>::apply(2, output);
@@ -1661,72 +1442,11 @@ struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7>
 struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
-    static std::vector<uint8_t> apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7> const &data) {
-        auto v = RunCBORSerializer<size_t>::apply(2);
-        v[0] = v[0] | 0x80;
-        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
-        v.insert(v.end(), idx.begin(), idx.end());
-        switch (data.index()) {
-        case 0:
-            {
-                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
-                v.insert(v.end(), a0.begin(), a0.end());
-                break;
-            }
-            break;
-        case 1:
-            {
-                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
-                v.insert(v.end(), a1.begin(), a1.end());
-                break;
-            }
-            break;
-        case 2:
-            {
-                auto a2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
-                v.insert(v.end(), a2.begin(), a2.end());
-                break;
-            }
-            break;
-        case 3:
-            {
-                auto a3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
-                v.insert(v.end(), a3.begin(), a3.end());
-                break;
-            }
-            break;
-        case 4:
-            {
-                auto a4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
-                v.insert(v.end(), a4.begin(), a4.end());
-                break;
-            }
-            break;
-        case 5:
-            {
-                auto a5 = RunCBORSerializer<A5>::apply(std::get<5>(data));
-                v.insert(v.end(), a5.begin(), a5.end());
-                break;
-            }
-            break;
-        case 6:
-            {
-                auto a6 = RunCBORSerializer<A6>::apply(std::get<6>(data));
-                v.insert(v.end(), a6.begin(), a6.end());
-                break;
-            }
-            break;
-        case 7:
-            {
-                auto a7 = RunCBORSerializer<A7>::apply(std::get<7>(data));
-                v.insert(v.end(), a7.begin(), a7.end());
-                break;
-            }
-            break;
-        default:
-            break;
-        }
-        return v;
+    static std::string apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7> const &data) {
+        std::string s;
+        s.resize(calculateSize(data));
+        apply(data, const_cast<char *>(s.data()));
+        return s;
     }
     static std::size_t apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7> const &data, char *output) {
         auto s = RunCBORSerializer<size_t>::apply(2, output);
@@ -2071,79 +1791,11 @@ struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8>
 struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
-    static std::vector<uint8_t> apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> const &data) {
-        auto v = RunCBORSerializer<size_t>::apply(2);
-        v[0] = v[0] | 0x80;
-        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
-        v.insert(v.end(), idx.begin(), idx.end());
-        switch (data.index()) {
-        case 0:
-            {
-                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
-                v.insert(v.end(), a0.begin(), a0.end());
-                break;
-            }
-            break;
-        case 1:
-            {
-                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
-                v.insert(v.end(), a1.begin(), a1.end());
-                break;
-            }
-            break;
-        case 2:
-            {
-                auto a2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
-                v.insert(v.end(), a2.begin(), a2.end());
-                break;
-            }
-            break;
-        case 3:
-            {
-                auto a3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
-                v.insert(v.end(), a3.begin(), a3.end());
-                break;
-            }
-            break;
-        case 4:
-            {
-                auto a4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
-                v.insert(v.end(), a4.begin(), a4.end());
-                break;
-            }
-            break;
-        case 5:
-            {
-                auto a5 = RunCBORSerializer<A5>::apply(std::get<5>(data));
-                v.insert(v.end(), a5.begin(), a5.end());
-                break;
-            }
-            break;
-        case 6:
-            {
-                auto a6 = RunCBORSerializer<A6>::apply(std::get<6>(data));
-                v.insert(v.end(), a6.begin(), a6.end());
-                break;
-            }
-            break;
-        case 7:
-            {
-                auto a7 = RunCBORSerializer<A7>::apply(std::get<7>(data));
-                v.insert(v.end(), a7.begin(), a7.end());
-                break;
-            }
-            break;
-        case 8:
-            {
-                auto a8 = RunCBORSerializer<A8>::apply(std::get<8>(data));
-                v.insert(v.end(), a8.begin(), a8.end());
-                break;
-            }
-            break;
-        default:
-            break;
-        }
-        return v;
+    static std::string apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> const &data) {
+        std::string s;
+        s.resize(calculateSize(data));
+        apply(data, const_cast<char *>(s.data()));
+        return s;
     }
     static std::size_t apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> const &data, char *output) {
         auto s = RunCBORSerializer<size_t>::apply(2, output);
@@ -2520,86 +2172,11 @@ struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8, class A9>
 struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
-    static std::vector<uint8_t> apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> const &data) {
-        auto v = RunCBORSerializer<size_t>::apply(2);
-        v[0] = v[0] | 0x80;
-        auto idx = RunCBORSerializer<uint8_t>::apply((uint8_t) data.index());
-        v.insert(v.end(), idx.begin(), idx.end());
-        switch (data.index()) {
-        case 0:
-            {
-                auto a0 = RunCBORSerializer<A0>::apply(std::get<0>(data));
-                v.insert(v.end(), a0.begin(), a0.end());
-                break;
-            }
-            break;
-        case 1:
-            {
-                auto a1 = RunCBORSerializer<A1>::apply(std::get<1>(data));
-                v.insert(v.end(), a1.begin(), a1.end());
-                break;
-            }
-            break;
-        case 2:
-            {
-                auto a2 = RunCBORSerializer<A2>::apply(std::get<2>(data));
-                v.insert(v.end(), a2.begin(), a2.end());
-                break;
-            }
-            break;
-        case 3:
-            {
-                auto a3 = RunCBORSerializer<A3>::apply(std::get<3>(data));
-                v.insert(v.end(), a3.begin(), a3.end());
-                break;
-            }
-            break;
-        case 4:
-            {
-                auto a4 = RunCBORSerializer<A4>::apply(std::get<4>(data));
-                v.insert(v.end(), a4.begin(), a4.end());
-                break;
-            }
-            break;
-        case 5:
-            {
-                auto a5 = RunCBORSerializer<A5>::apply(std::get<5>(data));
-                v.insert(v.end(), a5.begin(), a5.end());
-                break;
-            }
-            break;
-        case 6:
-            {
-                auto a6 = RunCBORSerializer<A6>::apply(std::get<6>(data));
-                v.insert(v.end(), a6.begin(), a6.end());
-                break;
-            }
-            break;
-        case 7:
-            {
-                auto a7 = RunCBORSerializer<A7>::apply(std::get<7>(data));
-                v.insert(v.end(), a7.begin(), a7.end());
-                break;
-            }
-            break;
-        case 8:
-            {
-                auto a8 = RunCBORSerializer<A8>::apply(std::get<8>(data));
-                v.insert(v.end(), a8.begin(), a8.end());
-                break;
-            }
-            break;
-        case 9:
-            {
-                auto a9 = RunCBORSerializer<A9>::apply(std::get<9>(data));
-                v.insert(v.end(), a9.begin(), a9.end());
-                break;
-            }
-            break;
-        default:
-            break;
-        }
-        return v;
+    static std::string apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> const &data) {
+        std::string s;
+        s.resize(calculateSize(data));
+        apply(data, const_cast<char *>(s.data()));
+        return s;
     }
     static std::size_t apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> const &data, char *output) {
         auto s = RunCBORSerializer<size_t>::apply(2, output);
