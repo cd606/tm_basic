@@ -1490,9 +1490,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <class T>
         struct RunSerializer<CBOR<T>, void> {
             static std::string apply(CBOR<T> const &data) {
+                /*
                 auto res = RunCBORSerializer<T>::apply(data.value);
                 const char *p = reinterpret_cast<const char *>(res.data());
                 return std::string {p, p+res.size()};
+                */
+                std::string s;
+                auto actualSize = RunCBORSerializer<T>::calculateSize(data.value);
+                s.resize(actualSize);
+                auto res = RunCBORSerializer<T>::apply(data.value, const_cast<char *>(s.c_str()));
+                s.resize(res);
+                return s;
             }
         };
         template <class T>
