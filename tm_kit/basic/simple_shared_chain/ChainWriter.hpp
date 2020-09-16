@@ -37,6 +37,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 }
             }
             virtual void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
+                static auto checker = boost::hana::is_valid(
+                    [](auto *h, auto *v) -> decltype((void) (h->discardUnattachedChainItem(*v))) {}
+                );
+               
                 auto id = data.timedData.value.id();
                 while (true) {
                     while (true) {
@@ -57,6 +61,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                                 id, std::move(std::get<0>(processResult))
                             }, true);
                             break;
+                        } else {
+                            //at this point processResult might be already empty (since it was passed
+                            //as a right reference to appendAfter), discardUnattachedChainItem implementation needs
+                            //to consider that
+                            if constexpr (checker(
+                                (InputHandler *) nullptr
+                                , (typename Chain::ItemType *) nullptr
+                            )) {
+                                parent_->inputHandler_.discardUnattachedChainItem(*std::get<1>(processResult));
+                            }
                         }
                     } else {
                         parent_->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
@@ -132,6 +146,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         typename ChainItemFolder::ResultType currentState_;
     protected:
         virtual void handle(typename infra::SinglePassIterationApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
+            static auto checker = boost::hana::is_valid(
+                [](auto *h, auto *v) -> decltype((void) (h->discardUnattachedChainItem(*v))) {}
+            );
             auto id = data.timedData.value.id();
             while (true) {
                 while (true) {
@@ -152,6 +169,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                             id, std::move(std::get<0>(processResult))
                         }, true);
                         break;
+                    } else {
+                        //at this point processResult might be already empty (since it was passed
+                        //as a right reference to appendAfter), discardUnattachedChainItem implementation needs
+                        //to consider that
+                        if constexpr (checker(
+                            (InputHandler *) nullptr
+                            , (typename Chain::ItemType *) nullptr
+                        )) {
+                            inputHandler_.discardUnattachedChainItem(*std::get<1>(processResult));
+                        }
                     }
                 } else {
                     this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
