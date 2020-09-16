@@ -50,7 +50,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     std::tuple<
                         typename InputHandler::ResponseType
                         , std::optional<typename Chain::ItemType>
-                    > processResult = parent_->inputHandler_.handleInput(data.environment, std::move(data.timedData.value), parent_->currentState_);
+                    > processResult = parent_->inputHandler_.handleInput(data.environment, std::move(data.timedData), parent_->currentState_);
                     if (std::get<1>(processResult)) {    
                         if (parent_->chain_->appendAfter(parent_->currentItem_, std::move(*std::get<1>(processResult)))) {
                             parent_->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
@@ -145,7 +145,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 std::tuple<
                     typename InputHandler::ResponseType
                     , std::optional<typename Chain::ItemType>
-                > processResult = inputHandler_.handleInput(data.environment, std::move(data.timedData.value), currentState_);
+                > processResult = inputHandler_.handleInput(data.environment, std::move(data.timedData), currentState_);
                 if (std::get<1>(processResult)) {    
                     if (chain_->appendAfter(currentItem_, std::move(*std::get<1>(processResult)))) {
                         this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
