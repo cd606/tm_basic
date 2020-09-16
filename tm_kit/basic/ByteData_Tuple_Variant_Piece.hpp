@@ -1,24 +1,6 @@
 #include <tm_kit/basic/ByteData_Tuple_Piece.hpp>
 
 template <class A0, class A1>
-struct RunSerializer<std::variant<A0,A1>> {
-    static std::string apply(std::variant<A0,A1> const &data) {
-        std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
-        switch (data.index()) {
-        case 0:
-            oss << RunSerializer<A0>::apply(std::get<0>(data));
-            break;
-        case 1:
-            oss << RunSerializer<A1>::apply(std::get<1>(data));
-            break;
-        default:
-            break;
-        }
-        return oss.str();
-    }
-};
-template <class A0, class A1>
 struct RunCBORSerializer<std::variant<A0,A1>> {
     static std::string apply(std::variant<A0,A1> const &data) {
         std::string s;
@@ -73,42 +55,6 @@ struct RunCBORSerializer<std::variant<A0,A1>> {
     }
 };
 template <class A0, class A1>
-struct RunDeserializer<std::variant<A0,A1>> {
-    static std::optional<std::variant<A0,A1>> apply(std::string const &data) {
-        const char *p = data.c_str();
-        size_t len = data.length();
-        if (len < sizeof(int8_t)) {
-            return std::nullopt;
-        }
-        auto which = RunDeserializer<int8_t>::apply(std::string(p, p+sizeof(int8_t)));
-        if (!which) {
-            return std::nullopt;
-        }
-        p += sizeof(int8_t);
-        len -= sizeof(int8_t);
-        switch (*which) {
-        case 0:
-            {
-                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1> { std::move(*res) };
-            }
-        case 1:
-            {
-                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1> { std::move(*res) };
-            }
-        default:
-            return std::nullopt;
-        }
-    }
-};
-template <class A0, class A1>
 struct RunCBORDeserializer<std::variant<A0,A1>> {
     static std::optional<std::tuple<std::variant<A0,A1>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
@@ -152,27 +98,6 @@ struct RunCBORDeserializer<std::variant<A0,A1>> {
         default:
             return std::nullopt;
         }
-    }
-};
-template <class A0, class A1, class A2>
-struct RunSerializer<std::variant<A0,A1,A2>> {
-    static std::string apply(std::variant<A0,A1,A2> const &data) {
-        std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
-        switch (data.index()) {
-        case 0:
-            oss << RunSerializer<A0>::apply(std::get<0>(data));
-            break;
-        case 1:
-            oss << RunSerializer<A1>::apply(std::get<1>(data));
-            break;
-        case 2:
-            oss << RunSerializer<A2>::apply(std::get<2>(data));
-            break;
-        default:
-            break;
-        }
-        return oss.str();
     }
 };
 template <class A0, class A1, class A2>
@@ -242,50 +167,6 @@ struct RunCBORSerializer<std::variant<A0,A1,A2>> {
     }
 };
 template <class A0, class A1, class A2>
-struct RunDeserializer<std::variant<A0,A1,A2>> {
-    static std::optional<std::variant<A0,A1,A2>> apply(std::string const &data) {
-        const char *p = data.c_str();
-        size_t len = data.length();
-        if (len < sizeof(int8_t)) {
-            return std::nullopt;
-        }
-        auto which = RunDeserializer<int8_t>::apply(std::string(p, p+sizeof(int8_t)));
-        if (!which) {
-            return std::nullopt;
-        }
-        p += sizeof(int8_t);
-        len -= sizeof(int8_t);
-        switch (*which) {
-        case 0:
-            {
-                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2> { std::move(*res) };
-            }
-        case 1:
-            {
-                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2> { std::move(*res) };
-            }
-        case 2:
-            {
-                auto res = RunDeserializer<A2>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2> { std::move(*res) };
-            }
-        default:
-            return std::nullopt;
-        }
-    }
-};
-template <class A0, class A1, class A2>
 struct RunCBORDeserializer<std::variant<A0,A1,A2>> {
     static std::optional<std::tuple<std::variant<A0,A1,A2>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
@@ -338,30 +219,6 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2>> {
         default:
             return std::nullopt;
         }
-    }
-};
-template <class A0, class A1, class A2, class A3>
-struct RunSerializer<std::variant<A0,A1,A2,A3>> {
-    static std::string apply(std::variant<A0,A1,A2,A3> const &data) {
-        std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
-        switch (data.index()) {
-        case 0:
-            oss << RunSerializer<A0>::apply(std::get<0>(data));
-            break;
-        case 1:
-            oss << RunSerializer<A1>::apply(std::get<1>(data));
-            break;
-        case 2:
-            oss << RunSerializer<A2>::apply(std::get<2>(data));
-            break;
-        case 3:
-            oss << RunSerializer<A3>::apply(std::get<3>(data));
-            break;
-        default:
-            break;
-        }
-        return oss.str();
     }
 };
 template <class A0, class A1, class A2, class A3>
@@ -443,58 +300,6 @@ struct RunCBORSerializer<std::variant<A0,A1,A2,A3>> {
     }
 };
 template <class A0, class A1, class A2, class A3>
-struct RunDeserializer<std::variant<A0,A1,A2,A3>> {
-    static std::optional<std::variant<A0,A1,A2,A3>> apply(std::string const &data) {
-        const char *p = data.c_str();
-        size_t len = data.length();
-        if (len < sizeof(int8_t)) {
-            return std::nullopt;
-        }
-        auto which = RunDeserializer<int8_t>::apply(std::string(p, p+sizeof(int8_t)));
-        if (!which) {
-            return std::nullopt;
-        }
-        p += sizeof(int8_t);
-        len -= sizeof(int8_t);
-        switch (*which) {
-        case 0:
-            {
-                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3> { std::move(*res) };
-            }
-        case 1:
-            {
-                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3> { std::move(*res) };
-            }
-        case 2:
-            {
-                auto res = RunDeserializer<A2>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3> { std::move(*res) };
-            }
-        case 3:
-            {
-                auto res = RunDeserializer<A3>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3> { std::move(*res) };
-            }
-        default:
-            return std::nullopt;
-        }
-    }
-};
-template <class A0, class A1, class A2, class A3>
 struct RunCBORDeserializer<std::variant<A0,A1,A2,A3>> {
     static std::optional<std::tuple<std::variant<A0,A1,A2,A3>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
@@ -556,33 +361,6 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3>> {
         default:
             return std::nullopt;
         }
-    }
-};
-template <class A0, class A1, class A2, class A3, class A4>
-struct RunSerializer<std::variant<A0,A1,A2,A3,A4>> {
-    static std::string apply(std::variant<A0,A1,A2,A3,A4> const &data) {
-        std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
-        switch (data.index()) {
-        case 0:
-            oss << RunSerializer<A0>::apply(std::get<0>(data));
-            break;
-        case 1:
-            oss << RunSerializer<A1>::apply(std::get<1>(data));
-            break;
-        case 2:
-            oss << RunSerializer<A2>::apply(std::get<2>(data));
-            break;
-        case 3:
-            oss << RunSerializer<A3>::apply(std::get<3>(data));
-            break;
-        case 4:
-            oss << RunSerializer<A4>::apply(std::get<4>(data));
-            break;
-        default:
-            break;
-        }
-        return oss.str();
     }
 };
 template <class A0, class A1, class A2, class A3, class A4>
@@ -676,66 +454,6 @@ struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4>> {
     }
 };
 template <class A0, class A1, class A2, class A3, class A4>
-struct RunDeserializer<std::variant<A0,A1,A2,A3,A4>> {
-    static std::optional<std::variant<A0,A1,A2,A3,A4>> apply(std::string const &data) {
-        const char *p = data.c_str();
-        size_t len = data.length();
-        if (len < sizeof(int8_t)) {
-            return std::nullopt;
-        }
-        auto which = RunDeserializer<int8_t>::apply(std::string(p, p+sizeof(int8_t)));
-        if (!which) {
-            return std::nullopt;
-        }
-        p += sizeof(int8_t);
-        len -= sizeof(int8_t);
-        switch (*which) {
-        case 0:
-            {
-                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4> { std::move(*res) };
-            }
-        case 1:
-            {
-                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4> { std::move(*res) };
-            }
-        case 2:
-            {
-                auto res = RunDeserializer<A2>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4> { std::move(*res) };
-            }
-        case 3:
-            {
-                auto res = RunDeserializer<A3>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4> { std::move(*res) };
-            }
-        case 4:
-            {
-                auto res = RunDeserializer<A4>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4> { std::move(*res) };
-            }
-        default:
-            return std::nullopt;
-        }
-    }
-};
-template <class A0, class A1, class A2, class A3, class A4>
 struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4>> {
     static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
@@ -806,36 +524,6 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4>> {
         default:
             return std::nullopt;
         }
-    }
-};
-template <class A0, class A1, class A2, class A3, class A4, class A5>
-struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5>> {
-    static std::string apply(std::variant<A0,A1,A2,A3,A4,A5> const &data) {
-        std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
-        switch (data.index()) {
-        case 0:
-            oss << RunSerializer<A0>::apply(std::get<0>(data));
-            break;
-        case 1:
-            oss << RunSerializer<A1>::apply(std::get<1>(data));
-            break;
-        case 2:
-            oss << RunSerializer<A2>::apply(std::get<2>(data));
-            break;
-        case 3:
-            oss << RunSerializer<A3>::apply(std::get<3>(data));
-            break;
-        case 4:
-            oss << RunSerializer<A4>::apply(std::get<4>(data));
-            break;
-        case 5:
-            oss << RunSerializer<A5>::apply(std::get<5>(data));
-            break;
-        default:
-            break;
-        }
-        return oss.str();
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5>
@@ -941,74 +629,6 @@ struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5>> {
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5>
-struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
-    static std::optional<std::variant<A0,A1,A2,A3,A4,A5>> apply(std::string const &data) {
-        const char *p = data.c_str();
-        size_t len = data.length();
-        if (len < sizeof(int8_t)) {
-            return std::nullopt;
-        }
-        auto which = RunDeserializer<int8_t>::apply(std::string(p, p+sizeof(int8_t)));
-        if (!which) {
-            return std::nullopt;
-        }
-        p += sizeof(int8_t);
-        len -= sizeof(int8_t);
-        switch (*which) {
-        case 0:
-            {
-                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5> { std::move(*res) };
-            }
-        case 1:
-            {
-                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5> { std::move(*res) };
-            }
-        case 2:
-            {
-                auto res = RunDeserializer<A2>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5> { std::move(*res) };
-            }
-        case 3:
-            {
-                auto res = RunDeserializer<A3>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5> { std::move(*res) };
-            }
-        case 4:
-            {
-                auto res = RunDeserializer<A4>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5> { std::move(*res) };
-            }
-        case 5:
-            {
-                auto res = RunDeserializer<A5>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5> { std::move(*res) };
-            }
-        default:
-            return std::nullopt;
-        }
-    }
-};
-template <class A0, class A1, class A2, class A3, class A4, class A5>
 struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
     static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
@@ -1088,39 +708,6 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
         default:
             return std::nullopt;
         }
-    }
-};
-template <class A0, class A1, class A2, class A3, class A4, class A5, class A6>
-struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
-    static std::string apply(std::variant<A0,A1,A2,A3,A4,A5,A6> const &data) {
-        std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
-        switch (data.index()) {
-        case 0:
-            oss << RunSerializer<A0>::apply(std::get<0>(data));
-            break;
-        case 1:
-            oss << RunSerializer<A1>::apply(std::get<1>(data));
-            break;
-        case 2:
-            oss << RunSerializer<A2>::apply(std::get<2>(data));
-            break;
-        case 3:
-            oss << RunSerializer<A3>::apply(std::get<3>(data));
-            break;
-        case 4:
-            oss << RunSerializer<A4>::apply(std::get<4>(data));
-            break;
-        case 5:
-            oss << RunSerializer<A5>::apply(std::get<5>(data));
-            break;
-        case 6:
-            oss << RunSerializer<A6>::apply(std::get<6>(data));
-            break;
-        default:
-            break;
-        }
-        return oss.str();
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6>
@@ -1238,82 +825,6 @@ struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6>
-struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
-    static std::optional<std::variant<A0,A1,A2,A3,A4,A5,A6>> apply(std::string const &data) {
-        const char *p = data.c_str();
-        size_t len = data.length();
-        if (len < sizeof(int8_t)) {
-            return std::nullopt;
-        }
-        auto which = RunDeserializer<int8_t>::apply(std::string(p, p+sizeof(int8_t)));
-        if (!which) {
-            return std::nullopt;
-        }
-        p += sizeof(int8_t);
-        len -= sizeof(int8_t);
-        switch (*which) {
-        case 0:
-            {
-                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6> { std::move(*res) };
-            }
-        case 1:
-            {
-                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6> { std::move(*res) };
-            }
-        case 2:
-            {
-                auto res = RunDeserializer<A2>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6> { std::move(*res) };
-            }
-        case 3:
-            {
-                auto res = RunDeserializer<A3>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6> { std::move(*res) };
-            }
-        case 4:
-            {
-                auto res = RunDeserializer<A4>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6> { std::move(*res) };
-            }
-        case 5:
-            {
-                auto res = RunDeserializer<A5>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6> { std::move(*res) };
-            }
-        case 6:
-            {
-                auto res = RunDeserializer<A6>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6> { std::move(*res) };
-            }
-        default:
-            return std::nullopt;
-        }
-    }
-};
-template <class A0, class A1, class A2, class A3, class A4, class A5, class A6>
 struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
     static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
@@ -1402,42 +913,6 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
         default:
             return std::nullopt;
         }
-    }
-};
-template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7>
-struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
-    static std::string apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7> const &data) {
-        std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
-        switch (data.index()) {
-        case 0:
-            oss << RunSerializer<A0>::apply(std::get<0>(data));
-            break;
-        case 1:
-            oss << RunSerializer<A1>::apply(std::get<1>(data));
-            break;
-        case 2:
-            oss << RunSerializer<A2>::apply(std::get<2>(data));
-            break;
-        case 3:
-            oss << RunSerializer<A3>::apply(std::get<3>(data));
-            break;
-        case 4:
-            oss << RunSerializer<A4>::apply(std::get<4>(data));
-            break;
-        case 5:
-            oss << RunSerializer<A5>::apply(std::get<5>(data));
-            break;
-        case 6:
-            oss << RunSerializer<A6>::apply(std::get<6>(data));
-            break;
-        case 7:
-            oss << RunSerializer<A7>::apply(std::get<7>(data));
-            break;
-        default:
-            break;
-        }
-        return oss.str();
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7>
@@ -1567,90 +1042,6 @@ struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7>
-struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
-    static std::optional<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> apply(std::string const &data) {
-        const char *p = data.c_str();
-        size_t len = data.length();
-        if (len < sizeof(int8_t)) {
-            return std::nullopt;
-        }
-        auto which = RunDeserializer<int8_t>::apply(std::string(p, p+sizeof(int8_t)));
-        if (!which) {
-            return std::nullopt;
-        }
-        p += sizeof(int8_t);
-        len -= sizeof(int8_t);
-        switch (*which) {
-        case 0:
-            {
-                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7> { std::move(*res) };
-            }
-        case 1:
-            {
-                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7> { std::move(*res) };
-            }
-        case 2:
-            {
-                auto res = RunDeserializer<A2>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7> { std::move(*res) };
-            }
-        case 3:
-            {
-                auto res = RunDeserializer<A3>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7> { std::move(*res) };
-            }
-        case 4:
-            {
-                auto res = RunDeserializer<A4>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7> { std::move(*res) };
-            }
-        case 5:
-            {
-                auto res = RunDeserializer<A5>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7> { std::move(*res) };
-            }
-        case 6:
-            {
-                auto res = RunDeserializer<A6>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7> { std::move(*res) };
-            }
-        case 7:
-            {
-                auto res = RunDeserializer<A7>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7> { std::move(*res) };
-            }
-        default:
-            return std::nullopt;
-        }
-    }
-};
-template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7>
 struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
     static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
@@ -1748,45 +1139,6 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
         default:
             return std::nullopt;
         }
-    }
-};
-template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8>
-struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
-    static std::string apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> const &data) {
-        std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
-        switch (data.index()) {
-        case 0:
-            oss << RunSerializer<A0>::apply(std::get<0>(data));
-            break;
-        case 1:
-            oss << RunSerializer<A1>::apply(std::get<1>(data));
-            break;
-        case 2:
-            oss << RunSerializer<A2>::apply(std::get<2>(data));
-            break;
-        case 3:
-            oss << RunSerializer<A3>::apply(std::get<3>(data));
-            break;
-        case 4:
-            oss << RunSerializer<A4>::apply(std::get<4>(data));
-            break;
-        case 5:
-            oss << RunSerializer<A5>::apply(std::get<5>(data));
-            break;
-        case 6:
-            oss << RunSerializer<A6>::apply(std::get<6>(data));
-            break;
-        case 7:
-            oss << RunSerializer<A7>::apply(std::get<7>(data));
-            break;
-        case 8:
-            oss << RunSerializer<A8>::apply(std::get<8>(data));
-            break;
-        default:
-            break;
-        }
-        return oss.str();
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8>
@@ -1928,98 +1280,6 @@ struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8>
-struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
-    static std::optional<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> apply(std::string const &data) {
-        const char *p = data.c_str();
-        size_t len = data.length();
-        if (len < sizeof(int8_t)) {
-            return std::nullopt;
-        }
-        auto which = RunDeserializer<int8_t>::apply(std::string(p, p+sizeof(int8_t)));
-        if (!which) {
-            return std::nullopt;
-        }
-        p += sizeof(int8_t);
-        len -= sizeof(int8_t);
-        switch (*which) {
-        case 0:
-            {
-                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> { std::move(*res) };
-            }
-        case 1:
-            {
-                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> { std::move(*res) };
-            }
-        case 2:
-            {
-                auto res = RunDeserializer<A2>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> { std::move(*res) };
-            }
-        case 3:
-            {
-                auto res = RunDeserializer<A3>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> { std::move(*res) };
-            }
-        case 4:
-            {
-                auto res = RunDeserializer<A4>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> { std::move(*res) };
-            }
-        case 5:
-            {
-                auto res = RunDeserializer<A5>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> { std::move(*res) };
-            }
-        case 6:
-            {
-                auto res = RunDeserializer<A6>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> { std::move(*res) };
-            }
-        case 7:
-            {
-                auto res = RunDeserializer<A7>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> { std::move(*res) };
-            }
-        case 8:
-            {
-                auto res = RunDeserializer<A8>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> { std::move(*res) };
-            }
-        default:
-            return std::nullopt;
-        }
-    }
-};
-template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8>
 struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
     static std::optional<std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
@@ -2126,48 +1386,6 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
         default:
             return std::nullopt;
         }
-    }
-};
-template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8, class A9>
-struct RunSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
-    static std::string apply(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> const &data) {
-        std::ostringstream oss;
-        oss << RunSerializer<int8_t>::apply((int8_t) data.index());
-        switch (data.index()) {
-        case 0:
-            oss << RunSerializer<A0>::apply(std::get<0>(data));
-            break;
-        case 1:
-            oss << RunSerializer<A1>::apply(std::get<1>(data));
-            break;
-        case 2:
-            oss << RunSerializer<A2>::apply(std::get<2>(data));
-            break;
-        case 3:
-            oss << RunSerializer<A3>::apply(std::get<3>(data));
-            break;
-        case 4:
-            oss << RunSerializer<A4>::apply(std::get<4>(data));
-            break;
-        case 5:
-            oss << RunSerializer<A5>::apply(std::get<5>(data));
-            break;
-        case 6:
-            oss << RunSerializer<A6>::apply(std::get<6>(data));
-            break;
-        case 7:
-            oss << RunSerializer<A7>::apply(std::get<7>(data));
-            break;
-        case 8:
-            oss << RunSerializer<A8>::apply(std::get<8>(data));
-            break;
-        case 9:
-            oss << RunSerializer<A9>::apply(std::get<9>(data));
-            break;
-        default:
-            break;
-        }
-        return oss.str();
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8, class A9>
@@ -2318,106 +1536,6 @@ struct RunCBORSerializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             break;
         }
         return s;
-    }
-};
-template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8, class A9>
-struct RunDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
-    static std::optional<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> apply(std::string const &data) {
-        const char *p = data.c_str();
-        size_t len = data.length();
-        if (len < sizeof(int8_t)) {
-            return std::nullopt;
-        }
-        auto which = RunDeserializer<int8_t>::apply(std::string(p, p+sizeof(int8_t)));
-        if (!which) {
-            return std::nullopt;
-        }
-        p += sizeof(int8_t);
-        len -= sizeof(int8_t);
-        switch (*which) {
-        case 0:
-            {
-                auto res = RunDeserializer<A0>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> { std::move(*res) };
-            }
-        case 1:
-            {
-                auto res = RunDeserializer<A1>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> { std::move(*res) };
-            }
-        case 2:
-            {
-                auto res = RunDeserializer<A2>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> { std::move(*res) };
-            }
-        case 3:
-            {
-                auto res = RunDeserializer<A3>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> { std::move(*res) };
-            }
-        case 4:
-            {
-                auto res = RunDeserializer<A4>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> { std::move(*res) };
-            }
-        case 5:
-            {
-                auto res = RunDeserializer<A5>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> { std::move(*res) };
-            }
-        case 6:
-            {
-                auto res = RunDeserializer<A6>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> { std::move(*res) };
-            }
-        case 7:
-            {
-                auto res = RunDeserializer<A7>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> { std::move(*res) };
-            }
-        case 8:
-            {
-                auto res = RunDeserializer<A8>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> { std::move(*res) };
-            }
-        case 9:
-            {
-                auto res = RunDeserializer<A9>::apply(std::string(p, p+len));
-                if (!res) {
-                    return std::nullopt;
-                }
-                return std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> { std::move(*res) };
-            }
-        default:
-            return std::nullopt;
-        }
     }
 };
 template <class A0, class A1, class A2, class A3, class A4, class A5, class A6, class A7, class A8, class A9>

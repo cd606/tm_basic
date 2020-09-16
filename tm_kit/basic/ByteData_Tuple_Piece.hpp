@@ -1,18 +1,5 @@
 namespace bytedata_tuple_helper {
     template <class TupleType, int Idx, class FirstRemainingA, class... OtherRemainingAs>
-    void runTupleSerializerPiece(std::ostringstream &oss, TupleType const &data) {
-        std::string s = RunSerializer<FirstRemainingA>::apply(std::get<Idx>(data));
-        if constexpr (sizeof...(OtherRemainingAs) == 0) {
-            oss << s;
-        } else {
-            int32_t sSize = s.length();
-            oss
-                << RunSerializer<int32_t>::apply(sSize)
-                << s;
-            runTupleSerializerPiece<TupleType, Idx+1, OtherRemainingAs...>(oss, data);
-        }
-    }
-    template <class TupleType, int Idx, class FirstRemainingA, class... OtherRemainingAs>
     std::size_t runTupleUnsafeCBORSerializerPiece(TupleType const &data, char *output) {
         auto s = RunCBORSerializer<FirstRemainingA>::apply(std::get<Idx>(data), output);
         if constexpr (sizeof...(OtherRemainingAs) > 0) {
@@ -47,38 +34,6 @@ namespace bytedata_tuple_helper {
             s += runTupleCBORSizeCalculationWithNameListPiece<TupleType, Idx+1, OtherRemainingAs...>(data, nameList);
         }
         return s;
-    }
-    template <class TupleType, int Idx, class FirstRemainingA, class... OtherRemainingAs>
-    bool runTupleDeserializerPiece(TupleType &output, char const *p, size_t len) {
-        if constexpr (sizeof...(OtherRemainingAs) > 0) {
-            if (len < sizeof(int32_t)) {
-                return false;
-            }
-            auto aSize = RunDeserializer<int32_t>::apply(std::string(p, p+sizeof(int32_t)));
-            if (!aSize) {
-                return false;
-            }
-            p += sizeof(int32_t);
-            len -= sizeof(int32_t);
-            if (len < *aSize) {
-                return false;
-            }
-            auto a = RunDeserializer<FirstRemainingA>::apply(std::string(p, p+(*aSize)));
-            if (!a) {
-                return false;
-            }
-            std::get<Idx>(output) = std::move(*a);
-            p += *aSize;
-            len -= *aSize;
-            return runTupleDeserializerPiece<TupleType, Idx+1, OtherRemainingAs...>(output, p, len);
-        } else {
-            auto a = RunDeserializer<FirstRemainingA>::apply(std::string(p, p+len));
-            if (!a) {
-                return false;
-            }
-            std::get<Idx>(output) = std::move(*a);
-            return true;
-        }
     }
     template <class TupleType, int Idx, class CurrentA>
     int32_t oneCBORFieldParsingFunc(TupleType &output, std::string_view const &data, size_t start, size_t &accumLen) {
@@ -132,12 +87,6 @@ namespace bytedata_tuple_helper {
 }
 
 template <>
-struct RunSerializer<std::tuple<>> {
-    static std::string apply(std::tuple<> const &data) {
-        return "";
-    }
-};
-template <>
 struct RunCBORSerializer<std::tuple<>> {
     static std::string apply(std::tuple<> const &data) {
         std::string s;
@@ -167,15 +116,6 @@ struct RunCBORSerializerWithNameList<std::tuple<>, 0> {
     }
     static std::size_t calculateSize(std::tuple<> const &data, std::array<std::string, 0> const &nameList) {
         return 1;
-    }
-};
-template <>
-struct RunDeserializer<std::tuple<>> {
-    static std::optional<std::tuple<>> apply(std::string const &data) {
-        if (data.length() != 0) {
-            return std::nullopt;
-        }
-        return std::tuple<> {};
     }
 };
 template <>
@@ -213,18 +153,6 @@ struct RunCBORDeserializerWithNameList<std::tuple<>, 0> {
     }
 };
 
-template <class... As>
-struct RunSerializer<std::tuple<As...>> {
-    static std::string apply(std::tuple<As...> const &data) {
-        std::ostringstream oss;
-        bytedata_tuple_helper::runTupleSerializerPiece<
-            std::tuple<As...>
-            , 0
-            , As...
-        >(oss, data);
-        return oss.str();
-    }
-};
 template <class... As>
 struct RunCBORSerializer<std::tuple<As...>> {
     static std::string apply(std::tuple<As...> const &data) {
@@ -281,20 +209,6 @@ struct RunCBORSerializerWithNameList<std::tuple<As...>, N> {
             , As...
         >(data, nameList);
         return s;
-    }
-};
-template <class... As>
-struct RunDeserializer<std::tuple<As...>> {
-    static std::optional<std::tuple<As...>> apply(std::string const &data) {
-        std::tuple<As...> ret; 
-        if (!bytedata_tuple_helper::runTupleDeserializerPiece<
-            std::tuple<As...>
-            , 0
-            , As...
-        >(ret, data.c_str(), data.size())) {
-            return std::nullopt;
-        }
-        return {std::move(ret)};
     }
 };
 template <class... As>
