@@ -9,6 +9,8 @@
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <tm_kit/basic/ByteData.hpp>
 
+#include <cctype>
+
 namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <class T>
     class PrintHelper {
@@ -398,7 +400,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     class PrintHelper<std::array<char,N>> {
     public:
         static void print(std::ostream &os, std::array<char,N> const &t) {
-            PrintHelper<ByteDataView>::print(os, ByteDataView {std::string_view {t.data(), N}});
+            bool isString = true;
+            bool hasEnd = false;
+            for (char c : t) {
+                if (c == '\0') {
+                    hasEnd = true;
+                } else if (!std::isprint(static_cast<unsigned char>(c))) {
+                    isString = false;
+                    break;
+                }
+            }
+            if (isString) {
+                if (hasEnd) {
+                    PrintHelper<std::string_view>::print(os, std::string_view {t.data()});
+                } else {
+                    PrintHelper<std::string_view>::print(os, std::string_view {t.data(), N});
+                }
+            } else {
+                PrintHelper<ByteDataView>::print(os, ByteDataView {std::string_view {t.data(), N}});
+            }
         }
     };
 }}}}
