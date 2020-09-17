@@ -31,6 +31,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             os << "'" << t << "'";
         }
     };
+    template <>
+    class PrintHelper<std::string_view> {
+    public:
+        static void print(std::ostream &os, std::string_view const &t) {
+            os << "'" << t << "'";
+        }
+    };
     template <class VersionType, class DataType, class CmpType>
     class PrintHelper<infra::VersionedData<VersionType,DataType,CmpType>> {
     public:
@@ -385,6 +392,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             os << "TypedDataWithTopic{topic='" << d.topic << "',content=";
             PrintHelper<T>::print(os, d.content);
             os << '}';
+        }
+    };
+    template <size_t N>
+    class PrintHelper<std::array<char,N>> {
+    public:
+        static void print(std::ostream &os, std::array<char,N> const &t) {
+            PrintHelper<ByteDataView>::print(os, ByteDataView {std::string_view {t.data(), N}});
         }
     };
 }}}}

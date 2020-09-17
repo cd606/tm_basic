@@ -564,6 +564,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return s;
             }
         };
+        template <size_t N>
+        struct RunCBORSerializer<std::array<char, N>, void> {
+            static std::string apply(std::array<char, N> const &data) {
+                return RunCBORSerializer<ByteDataView>::apply(
+                    ByteDataView {std::string_view(data.data(), N)}
+                );
+            }
+            static std::size_t apply(std::array<char, N> const &data, char *output) {
+                return RunCBORSerializer<ByteDataView>::apply(
+                    ByteDataView {std::string_view(data.data(), N)}
+                    , output
+                );
+            }
+            static std::size_t calculateSize(std::array<char, N> const &data) {
+                return RunCBORSerializer<ByteDataView>::calculateSize(
+                    ByteDataView {std::string_view(data.data(), N)}
+                );
+            }
+        };
         template <class A>
         struct RunCBORSerializer<std::list<A>, void> {
             static std::string apply(std::list<A> const &data) {
@@ -1225,6 +1244,31 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return std::tuple<std::array<A,N>, size_t> {std::move(ret), len};
             }
         };
+        template <size_t N>
+        struct RunCBORDeserializer<std::array<char,N>, void> {
+            static std::optional<std::tuple<std::array<char,N>, size_t>> apply(std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x40) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                if (std::get<0>(*v) != N) {
+                    return std::nullopt;
+                }
+                if (data.length() < start+N+std::get<1>(*v)) {
+                    return std::nullopt;
+                }
+                std::optional<std::tuple<std::array<char, N>, size_t>> ret { std::tuple<std::array<char, N>, size_t> {} };
+                std::memcpy(std::get<0>(*ret).data(), data.data()+start+std::get<1>(*v), N);
+                std::get<1>(*ret) = N+std::get<1>(*v);
+                return ret;
+            }
+        };
         template <class A>
         struct RunCBORDeserializer<std::list<A>, void> {
             static std::optional<std::tuple<std::list<A>, size_t>> apply(std::string_view const &data, size_t start) {
@@ -1534,6 +1578,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return std::string {data.content};
             }
         };
+        template <size_t N>
+        struct RunSerializer<std::array<char, N>, void> {
+            static std::string apply(std::array<char, N> const &data) {
+                return std::string {data.data(), N};
+            }
+        };
         template <class T, typename Enable=void>
         struct RunDeserializer {
             static std::optional<T> apply(std::string const &data) {
@@ -1585,6 +1635,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         struct RunDeserializer<ByteData, void> {
             static std::optional<ByteData> apply(std::string const &data) {
                 return {ByteData {data}};
+            }
+        };
+        template <size_t N>
+        struct RunDeserializer<std::array<char, N>, void> {
+            static std::optional<std::array<char, N>> apply(std::string const &data) {
+                if (data.length() != N) {
+                    return std::nullopt;
+                }
+                std::optional<std::array<char, N>> ret {std::array<char, N> {}};
+                std::memcpy(ret->data(), data.c_str(), N);
+                return ret;
             }
         };
 
