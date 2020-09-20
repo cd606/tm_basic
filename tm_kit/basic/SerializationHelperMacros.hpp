@@ -561,4 +561,154 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
     TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_ENCODE_NO_FIELD_NAMES(templateParams, name) \
     TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_DECODE_NO_FIELD_NAMES(templateParams, name) 
 
+//The followings are for defining enum classes that should be serialized as strings
+//If you want enum classes that are serialized as underlying integer types, then
+//you don't need these macros
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_ITEM_DEF(r, data, elem) \
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) elem
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_DEF(name, items) \
+    enum class name { \
+        BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_ITEM_DEF,_,items) \
+    };
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_ARRAY_ITEM(r, data, elem) \
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) BOOST_PP_STRINGIZE(elem)
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_PRINT(name, items) \
+    inline std::ostream &operator<<(std::ostream &os, name const &x) { \
+        static const std::string NAMES[] = { \
+            BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_ARRAY_ITEM,_,items) \
+        }; \
+        os << NAMES[static_cast<int>(x)]; \
+        return os; \
+    }
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_ENCODE(name, items) \
+    namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
+        template <> \
+        struct RunCBORSerializer<name, void> { \
+            static inline const std::string S_NAMES[] = { \
+                BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_ARRAY_ITEM,_,items) \
+            }; \
+            static std::string apply(name const &x) { \
+                return RunCBORSerializer<std::string>::apply(S_NAMES[static_cast<int>(x)]); \
+            } \
+            static std::size_t apply(name const &x, char *output) { \
+                return RunCBORSerializer<std::string>::apply(S_NAMES[static_cast<int>(x)], output); \
+            } \
+            static std::size_t calculateSize(name const &x) { \
+                return RunCBORSerializer<std::string>::calculateSize(S_NAMES[static_cast<int>(x)]); \
+            } \
+        }; \
+    } } } } }
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_MAP_ITEM(r, data, elem) \
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) { BOOST_PP_STRINGIZE(elem), data::elem }
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_DECODE(name, items) \
+    namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
+        template <> \
+        struct RunCBORDeserializer<name, void> { \
+            static inline const std::unordered_map<std::string, name> S_MAP = {\
+                BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_MAP_ITEM,name,items) \
+            }; \
+            static std::optional<std::tuple<name, size_t>> apply(std::string_view const &s, size_t start) { \
+                auto t = RunCBORDeserializer<std::string>::apply(s, start); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                auto iter = S_MAP.find(std::get<0>(*t)); \
+                if (iter == S_MAP.end()) { \
+                    return std::nullopt; \
+                } \
+                return std::tuple<name, size_t> { \
+                    iter->second, std::get<1>(*t) \
+                }; \
+            } \
+        }; \
+    } } } } }
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ITEM_DEF(r, data, elem) \
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) BOOST_PP_TUPLE_ELEM(0,elem)
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_DEF(name, items) \
+    enum class name { \
+        BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ITEM_DEF,_,items) \
+    };
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ARRAY_ITEM(r, data, elem) \
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) BOOST_PP_TUPLE_ELEM(1,elem)
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_PRINT(name, items) \
+    inline std::ostream &operator<<(std::ostream &os, name const &x) { \
+        static const std::string NAMES[] = { \
+            BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ARRAY_ITEM,_,items) \
+        }; \
+        os << NAMES[static_cast<int>(x)]; \
+        return os; \
+    }
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ENCODE(name, items) \
+    namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
+        template <> \
+        struct RunCBORSerializer<name, void> { \
+            static inline const std::string S_NAMES[] = { \
+                BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ARRAY_ITEM,_,items) \
+            }; \
+            static std::string apply(name const &x) { \
+                return RunCBORSerializer<std::string>::apply(S_NAMES[static_cast<int>(x)]); \
+            } \
+            static std::size_t apply(name const &x, char *output) { \
+                return RunCBORSerializer<std::string>::apply(S_NAMES[static_cast<int>(x)], output); \
+            } \
+            static std::size_t calculateSize(name const &x) { \
+                return RunCBORSerializer<std::string>::calculateSize(S_NAMES[static_cast<int>(x)]); \
+            } \
+        }; \
+    } } } } }
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_MAP_ITEM(r, data, elem) \
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) { BOOST_PP_TUPLE_ELEM(1,elem), data::BOOST_PP_TUPLE_ELEM(0,elem) }
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_DECODE(name, items) \
+    namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
+        template <> \
+        struct RunCBORDeserializer<name, void> { \
+            static inline const std::unordered_map<std::string, name> S_MAP = {\
+                BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_MAP_ITEM,name,items) \
+            }; \
+            static std::optional<std::tuple<name, size_t>> apply(std::string_view const &s, size_t start) { \
+                auto t = RunCBORDeserializer<std::string>::apply(s, start); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                auto iter = S_MAP.find(std::get<0>(*t)); \
+                if (iter == S_MAP.end()) { \
+                    return std::nullopt; \
+                } \
+                return std::tuple<name, size_t> { \
+                    iter->second, std::get<1>(*t) \
+                }; \
+            } \
+        }; \
+    } } } } }
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING(name, items) \
+    TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_DEF(name, items) \
+    TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_PRINT(name, items) 
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_SERIALIZE(name, items) \
+    TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_ENCODE(name, items) \
+    TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_DECODE(name, items) 
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES(name, items) \
+    TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_DEF(name, items) \
+    TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_PRINT(name, items) 
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_SERIALIZE(name, items) \
+    TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ENCODE(name, items) \
+    TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_DECODE(name, items) 
+
 #endif
