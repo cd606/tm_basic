@@ -170,6 +170,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 }); \
             } \
         }; \
+        template <> \
+        struct RunSerializer<name, void> { \
+            static std::string apply(name const &x) { \
+                return RunCBORSerializer<name, void>::apply(x); \
+            } \
+        }; \
     } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_ENCODE_NO_FIELD_NAMES(name, content) \
@@ -205,6 +211,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 >::calculateSize(y); \
             } \
         }; \
+        template <> \
+        struct RunSerializer<name, void> { \
+            static std::string apply(name const &x) { \
+                return RunCBORSerializer<name, void>::apply(x); \
+            } \
+        }; \
     } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_DECODE(name, content) \
@@ -228,6 +240,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 }; \
             } \
         }; \
+        template <> \
+        struct RunDeserializer<name, void> { \
+            static std::optional<name> apply(std::string const &s) { \
+                auto t = RunDeserializer<CBOR<name>, void>::apply(s); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                return std::move(t->value); \
+            } \
+        }; \
     } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_DECODE_NO_FIELD_NAMES(name, content) \
@@ -249,6 +271,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 }; \
             } \
         }; \
+        template <> \
+        struct RunDeserializer<name, void> { \
+            static std::optional<name> apply(std::string const &s) { \
+                auto t = RunDeserializer<CBOR<name>, void>::apply(s); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                return std::move(t->value); \
+            } \
+        }; \
     } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_ENCODE(name) \
@@ -266,6 +298,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             } \
             static std::size_t calculateSize(name const &x) { \
                 return RunCBORSerializerWithNameList<std::tuple<>, 0>::calculateSize(std::tuple<> {}, {}); \
+            } \
+        }; \
+        template <> \
+        struct RunSerializer<name, void> { \
+            static std::string apply(name const &x) { \
+                return RunCBORSerializer<name, void>::apply(x); \
             } \
         }; \
     } } } } }
@@ -287,6 +325,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 return RunCBORSerializer<std::tuple<>>::calculateSize(std::tuple<> {}); \
             } \
         }; \
+        template <> \
+        struct RunSerializer<name, void> { \
+            static std::string apply(name const &x) { \
+                return RunCBORSerializer<name, void>::apply(x); \
+            } \
+        }; \
     } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_DECODE(name) \
@@ -303,6 +347,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 }; \
             } \
         }; \
+        template <> \
+        struct RunDeserializer<name, void> { \
+            static std::optional<name> apply(std::string const &s) { \
+                auto t = RunDeserializer<CBOR<name>, void>::apply(s); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                return std::move(t->value); \
+            } \
+        }; \
     } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_DECODE_NO_FIELD_NAMES(name) \
@@ -317,6 +371,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 return std::tuple<name, size_t> { \
                     name {}, std::get<1>(*t) \
                 }; \
+            } \
+        }; \
+        template <> \
+        struct RunDeserializer<name, void> { \
+            static std::optional<name> apply(std::string const &s) { \
+                auto t = RunDeserializer<CBOR<name>, void>::apply(s); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                return std::move(t->value); \
             } \
         }; \
     } } } } }
@@ -358,6 +422,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 }); \
             } \
         }; \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        struct RunSerializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
+            static std::string apply(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x) { \
+                return RunCBORSerializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void>::apply(x); \
+            } \
+        }; \
     } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_ENCODE_NO_FIELD_NAMES(templateParams, name, content) \
@@ -393,6 +463,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 >::calculateSize(y); \
             } \
         }; \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        struct RunSerializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
+            static std::string apply(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x) { \
+                return RunCBORSerializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void>::apply(x); \
+            } \
+        }; \
     } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_DECODE(templateParams, name, content) \
@@ -416,6 +492,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 }; \
             } \
         }; \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        struct RunDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
+            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
+                auto t = RunDeserializer<CBOR<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>, void>::apply(s); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                return std::move(t->value); \
+            } \
+        }; \
     } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_DECODE_NO_FIELD_NAMES(templateParams, name, content) \
@@ -437,6 +523,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 }; \
             } \
         }; \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        struct RunDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
+            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
+                auto t = RunDeserializer<CBOR<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>, void>::apply(s); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                return std::move(t->value); \
+            } \
+        }; \
     } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_ENCODE(templateParams, name) \
@@ -454,6 +550,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             } \
             static std::size_t calculateSize(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x) { \
                 return RunCBORSerializerWithNameList<std::tuple<>, 0>::calculateSize(std::tuple<> {}, {}); \
+            } \
+        }; \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        struct RunSerializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
+            static std::string apply(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x) { \
+                return RunCBORSerializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void>::apply(x); \
             } \
         }; \
     } } } } }
@@ -475,6 +577,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 return RunCBORSerializer<std::tuple<>>::calculateSize(std::tuple<> {}); \
             } \
         }; \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        struct RunSerializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
+            static std::string apply(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x) { \
+                return RunCBORSerializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void>::apply(x); \
+            } \
+        }; \
     } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_DECODE(templateParams, name) \
@@ -491,6 +599,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 }; \
             } \
         }; \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        struct RunDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
+            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
+                auto t = RunDeserializer<CBOR<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>, void>::apply(s); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                return std::move(t->value); \
+            } \
+        }; \
     } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_DECODE_NO_FIELD_NAMES(templateParams, name) \
@@ -505,6 +623,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 return std::tuple<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, size_t> { \
                     name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> {}, std::get<1>(*t) \
                 }; \
+            } \
+        }; \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        struct RunDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
+            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
+                auto t = RunDeserializer<CBOR<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>, void>::apply(s); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                return std::move(t->value); \
             } \
         }; \
     } } } } }
@@ -602,6 +730,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 return RunCBORSerializer<std::string>::calculateSize(S_NAMES[static_cast<int>(x)]); \
             } \
         }; \
+        template <> \
+        struct RunSerializer<name, void> { \
+            static std::string apply(name const &x) { \
+                return RunCBORSerializer<name, void>::apply(x); \
+            } \
+        }; \
     } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_MAP_ITEM(r, data, elem) \
@@ -626,6 +760,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 return std::tuple<name, size_t> { \
                     iter->second, std::get<1>(*t) \
                 }; \
+            } \
+        }; \
+        template <> \
+        struct RunDeserializer<name, void> { \
+            static std::optional<name> apply(std::string const &s) { \
+                auto t = RunDeserializer<CBOR<name>, void>::apply(s); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                return std::move(t->value); \
             } \
         }; \
     } } } } }
@@ -667,6 +811,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 return RunCBORSerializer<std::string>::calculateSize(S_NAMES[static_cast<int>(x)]); \
             } \
         }; \
+        template <> \
+        struct RunSerializer<name, void> { \
+            static std::string apply(name const &x) { \
+                return RunCBORSerializer<name, void>::apply(x); \
+            } \
+        }; \
     } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_MAP_ITEM(r, data, elem) \
@@ -691,6 +841,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 return std::tuple<name, size_t> { \
                     iter->second, std::get<1>(*t) \
                 }; \
+            } \
+        }; \
+        template <> \
+        struct RunDeserializer<name, void> { \
+            static std::optional<name> apply(std::string const &s) { \
+                auto t = RunDeserializer<CBOR<name>, void>::apply(s); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                return std::move(t->value); \
             } \
         }; \
     } } } } }
