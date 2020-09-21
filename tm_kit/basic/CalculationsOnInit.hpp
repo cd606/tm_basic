@@ -26,7 +26,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
     template <class Env, class InputT, class Func>
     class ImporterOfValueCalculatedOnInit<infra::template RealTimeApp<Env>, InputT, Func, void> 
-        : public infra::RealTimeApp<Env>::AbstractImporter<
+        : public infra::template RealTimeApp<Env>::AbstractImporter<
             decltype((* ((Func *) nullptr))(
                 * ((InputT const *) nullptr)
                 , std::function<void(infra::LogLevel, std::string const &)>()
@@ -53,7 +53,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     
     template <class Env, class InputT, class Func>
     class ImporterOfValueCalculatedOnInit<infra::template SinglePassIterationApp<Env>, InputT, Func, void> 
-        : public infra::SinglePassIterationApp<Env>::AbstractImporter<
+        : public infra::template SinglePassIterationApp<Env>::AbstractImporter<
             decltype((* ((Func *) nullptr))(
                 * ((InputT const *) nullptr)
                 , std::function<void(infra::LogLevel, std::string const &)>()
