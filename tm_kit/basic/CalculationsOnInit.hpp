@@ -10,26 +10,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
     //Importers for calculating value on init
 
-    template <
-        class App
-        , class InputT
-        , class Func
-        , class Enable=std::enable_if_t<
-            std::is_convertible_v<
-                typename App::EnvironmentType *
-                , typename infra::template ConstValueHolderComponent<InputT> *
-            >
-            , void
-        >
-    >
+    //Please notice that Func takes only one argument (the logger)
+    //This is deliberate choice. The reason is that if Func needs anything
+    //inside Env, it should be able to capture that by itself outside this 
+    //logic. If we force Env to maintain something for use of Func, which is
+    //only executed at startup, there will be trickly resource-release timing
+    //questions, and by not doing that, we allow Func to manage resources by
+    //itself.
+
+    template <class App, class Func>
     class ImporterOfValueCalculatedOnInit {};
 
-    template <class Env, class InputT, class Func>
-    class ImporterOfValueCalculatedOnInit<infra::template RealTimeApp<Env>, InputT, Func, void> 
+    template <class Env, class Func>
+    class ImporterOfValueCalculatedOnInit<infra::template RealTimeApp<Env>, Func> 
         : public infra::template RealTimeApp<Env>::template AbstractImporter<
             decltype((* ((Func *) nullptr))(
-                * ((InputT const *) nullptr)
-                , std::function<void(infra::LogLevel, std::string const &)>()
+                std::function<void(infra::LogLevel, std::string const &)>()
             ))
             >
     {
@@ -37,33 +33,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         Func f_;
     public:
         using OutputT = decltype((* ((Func *) nullptr))(
-                * ((InputT const *) nullptr)
-                , std::function<void(infra::LogLevel, std::string const &)>()
+                std::function<void(infra::LogLevel, std::string const &)>()
             ));
         ImporterOfValueCalculatedOnInit(Func &&f) : f_(std::move(f)) {}
         virtual void start(Env *env) override final {
             this->publish(env, f_(
-                env->infra::template ConstValueHolderComponent<InputT>::value()
-                , [env](infra::LogLevel level, std::string const &s) {
+                [env](infra::LogLevel level, std::string const &s) {
                     env->log(level, s);
                 }
             ));
         }
     };
     
-    template <class Env, class InputT, class Func>
-    class ImporterOfValueCalculatedOnInit<infra::template SinglePassIterationApp<Env>, InputT, Func, void> 
+    template <class Env, class Func>
+    class ImporterOfValueCalculatedOnInit<infra::template SinglePassIterationApp<Env>, Func> 
         : public infra::template SinglePassIterationApp<Env>::template AbstractImporter<
             decltype((* ((Func *) nullptr))(
-                * ((InputT const *) nullptr)
-                , std::function<void(infra::LogLevel, std::string const &)>()
+                std::function<void(infra::LogLevel, std::string const &)>()
             ))
             >
     {
     public:
         using OutputT = decltype((* ((Func *) nullptr))(
-                * ((InputT const *) nullptr)
-                , std::function<void(infra::LogLevel, std::string const &)>()
+                std::function<void(infra::LogLevel, std::string const &)>()
             ));
     private:
         Func f_;
@@ -74,8 +66,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             data_ = infra::template SinglePassIterationApp<Env>::template pureInnerData<OutputT>(
                 env
                 , f_(
-                    env->infra::ConstValueHolderComponent<InputT>::value()
-                    , [env](infra::LogLevel level, std::string const &s) {
+                    [env](infra::LogLevel level, std::string const &s) {
                         env->log(level, s);
                     }
                 )
@@ -87,14 +78,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
 
-    template <class App, class InputT, class Func>
+    template <class App, class Func>
     auto importerOfValueCalculatedOnInit(Func &&f)
         -> std::shared_ptr<typename App::template Importer<
-            typename ImporterOfValueCalculatedOnInit<App,InputT,Func>::OutputT
+            typename ImporterOfValueCalculatedOnInit<App,Func>::OutputT
         >> 
     {
         return App::importer(
-            new ImporterOfValueCalculatedOnInit<App,InputT,Func>(std::move(f))
+            new ImporterOfValueCalculatedOnInit<App,Func>(std::move(f))
         );
     }
 
@@ -190,33 +181,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     //holding pre-calculated value which is calculated internally
     //at init, and returning it on query
 
-    template <
-        class App
-        , class Req
-        , class InputT
-        , class CalcFunc
-        , class Enable=std::enable_if_t<
-            std::is_convertible_v<
-                typename App::EnvironmentType *
-                , typename infra::template ConstValueHolderComponent<InputT> *
-            >
-            , void
-        >
-    >
+    template <class App, class Req, class CalcFunc>
     class OnOrderFacilityReturningInternallyPreCalculatedValue : 
         public virtual App::IExternalComponent
         , public App::template AbstractOnOrderFacility<
             Req
             , decltype((* ((CalcFunc *) nullptr))(
-                * ((InputT const *) nullptr)
-                , std::function<void(infra::LogLevel, std::string const &)>()
+                std::function<void(infra::LogLevel, std::string const &)>()
             ))
         >
     {
     public:
         using PreCalculatedResult = decltype((* ((CalcFunc *) nullptr))(
-                * ((InputT const *) nullptr)
-                , std::function<void(infra::LogLevel, std::string const &)>()
+                std::function<void(infra::LogLevel, std::string const &)>()
             ));
     private:
         CalcFunc f_;
@@ -227,8 +204,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         {}
         virtual void start(typename App::EnvironmentType *env) override final {
             preCalculatedRes_ = f_(
-                env->infra::template ConstValueHolderComponent<InputT>::value()
-                , [env](infra::LogLevel level, std::string const &s) {
+                [env](infra::LogLevel level, std::string const &s) {
                     env->log(level, s);
                 }
             );
@@ -244,34 +220,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
 
-    template <class App, class Req, class InputT, class CalcFunc>
+    template <class App, class Req, class CalcFunc>
     auto onOrderFacilityReturningInternallyPreCalculatedValue(CalcFunc &&f)
-        -> std::shared_ptr<typename App::template OnOrderFacility<Req, typename OnOrderFacilityReturningInternallyPreCalculatedValue<App,Req,InputT,CalcFunc>::PreCalculatedResult>>
+        -> std::shared_ptr<typename App::template OnOrderFacility<Req, typename OnOrderFacilityReturningInternallyPreCalculatedValue<App,Req,CalcFunc>::PreCalculatedResult>>
     {
-        return App::fromAbstractOnOrderFacility(new OnOrderFacilityReturningInternallyPreCalculatedValue<App,Req,InputT,CalcFunc>(std::move(f)));
+        return App::fromAbstractOnOrderFacility(new OnOrderFacilityReturningInternallyPreCalculatedValue<App,Req,CalcFunc>(std::move(f)));
     }
 
-    template <
-        class App
-        , class Req
-        , class InputT
-        , class CalcFunc
-        , class FetchFunc
-        , class Enable=std::enable_if_t<
-            std::is_convertible_v<
-                typename App::EnvironmentType *
-                , typename infra::template ConstValueHolderComponent<InputT> *
-            >
-            , void
-        >
-    >
+    template <class App, class Req, class CalcFunc, class FetchFunc>
     class OnOrderFacilityUsingInternallyPreCalculatedValue : 
         public virtual App::IExternalComponent
         , public App::template AbstractOnOrderFacility<
             Req
             , decltype(
                 (* ((FetchFunc *) nullptr))(
-                    * ((typename OnOrderFacilityReturningInternallyPreCalculatedValue<App,Req,InputT,CalcFunc>::PreCalculatedResult const *) nullptr)
+                    * ((typename OnOrderFacilityReturningInternallyPreCalculatedValue<App,Req,CalcFunc>::PreCalculatedResult const *) nullptr)
                     , * ((Req const *) nullptr)
                 )
             )
@@ -279,8 +242,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     {
     public:
         using PreCalculatedResult = decltype((* ((CalcFunc *) nullptr))(
-                * ((InputT const *) nullptr)
-                , std::function<void(infra::LogLevel, std::string const &)>()
+                std::function<void(infra::LogLevel, std::string const &)>()
             ));
         using OutputT = decltype(
                 (* ((FetchFunc *) nullptr))(
@@ -298,8 +260,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         {}
         virtual void start(typename App::EnvironmentType *env) override final {
             preCalculatedRes_ = calcFunc_(
-                env->infra::template ConstValueHolderComponent<InputT>::value()
-                , [env](infra::LogLevel level, std::string const &s) {
+                [env](infra::LogLevel level, std::string const &s) {
                     env->log(level, s);
                 }
             );
@@ -315,11 +276,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
 
-    template <class App, class Req, class InputT, class CalcFunc, class FetchFunc>
+    template <class App, class Req, class CalcFunc, class FetchFunc>
     auto onOrderFacilityUsingInternallyPreCalculatedValue(CalcFunc &&calcFunc, FetchFunc &&fetchFunc)
-        -> std::shared_ptr<typename App::template OnOrderFacility<Req, typename OnOrderFacilityUsingInternallyPreCalculatedValue<App,Req,InputT,CalcFunc,FetchFunc>::OutputT>>
+        -> std::shared_ptr<typename App::template OnOrderFacility<Req, typename OnOrderFacilityUsingInternallyPreCalculatedValue<App,Req,CalcFunc,FetchFunc>::OutputT>>
     {
-        return App::fromAbstractOnOrderFacility(new OnOrderFacilityUsingInternallyPreCalculatedValue<App,Req,InputT,CalcFunc,FetchFunc>(std::move(calcFunc), std::move(fetchFunc)));
+        return App::fromAbstractOnOrderFacility(new OnOrderFacilityUsingInternallyPreCalculatedValue<App,Req,CalcFunc,FetchFunc>(std::move(calcFunc), std::move(fetchFunc)));
     }
 
 } } } } 
