@@ -15,3 +15,15 @@ This package builds upon tm_infra, and provides the following pre-packaged funct
 * Transaction-like requests and service components.
 
 * Nodes reading from and writing to a shared "chain" (linked list.)
+
+INSTALLATION NOTES:
+
+The requirements of tm_basic are, in addition to requirements of tm_infra:
+
+* tm_infra
+
+* boost >= 1.73.0
+
+* spdlog
+
+boost and spdlog may be installed through Linux package manager, or through vcpkg (for both Windows and Linux), then made detectable for meson by providing pkg_config file (for Windows, pkg-config-lite works fine with meson). For Linux, vcpkg-generated pkg_config files usually work, but for Windows, hand-written pkg_config files may be needed.
