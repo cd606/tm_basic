@@ -761,7 +761,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 SnapshotOnRight<A,B,F>(std::move(f))
                 , infra::LiftParameters<typename M::TimePoint>()
                     .SuggestThreaded(suggestThreaded)
-                    .RequireMask("11")
+                    .RequireMask(infra::FanInParamMask("11"))
             );
         }
     };
