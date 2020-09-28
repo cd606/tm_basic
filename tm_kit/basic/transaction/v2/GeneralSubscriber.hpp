@@ -222,6 +222,12 @@ namespace transaction { namespace v2 {
         void reallyHandleUserInput(typename M::EnvironmentType *env, typename M::EnvironmentType::IDType &&inputID, typename Types::InputWithAccountInfo &&input) {
             std::string account = std::move(std::get<0>(input));
             typename Types::ID id = std::move(inputID);
+            /*
+            std::ostringstream oss;
+            oss << "[GeneralSubscriber::reallyHandleUserInput] Got input from '" << account << "', id is '" << env->id_to_string(id) << "', content is ";
+            PrintHelper<typename Types::Input>::print(oss, std::get<1>(input));
+            env->log(infra::LogLevel::Info, oss.str());
+            */
             std::visit([this,env,id,&account](auto &&d) {
                 using T = std::decay_t<decltype(d)>;
                 if constexpr (std::is_same_v<T, typename Types::Subscription>) {
