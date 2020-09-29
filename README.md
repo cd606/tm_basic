@@ -14,7 +14,7 @@ This package builds upon tm_infra, and provides the following pre-packaged funct
 
 * Transaction-like requests and service components.
 
-* Nodes reading from and writing to a shared "chain" (linked list.)
+* Nodes reading from and writing to a shared "chain" (linked list).
 
 INSTALLATION NOTES:
 
