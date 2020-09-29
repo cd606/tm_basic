@@ -9,6 +9,8 @@
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <tm_kit/basic/ByteData.hpp>
 
+#include <boost/hana/type.hpp>
+
 #include <cctype>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
@@ -16,7 +18,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     class PrintHelper {
     public:
         static void print(std::ostream &os, T const &t) {
-            os << t;
+            static auto checker = boost::hana::is_valid(
+                [](auto const *h) -> decltype((void) ((* (std::ostream *) nullptr) << *h)) {}
+            );
+            if constexpr(checker((T const *) nullptr)) {
+                os << t;
+            } else {
+                os << "(TypeCannotBePrinted:" << typeid(T).name() << ')';
+            }
         }
     };
     template <>

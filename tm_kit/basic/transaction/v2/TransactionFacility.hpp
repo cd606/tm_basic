@@ -18,6 +18,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     
 namespace transaction { namespace v2 {
 
+    enum class TransactionLoggingLevel {
+        None, Verbose
+    };
+
     template <class M, class TI, class DI, class KeyHash=std::hash<typename DI::Key>>
     class ITransactionProcessorBase {
     public:
@@ -26,14 +30,14 @@ namespace transaction { namespace v2 {
         virtual DataStorePtr const &dataStorePtr() const = 0;
     };
 
-    template <class M, class TI, class DI, class KeyHash=std::hash<typename DI::Key>>
+    template <class M, class TI, class DI, TransactionLoggingLevel TLogging=TransactionLoggingLevel::Verbose, class KeyHash=std::hash<typename DI::Key>>
     class ITransactionFacility : public M::template AbstractOnOrderFacility<
             typename TI::TransactionWithAccountInfo
             , typename TI::TransactionResponse
         >, public ITransactionProcessorBase<M, TI, DI, KeyHash>
     {};
 
-    template <class M, class TI, class DI, class KeyHash=std::hash<typename DI::Key>>
+    template <class M, class TI, class DI, TransactionLoggingLevel TLogging=TransactionLoggingLevel::Verbose, class KeyHash=std::hash<typename DI::Key>>
     class ISilentTransactionHandler : public M::template AbstractExporter<
             typename TI::TransactionWithAccountInfo
         >, public ITransactionProcessorBase<M, TI, DI, KeyHash>
@@ -41,6 +45,7 @@ namespace transaction { namespace v2 {
 
     template <
         class M, class TI, class DI
+        , TransactionLoggingLevel TLogging=TransactionLoggingLevel::Verbose
         , class VersionChecker = std::equal_to<typename TI::Version>
         , class VersionSliceChecker = std::equal_to<typename TI::Version>
         , class DataSummaryChecker = std::equal_to<typename TI::Data>
@@ -53,11 +58,13 @@ namespace transaction { namespace v2 {
 
     template <
         class M, class TI, class DI
+        , TransactionLoggingLevel TLogging
         , class VersionChecker, class VersionSliceChecker, class DataSummaryChecker
         , class DeltaProcessor, class KeyHash, bool Silent
     >
     class TransactionProcessor<
         M, TI, DI
+        , TLogging
         , VersionChecker, VersionSliceChecker, DataSummaryChecker
         , DeltaProcessor, KeyHash, Silent
         , std::enable_if_t<
@@ -70,8 +77,8 @@ namespace transaction { namespace v2 {
         : 
         public std::conditional_t<
             Silent
-            , ISilentTransactionHandler<M, TI, DI, KeyHash>
-            , ITransactionFacility<M, TI, DI, KeyHash> 
+            , ISilentTransactionHandler<M, TI, DI, TLogging, KeyHash>
+            , ITransactionFacility<M, TI, DI, TLogging, KeyHash> 
         >
         , public virtual M::IExternalComponent
     {
@@ -249,6 +256,12 @@ namespace transaction { namespace v2 {
         void reallyHandle(typename M::EnvironmentType *env, typename M::EnvironmentType::IDType &&id, typename TI::TransactionWithAccountInfo &&transactionWithAccountInfo) {
             auto account = std::move(std::get<0>(transactionWithAccountInfo));
             auto requester = std::move(id);
+            if constexpr (TLogging == TransactionLoggingLevel::Verbose) {
+                std::ostringstream oss;
+                oss << "[TransactionProcessor::reallyHandle] Got input from '" << account << "', id is '" << env->id_to_string(requester) << "', content is ";
+                PrintHelper<typename TI::Transaction>::print(oss, std::get<1>(transactionWithAccountInfo));
+                env->log(infra::LogLevel::Info, oss.str());
+            }
             std::visit([this,env,&account,&requester](auto &&tr) {
                 using T = std::decay_t<decltype(tr)>;
                 if constexpr (std::is_same_v<T, typename TI::InsertAction>) {
@@ -310,6 +323,11 @@ namespace transaction { namespace v2 {
                     handleDelete(env, account, requester, deleteAction);
                 }
             }, std::move(std::get<1>(transactionWithAccountInfo)).value);
+            if constexpr (TLogging == TransactionLoggingLevel::Verbose) {
+                std::ostringstream oss;
+                oss << "[TransactionProcessor::reallyHandle] Finished handling input with id '" << env->id_to_string(requester) << "'";
+                env->log(infra::LogLevel::Info, oss.str());
+            }
         }
         void runTransactionThread() {
             if constexpr (M::PossiblyMultiThreaded) {
@@ -454,6 +472,7 @@ namespace transaction { namespace v2 {
 
     template <
         class M, class TI, class DI
+        , TransactionLoggingLevel TLogging=TransactionLoggingLevel::Verbose
         , class VersionChecker = std::equal_to<typename TI::Version>
         , class VersionSliceChecker = std::equal_to<typename TI::Version>
         , class DataSummaryChecker = std::equal_to<typename TI::Data>
@@ -462,7 +481,7 @@ namespace transaction { namespace v2 {
     >
     using TransactionFacility = 
         TransactionProcessor<
-            M, TI, DI
+            M, TI, DI, TLogging
             , VersionChecker, VersionSliceChecker, DataSummaryChecker
             , DeltaProcessor, KeyHash
             , false
@@ -476,6 +495,7 @@ namespace transaction { namespace v2 {
 
     template <
         class M, class TI, class DI
+        , TransactionLoggingLevel TLogging=TransactionLoggingLevel::Verbose
         , class VersionChecker = std::equal_to<typename TI::Version>
         , class VersionSliceChecker = std::equal_to<typename TI::Version>
         , class DataSummaryChecker = std::equal_to<typename TI::Data>
@@ -484,7 +504,7 @@ namespace transaction { namespace v2 {
     >
     using TransactionHandlingExporter = 
         TransactionProcessor<
-            M, TI, DI
+            M, TI, DI, TLogging
             , VersionChecker, VersionSliceChecker, DataSummaryChecker
             , DeltaProcessor, KeyHash
             , true

@@ -27,7 +27,11 @@ namespace transaction { namespace v2 {
         using Importer = single_pass_iteration::DataStreamImporter<Env, DI>;
     };
 
-    template <class R, class DI, class DataStoreUpdater>
+    enum class SubscriptionLoggingLevel {
+        None, Verbose
+    };
+
+    template <class R, class DI, class DataStoreUpdater, SubscriptionLoggingLevel LoggingLevel>
     auto subscriptionLogicCombination(
         R &r
         , std::string const &componentPrefix
@@ -52,7 +56,7 @@ namespace transaction { namespace v2 {
             , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::Output
             , typename GeneralSubscriberTypes<typename R::EnvironmentType::IDType, DI>::SubscriptionUpdate
         >(
-            new GeneralSubscriber<M, DI, typename DataStoreUpdater::KeyHash>(dataStorePtr)
+            new GeneralSubscriber<M, DI, typename DataStoreUpdater::KeyHash, (LoggingLevel==SubscriptionLoggingLevel::Verbose)>(dataStorePtr)
         );
         auto dataStoreUpdater = M::template pureExporter<typename DI::Update>(DataStoreUpdater {dataStorePtr});
         
@@ -104,11 +108,11 @@ namespace transaction { namespace v2 {
     };
 
 
-    template <class R, class TI, class DI, class DataStoreUpdater>
+    template <class R, class TI, class DI, class DataStoreUpdater, SubscriptionLoggingLevel SLogging, TransactionLoggingLevel TLogging>
     auto transactionLogicCombination(
         R &r
         , std::string const &componentPrefix
-        , ITransactionFacility<typename R::AppType, TI, DI, typename DataStoreUpdater::KeyHash> *transactionFacilityImpl
+        , ITransactionFacility<typename R::AppType, TI, DI, TLogging, typename DataStoreUpdater::KeyHash> *transactionFacilityImpl
     ) -> TransactionLogicCombinationResult<R, TI, DI, typename DataStoreUpdater::KeyHash> {
         using M = typename R::AppType;
 
@@ -126,7 +130,7 @@ namespace transaction { namespace v2 {
             , transactionFacility
         );
 
-        auto subscriptionFacility = subscriptionLogicCombination<R,DI,DataStoreUpdater>(
+        auto subscriptionFacility = subscriptionLogicCombination<R,DI,DataStoreUpdater,SLogging>(
             r
             , componentPrefix
             , r.facilityWithExternalEffectsAsSource(transactionFacility)
@@ -161,11 +165,11 @@ namespace transaction { namespace v2 {
         > subscriptionFacility;
     };
 
-    template <class R, class TI, class DI, class DataStoreUpdater>
+    template <class R, class TI, class DI, class DataStoreUpdater, SubscriptionLoggingLevel SLogging, TransactionLoggingLevel TLogging>
     auto silentTransactionLogicCombination(
         R &r
         , std::string const &componentPrefix
-        , ISilentTransactionHandler<typename R::AppType, TI, DI, typename DataStoreUpdater::KeyHash> *transactionHandlerImpl
+        , ISilentTransactionHandler<typename R::AppType, TI, DI, TLogging, typename DataStoreUpdater::KeyHash> *transactionHandlerImpl
     ) -> SilentTransactionLogicCombinationResult<R, TI, DI, typename DataStoreUpdater::KeyHash> {
         using M = typename R::AppType;
 
@@ -190,7 +194,7 @@ namespace transaction { namespace v2 {
             , dataSource
         );
 
-        auto subscriptionFacility = subscriptionLogicCombination<R,DI,DataStoreUpdater>(
+        auto subscriptionFacility = subscriptionLogicCombination<R,DI,DataStoreUpdater,SLogging>(
             r
             , componentPrefix
             , r.importerAsSource(dataSource)
