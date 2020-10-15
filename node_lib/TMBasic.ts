@@ -30,18 +30,19 @@ export function parseClockSettingsDescription(d : ClockSettingsDescription) : Cl
         return null;
     }
     let actual = new Date();
-    actual = new Date(
-        actual.getFullYear(), actual.getMonth(), actual.getDate()
-        , parseInt(d.clock_settings.actual.time.substring(0,2))
-        , parseInt(d.clock_settings.actual.time.substring(3,5))
-    );
+    actual.setHours(parseInt(d.clock_settings.actual.time.substring(0,2)));
+    actual.setMinutes(parseInt(d.clock_settings.actual.time.substring(3,5)));
+    actual.setSeconds(0);
+    actual.setMilliseconds(0);
     let virtual = new Date(
         parseInt(d.clock_settings.virtual.date.substring(0,4))
         , parseInt(d.clock_settings.virtual.date.substring(5,7))
         , parseInt(d.clock_settings.virtual.date.substring(8,10))
-        , parseInt(d.clock_settings.virtual.time.substring(0,2))
-        , parseInt(d.clock_settings.virtual.time.substring(3,5))
     );
+    virtual.setHours(parseInt(d.clock_settings.virtual.time.substring(0,2)));
+    virtual.setMinutes(parseInt(d.clock_settings.virtual.time.substring(3,5)));
+    virtual.setSeconds(0);
+    virtual.setMilliseconds(0);
     return {
         synchronizationPointActual : actual
         , synchronizationPointVirtual : virtual
@@ -95,7 +96,7 @@ export class ClockEnv implements TMInfra.EnvBase {
         }
     }
     public log(level : TMInfra.LogLevel, s : string) : void {
-        console.log(`[${dateformat(this.now(), "yyyy-mm-dd HH:MM:ss.l")}] [${TMInfra.LogLevel[level]}] ${s}`);
+        console.log(`[${ClockEnv.formatDate(this.now())}] [${TMInfra.LogLevel[level]}] ${s}`);
     }
     public exit() : void {
         process.exit(0);
@@ -103,8 +104,12 @@ export class ClockEnv implements TMInfra.EnvBase {
 
     public static clockSettingsWithStartPoint(actualHHMM : number, virtualStartPoint : Date, speed : number) : ClockSettings {
         let d = new Date();
+        d.setHours(Math.floor(actualHHMM/100));
+        d.setMinutes(actualHHMM%100);
+        d.setSeconds(0);
+        d.setMilliseconds(0);
         return {
-            synchronizationPointActual : new Date(d.getFullYear(), d.getMonth(), d.getDate(), Math.floor(actualHHMM/100), (actualHHMM%100))
+            synchronizationPointActual : d
             , synchronizationPointVirtual : virtualStartPoint
             , speed : speed
         };
@@ -123,16 +128,30 @@ export class ClockEnv implements TMInfra.EnvBase {
             min = 0;
             if (hour >= 24) {
                 d = new Date(d.getTime()+24*3600*1000);
-                d = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                d.setHours(0);
+                d.setMinutes(0);
+                d.setSeconds(0);
+                d.setMilliseconds(0);
             } else {
-                d = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hour, min);
+                d.setHours(hour);
+                d.setMinutes(min);
+                d.setSeconds(0);
+                d.setMilliseconds(0);
             }
+        } else {
+            d.setHours(hour);
+            d.setMinutes(min);
+            d.setSeconds(0);
+            d.setMilliseconds(0);
         }
         return {
             synchronizationPointActual : d
             , synchronizationPointVirtual : virtualStartPoint
             , speed : speed
         };
+    }
+    public static formatDate(d : Date) : string {
+        return dateformat(d, "yyyy-mm-dd HH:MM:ss.l");
     }
 }
 
