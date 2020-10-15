@@ -1,6 +1,8 @@
 import * as TMInfra from '../../tm_infra/node_lib/TMInfra'
 import * as _ from 'lodash';
 import * as dateformat from 'dateformat'
+import * as fs from 'fs'
+import * as Stream from 'stream'
 
 export interface ClockSettings {
     synchronizationPointActual : Date;
@@ -371,5 +373,60 @@ export namespace Transaction {
         export type Account = string;
         export type TransactionWithAccountInfo<Key,Version,Data,DataSummary,VersionSlice,DataDelta> = 
             [Account, Transaction<Key,Version,Data,DataSummary,VersionSlice,DataDelta>];
+    }
+}
+
+export type ByteData = Buffer;
+export interface ByteDataWithTopic {
+    topic : string;
+    content : ByteData;
+}
+export interface TypedDataWithTopic<T> {
+    topic : string;
+    content : T;
+}
+
+export namespace Files {
+    export function byteDataWithTopicOutput<Env extends TMInfra.EnvBase>(name : string, filePrefix? : Buffer, recordPrefix? : Buffer)
+        : TMInfra.RealTimeApp.Exporter<Env,ByteDataWithTopic>
+    {
+        class LocalE extends TMInfra.RealTimeApp.Exporter<Env,ByteDataWithTopic> {
+            private fileStream : Stream.Writable;
+            private name : string;
+            private filePrefix : Buffer;
+            private recordPrefix : Buffer;
+            public constructor(name : string, filePrefix : Buffer, recordPrefix : Buffer) {
+                super();
+                this.fileStream = null;
+                this.name = name;
+                this.filePrefix = filePrefix;
+                this.recordPrefix = recordPrefix;
+            }
+            public start(_e : Env) {
+                this.fileStream = fs.createWriteStream(this.name);
+                if (this.filePrefix) {
+                    this.fileStream.write(this.filePrefix);
+                }
+            }
+            public handle(d : TMInfra.TimedDataWithEnvironment<Env,ByteDataWithTopic>) : void {
+                let prefixLen = 0;
+                if (this.recordPrefix) {
+                    prefixLen = this.recordPrefix.length;
+                }
+                let v = d.timedData.value;
+                let buffer = Buffer.alloc(prefixLen+8+4+v.topic.length+4+v.content.length+1);
+                if (this.recordPrefix) {
+                    this.recordPrefix.copy(buffer, 0);
+                }
+                buffer.writeBigInt64LE(BigInt(d.environment.now().getTime())*BigInt(1000), prefixLen);
+                buffer.writeUInt32LE(v.topic.length,prefixLen+8);
+                buffer.write(v.topic, prefixLen+12);
+                buffer.writeUInt32LE(v.content.length, prefixLen+12+v.topic.length);
+                buffer[buffer.length-1] = (d.timedData.finalFlag?0x1:0x0);
+                v.content.copy(buffer, prefixLen+16+v.topic.length);
+                this.fileStream.write(buffer);
+            }
+        }
+        return new LocalE(name, filePrefix, recordPrefix);
     }
 }
