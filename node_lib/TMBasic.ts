@@ -303,8 +303,12 @@ export class ClockOnOrderFacility {
 
 export namespace Transaction {
     export namespace DataStreamInterface {
-        export type OneFullUpdateItem<Key,Version,Data> = TMInfra.GroupedVersionedData<Key,Version,Data>;
+        export type OneFullUpdateItem<Key,Version,Data> = TMInfra.GroupedVersionedData<Key,Version,([] | [Data])>;
         export type OneDeltaUpdateItem<Key,VersionDelta,DataDelta> = [Key, VersionDelta, DataDelta];
+        export enum OneUpdateItemSubtypes {
+            OneFullUpdateItem = 0
+            , OneDeltaUpdateItem = 1
+        }
         export type OneUpdateItem<Key,Version,Data,VersionDelta,DataDelta> = 
             TMInfra.RealTimeApp.Either2<
                 OneFullUpdateItem<Key,Version,Data>
@@ -351,18 +355,23 @@ export namespace Transaction {
         }
         export interface UpdateAction<Key,VersionSlice,DataSummary,DataDelta> {
             key : Key;
-            oldVersionSlice : VersionSlice;
-            oldDataSummary : DataSummary;
+            oldVersionSlice : [] | [VersionSlice];
+            oldDataSummary : [] | [DataSummary];
             dataDelta : DataDelta;
         }
         export interface DeleteAction<Key,Version,DataSummary> {
             key : Key;
-            oldVersion : Version;
-            oldDataSummary : DataSummary;
+            oldVersion : [] | [Version];
+            oldDataSummary : [] | [DataSummary];
         }
         export interface TransactionResponse<GlobalVersion> {
             globalVersion : GlobalVersion;
             requestDecision : RequestDecision;
+        }
+        export enum TransactionSubtypes {
+            InsertAction = 0
+            , UpdateAction = 1
+            , DeleteAction = 2
         }
         export type Transaction<Key,Version,Data,DataSummary,VersionSlice,DataDelta> =
             TMInfra.RealTimeApp.Either3<
@@ -374,7 +383,48 @@ export namespace Transaction {
         export type TransactionWithAccountInfo<Key,Version,Data,DataSummary,VersionSlice,DataDelta> = 
             [Account, Transaction<Key,Version,Data,DataSummary,VersionSlice,DataDelta>];
     }
+    export namespace GeneralSubscriber {
+        export interface Subscription<Key> {
+            keys : Key[];
+        }
+        export interface Unsubscription {
+            originalSubscriptionID : string;
+        }
+        export interface ListSubscriptions {};
+        export interface SubscriptionInfo<Key> {
+            subscriptions : [string, Key[]][];
+        }
+        export interface UnsubscribeAll {};
+        export interface SnapshotRequest<Key> {
+            keys : Key[];
+        }
+        export type SubscriptionUpdate<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta>
+            = DataStreamInterface.Update<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta>;
+        
+        export enum InputSubtypes {
+            Subscription = 0
+            , Unsubscription = 1
+            , ListSubscriptions = 2
+            , UnsubscribeAll = 3
+            , SnapshotRequest = 4
+        }
+        export type Input<Key> = TMInfra.RealTimeApp.Either5<
+            Subscription<Key>, Unsubscription, ListSubscriptions, UnsubscribeAll, SnapshotRequest<Key>
+        >;
+        export enum OutputSubtypes {
+            Subscription = 0
+            , Unsubscription = 1
+            , SubscriptionUpdate = 2
+            , SubscriptionInfo = 3
+            , UnsubscribeAll = 4
+        }
+        export type Output<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta> = TMInfra.RealTimeApp.Either5<
+            Subscription<Key>, Unsubscription, SubscriptionUpdate<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta>, SubscriptionInfo<Key>, UnsubscribeAll
+        >;
+    }
 }
+
+export type VoidStruct = 0;
 
 export type ByteData = Buffer;
 export interface ByteDataWithTopic {
@@ -428,5 +478,11 @@ export namespace Files {
             }
         }
         return new LocalE(name, filePrefix, recordPrefix);
+    }
+}
+
+export namespace CommonFlowUtils {
+    export function idFunc<Env extends TMInfra.EnvBase,T>() : TMInfra.Kleisli.F<Env,T,T> {
+        return TMInfra.Kleisli.Utils.liftPure<Env,T,T>((x : T) => x);
     }
 }
