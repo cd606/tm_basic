@@ -429,6 +429,77 @@ export namespace Transaction {
             Subscription<Key>, Unsubscription, SubscriptionUpdate<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta>, SubscriptionInfo<Key>, UnsubscribeAll
         >;
     }
+    export namespace Helpers {
+        export interface ClientGSComboOutput<
+            Env extends ClockEnv,LocalData,GlobalVersion,Key,Version,Data,VersionDelta,DataDelta
+        > {
+            localDataSource : TMInfra.RealTimeApp.Source<Env,LocalData>;
+            gsInputSink : TMInfra.RealTimeApp.Sink<Env, TMInfra.Key<GeneralSubscriber.Input<Key>>>;
+            gsOutputSource : TMInfra.RealTimeApp.Source<Env, TMInfra.KeyedData<GeneralSubscriber.Input<Key>, GeneralSubscriber.Output<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta>>>;
+        }
+        export function clientGSCombo<
+            Env extends ClockEnv,LocalData,GlobalVersion,Key,Version,Data,VersionDelta,DataDelta
+        >(
+            r : TMInfra.RealTimeApp.Runner<Env>
+            , facility : TMInfra.RealTimeApp.OnOrderFacility<
+                Env
+                , GeneralSubscriber.Input<Key>
+                , GeneralSubscriber.Output<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta>
+            >
+            , localData : LocalData
+            , deltaApplier : (localData : LocalData, delta : DataStreamInterface.OneDeltaUpdateItem<Key,VersionDelta,DataDelta>) => void
+            , fullUpdateApplier : (localData : LocalData, update : DataStreamInterface.OneFullUpdateItem<Key,Version,Data>) => void
+        ) : ClientGSComboOutput<Env,LocalData,GlobalVersion,Key,Version,Data,VersionDelta,DataDelta>
+        {
+            type GSInput = GeneralSubscriber.Input<Key>;
+            type GSOutput = GeneralSubscriber.Output<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta>;
+            type Update = DataStreamInterface.Update<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta>;
+            let gsInputPipe = TMInfra.RealTimeApp.Utils.kleisli<Env,TMInfra.Key<GSInput>,TMInfra.Key<GSInput>>(
+                CommonFlowUtils.idFunc<Env,TMInfra.Key<GSInput>>()
+            );
+            let gsOutputPipe = TMInfra.RealTimeApp.Utils.kleisli<Env,TMInfra.KeyedData<GSInput,GSOutput>,TMInfra.KeyedData<GSInput,GSOutput>>(
+                CommonFlowUtils.idFunc<Env,TMInfra.KeyedData<GSInput,GSOutput>>()
+            );
+            let updateExtractor = TMInfra.RealTimeApp.Utils.liftMaybe<Env,TMInfra.KeyedData<GSInput,GSOutput>,Update>(
+                (x : TMInfra.KeyedData<GSInput,GSOutput>) => {
+                    if (x.data[0] == Transaction.GeneralSubscriber.OutputSubtypes.SubscriptionUpdate) {
+                        return (x.data[1] as Update);
+                    } else {
+                        return null;
+                    }
+                }
+            );
+            let updateApplier = TMInfra.RealTimeApp.Utils.liftPure<Env,Update,LocalData>(
+                (x : Update) => {
+                    for (let u of x.data) {
+                        if (u[0] == DataStreamInterface.OneUpdateItemSubtypes.OneDeltaUpdateItem) {
+                            let delta = u[1] as DataStreamInterface.OneDeltaUpdateItem<Key,VersionDelta,DataDelta>;
+                            deltaApplier(localData, delta);
+                        } else {
+                            let full = u[1] as DataStreamInterface.OneFullUpdateItem<Key,Version,Data>;
+                            fullUpdateApplier(localData, full);
+                        }
+                    }
+                    return localData;
+                }
+            );
+            r.placeOrderWithFacility<GSInput,GSOutput>(
+                r.actionAsSource<TMInfra.Key<GSInput>,TMInfra.Key<GSInput>>(gsInputPipe)
+                , facility
+                , r.actionAsSink<TMInfra.KeyedData<GSInput,GSOutput>,TMInfra.KeyedData<GSInput,GSOutput>>(gsOutputPipe)
+            );
+            let updateSrc = r.execute<TMInfra.KeyedData<GSInput,GSOutput>,Update>(
+                updateExtractor
+                , r.actionAsSource<TMInfra.KeyedData<GSInput,GSOutput>,TMInfra.KeyedData<GSInput,GSOutput>>(gsOutputPipe)
+            );
+            let localDataSrc = r.execute<Update,LocalData>(updateApplier, updateSrc);
+            return {
+                localDataSource : localDataSrc
+                , gsInputSink : r.actionAsSink<TMInfra.Key<GSInput>,TMInfra.Key<GSInput>>(gsInputPipe)
+                , gsOutputSource : r.actionAsSource<TMInfra.KeyedData<GSInput,GSOutput>,TMInfra.KeyedData<GSInput,GSOutput>>(gsOutputPipe)
+            };
+        }
+    }
 }
 
 export type VoidStruct = 0;
