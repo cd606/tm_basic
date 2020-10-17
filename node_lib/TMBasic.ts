@@ -3,6 +3,7 @@ import * as _ from 'lodash';
 import * as dateformat from 'dateformat'
 import * as fs from 'fs'
 import * as Stream from 'stream'
+import { Console } from 'console';
 
 export interface ClockSettings {
     synchronizationPointActual : Date;
@@ -53,11 +54,17 @@ export function parseClockSettingsDescription(d : ClockSettingsDescription) : Cl
 }
 export class ClockEnv implements TMInfra.EnvBase {
     private clockSettings : ClockSettings;
-    public constructor(s : ClockSettings = null) {
-        this.clockSettings = s;
+    private logConsole : Console;
+    public constructor(clockSettings? : ClockSettings, logFile? : string) {
+        this.clockSettings = clockSettings;
+        if (logFile === undefined || logFile === null || logFile == "") {
+            this.logConsole = console;
+        } else {
+            this.logConsole = new Console(fs.createWriteStream(logFile));
+        }
     }
     private actualToVirtual(d : Date) : Date {
-        if (this.clockSettings == null) {
+        if (this.clockSettings === undefined || this.clockSettings === null) {
             return d;
         } else {
             return new Date(
@@ -67,14 +74,14 @@ export class ClockEnv implements TMInfra.EnvBase {
         }
     }
     public virtualDuration(actualD : number) : number {
-        if (this.clockSettings == null) {
+        if (this.clockSettings === undefined || this.clockSettings === null) {
             return actualD;
         } else {
             return Math.round(actualD*this.clockSettings.speed);
         }
     }
     public virtualToActual(d : Date) : Date {
-        if (this.clockSettings == null) {
+        if (this.clockSettings === undefined || this.clockSettings === null) {
             return d;
         } else {
             return new Date(
@@ -84,21 +91,21 @@ export class ClockEnv implements TMInfra.EnvBase {
         }
     }
     public actualDuration(virtualD : number) : number {
-        if (this.clockSettings == null) {
+        if (this.clockSettings === undefined || this.clockSettings === null) {
             return virtualD;
         } else {
             return Math.round(virtualD*1.0/this.clockSettings.speed);
         }
     }
     public now() : Date {
-        if (this.clockSettings == null) {
+        if (this.clockSettings === undefined || this.clockSettings === null) {
             return new Date();
         } else {
             return this.actualToVirtual(new Date());
         }
     }
     public log(level : TMInfra.LogLevel, s : string) : void {
-        console.log(`[${ClockEnv.formatDate(this.now())}] [${TMInfra.LogLevel[level]}] ${s}`);
+        this.logConsole.log(`[${ClockEnv.formatDate(this.now())}] [${TMInfra.LogLevel[level]}] ${s}`);
     }
     public exit() : void {
         process.exit(0);

@@ -1043,6 +1043,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <>
         struct RunCBORDeserializer<float, void> {
             static std::optional<std::tuple<float, size_t>> apply(std::string_view const &data, size_t start) {
+                auto tryAsInt = RunCBORDeserializer<int64_t>::apply(data, start);
+                if (tryAsInt) {
+                    return std::tuple<float, size_t> {static_cast<float>(std::get<0>(*tryAsInt)), std::get<1>(*tryAsInt)};
+                }
                 if (data.length() < start+5) {
                     return std::nullopt;
                 }
@@ -1060,6 +1064,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <>
         struct RunCBORDeserializer<double, void> {
             static std::optional<std::tuple<double, size_t>> apply(std::string_view const &data, size_t start) {
+                auto tryAsFloat = RunCBORDeserializer<float>::apply(data, start);
+                if (tryAsFloat) {
+                    return std::tuple<double, size_t> {static_cast<double>(std::get<0>(*tryAsFloat)), std::get<1>(*tryAsFloat)};
+                }
                 if (data.length() < start+9) {
                     return std::nullopt;
                 }
