@@ -57,6 +57,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 return std::nullopt;
             }
         }
+        static std::shared_ptr<typename App::template Action<TriggerT, typename ChainItemFolder::ResultType>> action(Env *env, Chain *chain) {
+            return App::template liftMaybe<TriggerT>(ChainReader(env, chain));
+        }
     };
 } } } } }
 

@@ -155,7 +155,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 *output = static_cast<char>(data?1:0);
                 return 1;
             }
-            static std::size_t calculateSize(bool const &data) {
+            static constexpr std::size_t calculateSize(bool const &data) {
                 return 1;
             }
         };
@@ -177,7 +177,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return 2;
                 }
             }
-            static std::size_t calculateSize(uint8_t const &data) {
+            static constexpr std::size_t calculateSize(uint8_t const &data) {
                 if (data <= 23) {
                     return 1;
                 } else {
@@ -203,7 +203,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return 3;
                 }
             }
-            static std::size_t calculateSize(uint16_t const &data) {
+            static constexpr std::size_t calculateSize(uint16_t const &data) {
                 if (data <= std::numeric_limits<uint8_t>::max()) {
                     return RunCBORSerializer<uint8_t>::calculateSize(static_cast<uint8_t>(data));
                 } else {
@@ -231,7 +231,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return 5;
                 }
             }
-            static std::size_t calculateSize(uint32_t const &data) {
+            static constexpr std::size_t calculateSize(uint32_t const &data) {
                 if (data <= std::numeric_limits<uint8_t>::max()) {
                     return RunCBORSerializer<uint8_t>::calculateSize(static_cast<uint8_t>(data));
                 } else if (data <= std::numeric_limits<uint16_t>::max()) {
@@ -264,7 +264,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return 9;
                 }
             }
-            static std::size_t calculateSize(uint64_t const &data) {
+            static constexpr std::size_t calculateSize(uint64_t const &data) {
                 if (data <= std::numeric_limits<uint8_t>::max()) {
                     return RunCBORSerializer<uint8_t>::calculateSize(static_cast<uint8_t>(data));
                 } else if (data <= std::numeric_limits<uint16_t>::max()) {
@@ -300,7 +300,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return s;
                 }
             }
-            static std::size_t calculateSize(T const &data) {
+            static constexpr std::size_t calculateSize(T const &data) {
                 if (data >= 0) {
                     return RunCBORSerializer<std::make_unsigned_t<T>>::calculateSize(
                         static_cast<std::make_unsigned_t<T>>(data)
@@ -326,7 +326,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     static_cast<std::underlying_type_t<T>>(data), output
                 );
             }
-            static std::size_t calculateSize(T const &data) {
+            static constexpr std::size_t calculateSize(T const &data) {
                 return RunCBORSerializer<std::underlying_type_t<T>>::calculateSize(
                     static_cast<std::underlying_type_t<T>>(data)
                 );
@@ -340,7 +340,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             static std::size_t apply(char const &data, char *output) {
                 return RunCBORSerializer<int8_t>::apply(static_cast<int8_t>(data), output);
             }
-            static std::size_t calculateSize(char const &data) {
+            static constexpr std::size_t calculateSize(char const &data) {
                 return RunCBORSerializer<int8_t>::calculateSize(static_cast<int8_t>(data));
             }
         };
@@ -360,7 +360,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::memcpy(&output[1], &dBuf, 4);
                 return 5;
             }
-            static std::size_t calculateSize(float const &data) {
+            static constexpr std::size_t calculateSize(float const &data) {
                 return 5;
             }
         };
@@ -380,7 +380,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::memcpy(&output[1], &dBuf, 8);
                 return 9;
             }
-            static std::size_t calculateSize(double const &data) {
+            static constexpr std::size_t calculateSize(double const &data) {
                 return 9;
             }
         };
@@ -799,7 +799,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             static std::size_t apply(VoidStruct const &data, char *output) {
                 return RunCBORSerializer<int32_t>::apply(0, output);
             }
-            static std::size_t calculateSize(VoidStruct const &data) {
+            static constexpr std::size_t calculateSize(VoidStruct const &data) {
                 return RunCBORSerializer<int32_t>::calculateSize(0);
             }
         };
@@ -823,7 +823,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             static std::size_t apply(ConstType<N> const &data, char *output) {
                 return RunCBORSerializer<int32_t>::apply(N, output);
             }
-            static std::size_t calculateSize(ConstType<N> const &data) {
+            static constexpr std::size_t calculateSize(ConstType<N> const &data) {
                 return RunCBORSerializer<int32_t>::calculateSize(N);
             }
         };
