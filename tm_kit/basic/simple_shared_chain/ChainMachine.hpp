@@ -31,9 +31,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         bool running_;
         std::thread th_;
         void run(Env *env) {
-            static auto checker = boost::hana::is_valid(
-                [](auto *h, auto *v) -> decltype((void) (h->discardUnattachedChainItem(*v))) {}
-            );
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
             );
@@ -58,24 +55,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     }
                     std::tuple<
                         std::optional<typename ChainMachineLogic::OffChainUpdateType>
-                        , std::optional<typename Chain::ItemType>
-                    > processResult = logic_.work(env, currentState_);
+                        , std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>
+                    > processResult = logic_.work(env, chain_, currentState_);
                     if (std::get<1>(processResult)) {    
-                        if (chain_->appendAfter(currentItem_, std::move(*std::get<1>(processResult)))) {
+                        if (chain_->appendAfter(
+                            currentItem_
+                            , chain_->formChainItem(
+                                std::get<0>(*std::get<1>(processResult))
+                                , std::move(std::get<1>(*std::get<1>(processResult))))
+                        )) {
                             if (std::get<0>(processResult)) {
                                 this->publish(env, std::move(*(std::get<0>(processResult))));
                             }
                             break;
-                        } else {
-                            //at this point processResult might be already empty (since it was passed
-                            //as a right reference to appendAfter), discardUnattachedChainItem implementation needs
-                            //to consider that
-                            if constexpr (checker(
-                                (ChainMachineLogic *) nullptr
-                                , (typename Chain::ItemType *) nullptr
-                            )) {
-                                logic_.discardUnattachedChainItem(*std::get<1>(processResult));
-                            }
                         }
                     } else {
                         if (std::get<0>(processResult)) {
@@ -113,19 +105,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainMachine &operator=(ChainMachine &&) = delete;
         virtual void start(Env *env) override final {
             static auto checker = boost::hana::is_valid(
-                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForValue(*v)))) {}
+                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
 
-            currentState_ = folder_.initialize(env); 
+            currentState_ = folder_.initialize(env, chain_); 
             if constexpr (checker(
                 (Chain *) nullptr
                 , (ChainItemFolder *) nullptr
                 , (typename ChainItemFolder::ResultType const *) nullptr
             )) {
-                currentItem_ = chain_->loadUntil(env, folder_.chainIDForValue(currentState_));
+                currentItem_ = chain_->loadUntil(env, folder_.chainIDForState(currentState_));
             } else {
                 currentItem_ = chain_->head(env);
             }
+            logic_.initialize(env, chain_);
             th_ = std::thread(&ChainMachine::run, this, env);
         }
         static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain, ChainMachineLogic &&logic = ChainMachineLogic(), bool busyLoop=false) {
@@ -159,27 +152,28 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainMachine &operator=(ChainMachine &&) = delete;
         virtual void start(Env *env) override final {
             static auto checker = boost::hana::is_valid(
-                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForValue(*v)))) {}
+                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
 
             env_ = env;
-            currentState_ = folder_.initialize(env); 
+            currentState_ = folder_.initialize(env, chain_); 
             if constexpr (checker(
                 (Chain *) nullptr
                 , (ChainItemFolder *) nullptr
                 , (typename ChainItemFolder::ResultType const *) nullptr
             )) {
-                currentItem_ = chain_->loadUntil(env, folder_.chainIDForValue(currentState_));
+                currentItem_ = chain_->loadUntil(env, folder_.chainIDForState(currentState_));
             } else {
                 currentItem_ = chain_->head(env);
             }
+            logic_.initialize(env, chain_);
         }
         virtual typename infra::SinglePassIterationApp<Env>::template Data<typename ChainItemFolder::ResultType> generate() override final {
-            static auto checker = boost::hana::is_valid(
-                [](auto *h, auto *v) -> decltype((void) (h->discardUnattachedChainItem(*v))) {}
-            );
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
+            );
+            static auto timeExtractionChecker = boost::hana::is_valid(
+                [](auto *e, auto *f, auto const *v) -> decltype((void) (e->resolveTime(f->extractTime(*v)))) {}
             );
             while (true) {
                 while (true) {
@@ -200,11 +194,59 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 }
                 std::tuple<
                     std::optional<typename ChainMachineLogic::OffChainUpdateType>
-                    , std::optional<typename Chain::ItemType>
-                > processResult = logic_.work(env_, currentState_);
+                    , std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>
+                > processResult = logic_.work(env_, chain_, currentState_);
                 if (std::get<1>(processResult)) {    
-                    if (chain_->appendAfter(currentItem_, std::move(*std::get<1>(processResult)))) {
+                    if (chain_->appendAfter(
+                        currentItem_
+                        , chain_->formChainItem(
+                            std::get<0>(*std::get<1>(processResult))
+                            , std::move(std::get<1>(*std::get<1>(processResult))))
+                    )) {
                         if (std::get<0>(processResult)) {
+                            if constexpr (timeExtractionChecker(
+                                (Env *) nullptr
+                                , (ChainItemFolder *) nullptr
+                                , (typename ChainItemFolder::ResultType *) nullptr
+                            )) {
+                                return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
+                                    env_
+                                    , {
+                                        env_->resolveTime(folder_.extractTime(currentState_))
+                                        , std::move(*(std::get<0>(processResult)))
+                                        , false
+                                    }
+                                };
+                            } else {
+                                return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
+                                    env_
+                                    , {
+                                        env_->resolveTime()
+                                        , std::move(*(std::get<0>(processResult)))
+                                        , false
+                                    }
+                                };
+                            }
+                        } else {
+                            return std::nullopt;
+                        }
+                    }
+                } else {
+                    if (std::get<0>(processResult)) {
+                        if constexpr (timeExtractionChecker(
+                            (Env *) nullptr
+                            , (ChainItemFolder *) nullptr
+                            , (typename ChainItemFolder::ResultType *) nullptr
+                        )) {
+                            return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
+                                env_
+                                , {
+                                    env_->resolveTime(folder_.extractTime(currentState_))
+                                    , std::move(*(std::get<0>(processResult)))
+                                    , false
+                                }
+                            };
+                        } else {
                             return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
                                 env_
                                 , {
@@ -213,30 +255,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                                     , false
                                 }
                             };
-                        } else {
-                            return std::nullopt;
                         }
-                    } else {
-                        //at this point processResult might be already empty (since it was passed
-                        //as a right reference to appendAfter), discardUnattachedChainItem implementation needs
-                        //to consider that
-                        if constexpr (checker(
-                            (ChainMachineLogic *) nullptr
-                            , (typename Chain::ItemType *) nullptr
-                        )) {
-                            logic_.discardUnattachedChainItem(*std::get<1>(processResult));
-                        }
-                    }
-                } else {
-                    if (std::get<0>(processResult)) {
-                        return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
-                            env_
-                            , {
-                                env_->resolveTime()
-                                , std::move(*(std::get<0>(processResult)))
-                                , false
-                            }
-                        };
                     } else {
                         return std::nullopt;
                     }

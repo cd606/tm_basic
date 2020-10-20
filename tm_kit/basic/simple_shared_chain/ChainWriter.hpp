@@ -45,12 +45,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     } else {
                         parent_->currentState_ = parent_->folder_.fold(parent_->currentState_, parent_->currentItem_);
                     }
+                    
                 }
             }
             virtual void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
-                static auto checker = boost::hana::is_valid(
-                    [](auto *h, auto *v) -> decltype((void) (h->discardUnattachedChainItem(*v))) {}
-                );
                 static auto foldInPlaceChecker = boost::hana::is_valid(
                     [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
                 );
@@ -75,24 +73,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     }
                     std::tuple<
                         typename InputHandler::ResponseType
-                        , std::optional<typename Chain::ItemType>
-                    > processResult = parent_->inputHandler_.handleInput(data.environment, std::move(data.timedData), parent_->currentState_);
-                    if (std::get<1>(processResult)) {    
-                        if (parent_->chain_->appendAfter(parent_->currentItem_, std::move(*std::get<1>(processResult)))) {
+                        , std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>
+                    > processResult = parent_->inputHandler_.handleInput(data.environment, parent_->chain_, std::move(data.timedData), parent_->currentState_);
+                    if (std::get<1>(processResult)) {   
+                        if (parent_->chain_->appendAfter(
+                            parent_->currentItem_
+                            , parent_->chain_->formChainItem(
+                                std::get<0>(*std::get<1>(processResult))
+                                , std::move(std::get<1>(*std::get<1>(processResult))))
+                        )) { 
                             parent_->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
                                 id, std::move(std::get<0>(processResult))
                             }, true);
                             break;
-                        } else {
-                            //at this point processResult might be already empty (since it was passed
-                            //as a right reference to appendAfter), discardUnattachedChainItem implementation needs
-                            //to consider that
-                            if constexpr (checker(
-                                (InputHandler *) nullptr
-                                , (typename Chain::ItemType *) nullptr
-                            )) {
-                                parent_->inputHandler_.discardUnattachedChainItem(*std::get<1>(processResult));
-                            }
                         }
                     } else {
                         parent_->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
@@ -110,7 +103,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         InputHandler inputHandler_;
         typename ChainItemFolder::ResultType currentState_;   
     public:
-        ChainWriter(Chain *chain) : 
+        ChainWriter(Chain *chain, InputHandler &&inputHandler=InputHandler()) : 
 #ifndef _MSC_VER
             infra::RealTimeApp<Env>::IExternalComponent(), 
             infra::RealTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>(), 
@@ -119,7 +112,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , chain_(chain)
             , currentItem_()
             , folder_()
-            , inputHandler_()
+            , inputHandler_(std::move(inputHandler))
             , currentState_() 
         {}
         virtual ~ChainWriter() {
@@ -133,21 +126,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainWriter &operator=(ChainWriter &&) = default;
         virtual void start(Env *env) override final {
             static auto checker = boost::hana::is_valid(
-                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForValue(*v)))) {}
+                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
             
-            currentState_ = folder_.initialize(env);
+            currentState_ = folder_.initialize(env, chain_);
             
             if constexpr (checker(
                 (Chain *) nullptr
                 , (ChainItemFolder *) nullptr
                 , (typename ChainItemFolder::ResultType const *) nullptr
             )) {
-                currentItem_ = chain_->loadUntil(env, folder_.chainIDForValue(currentState_));
+                currentItem_ = chain_->loadUntil(env, folder_.chainIDForState(currentState_));
             } else {
                 currentItem_ = chain_->head(env);
             }
-            inputHandler_.initialize(env);
+            inputHandler_.initialize(env, chain_);
             innerHandler_ = new InnerHandler(this);
         }
         virtual void handle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
@@ -170,9 +163,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         typename ChainItemFolder::ResultType currentState_;
     protected:
         virtual void handle(typename infra::SinglePassIterationApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
-            static auto checker = boost::hana::is_valid(
-                [](auto *h, auto *v) -> decltype((void) (h->discardUnattachedChainItem(*v))) {}
-            );
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
             );
@@ -196,24 +186,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 }
                 std::tuple<
                     typename InputHandler::ResponseType
-                    , std::optional<typename Chain::ItemType>
-                > processResult = inputHandler_.handleInput(data.environment, std::move(data.timedData), currentState_);
+                    , std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>
+                > processResult = inputHandler_.handleInput(data.environment, chain_, std::move(data.timedData), currentState_);
                 if (std::get<1>(processResult)) {    
-                    if (chain_->appendAfter(currentItem_, std::move(*std::get<1>(processResult)))) {
+                    if (chain_->appendAfter(
+                        currentItem_
+                        , chain_->formChainItem(
+                            std::get<0>(*std::get<1>(processResult))
+                            , std::move(std::get<1>(*std::get<1>(processResult))))
+                    )) {
                         this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
                             id, std::move(std::get<0>(processResult))
                         }, true);
                         break;
-                    } else {
-                        //at this point processResult might be already empty (since it was passed
-                        //as a right reference to appendAfter), discardUnattachedChainItem implementation needs
-                        //to consider that
-                        if constexpr (checker(
-                            (InputHandler *) nullptr
-                            , (typename Chain::ItemType *) nullptr
-                        )) {
-                            inputHandler_.discardUnattachedChainItem(*std::get<1>(processResult));
-                        }
                     }
                 } else {
                     this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
@@ -241,21 +226,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainWriter &operator=(ChainWriter &&) = default;
         virtual void start(Env *env) override final {
             static auto checker = boost::hana::is_valid(
-                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForValue(*v)))) {}
+                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
 
-            currentState_ = folder_.initialize(env);
+            currentState_ = folder_.initialize(env, chain_);
             
             if constexpr (checker(
                 (Chain *) nullptr
                 , (ChainItemFolder *) nullptr
                 , (typename ChainItemFolder::ResultType const *) nullptr
             )) {
-                currentItem_ = chain_->loadUntil(env, folder_.chainIDForValue(currentState_));
+                currentItem_ = chain_->loadUntil(env, folder_.chainIDForState(currentState_));
             } else {
                 currentItem_ = chain_->head(env);
             }
-            inputHandler_.initialize(env);
+            inputHandler_.initialize(env, chain_);
         }
     };
 } } } } }

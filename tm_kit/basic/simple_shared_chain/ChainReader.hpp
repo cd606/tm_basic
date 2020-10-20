@@ -22,17 +22,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             chain_(chain)
             , currentItem_()
             , folder_()
-            , currentValue_(folder_.initialize(env)) 
+            , currentValue_(folder_.initialize(env, chain)) 
         {
             static auto checker = boost::hana::is_valid(
-                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForValue(*v)))) {}
+                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
             if constexpr (checker(
                 (Chain *) nullptr
                 , (ChainItemFolder *) nullptr
                 , (typename ChainItemFolder::ResultType const *) nullptr
             )) {
-                currentItem_ = chain_->loadUntil(env, folder_.chainIDForValue(currentValue_));
+                currentItem_ = chain_->loadUntil(env, folder_.chainIDForState(currentValue_));
             } else {
                 currentItem_ = chain_->head(env);
             }
@@ -141,17 +141,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainReader &operator=(ChainReader &&) = delete;
         virtual void start(Env *env) override final {
             static auto checker = boost::hana::is_valid(
-                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForValue(*v)))) {}
+                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
 
-            currentValue_ = folder_.initialize(env); 
+            currentValue_ = folder_.initialize(env, chain_); 
             
             if constexpr (checker(
                 (Chain *) nullptr
                 , (ChainItemFolder *) nullptr
                 , (typename ChainItemFolder::ResultType const *) nullptr
             )) {
-                currentItem_ = chain_->loadUntil(env, folder_.chainIDForValue(currentValue_));
+                currentItem_ = chain_->loadUntil(env, folder_.chainIDForState(currentValue_));
             } else {
                 currentItem_ = chain_->head(env);
             }
@@ -186,18 +186,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainReader &operator=(ChainReader &&) = delete;
         virtual void start(Env *env) override final {
             static auto checker = boost::hana::is_valid(
-                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForValue(*v)))) {}
+                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
 
             env_ = env;
-            currentValue_ = folder_.initialize(env); 
+            currentValue_ = folder_.initialize(env, chain_); 
             
             if constexpr (checker(
                 (Chain *) nullptr
                 , (ChainItemFolder *) nullptr
                 , (typename ChainItemFolder::ResultType const *) nullptr
             )) {
-                currentItem_ = chain_->loadUntil(env, folder_.chainIDForValue(currentValue_));
+                currentItem_ = chain_->loadUntil(env, folder_.chainIDForState(currentValue_));
             } else {
                 currentItem_ = chain_->head(env);
             }
@@ -205,6 +205,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         virtual typename infra::SinglePassIterationApp<Env>::template Data<typename ChainItemFolder::ResultType> generate() override final {
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
+            );
+            static auto timeExtractionChecker = boost::hana::is_valid(
+                [](auto *e, auto *f, auto const *v) -> decltype((void) (e->resolveTime(f->extractTime(*v)))) {}
             );
             std::optional<typename Chain::ItemType> nextItem;
             bool hasData = false;
@@ -225,14 +228,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 }
             } while (nextItem);
             if (hasData) {
-                return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
-                    env_
-                    , {
-                        env_->resolveTime()
-                        , infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_)
-                        , false
-                    }
-                };
+                if constexpr (timeExtractionChecker(
+                    (Env *) nullptr
+                    , (ChainItemFolder *) nullptr
+                    , (typename ChainItemFolder::ResultType *) nullptr
+                )) {
+                    return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
+                        env_
+                        , {
+                            env_->resolveTime(folder_.extractTime(currentValue_))
+                            , infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_)
+                            , false
+                        }
+                    };
+                } else {
+                    return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
+                        env_
+                        , {
+                            env_->resolveTime()
+                            , infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_)
+                            , false
+                        }
+                    };
+                }
             } else {
                 return std::nullopt;
             }
