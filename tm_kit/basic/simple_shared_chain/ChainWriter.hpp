@@ -30,15 +30,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
             virtual ~InnerHandler() {}
             virtual void idleWork() override final {
+                static auto foldInPlaceChecker = boost::hana::is_valid(
+                    [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
+                );
                 std::optional<typename Chain::ItemType> nextItem = parent_->chain_->fetchNext(parent_->currentItem_);
                 if (nextItem) {
                     parent_->currentItem_ = std::move(*nextItem);
-                    parent_->currentState_ = parent_->folder_.fold(parent_->currentState_, parent_->currentItem_);
+                    if constexpr (foldInPlaceChecker(
+                        (ChainItemFolder *) nullptr
+                        , (typename ChainItemFolder::ResultType *) nullptr
+                        , (typename Chain::ItemType const *) nullptr
+                    )) {
+                        parent_->folder_.foldInPlace(parent_->currentState_, parent_->currentItem_);
+                    } else {
+                        parent_->currentState_ = parent_->folder_.fold(parent_->currentState_, parent_->currentItem_);
+                    }
                 }
             }
             virtual void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
                 static auto checker = boost::hana::is_valid(
                     [](auto *h, auto *v) -> decltype((void) (h->discardUnattachedChainItem(*v))) {}
+                );
+                static auto foldInPlaceChecker = boost::hana::is_valid(
+                    [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
                 );
                
                 auto id = data.timedData.value.id();
@@ -49,7 +63,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                             break;
                         }
                         parent_->currentItem_ = std::move(*nextItem);
-                        parent_->currentState_ = parent_->folder_.fold(parent_->currentState_, parent_->currentItem_);
+                        if constexpr (foldInPlaceChecker(
+                            (ChainItemFolder *) nullptr
+                            , (typename ChainItemFolder::ResultType *) nullptr
+                            , (typename Chain::ItemType const *) nullptr
+                        )) {
+                            parent_->folder_.foldInPlace(parent_->currentState_, parent_->currentItem_);
+                        } else {
+                            parent_->currentState_ = parent_->folder_.fold(parent_->currentState_, parent_->currentItem_);
+                        }
                     }
                     std::tuple<
                         typename InputHandler::ResponseType
@@ -110,10 +132,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainWriter(ChainWriter &&) = default;
         ChainWriter &operator=(ChainWriter &&) = default;
         virtual void start(Env *env) override final {
-            currentState_ = folder_.initialize(env);
-            auto checker = boost::hana::is_valid(
+            static auto checker = boost::hana::is_valid(
                 [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForValue(*v)))) {}
             );
+            
+            currentState_ = folder_.initialize(env);
+            
             if constexpr (checker(
                 (Chain *) nullptr
                 , (ChainItemFolder *) nullptr
@@ -149,6 +173,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             static auto checker = boost::hana::is_valid(
                 [](auto *h, auto *v) -> decltype((void) (h->discardUnattachedChainItem(*v))) {}
             );
+            static auto foldInPlaceChecker = boost::hana::is_valid(
+                [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
+            );
             auto id = data.timedData.value.id();
             while (true) {
                 while (true) {
@@ -157,7 +184,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         break;
                     }
                     currentItem_ = std::move(*nextItem);
-                    currentState_ = folder_.fold(currentState_, currentItem_);
+                    if constexpr (foldInPlaceChecker(
+                        (ChainItemFolder *) nullptr
+                        , (typename ChainItemFolder::ResultType *) nullptr
+                        , (typename Chain::ItemType const *) nullptr
+                    )) {
+                        folder_.foldInPlace(currentState_, currentItem_);
+                    } else {
+                        currentState_ = folder_.fold(currentState_, currentItem_);
+                    }
                 }
                 std::tuple<
                     typename InputHandler::ResponseType
@@ -205,10 +240,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainWriter(ChainWriter &&) = default;
         ChainWriter &operator=(ChainWriter &&) = default;
         virtual void start(Env *env) override final {
-            currentState_ = folder_.initialize(env);
-            auto checker = boost::hana::is_valid(
+            static auto checker = boost::hana::is_valid(
                 [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForValue(*v)))) {}
             );
+
+            currentState_ = folder_.initialize(env);
+            
             if constexpr (checker(
                 (Chain *) nullptr
                 , (ChainItemFolder *) nullptr

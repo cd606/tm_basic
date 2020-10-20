@@ -1594,6 +1594,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <class T, typename Enable=void>
         struct RunDeserializer {
+            static std::optional<T> apply(std::string_view const &data) {
+                return apply(std::string {data});
+            }
             static std::optional<T> apply(std::string const &data) {
                 T t;
                 if (t.ParseFromString(data)) {
@@ -1605,8 +1608,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <class T>
         struct RunDeserializer<CBOR<T>, void> {
-            static std::optional<CBOR<T>> apply(std::string const &data) {
-                auto r = RunCBORDeserializer<T>::apply(std::string_view {data}, 0);
+            static std::optional<CBOR<T>> apply(std::string_view const &data) {
+                auto r = RunCBORDeserializer<T>::apply(data, 0);
                 if (!r) {
                     return std::nullopt;
                 }
@@ -1617,11 +1620,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     CBOR<T> {std::move(std::get<0>(*r))}
                 };
             }
+            static std::optional<CBOR<T>> apply(std::string const &data) {
+                return apply(std::string_view {data});
+            }
         };
         template <class T>
         struct RunDeserializer<CBORWithMaxSizeHint<T>, void> {
-            static std::optional<CBORWithMaxSizeHint<T>> apply(std::string const &data) {
-                auto r = RunCBORDeserializer<T>::apply(std::string_view {data}, 0);
+            static std::optional<CBORWithMaxSizeHint<T>> apply(std::string_view const &data) {
+                auto r = RunCBORDeserializer<T>::apply(data, 0);
                 if (!r) {
                     return std::nullopt;
                 }
@@ -1632,28 +1638,40 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     CBORWithMaxSizeHint<T> {std::move(std::get<0>(*r)), data.length()}
                 };
             }
+            static std::optional<CBORWithMaxSizeHint<T>> apply(std::string const &data) {
+                return apply(std::string_view {data});
+            }
         };
         template <>
         struct RunDeserializer<std::string, void> {
+            static std::optional<std::string> apply(std::string_view const &data) {
+                return {std::string {data}};
+            }
             static std::optional<std::string> apply(std::string const &data) {
                 return {data};
             }
         };
         template <>
         struct RunDeserializer<ByteData, void> {
+            static std::optional<ByteData> apply(std::string_view const &data) {
+                return {ByteData {std::string {data}}};
+            }
             static std::optional<ByteData> apply(std::string const &data) {
                 return {ByteData {data}};
             }
         };
         template <size_t N>
         struct RunDeserializer<std::array<char, N>, void> {
-            static std::optional<std::array<char, N>> apply(std::string const &data) {
+            static std::optional<std::array<char, N>> apply(std::string_view const &data) {
                 if (data.length() != N) {
                     return std::nullopt;
                 }
                 std::optional<std::array<char, N>> ret {std::array<char, N> {}};
-                std::memcpy(ret->data(), data.c_str(), N);
+                std::memcpy(ret->data(), data.data(), N);
                 return ret;
+            }
+            static std::optional<std::array<char, N>> apply(std::string const &data) {
+                return apply(std::string_view {data});
             }
         };
 
@@ -1770,7 +1788,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <class VersionType, class DataType, class Cmp>
         struct RunDeserializer<infra::VersionedData<VersionType,DataType,Cmp>, void> {
-            static std::optional<infra::VersionedData<VersionType,DataType,Cmp>> apply(std::string const &data) {
+            static std::optional<infra::VersionedData<VersionType,DataType,Cmp>> apply(std::string_view const &data) {
                 auto x = RunDeserializer<std::tuple<VersionType,DataType>>::apply(data);
                 if (!x) {
                     return std::nullopt;
@@ -1779,10 +1797,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     std::move(std::get<0>(*x)), std::move(std::get<1>(*x))
                 };
             }
+            static std::optional<infra::VersionedData<VersionType,DataType,Cmp>> apply(std::string const &data) {
+                return apply(std::string_view {data});
+            }
         };
         template <class GroupIDType, class VersionType, class DataType, class Cmp>
         struct RunDeserializer<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>, void> {
-            static std::optional<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>> apply(std::string const &data) {
+            static std::optional<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>> apply(std::string_view const &data) {
                 auto x = RunDeserializer<std::tuple<GroupIDType,VersionType,DataType>>::apply(data);
                 if (!x) {
                     return std::nullopt;
@@ -1790,6 +1811,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> {
                     std::move(std::get<0>(*x)), std::move(std::get<1>(*x)), std::move(std::get<2>(*x))
                 };
+            }
+            static std::optional<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>> apply(std::string const &data) {
+                return apply(std::string_view {data});
             }
         };
 
@@ -1842,6 +1866,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <class T>
         inline static std::string serializeFunc(T const &t) {
             return bytedata_utils::RunSerializer<T>::apply(t);
+        }
+        template <class T>
+        inline static std::optional<T> deserializeFunc(std::string_view const &data) {
+            return bytedata_utils::RunDeserializer<T>::apply(data);
         }
         template <class T>
         inline static std::optional<T> deserializeFunc(std::string const &data) {

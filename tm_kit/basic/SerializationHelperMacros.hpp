@@ -242,12 +242,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         }; \
         template <> \
         struct RunDeserializer<name, void> { \
-            static std::optional<name> apply(std::string const &s) { \
+            static std::optional<name> apply(std::string_view const &s) { \
                 auto t = RunDeserializer<CBOR<name>, void>::apply(s); \
                 if (!t) {\
                     return std::nullopt; \
                 } \
                 return std::move(t->value); \
+            } \
+            static std::optional<name> apply(std::string const &s) { \
+                return apply(std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -273,12 +276,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         }; \
         template <> \
         struct RunDeserializer<name, void> { \
-            static std::optional<name> apply(std::string const &s) { \
+            static std::optional<name> apply(std::string_view const &s) { \
                 auto t = RunDeserializer<CBOR<name>, void>::apply(s); \
                 if (!t) {\
                     return std::nullopt; \
                 } \
                 return std::move(t->value); \
+            } \
+            static std::optional<name> apply(std::string const &s) { \
+                return apply(std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -349,12 +355,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         }; \
         template <> \
         struct RunDeserializer<name, void> { \
-            static std::optional<name> apply(std::string const &s) { \
+            static std::optional<name> apply(std::string_view const &s) { \
                 auto t = RunDeserializer<CBOR<name>, void>::apply(s); \
                 if (!t) {\
                     return std::nullopt; \
                 } \
                 return std::move(t->value); \
+            } \
+            static std::optional<name> apply(std::string const &s) { \
+                return apply(std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -375,12 +384,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         }; \
         template <> \
         struct RunDeserializer<name, void> { \
-            static std::optional<name> apply(std::string const &s) { \
+            static std::optional<name> apply(std::string_view const &s) { \
                 auto t = RunDeserializer<CBOR<name>, void>::apply(s); \
                 if (!t) {\
                     return std::nullopt; \
                 } \
                 return std::move(t->value); \
+            } \
+            static std::optional<name> apply(std::string const &s) { \
+                return apply(std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -494,12 +506,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         }; \
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
         struct RunDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
-            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
+            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string_view const &s) { \
                 auto t = RunDeserializer<CBOR<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>, void>::apply(s); \
                 if (!t) {\
                     return std::nullopt; \
                 } \
                 return std::move(t->value); \
+            } \
+            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
+                return apply(std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -525,12 +540,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         }; \
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
         struct RunDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
-            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
+            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string_view const &s) { \
                 auto t = RunDeserializer<CBOR<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>, void>::apply(s); \
                 if (!t) {\
                     return std::nullopt; \
                 } \
                 return std::move(t->value); \
+            } \
+            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
+                return apply(std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -601,12 +619,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         }; \
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
         struct RunDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
-            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
+            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string_view const &s) { \
                 auto t = RunDeserializer<CBOR<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>, void>::apply(s); \
                 if (!t) {\
                     return std::nullopt; \
                 } \
                 return std::move(t->value); \
+            } \
+            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
+                return apply(std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -627,12 +648,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         }; \
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
         struct RunDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
-            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
+            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string_view const &s) { \
                 auto t = RunDeserializer<CBOR<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>, void>::apply(s); \
                 if (!t) {\
                     return std::nullopt; \
                 } \
                 return std::move(t->value); \
+            } \
+            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
+                return apply(std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -764,12 +788,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         }; \
         template <> \
         struct RunDeserializer<name, void> { \
-            static std::optional<name> apply(std::string const &s) { \
+            static std::optional<name> apply(std::string_view const &s) { \
                 auto t = RunDeserializer<CBOR<name>, void>::apply(s); \
                 if (!t) {\
                     return std::nullopt; \
                 } \
                 return std::move(t->value); \
+            } \
+            static std::optional<name> apply(std::string const &s) { \
+                return apply(std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -845,12 +872,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         }; \
         template <> \
         struct RunDeserializer<name, void> { \
-            static std::optional<name> apply(std::string const &s) { \
+            static std::optional<name> apply(std::string_view const &s) { \
                 auto t = RunDeserializer<CBOR<name>, void>::apply(s); \
                 if (!t) {\
                     return std::nullopt; \
                 } \
                 return std::move(t->value); \
+            } \
+            static std::optional<name> apply(std::string const &s) { \
+                return apply(std::string_view {s}); \
             } \
         }; \
     } } } } }
