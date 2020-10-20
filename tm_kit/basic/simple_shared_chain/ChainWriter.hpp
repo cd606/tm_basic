@@ -11,104 +11,150 @@
 #include <boost/hana/type.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace simple_shared_chain {
-    template <class App, class Chain, class ChainItemFolder, class InputHandler>
+    template <class App, class Chain, class ChainItemFolder, class InputHandler, class IdleLogic=void>
     class ChainWriter {};
 
-    template <class Env, class Chain, class ChainItemFolder, class InputHandler>
-    class ChainWriter<typename infra::RealTimeApp<Env>, Chain, ChainItemFolder, InputHandler>
+    template <class IdleLogic>
+    struct OffChainUpdateTypeExtractor {
+        using T = typename IdleLogic::OffChainUpdateType;
+    };
+    template <>
+    struct OffChainUpdateTypeExtractor<void> {
+        using T = basic::VoidStruct;
+    };
+
+    template <class Env, class Chain, class ChainItemFolder, class InputHandler, class IdleLogic>
+    class ChainWriter<typename infra::RealTimeApp<Env>, Chain, ChainItemFolder, InputHandler, IdleLogic>
         : 
         public virtual infra::RealTimeApp<Env>::IExternalComponent
-        , public virtual infra::RealTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>
+        , public virtual 
+            std::conditional_t<
+                std::is_same_v<IdleLogic, void>
+                , typename infra::RealTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>
+                , typename infra::RealTimeApp<Env>::template AbstractIntegratedOnOrderFacilityWithExternalEffects<typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+            >
     {
     private:
-        friend class InnerHandler;
-        class InnerHandler : public infra::RealTimeAppComponents<Env>::template ThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> {
-        private:
-            ChainWriter *parent_;
-        public:
-            InnerHandler(ChainWriter *parent) : infra::RealTimeAppComponents<Env>::template ThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>>(), parent_(parent) {
+        void idleWork() {
+            static auto foldInPlaceChecker = boost::hana::is_valid(
+                [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
+            );
+            std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+            if (nextItem) {
+                currentItem_ = std::move(*nextItem);
+                if constexpr (foldInPlaceChecker(
+                    (ChainItemFolder *) nullptr
+                    , (typename ChainItemFolder::ResultType *) nullptr
+                    , (typename Chain::ItemType const *) nullptr
+                )) {
+                    folder_.foldInPlace(currentState_, currentItem_);
+                } else {
+                    currentState_ = folder_.fold(currentState_, currentItem_);
+                }
             }
-            virtual ~InnerHandler() {}
-            virtual void idleWork() override final {
-                static auto foldInPlaceChecker = boost::hana::is_valid(
-                    [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
-                );
-                std::optional<typename Chain::ItemType> nextItem = parent_->chain_->fetchNext(parent_->currentItem_);
-                if (nextItem) {
-                    parent_->currentItem_ = std::move(*nextItem);
+        }
+        void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) {
+            static auto foldInPlaceChecker = boost::hana::is_valid(
+                [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
+            );
+            
+            auto id = data.timedData.value.id();
+            while (true) {
+                while (true) {
+                    std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+                    if (!nextItem) {
+                        break;
+                    }
+                    currentItem_ = std::move(*nextItem);
                     if constexpr (foldInPlaceChecker(
                         (ChainItemFolder *) nullptr
                         , (typename ChainItemFolder::ResultType *) nullptr
                         , (typename Chain::ItemType const *) nullptr
                     )) {
-                        parent_->folder_.foldInPlace(parent_->currentState_, parent_->currentItem_);
+                        folder_.foldInPlace(currentState_, currentItem_);
                     } else {
-                        parent_->currentState_ = parent_->folder_.fold(parent_->currentState_, parent_->currentItem_);
+                        currentState_ = folder_.fold(currentState_, currentItem_);
                     }
-                    
                 }
-            }
-            virtual void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
-                static auto foldInPlaceChecker = boost::hana::is_valid(
-                    [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
-                );
-               
-                auto id = data.timedData.value.id();
-                while (true) {
-                    while (true) {
-                        std::optional<typename Chain::ItemType> nextItem = parent_->chain_->fetchNext(parent_->currentItem_);
-                        if (!nextItem) {
-                            break;
-                        }
-                        parent_->currentItem_ = std::move(*nextItem);
-                        if constexpr (foldInPlaceChecker(
-                            (ChainItemFolder *) nullptr
-                            , (typename ChainItemFolder::ResultType *) nullptr
-                            , (typename Chain::ItemType const *) nullptr
-                        )) {
-                            parent_->folder_.foldInPlace(parent_->currentState_, parent_->currentItem_);
-                        } else {
-                            parent_->currentState_ = parent_->folder_.fold(parent_->currentState_, parent_->currentItem_);
-                        }
-                    }
-                    std::tuple<
-                        typename InputHandler::ResponseType
-                        , std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>
-                    > processResult = parent_->inputHandler_.handleInput(data.environment, parent_->chain_, std::move(data.timedData), parent_->currentState_);
-                    if (std::get<1>(processResult)) {   
-                        if (parent_->chain_->appendAfter(
-                            parent_->currentItem_
-                            , parent_->chain_->formChainItem(
-                                std::get<0>(*std::get<1>(processResult))
-                                , std::move(std::get<1>(*std::get<1>(processResult))))
-                        )) { 
-                            parent_->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
-                                id, std::move(std::get<0>(processResult))
-                            }, true);
-                            break;
-                        }
-                    } else {
-                        parent_->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
+                std::tuple<
+                    typename InputHandler::ResponseType
+                    , std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>
+                > processResult = inputHandler_.handleInput(data.environment, chain_, std::move(data.timedData), currentState_);
+                if (std::get<1>(processResult)) {   
+                    if (chain_->appendAfter(
+                        currentItem_
+                        , chain_->formChainItem(
+                            std::get<0>(*std::get<1>(processResult))
+                            , std::move(std::get<1>(*std::get<1>(processResult))))
+                    )) { 
+                        this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
                             id, std::move(std::get<0>(processResult))
                         }, true);
                         break;
                     }
+                } else {
+                    this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
+                        id, std::move(std::get<0>(processResult))
+                    }, true);
+                    break;
                 }
             }
+        }
+        friend class InnerHandler1;
+        class InnerHandler1 : public infra::RealTimeAppComponents<Env>::template ThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> {
+        private:
+            ChainWriter *parent_;
+        public:
+            InnerHandler1(ChainWriter *parent) : infra::RealTimeAppComponents<Env>::template ThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>>(), parent_(parent) {
+            }
+            virtual ~InnerHandler1() {}
+            virtual void idleWork() override final {
+                parent_->idleWork();
+            }
+            virtual void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
+                parent_->actuallyHandle(std::move(data));
+            }
         };
-        InnerHandler *innerHandler_;
+        friend class InnerHandler2;
+        class InnerHandler2 : public infra::RealTimeAppComponents<Env>::template BusyLoopThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> {
+        private:
+            ChainWriter *parent_;
+        public:
+            InnerHandler2(ChainWriter *parent) : infra::RealTimeAppComponents<Env>::template BusyLoopThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>>(parent->noYield_), parent_(parent) {
+            }
+            virtual ~InnerHandler2() {}
+            virtual void idleWork() override final {
+                parent_->idleWork();
+            }
+            virtual void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
+                parent_->actuallyHandle(std::move(data));
+            }
+        };
+        bool useBusyLoop_;
+        bool noYield_;
+        InnerHandler1 *innerHandler1_;
+        InnerHandler2 *innerHandler2_;
         Chain *chain_;
         typename Chain::ItemType currentItem_;
         ChainItemFolder folder_;
         InputHandler inputHandler_;
         typename ChainItemFolder::ResultType currentState_;   
+
+        using ParentInterface = std::conditional_t<
+            std::is_same_v<IdleLogic, void>
+            , typename infra::RealTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>
+            , typename infra::RealTimeApp<Env>::template AbstractIntegratedOnOrderFacilityWithExternalEffects<typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+        >;
     public:
-        ChainWriter(Chain *chain, InputHandler &&inputHandler=InputHandler()) : 
+        ChainWriter(Chain *chain, InputHandler &&inputHandler=InputHandler(), bool useBusyLoop=false, bool noYield=false) : 
 #ifndef _MSC_VER
             infra::RealTimeApp<Env>::IExternalComponent(), 
-            infra::RealTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>(), 
+            ParentInterface(), 
 #endif
-            innerHandler_(nullptr)
+            useBusyLoop_(useBusyLoop)
+            , noYield_(noYield)
+            , innerHandler1_(nullptr)
+            , innerHandler2_(nullptr)
             , chain_(chain)
             , currentItem_()
             , folder_()
@@ -116,8 +162,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , currentState_() 
         {}
         virtual ~ChainWriter() {
-            if (innerHandler_) {
-                delete innerHandler_;
+            if (innerHandler1_) {
+                delete innerHandler1_;
+            }
+            if (innerHandler2_) {
+                delete innerHandler2_;
             }
         }
         ChainWriter(ChainWriter const &) = delete;
@@ -141,17 +190,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 currentItem_ = chain_->head(env);
             }
             inputHandler_.initialize(env, chain_);
-            innerHandler_ = new InnerHandler(this);
+            if (useBusyLoop_) {
+                innerHandler2_ = new InnerHandler2(this);
+            } else {
+                innerHandler1_ = new InnerHandler1(this);
+            }
         }
         virtual void handle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
-            if (innerHandler_) {
-                innerHandler_->handle(std::move(data));
+            if (innerHandler1_) {
+                innerHandler1_->handle(std::move(data));
+            } else if (innerHandler2_) {
+                innerHandler2_->handle(std::move(data));
             }
         }
     };
 
-    template <class Env, class Chain, class ChainItemFolder, class InputHandler>
-    class ChainWriter<typename infra::SinglePassIterationApp<Env>, Chain, ChainItemFolder, InputHandler>
+    template <class Env, class Chain, class ChainItemFolder, class InputHandler, class IdleLogic>
+    class ChainWriter<typename infra::SinglePassIterationApp<Env>, Chain, ChainItemFolder, InputHandler, IdleLogic>
         : 
         public infra::SinglePassIterationApp<Env>::IExternalComponent
         , public infra::SinglePassIterationApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType> {
@@ -209,13 +264,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
     public:
-        ChainWriter(Chain *chain) :
+        ChainWriter(Chain *chain, InputHandler &&inputHandler=InputHandler()) :
             infra::SinglePassIterationApp<Env>::IExternalComponent()
             , infra::SinglePassIterationApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>()
             , chain_(chain)
             , currentItem_()
             , folder_()
-            , inputHandler_()
+            , inputHandler_(std::move(inputHandler))
             , currentState_() 
         {}
         virtual ~ChainWriter() {
