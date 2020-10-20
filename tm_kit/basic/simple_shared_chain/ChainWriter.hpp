@@ -250,13 +250,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
     class ChainWriter<typename infra::SinglePassIterationApp<Env>, Chain, ChainItemFolder, InputHandler, IdleLogic>
         : 
         public infra::SinglePassIterationApp<Env>::IExternalComponent
-        , public infra::SinglePassIterationApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType> {
+        , public std::conditional_t<
+            std::is_same_v<IdleLogic, void>
+            , typename infra::SinglePassIterationApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType> 
+            , typename infra::SinglePassIterationApp<Env>::template AbstractIntegratedOnOrderFacilityWithExternalEffects<typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+        >
+    {
     private:
         Chain *chain_;
         typename Chain::ItemType currentItem_;
         ChainItemFolder folder_;
         InputHandler inputHandler_;
         typename ChainItemFolder::ResultType currentState_;
+        Env *env_;
+        std::conditional_t<
+            std::is_same_v<IdleLogic, void>
+            , basic::VoidStruct
+            , IdleLogic
+        > idleLogic_;
     protected:
         virtual void handle(typename infra::SinglePassIterationApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
             static auto foldInPlaceChecker = boost::hana::is_valid(
@@ -304,15 +315,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 }
             }
         }
+        using ParentInterface = std::conditional_t<
+            std::is_same_v<IdleLogic, void>
+            , typename infra::SinglePassIterationApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType> 
+            , typename infra::SinglePassIterationApp<Env>::template AbstractIntegratedOnOrderFacilityWithExternalEffects<typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+        >;
     public:
-        ChainWriter(Chain *chain, InputHandler &&inputHandler=InputHandler()) :
-            infra::SinglePassIterationApp<Env>::IExternalComponent()
-            , infra::SinglePassIterationApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>()
-            , chain_(chain)
+        using IdleLogicPlaceHolder = std::conditional_t<
+            std::is_same_v<IdleLogic, void>
+            , basic::VoidStruct
+            , IdleLogic
+        >;
+        ChainWriter(Chain *chain, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder()) :
+#ifndef _MSC_VER
+            infra::SinglePassIterationApp<Env>::IExternalComponent(),
+            ParentInterface(), 
+#endif
+            chain_(chain)
             , currentItem_()
             , folder_()
             , inputHandler_(std::move(inputHandler))
             , currentState_() 
+            , env_(nullptr)
+            , idleLogic_(std::move(idleLogic))
         {}
         virtual ~ChainWriter() {
         }
@@ -325,6 +350,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
 
+            env_ = env;
             currentState_ = folder_.initialize(env, chain_);
             
             if constexpr (checker(
