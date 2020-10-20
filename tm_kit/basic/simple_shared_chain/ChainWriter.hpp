@@ -51,6 +51,32 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 } else {
                     currentState_ = folder_.fold(currentState_, currentItem_);
                 }
+                if constexpr (!std::is_same_v<IdleLogic, void>) {
+                    while (true) {
+                        std::tuple<
+                            std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+                            , std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>
+                        > processResult = idleLogic_.work(env_, chain_, currentState_);
+                        if (std::get<1>(processResult)) {    
+                            if (chain_->appendAfter(
+                                currentItem_
+                                , chain_->formChainItem(
+                                    std::get<0>(*std::get<1>(processResult))
+                                    , std::move(std::get<1>(*std::get<1>(processResult))))
+                            )) {
+                                if (std::get<0>(processResult)) {
+                                    this->publish(env_, std::move(*(std::get<0>(processResult))));
+                                }
+                                break;
+                            }
+                        } else {
+                            if (std::get<0>(processResult)) {
+                                this->publish(env_, std::move(*(std::get<0>(processResult))));
+                            }
+                            break;
+                        }
+                    }
+                }
             }
         }
         void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) {
@@ -138,7 +164,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         typename Chain::ItemType currentItem_;
         ChainItemFolder folder_;
         InputHandler inputHandler_;
-        typename ChainItemFolder::ResultType currentState_;   
+        typename ChainItemFolder::ResultType currentState_;  
+        Env *env_;
+        std::conditional_t<
+            std::is_same_v<IdleLogic, void>
+            , basic::VoidStruct
+            , IdleLogic
+        > idleLogic_; 
 
         using ParentInterface = std::conditional_t<
             std::is_same_v<IdleLogic, void>
@@ -146,7 +178,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , typename infra::RealTimeApp<Env>::template AbstractIntegratedOnOrderFacilityWithExternalEffects<typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T>
         >;
     public:
-        ChainWriter(Chain *chain, InputHandler &&inputHandler=InputHandler(), bool useBusyLoop=false, bool noYield=false) : 
+        using IdleLogicPlaceHolder = std::conditional_t<
+            std::is_same_v<IdleLogic, void>
+            , basic::VoidStruct
+            , IdleLogic
+        >;
+        ChainWriter(Chain *chain, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder(), bool useBusyLoop=false, bool noYield=false) : 
 #ifndef _MSC_VER
             infra::RealTimeApp<Env>::IExternalComponent(), 
             ParentInterface(), 
@@ -160,6 +197,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , folder_()
             , inputHandler_(std::move(inputHandler))
             , currentState_() 
+            , env_(nullptr)
+            , idleLogic_(std::move(idleLogic))
         {}
         virtual ~ChainWriter() {
             if (innerHandler1_) {
@@ -177,6 +216,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             static auto checker = boost::hana::is_valid(
                 [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
+
+            env_ = env;
             
             currentState_ = folder_.initialize(env, chain_);
             
