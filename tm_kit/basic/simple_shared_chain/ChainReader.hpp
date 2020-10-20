@@ -206,9 +206,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
             );
-            static auto timeExtractionChecker = boost::hana::is_valid(
-                [](auto *e, auto *f, auto const *v) -> decltype((void) (e->resolveTime(f->extractTime(*v)))) {}
-            );
             std::optional<typename Chain::ItemType> nextItem;
             bool hasData = false;
             do {
@@ -228,29 +225,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 }
             } while (nextItem);
             if (hasData) {
-                if constexpr (timeExtractionChecker(
-                    (Env *) nullptr
-                    , (ChainItemFolder *) nullptr
-                    , (typename ChainItemFolder::ResultType *) nullptr
-                )) {
-                    return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
-                        env_
-                        , {
-                            env_->resolveTime(folder_.extractTime(currentValue_))
-                            , infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_)
-                            , false
-                        }
-                    };
-                } else {
-                    return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
-                        env_
-                        , {
-                            env_->resolveTime()
-                            , infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_)
-                            , false
-                        }
-                    };
-                }
+                return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
+                    env_
+                    , {
+                        env_->resolveTime(folder_.extractTime(currentValue_))
+                        , infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_)
+                        , false
+                    }
+                };
             } else {
                 return std::nullopt;
             }

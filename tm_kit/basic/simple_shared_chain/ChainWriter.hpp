@@ -315,6 +315,70 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 }
             }
         }
+        virtual typename infra::SinglePassIterationApp<Env>::template Data<typename OffChainUpdateTypeExtractor<IdleLogic>::T> generate(
+            typename OffChainUpdateTypeExtractor<IdleLogic>::T const *notUsed=nullptr
+        ) {
+            if constexpr (!std::is_same_v<IdleLogic, void>) {
+                static auto foldInPlaceChecker = boost::hana::is_valid(
+                    [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
+                );
+                std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+                if (!nextItem) {
+                    return std::nullopt;
+                }
+                currentItem_ = std::move(*nextItem);
+                if constexpr (foldInPlaceChecker(
+                    (ChainItemFolder *) nullptr
+                    , (typename ChainItemFolder::ResultType *) nullptr
+                    , (typename Chain::ItemType const *) nullptr
+                )) {
+                    folder_.foldInPlace(currentState_, currentItem_);
+                } else {
+                    currentState_ = folder_.fold(currentState_, currentItem_);
+                }
+                while (true) {
+                    std::tuple<
+                        std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+                        , std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>
+                    > processResult = idleLogic_.work(env_, chain_, currentState_);
+                    if (std::get<1>(processResult)) {    
+                        if (chain_->appendAfter(
+                            currentItem_
+                            , chain_->formChainItem(
+                                std::get<0>(*std::get<1>(processResult))
+                                , std::move(std::get<1>(*std::get<1>(processResult))))
+                        )) {
+                            if (std::get<0>(processResult)) {
+                                return typename infra::SinglePassIterationApp<Env>::template InnerData<OffChainUpdateTypeExtractor<IdleLogic>::T> {
+                                    env_
+                                    , {
+                                        env_->resolveTime(folder_.extractTime(currentState_))
+                                        , std::move(*(std::get<0>(processResult)))
+                                        , false
+                                    }
+                                };
+                            } else {
+                                return std::nullopt;
+                            }
+                        }
+                    } else {
+                        if (std::get<0>(processResult)) {
+                            return typename infra::SinglePassIterationApp<Env>::template InnerData<OffChainUpdateTypeExtractor<IdleLogic>::T> {
+                                env_
+                                , {
+                                    env_->resolveTime(idleLogic_.extractTime(currentState_))
+                                    , std::move(*(std::get<0>(processResult)))
+                                    , false
+                                }
+                            };
+                        } else {
+                            return std::nullopt;
+                        }
+                    }
+                }
+            }
+            return std::nullopt;
+        }
         using ParentInterface = std::conditional_t<
             std::is_same_v<IdleLogic, void>
             , typename infra::SinglePassIterationApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType> 
