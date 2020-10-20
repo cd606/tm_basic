@@ -202,7 +202,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 currentItem_ = chain_->head(env);
             }
         }
-        virtual typename infra::SinglePassIterationApp<Env>::template Data<typename ChainItemFolder::ResultType> generate() override final {
+        virtual typename infra::SinglePassIterationApp<Env>::template Data<typename ChainItemFolder::ResultType> generate(typename ChainItemFolder::ResultType const *notUsed=nullptr) override final {
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
             );

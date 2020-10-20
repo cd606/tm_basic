@@ -27,7 +27,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                 virtual void start(Env *env) override final {
                     env_ = env;
                 }
-                virtual typename M::template Data<T> generate() override final {
+                virtual typename M::template Data<T> generate(T const *notUsed=nullptr) override final {
                     return { typename M::template InnerData<T> {
                         env_, {tp_, generator_(tp_), true}
                     } };
@@ -58,7 +58,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                     : start_(start), end_(end), period_(period), current_(start_), generator_(generator), env_(nullptr)
                 {
                 }
-                virtual typename M::template Data<T> generate() override final {
+                virtual typename M::template Data<T> generate(T const *notUsed=nullptr) override final {
                     typename M::template InnerData<T> ret = typename M::template InnerData<T> {
                         env_, {current_, generator_(current_), (current_+period_ > end_)}
                     };
@@ -97,7 +97,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                     : start_(start), end_(end), periodCalc_(periodCalc), current_(start_), generator_(generator), env_(nullptr)
                 {
                 }
-                virtual typename M::template Data<T> generate() override final {
+                virtual typename M::template Data<T> generate(T const *notUsed=nullptr) override final {
                     auto period = periodCalc_(current_);
                     typename M::template InnerData<T> ret = typename M::template InnerData<T> {
                         env_, {current_, generator_(current_), (current_+period > end_)}

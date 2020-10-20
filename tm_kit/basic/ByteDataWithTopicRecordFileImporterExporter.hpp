@@ -126,7 +126,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     env_ = env;
                 }
                 virtual typename infra::SinglePassIterationApp<Env>::template Data<ByteDataWithTopic> 
-                generate() override final {
+                generate(ByteDataWithTopic const *notUsed=nullptr) override final {
                     if (!data_) {
                         //the first read
                         auto d = reader_.readByteDataWithTopicRecord(*is_);
