@@ -46,6 +46,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
             );
+            //This is to give the facility handler a chance to do something
+            //with current state, for example to save it. This is not needed
+            //when we have IdleLogic.
+            //Also, this is specific to real-time mode. Single-pass iteration
+            //mode does not really need state-saving in the middle.
+            static auto handlerIdleCallbackChecker = boost::hana::is_valid(
+                [](auto *h, auto *c, auto const *v) -> decltype((void) h->idleCallback(c, *v)) {}
+            );
             if constexpr (std::is_same_v<IdleLogic, void>) {
                 //only read one, since this is just a helper
                 std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
@@ -59,6 +67,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         folder_.foldInPlace(currentState_, currentItem_);
                     } else {
                         currentState_ = folder_.fold(currentState_, currentItem_);
+                    }
+                    if constexpr (handlerIdleCallbackChecker(
+                        (InputHandler *) nullptr
+                        , (Chain *) nullptr
+                        , (typename ChainItemFolder::ResultType const *) nullptr
+                    )) {
+                        inputHandler_.idleCallback(chain_, currentState_);
                     }
                 }
             } else {
