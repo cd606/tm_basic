@@ -3,6 +3,7 @@
 
 #include <tm_kit/infra/RealTimeApp.hpp>
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
+#include <tm_kit/basic/simple_shared_chain/FolderUsingPartialHistoryInformation.hpp>
 #include <chrono>
 #include <thread>
 #include <mutex>
@@ -38,6 +39,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         using OOF = typename infra::RealTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>;
         using IM = typename infra::RealTimeApp<Env>::template AbstractImporter<typename OffChainUpdateTypeExtractor<IdleLogic>::T>;
         void idleWork() {
+            static_assert(!std::is_convertible_v<
+                    ChainItemFolder *, FolderUsingPartialHistoryInformation *
+            >);
+
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
             );
@@ -319,6 +324,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         > idleLogic_;
     protected:
         virtual void handle(typename infra::SinglePassIterationApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
+            static_assert(!std::is_convertible_v<
+                ChainItemFolder *, FolderUsingPartialHistoryInformation *
+            >);
+
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
             );
