@@ -80,6 +80,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         : public infra::RealTimeApp<Env>::template AbstractImporter<typename ChainItemFolder::ResultType> {
     private:
         const bool busyLoop_;
+        const bool noYield_;
         Chain *chain_;
         typename Chain::ItemType currentItem_;
         ChainItemFolder folder_;
@@ -113,14 +114,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 if (hasData) {
                     this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
                 }
-                if (!busyLoop_) {
-                    std::this_thread::yield();
+                if (busyLoop_) {
+                    if (!noYield_) {
+                        std::this_thread::yield();
+                    }
+                } else {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 }
             }
         }
     public:
-        ChainReader(Chain *chain, bool busyLoop=false) :
+        ChainReader(Chain *chain, bool busyLoop=false, bool noYield=false) :
             busyLoop_(busyLoop)
+            , noYield_(noYield)
             , chain_(chain)
             , currentItem_()
             , folder_()
@@ -158,7 +164,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             th_ = std::thread(&ChainReader::run, this, env);
         }
         static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain, bool busyLoop=false) {
-            return infra::RealTimeApp<Env>::template importer<typename ChainItemFolder::ResultType>>(new ChainReader(chain, busyLoop));
+            return infra::RealTimeApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain, busyLoop));
         }
     };
 
@@ -238,7 +244,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
         static std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain) {
-            return infra::SinglePassIterationApp<Env>::template importer<typename ChainItemFolder::ResultType>>(new ChainReader(chain));
+            return infra::SinglePassIterationApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain));
         }
     };
 } } } } }
