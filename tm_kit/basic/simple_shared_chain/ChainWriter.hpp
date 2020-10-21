@@ -35,46 +35,67 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             >
     {
     private:
+        using OOF = typename infra::RealTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>;
+        using IM = typename infra::RealTimeApp<Env>::template AbstractImporter<typename OffChainUpdateTypeExtractor<IdleLogic>::T>;
         void idleWork() {
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
             );
-            std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
-            if (nextItem) {
-                currentItem_ = std::move(*nextItem);
-                if constexpr (foldInPlaceChecker(
-                    (ChainItemFolder *) nullptr
-                    , (typename ChainItemFolder::ResultType *) nullptr
-                    , (typename Chain::ItemType const *) nullptr
-                )) {
-                    folder_.foldInPlace(currentState_, currentItem_);
-                } else {
-                    currentState_ = folder_.fold(currentState_, currentItem_);
+            if constexpr (std::is_same_v<IdleLogic, void>) {
+                //only read one, since this is just a helper
+                std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+                if (nextItem) {
+                    currentItem_ = std::move(*nextItem);
+                    if constexpr (foldInPlaceChecker(
+                        (ChainItemFolder *) nullptr
+                        , (typename ChainItemFolder::ResultType *) nullptr
+                        , (typename Chain::ItemType const *) nullptr
+                    )) {
+                        folder_.foldInPlace(currentState_, currentItem_);
+                    } else {
+                        currentState_ = folder_.fold(currentState_, currentItem_);
+                    }
                 }
-                if constexpr (!std::is_same_v<IdleLogic, void>) {
+            } else {
+                //we must read until the end
+                while (true) {
                     while (true) {
-                        std::tuple<
-                            std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
-                            , std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>
-                        > processResult = idleLogic_.work(env_, chain_, currentState_);
-                        if (std::get<1>(processResult)) {    
-                            if (chain_->appendAfter(
-                                currentItem_
-                                , chain_->formChainItem(
-                                    std::get<0>(*std::get<1>(processResult))
-                                    , std::move(std::get<1>(*std::get<1>(processResult))))
-                            )) {
-                                if (std::get<0>(processResult)) {
-                                    this->publish(env_, std::move(*(std::get<0>(processResult))));
-                                }
-                                break;
-                            }
+                        std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+                        if (!nextItem) {
+                            break;
+                        }
+                        currentItem_ = std::move(*nextItem);
+                        if constexpr (foldInPlaceChecker(
+                            (ChainItemFolder *) nullptr
+                            , (typename ChainItemFolder::ResultType *) nullptr
+                            , (typename Chain::ItemType const *) nullptr
+                        )) {
+                            folder_.foldInPlace(currentState_, currentItem_);
                         } else {
+                            currentState_ = folder_.fold(currentState_, currentItem_);
+                        }
+                    }
+                    std::tuple<
+                        std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+                        , std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>
+                    > processResult = idleLogic_.work(env_, chain_, currentState_);
+                    if (std::get<1>(processResult)) {    
+                        if (chain_->appendAfter(
+                            currentItem_
+                            , chain_->formChainItem(
+                                std::get<0>(*std::get<1>(processResult))
+                                , std::move(std::get<1>(*std::get<1>(processResult))))
+                        )) {
                             if (std::get<0>(processResult)) {
-                                this->publish(env_, std::move(*(std::get<0>(processResult))));
+                                this->IM::publish(env_, std::move(*(std::get<0>(processResult))));
                             }
                             break;
                         }
+                    } else {
+                        if (std::get<0>(processResult)) {
+                            this->IM::publish(env_, std::move(*(std::get<0>(processResult))));
+                        }
+                        break;
                     }
                 }
             }
@@ -113,13 +134,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                             std::get<0>(*std::get<1>(processResult))
                             , std::move(std::get<1>(*std::get<1>(processResult))))
                     )) { 
-                        this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
+                        this->OOF::publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
                             id, std::move(std::get<0>(processResult))
                         }, true);
                         break;
                     }
                 } else {
-                    this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
+                    this->OOF::publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
                         id, std::move(std::get<0>(processResult))
                     }, true);
                     break;
@@ -244,6 +265,34 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 innerHandler2_->handle(std::move(data));
             }
         }
+        static std::shared_ptr<typename infra::RealTimeApp<Env>::template OnOrderFacility<
+            typename InputHandler::InputType, typename InputHandler::ResponseType
+        >> onOrderFacility(Chain *chain, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder(), bool useBusyLoop=false, bool noYield=false)
+        {
+            if constexpr (std::is_same_v<IdleLogic, void>) {
+                return infra::RealTimeApp<Env>::template fromAbstractOnOrderFacility<
+                    typename InputHandler::InputType, typename InputHandler::ResponseType
+                >(new ChainWriter(chain, std::move(inputHandler), std::move(idleLogic), useBusyLoop, noYield));
+            } else {
+                return std::shared_ptr<typename infra::RealTimeApp<Env>::template OnOrderFacility<
+                    typename InputHandler::InputType, typename InputHandler::ResponseType
+                >>();
+            }
+        }
+        static std::shared_ptr<typename infra::RealTimeApp<Env>::template OnOrderFacilityWithExternalEffects<
+            typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T
+        >> onOrderFacilityWithExternalEffects(Chain *chain, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder(), bool useBusyLoop=false, bool noYield=false)
+        {
+            if constexpr (std::is_same_v<IdleLogic, void>) {
+                return std::shared_ptr<typename infra::RealTimeApp<Env>::template OnOrderFacilityWithExternalEffects<
+                    typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T
+                >>();
+            } else {
+                return infra::RealTimeApp<Env>::template onOrderFacilityWithExternalEffects<
+                    typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T
+                >(new ChainWriter(chain, std::move(inputHandler), std::move(idleLogic), useBusyLoop, noYield));
+            }
+        }
     };
 
     template <class Env, class Chain, class ChainItemFolder, class InputHandler, class IdleLogic>
@@ -322,19 +371,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 static auto foldInPlaceChecker = boost::hana::is_valid(
                     [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
                 );
-                std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
-                if (!nextItem) {
-                    return std::nullopt;
-                }
-                currentItem_ = std::move(*nextItem);
-                if constexpr (foldInPlaceChecker(
-                    (ChainItemFolder *) nullptr
-                    , (typename ChainItemFolder::ResultType *) nullptr
-                    , (typename Chain::ItemType const *) nullptr
-                )) {
-                    folder_.foldInPlace(currentState_, currentItem_);
-                } else {
-                    currentState_ = folder_.fold(currentState_, currentItem_);
+                while (true) {
+                    std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+                    if (!nextItem) {
+                        break;
+                    }
+                    currentItem_ = std::move(*nextItem);
+                    if constexpr (foldInPlaceChecker(
+                        (ChainItemFolder *) nullptr
+                        , (typename ChainItemFolder::ResultType *) nullptr
+                        , (typename Chain::ItemType const *) nullptr
+                    )) {
+                        folder_.foldInPlace(currentState_, currentItem_);
+                    } else {
+                        currentState_ = folder_.fold(currentState_, currentItem_);
+                    }
                 }
                 while (true) {
                     std::tuple<
@@ -427,6 +478,34 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 currentItem_ = chain_->head(env);
             }
             inputHandler_.initialize(env, chain_);
+        }
+        static std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template OnOrderFacility<
+            typename InputHandler::InputType, typename InputHandler::ResponseType
+        >> onOrderFacility(Chain *chain, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder())
+        {
+            if constexpr (std::is_same_v<IdleLogic, void>) {
+                return infra::SinglePassIterationApp<Env>::template fromAbstractOnOrderFacility<
+                    typename InputHandler::InputType, typename InputHandler::ResponseType
+                >(new ChainWriter(chain, std::move(inputHandler), std::move(idleLogic)));
+            } else {
+                return std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template OnOrderFacility<
+                    typename InputHandler::InputType, typename InputHandler::ResponseType
+                >>();
+            }
+        }
+        static std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template OnOrderFacilityWithExternalEffects<
+            typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T
+        >> onOrderFacilityWithExternalEffects(Chain *chain, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder())
+        {
+            if constexpr (std::is_same_v<IdleLogic, void>) {
+                return std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template OnOrderFacilityWithExternalEffects<
+                    typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T
+                >>();
+            } else {
+                return infra::SinglePassIterationApp<Env>::template onOrderFacilityWithExternalEffects<
+                    typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T
+                >(new ChainWriter(chain, std::move(inputHandler), std::move(idleLogic)));
+            }
         }
     };
 } } } } }
