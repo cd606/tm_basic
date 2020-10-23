@@ -186,21 +186,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
     };
 
+    //in SinglePassIteration, we have to check every update, therefore we don't
+    //have the callbackPerUpdate option
+    //also, in SinglePassIteration, the extractTime call must be there to provide
+    //the timestamp of update
     template <class Env, class Chain, class ChainItemFolder>
     class ChainReader<infra::SinglePassIterationApp<Env>,Chain,ChainItemFolder,void> final
         : public infra::SinglePassIterationApp<Env>::template AbstractImporter<typename ChainItemFolder::ResultType> {
     private:
         Env *env_;
         Chain *chain_;
-        const bool callbackPerUpdate_;
         typename Chain::ItemType currentItem_;
         ChainItemFolder folder_;
         typename ChainItemFolder::ResultType currentValue_;
     public:
-        ChainReader(Chain *chain, bool callbackPerUpdate=false) :
+        ChainReader(Chain *chain) :
             env_(nullptr)
             , chain_(chain)
-            , callbackPerUpdate_(callbackPerUpdate)
             , currentItem_()
             , folder_()
             , currentValue_()
@@ -236,65 +238,32 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
             );
-            if (UsesPartialHistory || callbackPerUpdate_) {
-                std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
-                if (nextItem) {
-                    currentItem_ = std::move(*nextItem);
-                    if constexpr (foldInPlaceChecker(
-                        (ChainItemFolder *) nullptr
-                        , (typename ChainItemFolder::ResultType *) nullptr
-                        , (typename Chain::ItemType const *) nullptr
-                    )) {
-                        folder_.foldInPlace(currentValue_, currentItem_);
-                    } else {
-                        currentValue_ = folder_.fold(currentValue_, currentItem_);
-                    }
-                    return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
-                        env_
-                        , {
-                            env_->resolveTime(folder_.extractTime(currentValue_))
-                            , infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_)
-                            , false
-                        }
-                    };
+            std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+            if (nextItem) {
+                currentItem_ = std::move(*nextItem);
+                if constexpr (foldInPlaceChecker(
+                    (ChainItemFolder *) nullptr
+                    , (typename ChainItemFolder::ResultType *) nullptr
+                    , (typename Chain::ItemType const *) nullptr
+                )) {
+                    folder_.foldInPlace(currentValue_, currentItem_);
                 } else {
-                    return std::nullopt;
+                    currentValue_ = folder_.fold(currentValue_, currentItem_);
                 }
+                return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
+                    env_
+                    , {
+                        env_->resolveTime(folder_.extractTime(currentValue_))
+                        , infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_)
+                        , false
+                    }
+                };
             } else {
-                std::optional<typename Chain::ItemType> nextItem;
-                bool hasData = false;
-                do {
-                    nextItem = chain_->fetchNext(currentItem_);
-                    if (nextItem) {
-                        hasData = true;
-                        currentItem_ = std::move(*nextItem);
-                        if constexpr (foldInPlaceChecker(
-                            (ChainItemFolder *) nullptr
-                            , (typename ChainItemFolder::ResultType *) nullptr
-                            , (typename Chain::ItemType const *) nullptr
-                        )) {
-                            folder_.foldInPlace(currentValue_, currentItem_);
-                        } else {
-                            currentValue_ = folder_.fold(currentValue_, currentItem_);
-                        }
-                    }
-                } while (nextItem);
-                if (hasData) {
-                    return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
-                        env_
-                        , {
-                            env_->resolveTime(folder_.extractTime(currentValue_))
-                            , infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_)
-                            , false
-                        }
-                    };
-                } else {
-                    return std::nullopt;
-                }
+                return std::nullopt;
             }
         }
-        static std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain, bool callbackPerUpdate=false) {
-            return infra::SinglePassIterationApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain, callbackPerUpdate));
+        static std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain) {
+            return infra::SinglePassIterationApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain));
         }
     };
 } } } } }

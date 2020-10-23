@@ -1938,6 +1938,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             );
         }
+        template <class T>
+        static std::shared_ptr<typename M::template Action<TypedDataWithTopic<T>,T>> removeTopic() {
+            return M::template liftPure<TypedDataWithTopic<T>>(
+                [](TypedDataWithTopic<T> &&data) -> T {
+                    return std::move(data.content);
+                }
+            );
+        }
     };
 
     template <class T>
