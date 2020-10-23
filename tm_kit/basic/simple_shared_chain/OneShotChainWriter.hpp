@@ -8,7 +8,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
     template <class Env, class Chain>
     class OneShotChainWriter {
     public:
-        //F maps ChainItemFolder::ResultType (the state) to std::tuple<typename Chain::StorageIDType, typename Chain::DataType>
+        //F maps ChainItemFolder::ResultType (the state) to std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>
         template <class ChainItemFolder, class F>
         static void write(Env *env, Chain *chain, F const &f, ChainItemFolder &&folder = ChainItemFolder {}) {
             static auto loadUntilChecker = boost::hana::is_valid(
@@ -49,9 +49,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         currentState = myFolder.fold(currentState, currentItem);
                     }
                 }
-                typename std::tuple<typename Chain::StorageIDType, typename Chain::DataType>
+                typename std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>
                     calcRes = f(currentState);
-                if (chain->appendAfter(currentItem, chain->formChainItem(std::get<0>(calcRes), std::move(std::get<1>(calcRes))))) {
+                if (calcRes) {
+                    if (chain->appendAfter(currentItem, chain->formChainItem(std::get<0>(calcRes), std::move(std::get<1>(calcRes))))) {
+                        break;
+                    }
+                } else {
                     break;
                 }
             }
