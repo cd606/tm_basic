@@ -4,6 +4,7 @@
 #include <tm_kit/infra/RealTimeApp.hpp>
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
 #include <tm_kit/basic/simple_shared_chain/FolderUsingPartialHistoryInformation.hpp>
+#include <tm_kit/basic/simple_shared_chain/ChainPollingPolicy.hpp>
 #include <chrono>
 #include <thread>
 #include <mutex>
@@ -224,13 +225,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , basic::VoidStruct
             , IdleLogic
         >;
-        ChainWriter(Chain *chain, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder(), bool useBusyLoop=false, bool noYield=false) : 
+        ChainWriter(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder()) : 
 #ifndef _MSC_VER
             infra::RealTimeApp<Env>::IExternalComponent(), 
             ParentInterface(), 
 #endif
-            useBusyLoop_(useBusyLoop)
-            , noYield_(noYield)
+            useBusyLoop_(pollingPolicy.busyLoop)
+            , noYield_(pollingPolicy.noYield)
             , innerHandler1_(nullptr)
             , innerHandler2_(nullptr)
             , chain_(chain)
@@ -287,12 +288,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
         static std::shared_ptr<typename infra::RealTimeApp<Env>::template OnOrderFacility<
             typename InputHandler::InputType, typename InputHandler::ResponseType
-        >> onOrderFacility(Chain *chain, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder(), bool useBusyLoop=false, bool noYield=false)
+        >> onOrderFacility(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder())
         {
             if constexpr (std::is_same_v<IdleLogic, void>) {
                 return infra::RealTimeApp<Env>::template fromAbstractOnOrderFacility<
                     typename InputHandler::InputType, typename InputHandler::ResponseType
-                >(new ChainWriter(chain, std::move(inputHandler), std::move(idleLogic), useBusyLoop, noYield));
+                >(new ChainWriter(chain, pollingPolicy, std::move(inputHandler), std::move(idleLogic)));
             } else {
                 return std::shared_ptr<typename infra::RealTimeApp<Env>::template OnOrderFacility<
                     typename InputHandler::InputType, typename InputHandler::ResponseType
@@ -301,7 +302,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
         static std::shared_ptr<typename infra::RealTimeApp<Env>::template OnOrderFacilityWithExternalEffects<
             typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T
-        >> onOrderFacilityWithExternalEffects(Chain *chain, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder(), bool useBusyLoop=false, bool noYield=false)
+        >> onOrderFacilityWithExternalEffects(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder())
         {
             if constexpr (std::is_same_v<IdleLogic, void>) {
                 return std::shared_ptr<typename infra::RealTimeApp<Env>::template OnOrderFacilityWithExternalEffects<
@@ -310,7 +311,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             } else {
                 return infra::RealTimeApp<Env>::template onOrderFacilityWithExternalEffects<
                     typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T
-                >(new ChainWriter(chain, std::move(inputHandler), std::move(idleLogic), useBusyLoop, noYield));
+                >(new ChainWriter(chain, pollingPolicy, std::move(inputHandler), std::move(idleLogic)));
             }
         }
     };
@@ -503,7 +504,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
         static std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template OnOrderFacility<
             typename InputHandler::InputType, typename InputHandler::ResponseType
-        >> onOrderFacility(Chain *chain, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder())
+        >> onOrderFacility(Chain *chain, ChainPollingPolicy const &notUsed=ChainPollingPolicy {}, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder())
         {
             if constexpr (std::is_same_v<IdleLogic, void>) {
                 return infra::SinglePassIterationApp<Env>::template fromAbstractOnOrderFacility<
@@ -517,7 +518,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
         static std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template OnOrderFacilityWithExternalEffects<
             typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T
-        >> onOrderFacilityWithExternalEffects(Chain *chain, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder())
+        >> onOrderFacilityWithExternalEffects(Chain *chain, ChainPollingPolicy const &notUsed=ChainPollingPolicy {}, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder())
         {
             if constexpr (std::is_same_v<IdleLogic, void>) {
                 return std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template OnOrderFacilityWithExternalEffects<

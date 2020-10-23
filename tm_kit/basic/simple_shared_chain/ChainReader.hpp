@@ -5,6 +5,7 @@
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <tm_kit/basic/simple_shared_chain/FolderUsingPartialHistoryInformation.hpp>
+#include <tm_kit/basic/simple_shared_chain/ChainPollingPolicy.hpp>
 #include <optional>
 
 #include <boost/hana/type.hpp>
@@ -141,10 +142,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
     public:
-        ChainReader(Chain *chain, bool callbackPerUpdate=false, bool busyLoop=false, bool noYield=false) :
-            callbackPerUpdate_(callbackPerUpdate)
-            , busyLoop_(busyLoop)
-            , noYield_(noYield)
+        ChainReader(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}) :
+            callbackPerUpdate_(pollingPolicy.callbackPerUpdate)
+            , busyLoop_(pollingPolicy.busyLoop)
+            , noYield_(pollingPolicy.noYield)
             , chain_(chain)
             , currentItem_()
             , folder_()
@@ -181,8 +182,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
             th_ = std::thread(&ChainReader::run, this, env);
         }
-        static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain, bool callbackPerUpdate=false, bool busyLoop=false, bool noYield=false) {
-            return infra::RealTimeApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain, callbackPerUpdate, busyLoop, noYield));
+        static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}) {
+            return infra::RealTimeApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain, pollingPolicy));
         }
     };
 
@@ -262,7 +263,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 return std::nullopt;
             }
         }
-        static std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain) {
+        static std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain, ChainPollingPolicy const &notUsed=ChainPollingPolicy {}) {
             return infra::SinglePassIterationApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain));
         }
     };
