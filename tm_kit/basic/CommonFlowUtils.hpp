@@ -26,6 +26,26 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
         template <class T>
+        static typename infra::KleisliUtils<M>::template KleisliFunction<std::optional<T>,T> filterOnOptional() {
+            return infra::KleisliUtils<M>::template liftMaybe<std::optional<T>>(
+                [](std::optional<T> &&x) -> std::optional<T>
+                {
+                    return std::move(x);
+                }
+            );
+        }
+
+        template <class T>
+        static typename infra::KleisliUtils<M>::template KleisliFunction<std::vector<T>,T> dispatchOneByOne() {
+            return infra::KleisliUtils<M>::template liftMulti<std::vector<T>>(
+                [](std::vector<T> &&x) -> std::vector<T>
+                {
+                    return std::move(x);
+                }
+            );
+        }
+
+        template <class T>
         static typename infra::KleisliUtils<M>::template KleisliFunction<T,infra::Key<T,TheEnvironment>> keyify() {
             return infra::KleisliUtils<M>::template liftPure<T>(
                 [](T &&x) -> infra::Key<T,TheEnvironment>

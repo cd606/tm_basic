@@ -267,6 +267,39 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             return infra::SinglePassIterationApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain));
         }
     };
+
+    template <class Chain>
+    class TrivialChainIDAndDataFetchingFolder : public FolderUsingPartialHistoryInformation {
+    public:
+        using ResultType = std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>;
+        static ResultType initialize(void *, Chain *chain) {
+            return std::nullopt;
+        }
+        static ResultType fold(ResultType const &, typename Chain::ItemType const &item) {
+            typename Chain::DataType const *p = Chain::extractData(item);
+            if (!p) {
+                return std::nullopt;
+            }
+            return std::tuple<typename Chain::StorageIDType, typename Chain::DataType> {
+                Chain::extractStorageID(item), *p
+            };
+        }
+    };
+    template <class Chain>
+    class TrivialChainDataFetchingFolder : public FolderUsingPartialHistoryInformation {
+    public:
+        using ResultType = std::optional<typename Chain::DataType>;
+        static ResultType initialize(void *, Chain *chain) {
+            return std::nullopt;
+        }
+        static ResultType fold(ResultType const &, typename Chain::ItemType const &item) {
+            typename Chain::DataType const *p = Chain::extractData(item);
+            if (!p) {
+                return std::nullopt;
+            }
+            return *p;
+        }
+    };
 } } } } }
 
 #endif
