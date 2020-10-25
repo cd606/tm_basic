@@ -46,7 +46,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainReader &operator=(ChainReader &&) = default;
         typename std::optional<typename ChainItemFolder::ResultType> operator()(TriggerT &&) {
             static auto foldInPlaceChecker = boost::hana::is_valid(
-                [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
+                [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, data))) {}
             );
             bool hasNew = false;
             while (true) {
@@ -58,11 +58,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 if constexpr (foldInPlaceChecker(
                     (ChainItemFolder *) nullptr
                     , (typename ChainItemFolder::ResultType *) nullptr
-                    , (typename Chain::ItemType const *) nullptr
+                    , (std::string_view *) nullptr
+                    , (typename Chain::DataType const *) nullptr
                 )) {
-                    folder_.foldInPlace(currentValue_, currentItem_);
+                    folder_.foldInPlace(currentValue_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
                 } else {
-                    currentValue_ = folder_.fold(currentValue_, currentItem_);
+                    currentValue_ = folder_.fold(currentValue_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
                 }
                 hasNew = true;
             }
@@ -92,7 +93,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         std::thread th_;
         void run(Env *env) {
             static auto foldInPlaceChecker = boost::hana::is_valid(
-                [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
+                [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, data))) {}
             );
             static constexpr bool UsesPartialHistory = 
                 std::is_convertible_v<
@@ -110,11 +111,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         if constexpr (foldInPlaceChecker(
                             (ChainItemFolder *) nullptr
                             , (typename ChainItemFolder::ResultType *) nullptr
-                            , (typename Chain::ItemType const *) nullptr
+                            , (std::string_view *) nullptr
+                            , (typename Chain::DataType const *) nullptr
                         )) {
-                            folder_.foldInPlace(currentValue_, currentItem_);
+                            folder_.foldInPlace(currentValue_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
                         } else {
-                            currentValue_ = folder_.fold(currentValue_, currentItem_);
+                            currentValue_ = folder_.fold(currentValue_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
                         }
                         if constexpr (UsesPartialHistory) {
                             this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
@@ -237,7 +239,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     ChainItemFolder *, FolderUsingPartialHistoryInformation *
                 >;
             static auto foldInPlaceChecker = boost::hana::is_valid(
-                [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
+                [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, data))) {}
             );
             std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
             if (nextItem) {
@@ -245,11 +247,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 if constexpr (foldInPlaceChecker(
                     (ChainItemFolder *) nullptr
                     , (typename ChainItemFolder::ResultType *) nullptr
-                    , (typename Chain::ItemType const *) nullptr
+                    , (std::string_view *) nullptr
+                    , (typename Chain::DataType const *) nullptr
                 )) {
-                    folder_.foldInPlace(currentValue_, currentItem_);
+                    folder_.foldInPlace(currentValue_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
                 } else {
-                    currentValue_ = folder_.fold(currentValue_, currentItem_);
+                    currentValue_ = folder_.fold(currentValue_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
                 }
                 return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
                     env_
@@ -268,38 +271,47 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
     };
 
-    template <class Chain>
+    template <class ChainDataType>
     class TrivialChainIDAndDataFetchingFolder : public FolderUsingPartialHistoryInformation {
     public:
-        using ResultType = std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>;
-        static ResultType initialize(void *, Chain *chain) {
+        using ResultType = std::optional<std::tuple<std::string, ChainDataType>>;
+        static ResultType initialize(void *, void *) {
             return std::nullopt;
         }
-        static ResultType fold(ResultType const &, typename Chain::ItemType const &item) {
-            typename Chain::DataType const *p = Chain::extractData(item);
-            if (!p) {
+        static ResultType fold(ResultType const &, std::string_view const &id, ChainDataType const *item) {
+            if (!item) {
                 return std::nullopt;
             }
-            return std::tuple<typename Chain::StorageIDType, typename Chain::DataType> {
-                Chain::extractStorageID(item), *p
+            return std::tuple<std::string, ChainDataType> {
+                std::string {id}, *item
             };
         }
     };
-    template <class Chain>
+    template <class ChainDataType>
     class TrivialChainDataFetchingFolder : public FolderUsingPartialHistoryInformation {
     public:
-        using ResultType = std::optional<typename Chain::DataType>;
-        static ResultType initialize(void *, Chain *chain) {
+        using ResultType = std::optional<ChainDataType>;
+        static ResultType initialize(void *, void *) {
             return std::nullopt;
         }
-        static ResultType fold(ResultType const &, typename Chain::ItemType const &item) {
-            typename Chain::DataType const *p = Chain::extractData(item);
-            if (!p) {
+        static ResultType fold(ResultType const &, std::string_view const &, ChainDataType const *item) {
+            if (!item) {
                 return std::nullopt;
             }
-            return *p;
+            return *item;
         }
     };
+
+    template <class App, class ChainItemFolder, class TriggerT>
+    using ChainReaderActionFactory = std::function<
+        std::shared_ptr<typename App::template Action<TriggerT, typename ChainItemFolder::ResultType>>(
+        )
+    >;
+    template <class App, class ChainItemFolder>
+    using ChainReaderImporterFactory = std::function<
+        std::shared_ptr<typename App::template Importer<typename ChainItemFolder::ResultType>>(
+        )
+    >;
 } } } } }
 
 #endif

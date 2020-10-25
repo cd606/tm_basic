@@ -45,7 +45,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             >);
 
             static auto foldInPlaceChecker = boost::hana::is_valid(
-                [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
+                [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, data))) {}
             );
             //This is to give the facility handler a chance to do something
             //with current state, for example to save it. This is not needed
@@ -63,11 +63,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     if constexpr (foldInPlaceChecker(
                         (ChainItemFolder *) nullptr
                         , (typename ChainItemFolder::ResultType *) nullptr
-                        , (typename Chain::ItemType const *) nullptr
+                        , (std::string_view *) nullptr
+                        , (typename Chain::DataType const *) nullptr
                     )) {
-                        folder_.foldInPlace(currentState_, currentItem_);
+                        folder_.foldInPlace(currentState_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
                     } else {
-                        currentState_ = folder_.fold(currentState_, currentItem_);
+                        currentState_ = folder_.fold(currentState_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
                     }
                     if constexpr (handlerIdleCallbackChecker(
                         (InputHandler *) nullptr
@@ -89,22 +90,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         if constexpr (foldInPlaceChecker(
                             (ChainItemFolder *) nullptr
                             , (typename ChainItemFolder::ResultType *) nullptr
-                            , (typename Chain::ItemType const *) nullptr
+                            , (std::string_view *) nullptr
+                            , (typename Chain::DataType const *) nullptr
                         )) {
-                            folder_.foldInPlace(currentState_, currentItem_);
+                            folder_.foldInPlace(currentState_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
                         } else {
-                            currentState_ = folder_.fold(currentState_, currentItem_);
+                            currentState_ = folder_.fold(currentState_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
                         }
                     }
                     std::tuple<
                         std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
-                        , std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>
+                        , std::optional<std::tuple<std::string, typename Chain::DataType>>
                     > processResult = idleLogic_.work(env_, chain_, currentState_);
-                    if (std::get<1>(processResult)) {    
+                    if (std::get<1>(processResult)) {
+                        std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
+                        if (newID == "") {
+                            newID = Chain::template newStorageIDAsString<Env>();
+                        }   
                         if (chain_->appendAfter(
                             currentItem_
                             , chain_->formChainItem(
-                                std::get<0>(*std::get<1>(processResult))
+                                newID
                                 , std::move(std::get<1>(*std::get<1>(processResult))))
                         )) {
                             if (std::get<0>(processResult)) {
@@ -123,7 +129,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
         void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) {
             static auto foldInPlaceChecker = boost::hana::is_valid(
-                [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
+                [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, data))) {}
             );
             
             auto id = data.timedData.value.id();
@@ -137,22 +143,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     if constexpr (foldInPlaceChecker(
                         (ChainItemFolder *) nullptr
                         , (typename ChainItemFolder::ResultType *) nullptr
-                        , (typename Chain::ItemType const *) nullptr
+                        , (std::string_view *) nullptr
+                        , (typename Chain::DataType const *) nullptr
                     )) {
-                        folder_.foldInPlace(currentState_, currentItem_);
+                        folder_.foldInPlace(currentState_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
                     } else {
-                        currentState_ = folder_.fold(currentState_, currentItem_);
+                        currentState_ = folder_.fold(currentState_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
                     }
                 }
                 std::tuple<
                     typename InputHandler::ResponseType
-                    , std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>
+                    , std::optional<std::tuple<std::string, typename Chain::DataType>>
                 > processResult = inputHandler_.handleInput(data.environment, chain_, std::move(data.timedData), currentState_);
                 if (std::get<1>(processResult)) {   
+                    std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
+                    if (newID == "") {
+                        newID = Chain::template newStorageIDAsString<Env>();
+                    }
                     if (chain_->appendAfter(
                         currentItem_
                         , chain_->formChainItem(
-                            std::get<0>(*std::get<1>(processResult))
+                            newID
                             , std::move(std::get<1>(*std::get<1>(processResult))))
                     )) { 
                         this->OOF::publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
@@ -345,7 +356,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             >);
 
             static auto foldInPlaceChecker = boost::hana::is_valid(
-                [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
+                [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, data))) {}
             );
             auto id = data.timedData.value.id();
             while (true) {
@@ -358,22 +369,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     if constexpr (foldInPlaceChecker(
                         (ChainItemFolder *) nullptr
                         , (typename ChainItemFolder::ResultType *) nullptr
-                        , (typename Chain::ItemType const *) nullptr
+                        , (std::string_view *) nullptr
+                        , (typename Chain::DataType const *) nullptr
                     )) {
-                        folder_.foldInPlace(currentState_, currentItem_);
+                        folder_.foldInPlace(currentState_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
                     } else {
-                        currentState_ = folder_.fold(currentState_, currentItem_);
+                        currentState_ = folder_.fold(currentState_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
                     }
                 }
                 std::tuple<
                     typename InputHandler::ResponseType
-                    , std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>
+                    , std::optional<std::tuple<std::string, typename Chain::DataType>>
                 > processResult = inputHandler_.handleInput(data.environment, chain_, std::move(data.timedData), currentState_);
-                if (std::get<1>(processResult)) {    
+                if (std::get<1>(processResult)) {   
+                    std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
+                    if (newID == "") {
+                        newID = Chain::template newStorageIDAsString<Env>();
+                    } 
                     if (chain_->appendAfter(
                         currentItem_
                         , chain_->formChainItem(
-                            std::get<0>(*std::get<1>(processResult))
+                            newID
                             , std::move(std::get<1>(*std::get<1>(processResult))))
                     )) {
                         this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
@@ -394,7 +410,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ) {
             if constexpr (!std::is_same_v<IdleLogic, void>) {
                 static auto foldInPlaceChecker = boost::hana::is_valid(
-                    [](auto *f, auto *v, auto const *i) -> decltype((void) (f->foldInPlace(*v, *i))) {}
+                    [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, data))) {}
                 );
                 std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
                 if (!nextItem) {
@@ -404,21 +420,26 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 if constexpr (foldInPlaceChecker(
                     (ChainItemFolder *) nullptr
                     , (typename ChainItemFolder::ResultType *) nullptr
-                    , (typename Chain::ItemType const *) nullptr
+                    , (std::string_view *) nullptr
+                    , (typename Chain::DataType const *) nullptr
                 )) {
-                    folder_.foldInPlace(currentState_, currentItem_);
+                    folder_.foldInPlace(currentState_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
                 } else {
-                    currentState_ = folder_.fold(currentState_, currentItem_);
+                    currentState_ = folder_.fold(currentState_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
                 }
                 std::tuple<
                     std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
-                    , std::optional<std::tuple<typename Chain::StorageIDType, typename Chain::DataType>>
+                    , std::optional<std::tuple<std::string, typename Chain::DataType>>
                 > processResult = idleLogic_.work(env_, chain_, currentState_);
-                if (std::get<1>(processResult)) {    
+                if (std::get<1>(processResult)) {   
+                    std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
+                    if (newID == "") {
+                        newID = Chain::template newStorageIDAsString<Env>();
+                    } 
                     if (chain_->appendAfter(
                         currentItem_
                         , chain_->formChainItem(
-                            std::get<0>(*std::get<1>(processResult))
+                            newID
                             , std::move(std::get<1>(*std::get<1>(processResult))))
                     )) {
                         if (std::get<0>(processResult)) {
@@ -531,6 +552,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
     };
+
+    template <class App, class ChainItemFolder, class InputHandler, class IdleLogic>
+    using ChainWriterOnOrderFacilityWithExternalEffectsFactory = std::function<
+        std::shared_ptr<typename App::template OnOrderFacilityWithExternalEffects<typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T>>(
+        )
+    >;
+    template <class App, class ChainItemFolder, class InputHandler>
+    using ChainWriterOnOrderFacilityFactory = std::function<
+        std::shared_ptr<typename App::template OnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>>(
+        )
+    >;
 } } } } }
 
 #endif
