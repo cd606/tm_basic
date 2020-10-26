@@ -10,7 +10,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
     public:
         //F maps ChainItemFolder::ResultType (the state) to std::optional<std::tuple<std::string, typename Chain::DataType>>
         template <class ChainItemFolder, class F>
-        static void write(Env *env, Chain *chain, F const &f, ChainItemFolder &&folder = ChainItemFolder {}) {
+        static bool write(Env *env, Chain *chain, F const &f, ChainItemFolder &&folder = ChainItemFolder {}) {
             static auto loadUntilChecker = boost::hana::is_valid(
                 [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
@@ -45,9 +45,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         , (std::string_view *) nullptr
                         , (typename Chain::DataType const *) nullptr
                     )) {
-                        folder_.foldInPlace(currentState_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
+                        folder.foldInPlace(currentState, Chain::extractStorageIDStringView(currentItem), Chain::extractData(currentItem));
                     } else {
-                        currentState_ = folder_.fold(currentState_, Chain::extractStorageIDStringView(currentItem_), Chain::extractData(currentItem_));
+                        currentState = folder.fold(currentState, Chain::extractStorageIDStringView(currentItem), Chain::extractData(currentItem));
                     }
                 }
                 typename std::optional<std::tuple<std::string, typename Chain::DataType>>
@@ -55,21 +55,40 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 if (calcRes) {
                     std::string newID = std::move(std::get<0>(*calcRes));
                     if (newID == "") {
-                        newID = Chain::newStorageIDAsString<Env>();
+                        newID = Chain::template newStorageIDAsString<Env>();
                     }
-                    if (chain->appendAfter(currentItem, chain->formChainItem(newID, std::move(std::get<1>(calcRes))))) {
-                        break;
+                    if (chain->appendAfter(currentItem, chain->formChainItem(newID, std::move(std::get<1>(*calcRes))))) {
+                        return true;
                     }
                 } else {
-                    break;
+                    return false;
                 }
             }
         }
-        //This one does not use a folder, but this also means it cannot jump directly
+        //The following two do not use a folder, but this also means they cannot jump directly
         //into the middle of the chain. If jumping into the middle is desired, then 
         //write should be used, where a folder should be provided, and the const values 
         //can be put in through a trivial lambda
-        static void writeConstValue(Env *env, Chain *chain, std::string const &storageID, typename Chain::DataType &&value) {
+        static bool tryWriteConstValue(Env *env, Chain *chain, std::string const &storageID, typename Chain::DataType &&value) {
+            std::string newID = storageID;
+            if (newID == "") {
+                newID = Chain::template newStorageIDAsString<Env>();
+            }
+            typename Chain::ItemType currentItem = chain->head(env);
+            while (true) {
+                std::optional<typename Chain::ItemType> nextItem = chain->fetchNext(currentItem);
+                if (!nextItem) {
+                    break;
+                }
+                currentItem = std::move(*nextItem);
+            }
+            return chain->appendAfter(currentItem, chain->formChainItem(newID, std::move(value)));
+        }
+        static void blockingWriteConstValue(Env *env, Chain *chain, std::string const &storageID, typename Chain::DataType &&value) {
+            std::string newID = storageID;
+            if (newID == "") {
+                newID = Chain::template newStorageIDAsString<Env>();
+            }
             typename Chain::ItemType currentItem = chain->head(env);
             while (true) {
                 while (true) {
@@ -79,7 +98,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     }
                     currentItem = std::move(*nextItem);
                 }
-                if (chain->appendAfter(currentItem, chain->formChainItem(storageID, std::move(value)))) {
+                if (chain->appendAfter(currentItem, chain->formChainItem(newID, infra::withtime_utils::makeValueCopy<typename Chain::DataType>(value)))) {
                     break;
                 }
             }
