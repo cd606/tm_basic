@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Text.RegularExpressions;
 using System.Timers;
+using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json.Linq;
 using Optional;
 using Optional.Unsafe;
@@ -188,7 +190,7 @@ namespace Dev.CD606.TM.Basic
         }
         public void log(Dev.CD606.TM.Infra.LogLevel level, string s)
         {
-            var s1 = $"{now().ToString("yyyy-MM-dd HH:mm:ss.ffffff")}|{s}";
+            var s1 = $"{formatTime(now())}|{s}";
             switch (level)
             {
                 case Dev.CD606.TM.Infra.LogLevel.Trace:
@@ -217,13 +219,18 @@ namespace Dev.CD606.TM.Basic
         {
             Environment.Exit(0);
         }
+
+        public string formatTime(DateTimeOffset d)
+        {
+            return d.ToString("yyyy-MM-dd HH:mm:ss.ffffff");
+        }
     }
 
     public static class ClockImporter<Env> where Env : ClockEnv
     {
         public static AbstractImporter<Env,T> createOneShotClockImporter<T>(DateTimeOffset when, Func<DateTimeOffset,T> gen) 
         {
-            return RealTimeAppUtils.simpleImporter<Env,T>(
+            return RealTimeAppUtils<Env>.simpleImporter<T>(
                 (Env env, Action<T,bool> pub) => {
                     var now = env.now();
                     if (now <= when)
@@ -244,7 +251,7 @@ namespace Dev.CD606.TM.Basic
         }
         public static AbstractImporter<Env,T> createRecurringClockImporter<T>(DateTimeOffset start, DateTimeOffset end, long periodMs, Func<DateTimeOffset,T> gen) 
         {
-            return RealTimeAppUtils.simpleImporter<Env,T>(
+            return RealTimeAppUtils<Env>.simpleImporter<T>(
                 (Env env, Action<T,bool> pub) => {
                     var now = env.now();
                     var realStart = start;
@@ -278,7 +285,7 @@ namespace Dev.CD606.TM.Basic
         }
         public static AbstractImporter<Env,T> createVariableDurationRecurringClockImporter<T>(DateTimeOffset start, DateTimeOffset end, Func<DateTimeOffset,long> periodCalc, Func<DateTimeOffset,T> gen) 
         {
-            return RealTimeAppUtils.simpleImporter<Env,T>(
+            return RealTimeAppUtils<Env>.simpleImporter<T>(
                 (Env env, Action<T,bool> pub) => {
                     var now = env.now();
                     var realStart = start;
@@ -311,5 +318,85 @@ namespace Dev.CD606.TM.Basic
         {
             return createVariableDurationRecurringClockImporter<T>(start, end, periodCalc, (DateTimeOffset d) => t);
         }
+    }
+
+    public readonly struct ClockOnOrderFacilityInput<T>
+    {
+        public readonly T inputData;
+        public readonly List<TimeSpan> durations;
+        public ClockOnOrderFacilityInput(T inputData, List<TimeSpan> durations)
+        {
+            this.inputData = inputData;
+            this.durations = durations;
+        }
+    }
+    public static class ClockOnOrderFacility<Env> where Env : ClockEnv
+    {
+        public class ClockCallback<S,T> : AbstractOnOrderFacility<Env,ClockOnOrderFacilityInput<S>,T>
+        {
+            private Func<DateTimeOffset,int,int,T> converter;
+            public ClockCallback(Func<DateTimeOffset,int,int,T> converter)
+            {
+                this.converter = converter;
+            }
+            public override void start(Env env)
+            {
+            }
+            public override void handle(TimedDataWithEnvironment<Env, Key<ClockOnOrderFacilityInput<S>>> data)
+            {
+                var filteredDurations = data.timedData.value.key.durations
+                    .Where((TimeSpan t) => (t.TotalMilliseconds >= 0))
+                    .OrderBy((TimeSpan t) => t);
+                var id = data.timedData.value.id;
+                var env = data.environment;
+                var count = filteredDurations.Count();
+                if (count == 0)
+                {
+                    var now = env.now();
+                    var t = converter(now, 0, 0);
+                    publish(new TimedDataWithEnvironment<Env, Key<T>>(
+                        env
+                        , new WithTime<Key<T>>(
+                            now
+                            , new Key<T>(
+                                id, t
+                            )
+                            , true
+                        )
+                    ));
+                }
+                else
+                {
+                    var ii = 0;
+                    foreach (var d in filteredDurations)
+                    {
+                        var timer = new Timer(env.actualDuration(d).TotalMilliseconds);
+                        var currentIdx = ii;
+                        timer.Elapsed += (object Source, ElapsedEventArgs args) => {
+                            var current = env.now();
+                            var t = converter(current, currentIdx, count);
+                            publish(new TimedDataWithEnvironment<Env, Key<T>>(
+                                env
+                                , new WithTime<Key<T>>(
+                                    current
+                                    , new Key<T>(
+                                        id, t
+                                    )
+                                    , (currentIdx == count-1)
+                                )
+                            ));
+                        };
+                        timer.AutoReset = false;
+                        timer.Enabled = true;
+                        ++ii;
+                    }
+                }       
+            }
+        }
+        public static AbstractOnOrderFacility<Env,ClockOnOrderFacilityInput<S>,T>
+            createClockCallback<S,T>(Func<DateTimeOffset,int,int,T> converter)
+            {
+                return new ClockCallback<S,T>(converter);
+            }
     }
 }
