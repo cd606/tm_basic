@@ -134,11 +134,11 @@ export class ClockEnv implements TMInfra.EnvBase {
         let hour = d.getHours();
         if (min >= 60) {
             hour = hour+1;
-            min = 0;
+            min = min%60;
             if (hour >= 24) {
                 d = new Date(d.getTime()+24*3600*1000);
                 d.setHours(0);
-                d.setMinutes(0);
+                d.setMinutes(min);
                 d.setSeconds(0);
                 d.setMilliseconds(0);
             } else {

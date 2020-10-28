@@ -95,6 +95,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
         if (min >= 60) {
             m->tm_hour = m->tm_hour+1;
             m->tm_min = min%60;
+            if (m->tm_hour >= 24) {
+                t += 24*3600;
+                m = std::localtime(&t);
+                m->tm_hour = 0;
+                m->tm_min = min%60;
+            }
         } else {
             m->tm_min = min;
         }
