@@ -546,7 +546,7 @@ export namespace Files {
                 if (this.recordPrefix) {
                     this.recordPrefix.copy(buffer, 0);
                 }
-                buffer.writeBigInt64LE(BigInt(d.environment.now().getTime())*BigInt(1000), prefixLen);
+                buffer.writeBigInt64LE(BigInt(d.timedData.timePoint.getTime())*BigInt(1000), prefixLen);
                 buffer.writeUInt32LE(v.topic.length,prefixLen+8);
                 buffer.write(v.topic, prefixLen+12);
                 buffer.writeUInt32LE(v.content.length, prefixLen+12+v.topic.length);
