@@ -4,8 +4,7 @@ using System.Timers;
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
-using Optional;
-using Optional.Unsafe;
+using Here;
 using NLog;
 
 using Dev.CD606.TM.Infra;
@@ -33,17 +32,17 @@ namespace Dev.CD606.TM.Basic
             var actualTime = (string) description["clock_settings"]["actual"]["time"];
             if (!Regex.Match(actualTime, "^\\d{2}:\\d{2}$").Success)
             {
-                return Option.None<ClockSettings>();
+                return Option.None;
             }
             var virtualDate = (string) description["clock_settings"]["virtual"]["date"];
             if (!Regex.Match(actualTime, "^\\d{4}-\\d{2}-\\d{2}$").Success)
             {
-                return Option.None<ClockSettings>();
+                return Option.None;
             }
             var virtualTime = (string) description["clock_settings"]["virtual"]["time"];
             if (!Regex.Match(virtualTime, "^\\d{2}:\\d{2}$").Success)
             {
-                return Option.None<ClockSettings>();
+                return Option.None;
             }
             var actualTP = new DateTimeOffset(DateTime.Today)
                 .AddHours(Int16.Parse(actualTime.Substring(0,2)))
@@ -56,11 +55,11 @@ namespace Dev.CD606.TM.Basic
                 , Int16.Parse(virtualTime.Substring(3,5))
                 , 0
             ));
-            return Option.Some<ClockSettings>(new ClockSettings(
+            return new ClockSettings(
                 synchronizationPointActual : actualTP
                 , synchronizationPointVirtual : virtualTP
                 , speed : Double.Parse((string) description["clock_settings"]["speed"])
-            ));
+            );
         }
         public static ClockSettings clockSettingsWithStartPoint(int actualHHMM, DateTimeOffset virtualStartPoint, double speed)
         {
@@ -115,7 +114,7 @@ namespace Dev.CD606.TM.Basic
                 , speed : speed
             );
         }
-        private Option<ClockSettings> settings = Option.None<ClockSettings>();
+        private Option<ClockSettings> settings = Option.None;
         private static readonly NLog.Logger logger = NLog.LogManager.GetLogger("");
         private void initLogs(string logFile)
         {
@@ -137,7 +136,7 @@ namespace Dev.CD606.TM.Basic
         }
         public ClockEnv(ClockSettings settings, string logFile=null)
         {
-            this.settings = Option.Some<ClockSettings>(settings);
+            this.settings = settings;
             initLogs(logFile);
         }
         public DateTimeOffset actualToVirtual(DateTimeOffset d)
@@ -146,7 +145,7 @@ namespace Dev.CD606.TM.Basic
             {
                 return d;
             }
-            var s = settings.ValueOrDefault();
+            var s = settings.Unwrap();
             var t = s.synchronizationPointVirtualUnixMillis
                 +Convert.ToInt64(
                     Math.Round(
@@ -160,7 +159,7 @@ namespace Dev.CD606.TM.Basic
             {
                 return d;
             }
-            var s = settings.ValueOrFailure();
+            var s = settings.Unwrap();
             var t = s.synchronizationPointActualUnixMillis
                 +Convert.ToInt64(
                     Math.Round(
@@ -174,7 +173,7 @@ namespace Dev.CD606.TM.Basic
             {
                 return actualD;
             }
-            return TimeSpan.FromMilliseconds(Convert.ToInt64(Math.Round(actualD.TotalMilliseconds*settings.ValueOrFailure().speed)));
+            return TimeSpan.FromMilliseconds(Convert.ToInt64(Math.Round(actualD.TotalMilliseconds*settings.Unwrap().speed)));
         } 
         public TimeSpan actualDuration(TimeSpan virtualD)
         {
@@ -182,7 +181,7 @@ namespace Dev.CD606.TM.Basic
             {
                 return virtualD;
             }
-            return TimeSpan.FromMilliseconds(Convert.ToInt64(Math.Round(virtualD.TotalMilliseconds*1.0/settings.ValueOrFailure().speed)));
+            return TimeSpan.FromMilliseconds(Convert.ToInt64(Math.Round(virtualD.TotalMilliseconds*1.0/settings.Unwrap().speed)));
         } 
         public DateTimeOffset now()
         {
