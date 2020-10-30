@@ -152,7 +152,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return s;
             }
             static std::size_t apply(bool const &data, char *output) {
-                *output = static_cast<char>(data?1:0);
+                *output = static_cast<char>(data?0xf5:0xf4);
                 return 1;
             }
             static constexpr std::size_t calculateSize(bool const &data) {
@@ -930,20 +930,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
-                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != (uint8_t) 0) {
-                    return std::nullopt;
-                }
-                auto v = parseCBORUnsignedInt<uint8_t>(data, start);
-                if (!v) {
-                    return std::nullopt;
-                }
-                switch (std::get<0>(*v)) {
-                case 0:
-                    return std::tuple<bool, size_t> {false, std::get<1>(*v)};
-                case 1:
-                    return std::tuple<bool, size_t> {true, std::get<1>(*v)};
-                default:
-                    return std::nullopt;
+                switch (data[start])
+                {
+                    case (char) 0xf4:
+                        return std::tuple<bool, size_t> {false, 1};
+                    case (char) 0xf5:
+                        return std::tuple<bool, size_t> {true, 1};
+                    default:
+                        return std::nullopt;
                 }
             }
         };
