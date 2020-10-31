@@ -26,6 +26,7 @@ namespace Dev.CD606.TM.Basic
                 if (filePrefix != null) 
                 {
                     writer.Write(filePrefix);
+                    writer.Flush();
                 }
             }
             public void handle(TimedDataWithEnvironment<Env,ByteDataWithTopic> data)
@@ -66,6 +67,7 @@ namespace Dev.CD606.TM.Basic
                 Buffer.BlockCopy(v.content, 0, buffer, prefixLen+16+topicBuffer.Length, v.content.Length);
                 buffer[buffer.Length-1] = (data.timedData.finalFlag?(byte) 0x1:(byte) 0x0);
                 writer.Write(buffer);
+                writer.Flush();
             }
         }
         public static AbstractExporter<Env,ByteDataWithTopic> 
