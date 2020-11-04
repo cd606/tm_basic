@@ -11,192 +11,37 @@ namespace Dev.CD606.TM.Basic
         where GlobalVersion : IComparable 
         where Version : IComparable
     {
-        public class OneFullUpdateItem : GroupedVersionedData<Key,Version,Option<Data>>, ToCbor, FromCbor<OneFullUpdateItem>
+        [CborWithFieldNames]
+        public class OneFullUpdateItem : GroupedVersionedData<Key,Version,Option<Data>>
         {
             public Key groupID {get; set;}
             public Version version {get; set;}
             public Option<Data> data {get; set;}
-            public CBORObject asCborObject()
-            {
-                return CBORObject.NewMap()
-                    .Add("groupID", TMCborEncoder<Key>.Instance.encode(groupID))
-                    .Add("version", TMCborEncoder<Version>.Instance.encode(version))
-                    .Add("data", TMCborEncoder<Data>.Instance.encode(data));
-            }
-            public Option<OneFullUpdateItem> fromCborObject(CBORObject o)
-            {
-                if (o.Type != CBORType.Map)
-                {
-                    return Option.None;
-                }
-                int toFind = 3;
-                var ret = new OneFullUpdateItem();
-                var entries = o.Entries;
-                if (entries.Count != 3)
-                {
-                    return Option.None;
-                }
-                foreach (var item in entries)
-                {
-                    if (item.Key.Type != CBORType.TextString)
-                    {
-                        return Option.None;
-                    }
-                    var keyStr = item.Key.AsString();
-                    switch (keyStr)
-                    {
-                        case "groupID":
-                        {
-                            var g = TMCborDecoder<Key>.Instance.decode(item.Value);
-                            if (g.HasValue)
-                            {
-                                ret.groupID = g.Value;
-                                --toFind;
-                            }
-                            else
-                            {
-                                return Option.None;
-                            }
-                        }
-                        break;
-                        case "version":
-                        {
-                            var g = TMCborDecoder<Version>.Instance.decode(item.Value);
-                            if (g.HasValue)
-                            {
-                                ret.version = g.Value;
-                                --toFind;
-                            }
-                            else
-                            {
-                                return Option.None;
-                            }
-                        }
-                        break;
-                        case "data":
-                        {
-                            var g = TMCborDecoder<Data>.Instance.decode(item.Value);
-                            if (g.HasValue)
-                            {
-                                ret.data = g.Value;
-                                --toFind;
-                            }
-                            else
-                            {
-                                return Option.None;
-                            }
-                        }
-                        break;
-                    }
-                }
-                if (toFind != 0)
-                {
-                    return Option.None;
-                }
-                return ret;
-            }
         }
-        public class OneDeltaUpdateItem : ToCbor, FromCbor<OneDeltaUpdateItem>
+        [CborWithFieldNames]
+        public class OneDeltaUpdateItem
         {
             public Key key {get; set;}
             public VersionDelta versionDelta {get; set;}
             public DataDelta dataDelta {get; set;}
-            public CBORObject asCborObject()
-            {
-                return CBORObject.NewMap()
-                    .Add("key", TMCborEncoder<Key>.Instance.encode(key))
-                    .Add("versionDelta", TMCborEncoder<VersionDelta>.Instance.encode(versionDelta))
-                    .Add("dataDelta", TMCborEncoder<DataDelta>.Instance.encode(dataDelta));
-            }
-            public Option<OneDeltaUpdateItem> fromCborObject(CBORObject o)
-            {
-                if (o.Type != CBORType.Map)
-                {
-                    return Option.None;
-                }
-                int toFind = 3;
-                var ret = new OneDeltaUpdateItem();
-                var entries = o.Entries;
-                if (entries.Count != 3)
-                {
-                    return Option.None;
-                }
-                foreach (var item in entries)
-                {
-                    if (item.Key.Type != CBORType.TextString)
-                    {
-                        return Option.None;
-                    }
-                    var keyStr = item.Key.AsString();
-                    switch (keyStr)
-                    {
-                        case "key":
-                        {
-                            var g = TMCborDecoder<Key>.Instance.decode(item.Value);
-                            if (g.HasValue)
-                            {
-                                ret.key = g.Value;
-                                --toFind;
-                            }
-                            else
-                            {
-                                return Option.None;
-                            }
-                        }
-                        break;
-                        case "versionDelta":
-                        {
-                            var g = TMCborDecoder<VersionDelta>.Instance.decode(item.Value);
-                            if (g.HasValue)
-                            {
-                                ret.versionDelta = g.Value;
-                                --toFind;
-                            }
-                            else
-                            {
-                                return Option.None;
-                            }
-                        }
-                        break;
-                        case "dataDelta":
-                        {
-                            var g = TMCborDecoder<DataDelta>.Instance.decode(item.Value);
-                            if (g.HasValue)
-                            {
-                                ret.dataDelta = g.Value;
-                                --toFind;
-                            }
-                            else
-                            {
-                                return Option.None;
-                            }
-                        }
-                        break;
-                    }
-                }
-                if (toFind != 0)
-                {
-                    return Option.None;
-                }
-                return ret;
-            }
         }
         public enum OneUpdateItemSubtypes
         {
             OneFullUpdateItem = 0
             , OneDeltaUpdateItem = 1
         }
-        public class OneUpdateItem : ToCbor, FromCbor<OneUpdateItem>
+        [CborUsingCustomMethods]
+        public class OneUpdateItem
         {
             public Either<OneFullUpdateItem, OneDeltaUpdateItem> theUpdate {get; set;}
             public CBORObject asCborObject()
             {
                 return theUpdate.Match<CBORObject>(
                     onLeft : (OneFullUpdateItem x) => {
-                        return CBORObject.NewArray().Add(CBORObject.FromObject(0)).Add(x.asCborObject());
+                        return CBORObject.NewArray().Add(CBORObject.FromObject(0)).Add(CborEncoder<OneFullUpdateItem>.Encode(x));
                     }
                     , onRight : (OneDeltaUpdateItem x) => {
-                        return CBORObject.NewArray().Add(CBORObject.FromObject(1)).Add(x.asCborObject());
+                        return CBORObject.NewArray().Add(CBORObject.FromObject(1)).Add(CborEncoder<OneDeltaUpdateItem>.Encode(x));
                     }
                 );
             }
@@ -220,7 +65,7 @@ namespace Dev.CD606.TM.Basic
                 {
                     case 0:
                     {
-                        var x = TMCborDecoder<OneFullUpdateItem>.Instance.decode(vals.ElementAt(1));
+                        var x = CborDecoder<OneFullUpdateItem>.Decode(vals.ElementAt(1));
                         if (x.HasValue)
                         {
                             return new OneUpdateItem {theUpdate = Either.Left(x.Value)};
@@ -232,7 +77,7 @@ namespace Dev.CD606.TM.Basic
                     }
                     case 1:
                     {
-                        var x = TMCborDecoder<OneDeltaUpdateItem>.Instance.decode(vals.ElementAt(1));
+                        var x = CborDecoder<OneDeltaUpdateItem>.Decode(vals.ElementAt(1));
                         if (x.HasValue)
                         {
                             return new OneUpdateItem {theUpdate = Either.Right(x.Value)};
@@ -247,143 +92,17 @@ namespace Dev.CD606.TM.Basic
                 }
             }
         }
-        public class Update : VersionedData<GlobalVersion, List<OneUpdateItem>>, ToCbor, FromCbor<Update>
+        [CborWithFieldNames]
+        public class Update : VersionedData<GlobalVersion, List<OneUpdateItem>>
         {
             public GlobalVersion version {get; set;}
             public List<OneUpdateItem> data {get; set;}
-            public CBORObject asCborObject()
-            {
-                return CBORObject.NewMap()
-                    .Add("version", TMCborEncoder<GlobalVersion>.Instance.encode(version))
-                    .Add("data", TMCborEncoder<OneUpdateItem>.Instance.encode(data));
-            }
-            public Option<Update> fromCborObject(CBORObject obj)
-            {
-                if (obj.Type != CBORType.Map)
-                {
-                    return Option.None;
-                }
-                int toFind = 2;
-                var ret = new Update();
-                var entries = obj.Entries;
-                if (entries.Count != 2)
-                {
-                    return Option.None;
-                }
-                foreach (var item in entries)
-                {
-                    if (item.Key.Type != CBORType.TextString)
-                    {
-                        return Option.None;
-                    }
-                    var keyStr = item.Key.AsString();
-                    switch (keyStr)
-                    {
-                        case "version":
-                        {
-                            var g = TMCborDecoder<GlobalVersion>.Instance.decode(item.Value);
-                            if (g.HasValue)
-                            {
-                                ret.version = g.Value;
-                                --toFind;
-                            }
-                            else
-                            {
-                                return Option.None;
-                            }
-                        }
-                        break;
-                        case "data":
-                        {
-                            var g = TMCborDecoder<OneUpdateItem>.Instance.decodeList(item.Value);
-                            if (g.HasValue)
-                            {
-                                ret.data = g.Value;
-                                --toFind;
-                            }
-                            else
-                            {
-                                return Option.None;
-                            }
-                        }
-                        break;
-                    }
-                }
-                if (toFind != 0)
-                {
-                    return Option.None;
-                }
-                return ret;
-            }
         }
-        public class FullUpdate : VersionedData<GlobalVersion, List<OneFullUpdateItem>>, ToCbor, FromCbor<FullUpdate>
+        [CborWithFieldNames]
+        public class FullUpdate : VersionedData<GlobalVersion, List<OneFullUpdateItem>>
         {
             public GlobalVersion version {get; set;}
             public List<OneFullUpdateItem> data {get; set;}
-            public CBORObject asCborObject()
-            {
-                return CBORObject.NewMap()
-                    .Add("version", TMCborEncoder<GlobalVersion>.Instance.encode(version))
-                    .Add("data", TMCborEncoder<OneFullUpdateItem>.Instance.encode(data));
-            }
-            public Option<FullUpdate> fromCborObject(CBORObject obj)
-            {
-                if (obj.Type != CBORType.Map)
-                {
-                    return Option.None;
-                }
-                int toFind = 2;
-                var ret = new FullUpdate();
-                var entries = obj.Entries;
-                if (entries.Count != 2)
-                {
-                    return Option.None;
-                }
-                foreach (var item in entries)
-                {
-                    if (item.Key.Type != CBORType.TextString)
-                    {
-                        return Option.None;
-                    }
-                    var keyStr = item.Key.AsString();
-                    switch (keyStr)
-                    {
-                        case "version":
-                        {
-                            var g = TMCborDecoder<GlobalVersion>.Instance.decode(item.Value);
-                            if (g.HasValue)
-                            {
-                                ret.version = g.Value;
-                                --toFind;
-                            }
-                            else
-                            {
-                                return Option.None;
-                            }
-                        }
-                        break;
-                        case "data":
-                        {
-                            var g = TMCborDecoder<OneFullUpdateItem>.Instance.decodeList(item.Value);
-                            if (g.HasValue)
-                            {
-                                ret.data = g.Value;
-                                --toFind;
-                            }
-                            else
-                            {
-                                return Option.None;
-                            }
-                        }
-                        break;
-                    }
-                }
-                if (toFind != 0)
-                {
-                    return Option.None;
-                }
-                return ret;
-            }
         }
         public static Option<FullUpdate> getFullUpdatesOnly(Update u)
         {
@@ -417,11 +136,13 @@ namespace Dev.CD606.TM.Basic
             , FailurePermission = 2
             , FailureConsistency = 3
         };
+        [CborWithFieldNames]
         public class InsertAction
         {
             public Key key {get; set;}
             public Data data {get; set;}
         }
+        [CborWithFieldNames]
         public class UpdateAction
         {
             public Key key {get; set;}
@@ -429,12 +150,14 @@ namespace Dev.CD606.TM.Basic
             public Option<DataSummary> oldDataSummary {get; set;}
             public DataDelta dataDelta{get; set;}
         }
+        [CborWithFieldNames]
         public class DeleteAction 
         {
             public Key key {get; set;}
             public Option<Version> oldVersion {get; set;}
             public Option<DataSummary> oldDataSummary {get; set;}
         }
+        [CborWithFieldNames]
         public class TransactionResponse 
         {
             public GlobalVersion globalVersion {get; set;}
@@ -455,28 +178,35 @@ namespace Dev.CD606.TM.Basic
         where GlobalVersion : IComparable
         where Version : IComparable
     {
+        [CborWithFieldNames]
         public class Subscription 
         {
             public List<Key> keys {get; set;}
         }
+        [CborWithFieldNames]
         public class Unsubscription 
         {
             public string originalSubscriptionID {get; set;}
         }
+        [CborWithFieldNames]
         public class ListSubscriptions 
         {
         }
+        [CborWithFieldNames]
         public class SubscriptionInfo 
         {
             public List<(string, List<Key>)> subscriptions {get; set;}
         }
+        [CborWithFieldNames]
         public class UnsubscribeAll 
         {
         }
+        [CborWithFieldNames]
         public class SnapshotRequest 
         {
             public List<Key> keys {get; set;}
         }
+        [CborUsingCustomMethods]
         public class SubscriptionUpdate : DataStreamInterface<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta>.Update
         {
         }
