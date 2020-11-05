@@ -41,6 +41,27 @@ namespace Dev.CD606.TM.Basic
                 this.encoder = (t) => CBORObject.FromObject((int) (object) t);
                 return;
             }
+            if (theType.IsGenericType && theType.Name.StartsWith("ValueTuple`") && theType.Namespace.Equals("System"))
+            {
+                var fieldHelpers = theType.GetFields().Select(
+                    (f) => {
+                        var encoderType = typeof(CborEncoder<>).MakeGenericType(new Type[] {f.FieldType});
+                        var encoder = encoderType.GetMethod("Encode");
+                        return (f, encoder);
+                    }
+                ).ToArray();
+                this.encoder = (t) => {
+                    var ret = CBORObject.NewArray();
+                    foreach (var f in fieldHelpers)
+                    {
+                        ret.Add(
+                            f.Item2.Invoke(null, new object[] {f.Item1.GetValue(t)})
+                        );
+                    }
+                    return ret;
+                };
+                return;
+            }
             if (theType.IsGenericType && theType.Name.Equals("Option`1") && theType.Namespace.Equals("Here"))
             {
                 var underlyingType = theType.GetGenericArguments()[0];
@@ -221,6 +242,37 @@ namespace Dev.CD606.TM.Basic
                     {
                         return Option.None;
                     }
+                };
+                return;
+            }
+            if (theType.IsGenericType && theType.Name.StartsWith("ValueTuple`") && theType.Namespace.Equals("System"))
+            {
+                var fieldHelpers = theType.GetFields().Select(
+                    (f) => {
+                        var decoderType = typeof(CborDecoder<>).MakeGenericType(new Type[] {f.FieldType});
+                        var decoder = decoderType.GetMethod("Decode");
+                        var optionType = typeof(Option<>).MakeGenericType(new Type[] {f.FieldType});
+                        var hasValue = optionType.GetProperty("HasValue").GetGetMethod();
+                        var value = optionType.GetProperty("Value").GetGetMethod();
+                        return (f, decoder, hasValue, value);
+                    }
+                ).ToArray();
+                this.decoder = (o) => {
+                    if (o.Type != CBORType.Array || o.Count != fieldHelpers.Length)
+                    {
+                        return Option.None;
+                    }
+                    var ret = Activator.CreateInstance(theType);
+                    foreach (var f in o.Values.Zip(fieldHelpers, (x,y) => (x,y)))
+                    {
+                        var item = f.Item2.Item2.Invoke(null, new object[] {f.Item1});
+                        if (!((bool) f.Item2.Item3.Invoke(item, null)))
+                        {
+                            return Option.None;
+                        }
+                        f.Item2.Item1.SetValue(ret, f.Item2.Item4.Invoke(item, null));
+                    }
+                    return (T) ret;
                 };
                 return;
             }
