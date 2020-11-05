@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Here;
 using Dev.CD606.TM.Infra;
 using PeterO.Cbor;
@@ -31,64 +30,23 @@ namespace Dev.CD606.TM.Basic
             , OneDeltaUpdateItem = 1
         }
         [CborUsingCustomMethods]
-        public class OneUpdateItem
+        public class OneUpdateItem 
         {
-            public Either<OneFullUpdateItem, OneDeltaUpdateItem> theUpdate {get; set;}
+            public Variant<OneFullUpdateItem,OneDeltaUpdateItem> theUpdate {get; set;}
             public CBORObject asCborObject()
             {
-                return theUpdate.Match<CBORObject>(
-                    onLeft : (OneFullUpdateItem x) => {
-                        return CBORObject.NewArray().Add(CBORObject.FromObject(0)).Add(CborEncoder<OneFullUpdateItem>.Encode(x));
-                    }
-                    , onRight : (OneDeltaUpdateItem x) => {
-                        return CBORObject.NewArray().Add(CBORObject.FromObject(1)).Add(CborEncoder<OneDeltaUpdateItem>.Encode(x));
-                    }
-                );
+                return theUpdate.asCborObject();
             }
-            public Option<OneUpdateItem> fromCborObject(CBORObject obj)
+            public static Option<OneUpdateItem> fromCborObject(CBORObject o)
             {
-                if (obj.Type != CBORType.Array)
+                var u = Variant<OneFullUpdateItem,OneDeltaUpdateItem>.fromCborObject(o);
+                if (u.HasValue)
+                {
+                    return new OneUpdateItem() {theUpdate = u.Value};
+                }
+                else
                 {
                     return Option.None;
-                }
-                var vals = obj.Values;
-                if (vals.Count != 2)
-                {
-                    return Option.None;
-                }
-                if (vals.First().Type != CBORType.Integer)
-                {
-                    return Option.None;
-                }
-                int which = vals.First().ToObject<int>();
-                switch (which)
-                {
-                    case 0:
-                    {
-                        var x = CborDecoder<OneFullUpdateItem>.Decode(vals.ElementAt(1));
-                        if (x.HasValue)
-                        {
-                            return new OneUpdateItem {theUpdate = Either.Left(x.Value)};
-                        }
-                        else
-                        {
-                            return Option.None;
-                        }
-                    }
-                    case 1:
-                    {
-                        var x = CborDecoder<OneDeltaUpdateItem>.Decode(vals.ElementAt(1));
-                        if (x.HasValue)
-                        {
-                            return new OneUpdateItem {theUpdate = Either.Right(x.Value)};
-                        }
-                        else
-                        {
-                            return Option.None;
-                        }
-                    }
-                    default:
-                        return Option.None;
                 }
             }
         }
@@ -109,9 +67,9 @@ namespace Dev.CD606.TM.Basic
             var ret = new FullUpdate {version = u.version, data = new List<OneFullUpdateItem>()};
             foreach (var x in u.data)
             {
-                if (x.theUpdate.IsLeft)
+                if (x.theUpdate.Index == 0)
                 {
-                    ret.data.Add(x.theUpdate.LeftValue);
+                    ret.data.Add(x.theUpdate.Item1.Value);
                 }
             }
             if (ret.data.Count > 0)
@@ -169,9 +127,26 @@ namespace Dev.CD606.TM.Basic
             , UpdateAction = 1
             , DeleteAction = 2
         }
+        [CborUsingCustomMethods]
         public class Transaction 
         {
-            public Either<InsertAction, Either<UpdateAction, DeleteAction>> data {get; set;}
+            public Variant<InsertAction, UpdateAction, DeleteAction> data {get; set;}
+            public CBORObject asCborObject()
+            {
+                return data.asCborObject();
+            }
+            public static Option<Transaction> fromCborObject(CBORObject o)
+            {
+                var d = Variant<InsertAction, UpdateAction, DeleteAction>.fromCborObject(o);
+                if (d.HasValue)
+                {
+                    return new Transaction() {data = d.Value};
+                }
+                else
+                {
+                    return Option.None;
+                }
+            }
         }
     }
     public static class GeneralSubscriber<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta>

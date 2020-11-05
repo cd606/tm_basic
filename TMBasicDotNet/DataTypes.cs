@@ -80,4 +80,297 @@ namespace Dev.CD606.TM.Basic
             this.content = content;
         }
     }
+    [CborUsingCustomMethods]
+    public class Variant<A,B>
+    {
+        private int index = -1;
+        private A item1 = default(A);
+        private B item2 = default(B);
+        public Option<A> Item1
+        {
+            get
+            {
+                if (index == 0)
+                {
+                    return item1;
+                }
+                else
+                {
+                    return Option.None;
+                }
+            }
+        }
+        public Option<B> Item2
+        {
+            get
+            {
+                if (index == 1)
+                {
+                    return item2;
+                }
+                else
+                {
+                    return Option.None;
+                }
+            }
+        }
+        public int Index
+        {
+            get
+            {
+                return index;
+            }
+        }
+        private Variant()
+        {
+        }
+        public static Variant<A,B> From1(A a)
+        {
+            return new Variant<A,B>() {index = 0, item1 = a};
+        }
+        public static Variant<A,B> From2(B b)
+        {
+            return new Variant<A,B>() {index = 1, item2 = b};
+        }
+        public void Dispatch(Action<A> action1, Action<B> action2)
+        {
+            switch (index)
+            {
+                case 0:
+                    action1(item1);
+                    break;
+                case 1:
+                    action2(item2);
+                    break;
+                default:
+                    break;
+            }
+        }
+        public OutT Dispatch<OutT>(Func<A,OutT> func1, Func<B,OutT> func2)
+        {
+            switch (index)
+            {
+                case 0:
+                    return func1(item1);
+                case 1:
+                    return func2(item2);
+                default:
+                    return default(OutT);
+            }
+        }
+        public CBORObject asCborObject()
+        {
+            return CBORObject.NewArray()
+                .Add(index)
+                .Add(index==0?CborEncoder<A>.Encode(item1):CborEncoder<B>.Encode(item2));
+        }
+        public static Option<Variant<A,B>> fromCborObject(CBORObject obj)
+        {
+            if (obj.Type != CBORType.Array || obj.Count != 2)
+            {
+                return Option.None;
+            }
+            int index = obj[0].AsNumber().ToInt32Checked();
+            switch (index)
+            {
+                case 0:
+                    {
+                        var item1 = CborDecoder<A>.Decode(obj[1]);
+                        if (item1.HasValue)
+                        {
+                            return From1(item1.Value);
+                        }
+                        else
+                        {
+                            return Option.None;
+                        }
+                    }
+                case 1:
+                    {
+                        var item2 = CborDecoder<B>.Decode(obj[1]);
+                        if (item2.HasValue)
+                        {
+                            return From2(item2.Value);
+                        }
+                        else
+                        {
+                            return Option.None;
+                        }
+                    }
+                default:
+                    return Option.None;
+            }
+        }
+    }
+    [CborUsingCustomMethods]
+    public class Variant<A,B,C>
+    {
+        private int index = -1;
+        private A item1 = default(A);
+        private B item2 = default(B);
+        private C item3 = default(C);
+        public Option<A> Item1
+        {
+            get
+            {
+                if (index == 0)
+                {
+                    return item1;
+                }
+                else
+                {
+                    return Option.None;
+                }
+            }
+        }
+        public Option<B> Item2
+        {
+            get
+            {
+                if (index == 1)
+                {
+                    return item2;
+                }
+                else
+                {
+                    return Option.None;
+                }
+            }
+        }
+        public Option<C> Item3
+        {
+            get
+            {
+                if (index == 2)
+                {
+                    return item3;
+                }
+                else
+                {
+                    return Option.None;
+                }
+            }
+        }
+        public int Index
+        {
+            get
+            {
+                return index;
+            }
+        }
+        private Variant()
+        {
+        }
+        public static Variant<A,B,C> From1(A a)
+        {
+            return new Variant<A,B,C>() {index = 0, item1 = a};
+        }
+        public static Variant<A,B,C> From2(B b)
+        {
+            return new Variant<A,B,C>() {index = 1, item2 = b};
+        }
+        public static Variant<A,B,C> From3(C c)
+        {
+            return new Variant<A,B,C>() {index = 2, item3 = c};
+        }
+        public void Dispatch(Action<A> action1, Action<B> action2, Action<C> action3)
+        {
+            switch (index)
+            {
+                case 0:
+                    action1(item1);
+                    break;
+                case 1:
+                    action2(item2);
+                    break;
+                case 2:
+                    action3(item3);
+                    break;
+                default:
+                    break;
+            }
+        }
+        public OutT Dispatch<OutT>(Func<A,OutT> func1, Func<B,OutT> func2, Func<C,OutT> func3)
+        {
+            switch (index)
+            {
+                case 0:
+                    return func1(item1);
+                case 1:
+                    return func2(item2);
+                case 2:
+                    return func3(item3);
+                default:
+                    return default(OutT);
+            }
+        }
+        public CBORObject asCborObject()
+        {
+            var ret = CBORObject.NewArray().Add(index);
+            switch (index)
+            {
+                case 0:
+                    ret.Add(CborEncoder<A>.Encode(item1));
+                    break;
+                case 1:
+                    ret.Add(CborEncoder<B>.Encode(item2));
+                    break;
+                case 2:
+                    ret.Add(CborEncoder<C>.Encode(item3));
+                    break;
+                default:
+                    break;
+            }
+            return ret;
+        }
+        public static Option<Variant<A,B,C>> fromCborObject(CBORObject obj)
+        {
+            if (obj.Type != CBORType.Array || obj.Count != 2)
+            {
+                return Option.None;
+            }
+            int index = obj[0].AsNumber().ToInt32Checked();
+            switch (index)
+            {
+                case 0:
+                    {
+                        var item1 = CborDecoder<A>.Decode(obj[1]);
+                        if (item1.HasValue)
+                        {
+                            return From1(item1.Value);
+                        }
+                        else
+                        {
+                            return Option.None;
+                        }
+                    }
+                case 1:
+                    {
+                        var item2 = CborDecoder<B>.Decode(obj[1]);
+                        if (item2.HasValue)
+                        {
+                            return From2(item2.Value);
+                        }
+                        else
+                        {
+                            return Option.None;
+                        }
+                    }
+                case 2:
+                    {
+                        var item3 = CborDecoder<C>.Decode(obj[1]);
+                        if (item3.HasValue)
+                        {
+                            return From3(item3.Value);
+                        }
+                        else
+                        {
+                            return Option.None;
+                        }
+                    }
+                default:
+                    return Option.None;
+            }
+        }
+    }
 }
