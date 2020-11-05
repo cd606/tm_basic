@@ -17,7 +17,7 @@ namespace Dev.CD606.TM.Basic
             public Version version {get; set;}
             public Option<Data> data {get; set;}
         }
-        [CborWithFieldNames]
+        [CborWithoutFieldNames]
         public class OneDeltaUpdateItem
         {
             public Key key {get; set;}
@@ -106,7 +106,7 @@ namespace Dev.CD606.TM.Basic
             public Key key {get; set;}
             public Option<VersionSlice> oldVersionSlice {get; set;}
             public Option<DataSummary> oldDataSummary {get; set;}
-            public DataDelta dataDelta{get; set;}
+            public DataDelta dataDelta {get; set;}
         }
         [CborWithFieldNames]
         public class DeleteAction 
@@ -170,7 +170,13 @@ namespace Dev.CD606.TM.Basic
         [CborWithFieldNames]
         public class SubscriptionInfo 
         {
-            public List<(string, List<Key>)> subscriptions {get; set;}
+            [CborWithoutFieldNames]
+            public class OneSubscriptionInfo
+            {
+                public string id {get; set;}
+                public List<Key> keys {get; set;}
+            }
+            public List<OneSubscriptionInfo> subscriptions {get; set;}
         }
         [CborWithFieldNames]
         public class UnsubscribeAll 

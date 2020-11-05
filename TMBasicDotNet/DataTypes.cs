@@ -690,7 +690,7 @@ namespace Dev.CD606.TM.Basic
         }
         public static Variant<A,B,C,D,E> From5(E e)
         {
-            return new Variant<A,B,C,D,E>() {index = 3, item5 = e};
+            return new Variant<A,B,C,D,E>() {index = 4, item5 = e};
         }
         public void Dispatch(Action<A> action1, Action<B> action2, Action<C> action3, Action<D> action4, Action<E> action5)
         {
