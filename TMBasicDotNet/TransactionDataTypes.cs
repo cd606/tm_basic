@@ -182,8 +182,25 @@ namespace Dev.CD606.TM.Basic
             public List<Key> keys {get; set;}
         }
         [CborUsingCustomMethods]
-        public class SubscriptionUpdate : DataStreamInterface<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta>.Update
+        public class SubscriptionUpdate
         {
+            public DataStreamInterface<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta>.Update update {get; set;}
+            public CBORObject asCborObject()
+            {
+                return CborEncoder<DataStreamInterface<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta>.Update>.Encode(update);
+            }
+            public static Option<SubscriptionUpdate> fromCborObject(CBORObject o)
+            {
+                var u = CborDecoder<DataStreamInterface<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta>.Update>.Decode(o);
+                if (u.HasValue)
+                {
+                    return new SubscriptionUpdate() {update = u.Value};
+                }
+                else
+                {
+                    return Option.None;
+                }
+            }
         }
         
         public enum InputSubtypes 
@@ -194,21 +211,26 @@ namespace Dev.CD606.TM.Basic
             , UnsubscribeAll = 3
             , SnapshotRequest = 4
         }
+        [CborUsingCustomMethods]
         public class Input
         {
-            public Either<
-                Subscription
-                , Either<
-                    Unsubscription
-                    , Either<
-                        ListSubscriptions
-                        , Either<
-                            UnsubscribeAll
-                            , SnapshotRequest
-                        >
-                    >
-                >
-            > input {get; set;}
+            public Variant<Subscription,Unsubscription,ListSubscriptions,UnsubscribeAll,SnapshotRequest> data {get; set;}
+            public CBORObject asCborObject()
+            {
+                return data.asCborObject();
+            }
+            public static Option<Input> fromCborObject(CBORObject o)
+            {
+                var d = Variant<Subscription,Unsubscription,ListSubscriptions,UnsubscribeAll,SnapshotRequest>.fromCborObject(o);
+                if (d.HasValue)
+                {
+                    return new Input() {data = d.Value};
+                }
+                else
+                {
+                    return Option.None;
+                }
+            }
         }
         public enum OutputSubtypes 
         {
@@ -218,21 +240,26 @@ namespace Dev.CD606.TM.Basic
             , SubscriptionInfo = 3
             , UnsubscribeAll = 4
         }
+        [CborUsingCustomMethods]
         public class Output
         {
-            public Either<
-                Subscription
-                , Either<
-                    Unsubscription
-                    , Either<
-                        SubscriptionUpdate
-                        , Either<
-                            SubscriptionInfo
-                            , UnsubscribeAll
-                        >
-                    >
-                >
-            > output {get; set;}
+            public Variant<Subscription,Unsubscription,SubscriptionUpdate,SubscriptionInfo,UnsubscribeAll> data {get; set;}
+            public CBORObject asCborObject()
+            {
+                return data.asCborObject();
+            }
+            public static Option<Output> fromCborObject(CBORObject o)
+            {
+                var d = Variant<Subscription,Unsubscription,SubscriptionUpdate,SubscriptionInfo,UnsubscribeAll>.fromCborObject(o);
+                if (d.HasValue)
+                {
+                    return new Output() {data = d.Value};
+                }
+                else
+                {
+                    return Option.None;
+                }
+            }
         }
     }
 }
