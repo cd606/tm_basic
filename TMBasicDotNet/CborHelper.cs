@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.IO;
 using Here;
 using PeterO.Cbor;
+using ProtoBuf;
 
 namespace Dev.CD606.TM.Basic
 {
@@ -59,6 +61,25 @@ namespace Dev.CD606.TM.Basic
                         );
                     }
                     return ret;
+                };
+                return;
+            }
+            if (theType.GetCustomAttribute(typeof(ProtoContractAttribute), false) != null)
+            {
+                var encodeMethod = typeof(ProtoBuf.Serializer).GetMethods()
+                    .Where(
+                        (m) => 
+                            m.IsGenericMethod
+                            && m.IsPublic
+                            && m.Name.Equals("Serialize")
+                            && m.GetGenericArguments().Length == 1
+                    )
+                    .First()
+                    .MakeGenericMethod(new Type[] {theType});
+                this.encoder = (t) => {
+                    var s = new MemoryStream();
+                    encodeMethod.Invoke(null, new object[] {s, t});
+                    return CBORObject.FromObject(s.ToArray());
                 };
                 return;
             }
@@ -273,6 +294,32 @@ namespace Dev.CD606.TM.Basic
                         f.Item2.Item1.SetValue(ret, f.Item2.Item4.Invoke(item, null));
                     }
                     return (T) ret;
+                };
+                return;
+            }
+            if (theType.GetCustomAttribute(typeof(ProtoContractAttribute), false) != null)
+            {
+                var decodeMethod = typeof(ProtoBuf.Serializer).GetMethods()
+                    .Where(
+                        (m) => 
+                            m.IsGenericMethod
+                            && m.IsPublic
+                            && m.Name.Equals("Deserialize")
+                            && m.GetGenericArguments().Length == 1
+                    )
+                    .First().MakeGenericMethod(new Type[] {theType});
+                this.decoder = (o) => {
+                    try 
+                    {
+                        var b = o.ToObject<byte[]>();
+                        var ms = new MemoryStream(b);
+                        var t = (T) decodeMethod.Invoke(null, new object[] {ms});
+                        return t;
+                    }
+                    catch (Exception)
+                    {
+                        return Option.None;
+                    }
                 };
                 return;
             }
