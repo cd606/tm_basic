@@ -32,6 +32,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     }; //this is not intended to be a "line" data type therefore the serialization code is not provided
        //For "line" purposes, always use ByteData instead. This type is mostly used for printing
        //since it does not require any copying
+    inline ByteDataView byteDataView(ByteData const &d) {
+        return ByteDataView {std::string_view {d.content}};
+    }
 
     struct ByteDataWithTopic {
         std::string topic;
