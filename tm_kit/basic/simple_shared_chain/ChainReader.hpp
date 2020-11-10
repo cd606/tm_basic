@@ -301,6 +301,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             return *item;
         }
     };
+    class EmptyStateChainFolder {
+    public:
+        using ResultType = VoidStruct;
+        static ResultType initialize(void *, void *) {
+            return VoidStruct {};
+        }
+        template <class ChainDataType>
+        static void foldInPlace(ResultType &, std::string_view const &, ChainDataType const *) {
+        }
+    };
 
     template <class App, class ChainItemFolder, class TriggerT>
     using ChainReaderActionFactory = std::function<

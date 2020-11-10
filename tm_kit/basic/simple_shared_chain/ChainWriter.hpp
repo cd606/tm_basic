@@ -553,6 +553,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
     };
 
+    template <class ChainData>
+    class SimplyPlaceOnChainInputHandler {
+    public:
+        using InputType = ChainData;
+        using ResponseType = bool;
+        static void initialize(void *, void *) {}
+        template <class Env, class ChainState>
+        static std::tuple<ResponseType, std::optional<std::tuple<std::string, ChainData>>>
+        handleInput(Env *, void *, typename infra::RealTimeApp<Env>::template TimedDataType<typename infra::RealTimeApp<Env>::template Key<ChainData>> &&input, ChainState const &) {
+            return {true, {{"", input.value.key()}}};
+        }
+    };
+
     template <class App, class ChainItemFolder, class InputHandler, class IdleLogic>
     using ChainWriterOnOrderFacilityWithExternalEffectsFactory = std::function<
         std::shared_ptr<typename App::template OnOrderFacilityWithExternalEffects<typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T>>(
