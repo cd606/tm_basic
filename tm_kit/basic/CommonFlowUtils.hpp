@@ -55,6 +55,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         }
 
+        template <class T>
+        static typename infra::KleisliUtils<M>::template KleisliFunction<T,std::shared_ptr<T const>> shareBetweenDownstream() {
+            return infra::KleisliUtils<M>::template liftPure<T>(
+                [](T &&x) -> std::shared_ptr<T const>
+                {
+                    return std::make_shared<T const>(std::move(x));
+                }
+            );
+        }
+
         template <class A, class B>
         static typename infra::KleisliUtils<M>::template KleisliFunction<infra::KeyedData<A,B,TheEnvironment>,B> extractDataFromKeyedData() {
             return infra::KleisliUtils<M>::template liftPure<infra::KeyedData<A,B,TheEnvironment>>(
