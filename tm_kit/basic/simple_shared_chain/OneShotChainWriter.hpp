@@ -15,7 +15,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
             static auto foldInPlaceChecker = boost::hana::is_valid(
-                [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, data))) {}
+                [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
 
             ChainItemFolder myFolder(std::move(folder));
@@ -39,15 +39,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         break;
                     }
                     currentItem = std::move(*nextItem);
-                    if constexpr (foldInPlaceChecker(
-                        (ChainItemFolder *) nullptr
-                        , (typename ChainItemFolder::ResultType *) nullptr
-                        , (std::string_view *) nullptr
-                        , (typename Chain::DataType const *) nullptr
-                    )) {
-                        folder.foldInPlace(currentState, Chain::extractStorageIDStringView(currentItem), Chain::extractData(currentItem));
-                    } else {
-                        currentState = folder.fold(currentState, Chain::extractStorageIDStringView(currentItem), Chain::extractData(currentItem));
+                    auto const *dataPtr = Chain::extractData(currentItem);
+                    if (dataPtr) {
+                        if constexpr (foldInPlaceChecker(
+                            (ChainItemFolder *) nullptr
+                            , (typename ChainItemFolder::ResultType *) nullptr
+                            , (std::string_view *) nullptr
+                            , (typename Chain::DataType const *) nullptr
+                        )) {
+                            folder.foldInPlace(currentState, Chain::extractStorageIDStringView(currentItem), *dataPtr);
+                        } else {
+                            currentState = folder.fold(currentState, Chain::extractStorageIDStringView(currentItem), *dataPtr);
+                        }
                     }
                 }
                 typename std::optional<std::tuple<std::string, typename Chain::DataType>>
