@@ -70,12 +70,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         {
         private:
             std::shared_ptr<IDAndFinalFlagExtractor> extractor_;
+            using P=typename M::template AbstractIntegratedVIEOnOrderFacilityWithPublish<typename InputHandler::InputType,std::optional<ChainData>,VIEExtraInput,typename M::template Key<typename InputHandler::InputType>>;
         public:
             LocalFacility(std::shared_ptr<IDAndFinalFlagExtractor> const &extractor) : extractor_(extractor) {}
             virtual ~LocalFacility() {}
             virtual void start(typename M::EnvironmentType *env) override final {}
             virtual void handle(typename M::template InnerData<typename M::template Key<typename InputHandler::InputType>> &&queryInput) override final {
-                this->ImporterParent::publish(
+                this->P::ImporterParent::publish(
                     std::move(queryInput)
                 );
             }
@@ -94,7 +95,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         case 1:
                             {
                                 auto &x = idsAndFinalFlags[0];
-                                this->FacilityParent::publish(
+                                this->P::FacilityParent::publish(
                                     env
                                     , typename M::template Key<std::optional<ChainData>> {
                                         std::move(std::get<0>(x))
@@ -107,7 +108,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         default:
                             {
                                 for (auto &x : idsAndFinalFlags) {
-                                    this->FacilityParent::publish(
+                                    this->P::FacilityParent::publish(
                                         env
                                         , typename M::template Key<std::optional<ChainData>> {
                                             std::move(std::get<0>(x))
@@ -121,7 +122,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         }
                     } else if constexpr (std::is_same_v<T, std::tuple<typename Env::IDType, bool>>) {
                         if (!std::get<1>(v)) {
-                            this->FacilityParent::publish(
+                            this->P::FacilityParent::publish(
                                 env
                                 , typename M::template Key<std::optional<ChainData>> {
                                     std::move(std::get<0>(v))
