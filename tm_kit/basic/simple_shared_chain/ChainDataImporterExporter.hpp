@@ -34,6 +34,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         );
     }
 
+    //This is ONLY suitable if the writing of ChainData is unconditional,
+    //if the writing of ChainData is conditional on some chain state, then 
+    //the full ChainWriter should be used
     template <class R, class ChainData>
     inline typename R::template Sink<ChainData> createChainDataSink(
         R &r 

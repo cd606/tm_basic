@@ -85,6 +85,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         }
 
+        template <class A, class B>
+        static typename infra::KleisliUtils<M>::template KleisliFunction<infra::KeyedData<A,B,TheEnvironment>,std::tuple<std::string,B>> extractIDStringAndDataFromKeyedData() {
+            return infra::KleisliUtils<M>::template liftPure<infra::KeyedData<A,B,TheEnvironment>>(
+                [](infra::KeyedData<A,B,TheEnvironment> &&x) -> std::tuple<std::string, B>
+                {
+                    return {TheEnvironment::id_to_string(x.key.id()), std::move(x.data)};
+                }
+            );
+        }
+
         template <class T>
         static typename infra::KleisliUtils<M>::template KleisliFunction<T,std::tuple<T,T>> duplicateInput() {
             return
