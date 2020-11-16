@@ -317,6 +317,68 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
     };
 
+    template <
+        class FolderA
+        , class FolderB
+        , bool usesPartialHistory=
+            std::is_convertible_v<FolderA *, FolderUsingPartialHistoryInformation *>
+            ||
+            std::is_convertible_v<FolderB *, FolderUsingPartialHistoryInformation *>
+    >
+    class CombinedFolder {};
+    template <class FolderA, class FolderB>
+    class CombinedFolder<FolderA, FolderB, false> {
+    private:
+        FolderA folderA_;
+        FolderB folderB_;
+    public:
+        using ResultType = std::tuple<typename FolderA::ResultType, typename FolderB::ResultType>;
+        CombinedFolder(FolderA &&folderA, FolderB &&folderB) 
+            : folderA_(std::move(folderA)), folderB_(std::move(folderB))
+        {}
+        template <class Env, class Chain>
+        ResultType initialize(Env *env, Chain *chain) {
+            return {
+                folderA_.initialize(env, chain)
+                , folderB_.initialize(env, chain)
+            };
+        }
+        template <class ChainDataType>
+        void foldInPlace(ResultType &res, std::string_view const &id, ChainDataType const &data) {
+            static auto foldInPlaceChecker = boost::hana::is_valid(
+                [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
+            );
+            if constexpr (foldInPlaceChecker(
+                (FolderA *) nullptr
+                , (typename FolderA::ResultType *) nullptr
+                , (std::string_view *) nullptr
+                , (ChainDataType const *) nullptr
+            )) {
+                folderA_.foldInPlace(std::get<0>(res), id, data);
+            } else {
+                std::get<0>(res) = folderA_.fold(std::get<0>(res), id, data);
+            }
+            if constexpr (foldInPlaceChecker(
+                (FolderB *) nullptr
+                , (typename FolderB::ResultType *) nullptr
+                , (std::string_view *) nullptr
+                , (ChainDataType const *) nullptr
+            )) {
+                folderB_.foldInPlace(std::get<1>(res), id, data);
+            } else {
+                std::get<1>(res) = folderB_.fold(std::get<1>(res), id, data);
+            }
+        }
+    };
+    template <class FolderA, class FolderB>
+    class CombinedFolder<FolderA, FolderB, true> : public FolderUsingPartialHistoryInformation, public CombinedFolder<FolderA, FolderB, false> {
+    public:
+        CombinedFolder(FolderA &&folderA, FolderB &&folderB) 
+            : FolderUsingPartialHistoryInformation()
+                , CombinedFolder<FolderA, FolderB, false>(std::move(folderA), std::move(folderB))
+        {}
+    };
+
     template <class App, class ChainItemFolder, class TriggerT>
     using ChainReaderActionFactory = std::function<
         std::shared_ptr<typename App::template Action<TriggerT, typename ChainItemFolder::ResultType>>(

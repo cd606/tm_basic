@@ -583,6 +583,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
     };
 
+    template <class ChainData, class StateData>
+    class SimplyReturnStateIdleLogic {
+    public:
+        using OffChainUpdateType = StateData;
+        static std::tuple<
+            std::optional<OffChainUpdateType>
+            , std::optional<std::tuple<std::string, ChainData>>
+        > work(void *env, void *chain, StateData const &state) {
+            return {
+                {infra::withtime_utils::makeValueCopy(state)}
+                , std::nullopt
+            };
+        }
+    };
+
     template <class App, class ChainItemFolder, class InputHandler, class IdleLogic>
     using ChainWriterOnOrderFacilityWithExternalEffectsFactory = std::function<
         std::shared_ptr<typename App::template OnOrderFacilityWithExternalEffects<typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T>>(

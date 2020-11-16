@@ -4,6 +4,8 @@ tm_basic_simple_shared_chain_headers = [
       , 'FolderUsingPartialHistoryInformation.hpp'
       , 'ChainPollingPolicy.hpp'
       , 'OneShotChainWriter.hpp'
+      , 'ChainDataImporterExporter.hpp'
+      , 'ChainBackedFacility.hpp'
   ]
   
 install_headers(tm_basic_simple_shared_chain_headers, subdir : 'tm_kit/basic/simple_shared_chain')
