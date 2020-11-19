@@ -17,6 +17,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
     struct ChainBackedFacilityOutput {
         typename R::template FacilitioidConnector<typename InputHandler::InputType, std::optional<ChainData>> facility;
         typename R::template Sourceoid<typename OffChainUpdateTypeExtractor<IdleLogic>::T> offChainUpdateSource;
+        std::string registeredNameForFacilitioidConnector;
     };
 
     template <class R, class ChainData, class ChainItemFolder, class InputHandler, class IDAndFinalFlagExtractor, class IdleLogic=void>
@@ -171,11 +172,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             return {
                 r.vieFacilityConnector(facility)
                 , {}
+                , r.getRegisteredName(facility)
             };
         } else {
             return {
                 r.vieFacilityConnector(facility)
                 , R::sourceAsSourceoid(R::facilityWithExternalEffectsAsSource(writer))
+                , r.getRegisteredName(facility)
             };
         }
     }
