@@ -18,6 +18,7 @@ tm_basic_headers = [
     , 'PidUtil.hpp'
     , 'CalculationsOnInit.hpp'
     , 'IntIDComponent.hpp'
+    , 'WrapFacilitioidConnectorForSerialization.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')

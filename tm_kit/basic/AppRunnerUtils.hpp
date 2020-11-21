@@ -186,6 +186,114 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             };
         }
+        template <class A0, class B0, class B1>
+        static auto wrapFacilitioidConnectorBackOnly(
+            typename infra::KleisliUtils<M>::template KleisliFunction<B1,B0> const &backwardDataTranslator
+            , typename R::template FacilitioidConnector<A0,B1> const &innerFacilitioid
+            , std::string const &prefix
+        ) -> typename R::template FacilitioidConnector<A0,B0>
+        {
+            return 
+            [
+                backwardDataTranslator
+                , innerFacilitioid
+                , prefix
+            ](
+                R &r
+                , typename R::template Source<typename M::template Key<A0>> &&inputProvider
+                , std::optional<typename R::template Sink<typename M::template KeyedData<A0,B0>>> const &outputReceiver
+            ) {
+                if (outputReceiver) {
+                    auto backwardTrans = M::template kleisli<typename M::template KeyedData<A0,B1>>(
+                        [d=std::move(backwardDataTranslator)](
+                            typename M::template InnerData<typename M::template KeyedData<A0,B1>> &&x
+                        ) -> typename M::template Data<typename M::template KeyedData<A0,B0>> {
+                            typename M::template InnerData<B1> b1 {
+                                x.environment, {x.timedData.timePoint, std::move(x.timedData.value.data), x.timedData.finalFlag}
+                            };
+                            auto b0 = d(std::move(b1));
+                            if (!b0) {
+                                return std::nullopt;
+                            }
+                            return { typename M::template InnerData<typename M::template KeyedData<A0,B0>> {
+                                x.environment, {
+                                    std::max(x.timedData.timePoint, b0->timedData.timePoint)
+                                    , typename M::template KeyedData<A0,B0> {
+                                        std::move(x.timedData.value.key) 
+                                        , std::move(b0->timedData.value)
+                                    }
+                                    , (x.timedData.finalFlag && b0->timedData.finalFlag)
+                                }
+                            } };
+                        }
+                    );
+                    r.registerAction(prefix+"/backwardTranslator", backwardTrans);
+                    innerFacilitioid(r, std::move(inputProvider), r.actionAsSink(backwardTrans));
+                    r.connect(r.actionAsSource(backwardTrans), *outputReceiver);
+                } else {
+                    innerFacilitioid(r, std::move(inputProvider), std::nullopt);
+                }
+            };
+        }
+        template <class A0, class B0, class A1>
+        static auto wrapFacilitioidConnectorFrontOnly(
+            typename infra::KleisliUtils<M>::template KleisliFunction<A0,A1> const &forwardKeyTranslator
+            , typename infra::KleisliUtils<M>::template KleisliFunction<A1,A0> const &backwardKeyTranslator
+            , typename R::template FacilitioidConnector<A1,B0> const &innerFacilitioid
+            , std::string const &prefix
+        ) -> typename R::template FacilitioidConnector<A0,B0>
+        {
+            return 
+            [
+                forwardKeyTranslator
+                , backwardKeyTranslator
+                , innerFacilitioid
+                , prefix
+            ](
+                R &r
+                , typename R::template Source<typename M::template Key<A0>> &&inputProvider
+                , std::optional<typename R::template Sink<typename M::template KeyedData<A0,B0>>> const &outputReceiver
+            ) {
+                auto forwardKeyTrans = M::template kleisli<typename M::template Key<A0>>(
+                    CommonFlowUtilComponents<M>::template withKey<A0>(std::move(forwardKeyTranslator))
+                );
+                r.registerAction(prefix+"/forwardKeyTranslator", forwardKeyTrans);
+                r.connect(std::move(inputProvider), r.actionAsSink(forwardKeyTrans));
+                if (outputReceiver) {
+                    auto backwardTrans = M::template kleisli<typename M::template KeyedData<A1,B0>>(
+                        [k=std::move(backwardKeyTranslator)](
+                            typename M::template InnerData<typename M::template KeyedData<A1,B0>> &&x
+                        ) -> typename M::template Data<typename M::template KeyedData<A0,B0>> {
+                            typename M::template InnerData<A1> a1 {
+                                x.environment, {x.timedData.timePoint, x.timedData.value.key.key(), x.timedData.finalFlag}
+                            };
+                            auto a0 = k(std::move(a1));
+                            if (!a0) {
+                                return std::nullopt;
+                            }
+                            return { typename M::template InnerData<typename M::template KeyedData<A0,B0>> {
+                                x.environment, {
+                                    std::max(a0->timedData.timePoint, x.timedData.timePoint)
+                                    , typename M::template KeyedData<A0,B0> {
+                                        typename M::template Key<A0> {
+                                            x.timedData.value.key.id()
+                                            , std::move(a0->timedData.value)
+                                        }   
+                                        , std::move(x.timedData.value.data)
+                                    }
+                                    , (a0->timedData.finalFlag && x.timedData.finalFlag)
+                                }
+                            } };
+                        }
+                    );
+                    r.registerAction(prefix+"/backwardTranslator", backwardTrans);
+                    innerFacilitioid(r, r.actionAsSource(forwardKeyTrans), r.actionAsSink(backwardTrans));
+                    r.connect(r.actionAsSource(backwardTrans), *outputReceiver);
+                } else {
+                    innerFacilitioid(r, r.actionAsSource(forwardKeyTrans), std::nullopt);
+                }
+            };
+        }
         
         template <class FacilityWithExternalEffects>
         static typename R::template Source<typename infra::withtime_utils::ImporterTypeInfo<M, FacilityWithExternalEffects>::DataType> importWithTrigger(

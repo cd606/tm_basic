@@ -21,6 +21,7 @@
 #include <tm_kit/basic/ConstType.hpp>
 #include <tm_kit/infra/WithTimeData.hpp>
 #include <boost/endian/conversion.hpp>
+#include <boost/hana/type.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { 
 
@@ -1526,6 +1527,57 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 return std::tuple<ConstType<N>, size_t> {ConstType<N> {}, std::get<1>(*r)};
+            }
+        };
+
+        template <class T>
+        struct DirectlySerializableChecker {
+            static constexpr bool IsDirectlySerializable() {
+                const auto checker1 = boost::hana::is_valid(
+                    [](auto *t) -> decltype((void) (t->SerializeToString((std::string *) nullptr))) {}
+                );
+                const auto checker2 = boost::hana::is_valid(
+                    [](auto *t) -> decltype((void) (t->ParseFromString(*((std::string const *) nullptr)))) {}
+                );
+                if constexpr (checker1((T *) nullptr)) {
+                    if constexpr (checker2((T *) nullptr)) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+        };
+        template <class T>
+        struct DirectlySerializableChecker<CBOR<T>> {
+            static constexpr bool IsDirectlySerializable() {
+                return true;
+            }
+        };
+        template <class T>
+        struct DirectlySerializableChecker<CBORWithMaxSizeHint<T>> {
+            static constexpr bool IsDirectlySerializable() {
+                return true;
+            }
+        };
+        template <>
+        struct DirectlySerializableChecker<std::string> {
+            static constexpr bool IsDirectlySerializable() {
+                return true;
+            }
+        };
+        template <>
+        struct DirectlySerializableChecker<ByteData> {
+            static constexpr bool IsDirectlySerializable() {
+                return true;
+            }
+        };
+        template <size_t N>
+        struct DirectlySerializableChecker<std::array<char, N>> {
+            static constexpr bool IsDirectlySerializable() {
+                return true;
             }
         };
 
