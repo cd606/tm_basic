@@ -4,6 +4,7 @@
 namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <class T>
     struct SingleLayerWrapper {
+        using value_type = T;
         T value;
     };
     template <class T>

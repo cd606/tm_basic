@@ -56,10 +56,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
     template <class T>
     struct CBOR {
+        using value_type = T;
         T value;
     };
     template <class T>
     struct CBORWithMaxSizeHint {
+        using value_type = T;
         T value;
         std::size_t maxSizeHint; //this is used in encoding, if this is exceeded, the program may have undefined behavior
     };
