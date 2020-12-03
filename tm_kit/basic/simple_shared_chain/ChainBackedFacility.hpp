@@ -156,7 +156,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 }
             }
         );
-        r.registerAction("vieFeedback", vieFeedback);
+        r.registerAction(prefix+"/vieFeedback", vieFeedback);
 
         r.markStateSharing(vieFeedback, facility, prefix+"/idAndFinalFlagExtractor");
         r.execute(vieFeedback, r.importItem(reader));
