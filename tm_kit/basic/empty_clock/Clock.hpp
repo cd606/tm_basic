@@ -6,7 +6,7 @@
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace empty_clock {
     
-    template <class TimePoint>
+    template <class TimePoint=std::chrono::system_clock::time_point>
     class Clock {
     public:
         using TimePointType = TimePoint;

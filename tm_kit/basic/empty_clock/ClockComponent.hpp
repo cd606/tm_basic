@@ -6,7 +6,7 @@
 #include <tm_kit/basic/empty_clock/Clock.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace empty_clock {
-    template <class TimePoint>
+    template <class TimePoint=std::chrono::system_clock::time_point>
     class ClockComponent : public Clock<TimePoint> {
     public:
         using TimePointType = TimePoint;

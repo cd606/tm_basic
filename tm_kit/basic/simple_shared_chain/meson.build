@@ -6,6 +6,7 @@ tm_basic_simple_shared_chain_headers = [
       , 'OneShotChainWriter.hpp'
       , 'ChainDataImporterExporter.hpp'
       , 'ChainBackedFacility.hpp'
+      , 'BasicWithTimeAppChainFactories.hpp'
   ]
   
 install_headers(tm_basic_simple_shared_chain_headers, subdir : 'tm_kit/basic/simple_shared_chain')
