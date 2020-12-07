@@ -4,6 +4,7 @@
 #include <type_traits>
 #include <tm_kit/infra/RealTimeApp.hpp>
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
+#include <tm_kit/infra/BasicWithTimeApp.hpp>
 #include <tm_kit/basic/ByteDataWithTopicRecordFile.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
@@ -185,6 +186,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             };
             return infra::SinglePassIterationApp<Env>::template exporter(new LocalE(os, fileMagic, recordMagic));
         }
+    };
+
+    template <class Env>
+    class ByteDataWithTopicRecordFileImporterExporter<infra::BasicWithTimeApp<Env>, std::chrono::system_clock::time_point> {
+    public:
+        template <class Format, bool PublishFinalEmptyMessage=false>
+        static std::shared_ptr<typename infra::BasicWithTimeApp<Env>::template Importer<ByteDataWithTopic>>
+        createImporter(std::istream &is, std::vector<std::byte> const &fileMagic=std::vector<std::byte>(), std::vector<std::byte> const &recordMagic=std::vector<std::byte>()) {
+            return infra::BasicWithTimeApp<Env>::template vacuousImporter<ByteDataWithTopic>();
+        }
+        
+        template <class Format>
+        static std::shared_ptr<typename infra::BasicWithTimeApp<Env>::template Exporter<ByteDataWithTopic>>
+        createExporter(std::ostream &os, std::vector<std::byte> const &fileMagic=std::vector<std::byte>(), std::vector<std::byte> const &recordMagic=std::vector<std::byte>(), bool separateThread=false) {
+            return infra::BasicWithTimeApp<Env>::template trivialExporter<ByteDataWithTopic>();         
+        }
+
     };
 
 } } } }

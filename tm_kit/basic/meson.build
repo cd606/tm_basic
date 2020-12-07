@@ -24,5 +24,6 @@ tm_basic_headers = [
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
 subdir('real_time_clock')
 subdir('single_pass_iteration_clock')
+subdir('empty_clock')
 subdir('transaction')
 subdir('simple_shared_chain')
