@@ -704,18 +704,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             Synchronizer2 &operator=(Synchronizer2 const &) = delete;
 
             using C = decltype(f_(std::move(*((A *) nullptr)), std::move(*((B *) nullptr))));
-            std::optional<C> operator()(int which, A &&a, B &&b) {
-                if (which == 0) {
+            std::optional<C> operator()(std::variant<A,B> &&data) {
+                if (data.index() == 0) {
                     std::conditional_t<
                         (MutexProtected && M::PossiblyMultiThreaded)
                         , std::lock_guard<std::mutex>
                         , bool
                     > _(mutex_);
                     if (b_.empty()) {
-                        a_.push_back(std::move(a));
+                        a_.push_back(std::move(std::get<0>(data)));
                         return std::nullopt;
                     } else {
-                        C c = f_(std::move(a), std::move(b_.front()));
+                        C c = f_(std::move(std::get<0>(data)), std::move(b_.front()));
                         b_.pop_front();
                         return {std::move(c)};
                     }
@@ -726,10 +726,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         , bool
                     > _(mutex_);
                     if (a_.empty()) {
-                        b_.push_back(std::move(b));
+                        b_.push_back(std::move(std::get<1>(data)));
                         return std::nullopt;
                     } else {
-                        C c = f_(std::move(a_.front()), std::move(b));
+                        C c = f_(std::move(a_.front()), std::move(std::get<1>(data)));
                         a_.pop_front();
                         return {std::move(c)};
                     }
@@ -776,19 +776,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         class SnapshotOnRight {
         private:
             F f_;
+            std::optional<A> a_;
         public:
-            SnapshotOnRight(F &&f) : f_(std::move(f)) {}
-            SnapshotOnRight(SnapshotOnRight &&s) : f_(std::move(s.f_)) {}
+            SnapshotOnRight(F &&f) : f_(std::move(f)), a_(std::nullopt) {}
+            SnapshotOnRight(SnapshotOnRight &&s) : f_(std::move(s.f_)), a_(std::move(s.a_)) {}
             SnapshotOnRight &operator=(SnapshotOnRight &&) = delete;
             SnapshotOnRight(SnapshotOnRight const &) = delete;
             SnapshotOnRight &operator=(SnapshotOnRight const &) = delete;
 
             using C = decltype(f_(std::move(*((A *) nullptr)), std::move(*((B *) nullptr))));
-            std::optional<C> operator()(int which, A &&a, B &&b) {
-                if (which == 1) {
-                    return f_(std::move(a), std::move(b));
-                } else {
+            std::optional<C> operator()(std::variant<A,B> &&data) {
+                if (data.index() == 0) {
+                    a_ = std::move(std::get<0>(data));
                     return std::nullopt;
+                } else {
+                    if (a_) {
+                        return f_(infra::withtime_utils::makeValueCopy(*a_), std::move(std::get<1>(data)));
+                    } else {
+                        return std::nullopt;
+                    }
                 }
             }
         };
@@ -801,7 +807,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 SnapshotOnRight<A,B,F>(std::move(f))
                 , infra::LiftParameters<typename M::TimePoint>()
                     .SuggestThreaded(suggestThreaded)
-                    .RequireMask(infra::FanInParamMask("11"))
             );
         }
     };

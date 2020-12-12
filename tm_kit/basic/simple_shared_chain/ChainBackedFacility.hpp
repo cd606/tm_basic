@@ -144,13 +144,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             std::optional<ChainData>
             , typename M::template KeyedData<typename InputHandler::InputType, typename InputHandler::ResponseType>
         >(
-            [idAndFinalFlagExtractor](int which, std::optional<ChainData> &&chainDataInput, typename M::template KeyedData<typename InputHandler::InputType, typename InputHandler::ResponseType> &&responseInput) 
+            [idAndFinalFlagExtractor](std::variant<std::optional<ChainData>, typename M::template KeyedData<typename InputHandler::InputType, typename InputHandler::ResponseType>> &&data) 
             -> VIEExtraInput {
-                switch (which) {
+                switch (data.index()) {
                 case 0:
-                    return {{std::move(chainDataInput)}};
+                    return {{std::move(std::get<0>(data))}};
                 case 1:
-                    return {{std::tuple<typename Env::IDType, bool> {responseInput.key.id(), idAndFinalFlagExtractor->writeSucceeded(responseInput.data)}}};
+                    return {{std::tuple<typename Env::IDType, bool> {std::get<1>(data).key.id(), idAndFinalFlagExtractor->writeSucceeded(std::get<1>(data).data)}}};
                 default:
                     return {{(std::optional<ChainData>) std::nullopt}};
                 }

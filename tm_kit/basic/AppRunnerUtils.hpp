@@ -518,9 +518,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 , FacilityExtraOutput
             >(
                 [](
-                    int which
-                    , FacilityOutput &&x
-                    , FacilityExtraOutput && y
+                    std::variant<FacilityOutput, FacilityExtraOutput> &&
                 ) -> ForceDifferentType<OutsideBypassingData> {
                     return {};
                 }
