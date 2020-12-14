@@ -454,23 +454,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             auto filterForSelfLoop = M::template kleisli<typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
                 M, VIEFacility
             >::ExtraOutputType>(
-                CommonFlowUtilComponents<M>::template pureFilter<
+                CommonFlowUtilComponents<M>::template pureTwoWayFilter<
                     typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
                         M, VIEFacility
                     >::ExtraOutputType
                 >(ExtraOutputClassifierF {extraOutputClassifierF})
             );
-            auto filterForNonSelfLoop = M::template kleisli<typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
-                M, VIEFacility
-            >::ExtraOutputType>(
-                CommonFlowUtilComponents<M>::template pureFilter<
-                    typename infra::withtime_utils::VIEOnOrderFacilityTypeInfo<
-                        M, VIEFacility
-                    >::ExtraOutputType
-                >(std::not_fn(extraOutputClassifierF))
-            );
             r.registerAction(prefix+"/filterForSelfLoop", filterForSelfLoop);
-            r.registerAction(prefix+"/filterForNonSelfLoop", filterForNonSelfLoop);
 
             auto selfLoopCreator = M::template liftPure<FacilityExtraOutput>(
                 [selfLoopCreatorF=std::move(selfLoopCreatorF)](
@@ -488,12 +478,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             );
             r.registerAction(prefix+"/selfLoopCreation", selfLoopCreator);
-            auto selfLoopInput = r.execute(
-                selfLoopCreator
-                , r.execute(
+            r.connect_2_0(
+                r.execute(
                     filterForSelfLoop
                     , r.vieFacilityAsSource(facility)
                 )
+                , r.actionAsSink(selfLoopCreator)
+            );
+            auto selfLoopInput = r.actionAsSource(
+                selfLoopCreator
             );
 
             auto facilityOutputDispatcher = M::template kleisli<FacilityOutput>(
@@ -525,7 +518,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
             r.registerAction(prefix+"/triggerCreator", triggerCreator);
             r.execute(triggerCreator, r.execute(initialCallbackFilter, r.actionAsSource(facilityOutputDispatcher)));
-            r.execute(triggerCreator, r.execute(filterForNonSelfLoop, r.vieFacilityAsSource(facility)));
+            r.connect_2_1(r.actionAsSource(filterForSelfLoop), r.actionAsSink_2_1(triggerCreator));
 
             auto synchronizer = CommonFlowUtilComponents<M>::template synchronizer2<
                 ForceDifferentType<OutsideBypassingData>

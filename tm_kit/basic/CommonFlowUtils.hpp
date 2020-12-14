@@ -444,6 +444,44 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         };
+        template <class A, class F>
+        class PureTwoWayFilter {
+        private:
+            F f_;
+        public:
+            PureTwoWayFilter(F &&f) : f_(std::move(f)) {}
+
+            typename M::template Data<std::variant<A,A>> operator()(typename M::template InnerData<A> &&x) {
+                if (f_(x.timedData.value)) {
+                    return std::move(x).mapMove([](A &&a) {
+                        return std::variant<A,A> {std::in_place_index<0>, std::move(a)};
+                    });
+                } else {
+                    return std::move(x).mapMove([](A &&a) {
+                        return std::variant<A,A> {std::in_place_index<1>, std::move(a)};
+                    });
+                }
+            }
+        };
+        template <class A, class F>
+        class EnhancedPureTwoWayFilter {
+        private:
+            F f_;
+        public:
+            EnhancedPureTwoWayFilter(F &&f) : f_(std::move(f)) {}
+
+            typename M::template Data<A> operator()(typename M::template InnerData<A> &&x) {
+                if (f_(std::tuple<typename M::TimePoint, A> {x.timedData.timePoint, x.timedData.value})) {
+                    return std::move(x).mapMove([](A &&a) {
+                        return std::variant<A,A> {std::in_place_index<0>, std::move(a)};
+                    });
+                } else {
+                    return std::move(x).mapMove([](A &&a) {
+                        return std::variant<A,A> {std::in_place_index<1>, std::move(a)};
+                    });
+                }
+            }
+        };
     public:
         template <class A, class F>
         static PureFilter<A,F> pureFilter(F &&f) {
@@ -452,6 +490,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <class A, class F>
         static EnhancedPureFilter<A,F> enhancedPureFilter(F &&f) {
             return enhancedPureFilter<A,F>(std::move(f));
+        }
+        template <class A, class F>
+        static PureTwoWayFilter<A,F> pureTwoWayFilter(F &&f) {
+            return PureTwoWayFilter<A,F>(std::move(f));
+        }
+        template <class A, class F>
+        static EnhancedPureTwoWayFilter<A,F> enhancedPureTwoWayFilter(F &&f) {
+            return enhancedPureTwoWayFilter<A,F>(std::move(f));
         }
         
         template <class T>
