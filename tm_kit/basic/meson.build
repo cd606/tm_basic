@@ -15,7 +15,6 @@ tm_basic_headers = [
     , 'ForceDifferentType.hpp'
     , 'SpdLoggingComponent.hpp'
     , 'PrintHelper.hpp'
-    , 'PidUtil.hpp'
     , 'CalculationsOnInit.hpp'
     , 'IntIDComponent.hpp'
     , 'WrapFacilitioidConnectorForSerialization.hpp'

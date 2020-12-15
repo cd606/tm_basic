@@ -13,8 +13,7 @@
 
 #include <tm_kit/infra/LogLevel.hpp>
 #include <tm_kit/infra/ChronoUtils.hpp>
-
-#include <tm_kit/basic/PidUtil.hpp>
+#include <tm_kit/infra/PidUtil.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
 
@@ -77,7 +76,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             std::replace(nowStr.begin(), nowStr.end(), '-', '_');
             std::replace(nowStr.begin(), nowStr.end(), ':', '_');
             std::replace(nowStr.begin(), nowStr.end(), ' ', '_');
-            int64_t pid = pid_util::getpid();
+            int64_t pid = infra::pid_util::getpid();
             
             if (originalSink_) {
                 boost::log::core::get()->remove_sink(originalSink_);
