@@ -47,6 +47,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         std::conditional_t<(TimeComponent::CanBeActualTimeClock&&!ForceActualTimeLogging),std::mutex,bool> firstTimeMutex_;
         bool isActualClock_;
         void initialSetup() {
+	    spdlog::set_level(spdlog::level::trace);
             if constexpr (ForceActualTimeLogging) {
                 if constexpr (LogThreadID) {
                     spdlog::set_pattern("[%l] [%Y-%m-%d %H:%M:%S.%f] [Thread %t] %v");
