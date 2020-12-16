@@ -5,6 +5,7 @@
 #include <vector>
 #include <queue>
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
+#include <tm_kit/infra/TraceNodesComponent.hpp>
 #include <tm_kit/basic/ConstGenerator.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <tm_kit/basic/single_pass_iteration_clock/ClockComponent.hpp>
@@ -32,6 +33,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                 {
                 }
                 virtual void handle(typename M::template InnerData<typename M::template Key<FacilityInput<S>>> &&input) override final {
+                    TM_INFRA_FACILITY_TRACER(input.environment);
                     auto now_tp = input.timedData.timePoint;
                     std::vector<Duration> filteredDurations;
                     for (auto const &d : input.timedData.value.key().callbackDurations) {

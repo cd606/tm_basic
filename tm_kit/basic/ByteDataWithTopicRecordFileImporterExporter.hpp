@@ -4,6 +4,7 @@
 #include <type_traits>
 #include <tm_kit/infra/RealTimeApp.hpp>
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
+#include <tm_kit/infra/TraceNodesComponent.hpp>
 #include <tm_kit/infra/BasicWithTimeApp.hpp>
 #include <tm_kit/basic/ByteDataWithTopicRecordFile.hpp>
 
@@ -28,6 +29,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 void run() {
                     reader_.startReadingByteDataWithTopicRecordFile(*is_);
                     while (true) {
+                        TM_INFRA_IMPORTER_TRACER(env_);
                         auto d = reader_.readByteDataWithTopicRecord(*is_);
                         if (!d) {
                             if constexpr (PublishFinalEmptyMessage) {
@@ -76,6 +78,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     writer_.startWritingByteDataWithTopicRecordFile(*os_);
                 }
                 virtual void handle(typename infra::RealTimeApp<Env>::template InnerData<ByteDataWithTopic> &&d) override final {
+                    TM_INFRA_EXPORTER_TRACER(d.environment);
                     writer_.writeByteDataWithTopicRecord(*os_, d.timedData);
                     os_->flush();
                 }
@@ -95,6 +98,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             private:
                 virtual void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<ByteDataWithTopic> &&d) override final {
+                    TM_INFRA_EXPORTER_TRACER(d.environment);
                     writer_.writeByteDataWithTopicRecord(*os_, d.timedData);
                     os_->flush();
                 }
@@ -128,6 +132,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 virtual typename infra::SinglePassIterationApp<Env>::template Data<ByteDataWithTopic> 
                 generate(ByteDataWithTopic const *notUsed=nullptr) override final {
+                    TM_INFRA_IMPORTER_TRACER(env_);
                     if (!data_) {
                         //the first read
                         auto d = reader_.readByteDataWithTopicRecord(*is_);
@@ -180,6 +185,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     writer_.startWritingByteDataWithTopicRecordFile(*os_);
                 }
                 virtual void handle(typename infra::RealTimeApp<Env>::template InnerData<ByteDataWithTopic> &&d) override final {
+                    TM_INFRA_EXPORTER_TRACER(d.environment);
                     writer_.writeByteDataWithTopicRecord(*os_, d.timedData);
                     os_->flush();
                 }

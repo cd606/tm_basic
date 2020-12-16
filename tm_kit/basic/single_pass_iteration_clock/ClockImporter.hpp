@@ -3,6 +3,7 @@
 
 #include <type_traits>
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
+#include <tm_kit/infra/TraceNodesComponent.hpp>
 #include <tm_kit/basic/ConstGenerator.hpp>
 #include <tm_kit/basic/single_pass_iteration_clock/ClockComponent.hpp>
 
@@ -28,6 +29,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                     env_ = env;
                 }
                 virtual typename M::template Data<T> generate(T const *notUsed=nullptr) override final {
+                    TM_INFRA_IMPORTER_TRACER(env_);
                     return { typename M::template InnerData<T> {
                         env_, {tp_, generator_(tp_), true}
                     } };
@@ -59,6 +61,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                 {
                 }
                 virtual typename M::template Data<T> generate(T const *notUsed=nullptr) override final {
+                    TM_INFRA_IMPORTER_TRACER(env_);
                     typename M::template InnerData<T> ret = typename M::template InnerData<T> {
                         env_, {current_, generator_(current_), (current_+period_ > end_)}
                     };
@@ -98,6 +101,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                 {
                 }
                 virtual typename M::template Data<T> generate(T const *notUsed=nullptr) override final {
+                    TM_INFRA_IMPORTER_TRACER(env_);
                     auto period = periodCalc_(current_);
                     typename M::template InnerData<T> ret = typename M::template InnerData<T> {
                         env_, {current_, generator_(current_), (current_+period > end_)}

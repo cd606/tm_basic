@@ -4,6 +4,7 @@
 #include <tm_kit/infra/RealTimeApp.hpp>
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
 #include <tm_kit/infra/Environments.hpp>
+#include <tm_kit/infra/TraceNodesComponent.hpp>
 #include <type_traits>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
@@ -37,6 +38,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             ));
         ImporterOfValueCalculatedOnInit(Func &&f) : f_(std::move(f)) {}
         virtual void start(Env *env) override final {
+            TM_INFRA_IMPORTER_TRACER(env);
             this->publish(env, f_(
                 [env](infra::LogLevel level, std::string const &s) {
                     env->log(level, s);
@@ -63,6 +65,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     public:
         ImporterOfValueCalculatedOnInit(Func &&f) : f_(std::move(f)), data_(std::nullopt) {}
         virtual void start(Env *env) override final {
+            TM_INFRA_IMPORTER_TRACER(env);
             data_ = infra::template SinglePassIterationApp<Env>::template pureInnerData<OutputT>(
                 env
                 , f_(
@@ -104,6 +107,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         {}
         virtual void start(typename App::EnvironmentType *) {}
         virtual void handle(typename App::template InnerData<typename App::template Key<Req>> &&req) override final {
+            TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(req.environment, ":handle");
             std::conditional_t<App::PossiblyMultiThreaded, std::lock_guard<std::mutex>, bool> _(mutex_);
             this->publish(
                 req.environment
@@ -114,6 +118,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         }
         virtual void handle(typename App::template InnerData<PreCalculatedResult> &&data) override final {
+            TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(data.environment, ":input");
             std::conditional_t<App::PossiblyMultiThreaded, std::lock_guard<std::mutex>, bool> _(mutex_);
             preCalculatedRes_ = std::move(data.timedData.value);
         }
@@ -155,6 +160,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         {}
         virtual void start(typename App::EnvironmentType *) override final {}
         virtual void handle(typename App::template InnerData<typename App::template Key<Req>> &&req) override final {
+            TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(req.environment, ":handle");
             std::conditional_t<App::PossiblyMultiThreaded, std::lock_guard<std::mutex>, bool> _(mutex_);
             this->publish(
                 req.environment
@@ -165,6 +171,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         }
         virtual void handle(typename App::template InnerData<PreCalculatedResult> &&data) override final {
+            TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(data.environment, ":input");
             std::conditional_t<App::PossiblyMultiThreaded, std::lock_guard<std::mutex>, bool> _(mutex_);
             preCalculatedRes_ = std::move(data.timedData.value);
         }
@@ -259,6 +266,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             calcFunc_(std::move(calcFunc)), fetchFunc_(std::move(fetchFunc)), preCalculatedRes_() 
         {}
         virtual void start(typename App::EnvironmentType *env) override final {
+            TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(env, ":start");
             preCalculatedRes_ = calcFunc_(
                 [env](infra::LogLevel level, std::string const &s) {
                     env->log(level, s);
@@ -266,6 +274,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         }
         virtual void handle(typename App::template InnerData<typename App::template Key<Req>> &&req) override final {
+            TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(req.environment, ":handle");
             this->publish(
                 req.environment
                 , typename App::template Key<OutputT> {

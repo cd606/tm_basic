@@ -3,6 +3,7 @@
 
 #include <type_traits>
 #include <tm_kit/infra/RealTimeApp.hpp>
+#include <tm_kit/infra/TraceNodesComponent.hpp>
 #include <tm_kit/basic/ConstGenerator.hpp>
 #include <tm_kit/basic/real_time_clock/ClockComponent.hpp>
 
@@ -29,6 +30,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                 {
                 }
                 virtual void handle(typename M::template InnerData<typename M::template Key<FacilityInput<S>>> &&input) override final {
+                    TM_INFRA_FACILITY_TRACER(input.environment);
                     std::vector<Duration> filteredDurations;
                     for (auto const &d : input.timedData.value.key().callbackDurations) {
                         if (d >= Duration(0)) {

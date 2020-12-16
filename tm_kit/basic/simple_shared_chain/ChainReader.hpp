@@ -3,6 +3,7 @@
 
 #include <tm_kit/infra/RealTimeApp.hpp>
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
+#include <tm_kit/infra/TraceNodesComponent.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <tm_kit/basic/simple_shared_chain/FolderUsingPartialHistoryInformation.hpp>
 #include <tm_kit/basic/simple_shared_chain/ChainPollingPolicy.hpp>
@@ -104,6 +105,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 >;
             running_ = true;
             while (running_) {
+                TM_INFRA_IMPORTER_TRACER(env);
                 std::optional<typename Chain::ItemType> nextItem;
                 bool hasData = false;
                 do {
@@ -247,6 +249,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
+            TM_INFRA_IMPORTER_TRACER(env_);
             std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
             if (nextItem) {
                 currentItem_ = std::move(*nextItem);

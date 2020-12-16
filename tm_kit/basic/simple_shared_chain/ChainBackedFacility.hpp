@@ -77,11 +77,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             virtual ~LocalFacility() {}
             virtual void start(typename M::EnvironmentType *env) override final {}
             virtual void handle(typename M::template InnerData<typename M::template Key<typename InputHandler::InputType>> &&queryInput) override final {
+                TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(queryInput.environment, ":handleRequest");
                 this->P::ImporterParent::publish(
                     std::move(queryInput)
                 );
             }
             virtual void handle(typename M::template InnerData<VIEExtraInput> &&data) override final {
+                TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(data.environment, ":feedResult");
                 auto *env = data.environment;
                 std::visit([env,this](auto &&v) {
                     using T = std::decay_t<decltype(v)>;

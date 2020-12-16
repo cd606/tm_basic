@@ -3,6 +3,7 @@
 
 #include <type_traits>
 #include <tm_kit/infra/RealTimeApp.hpp>
+#include <tm_kit/infra/TraceNodesComponent.hpp>
 #include <tm_kit/basic/ConstGenerator.hpp>
 #include <tm_kit/basic/real_time_clock/ClockComponent.hpp>
 
@@ -27,6 +28,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                 //input and the data time point, we create the data by hand
                 virtual void start(Env *env) override final {
                     env->createOneShotTimer(tp_, [this,env]() {
+                        TM_INFRA_IMPORTER_TRACER(env);
                         auto now = env->now();
                         T t = generator_(now);
                         this->publish(typename M::template InnerData<T> {
@@ -62,6 +64,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                 //input and the data time point, we create the data by hand
                 virtual void start(Env *env) override final {
                     env->createRecurringTimer(start_, end_, period_, [this,env]() {
+                        TM_INFRA_IMPORTER_TRACER(env);
                         auto now = env->now();
                         T t = generator_(now);
                         this->publish(typename M::template InnerData<T> {
@@ -98,6 +101,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                 //input and the data time point, we create the data by hand
                 virtual void start(Env *env) override final {
                     env->createVariableDurationRecurringTimer(start_, end_, periodCalc_, [this,env]() {
+                        TM_INFRA_IMPORTER_TRACER(env);
                         auto now = env->now();
                         T t = generator_(now);
                         this->publish(typename M::template InnerData<T> {

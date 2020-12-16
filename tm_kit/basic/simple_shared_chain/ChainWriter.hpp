@@ -3,6 +3,7 @@
 
 #include <tm_kit/infra/RealTimeApp.hpp>
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
+#include <tm_kit/infra/TraceNodesComponent.hpp>
 #include <tm_kit/basic/simple_shared_chain/FolderUsingPartialHistoryInformation.hpp>
 #include <tm_kit/basic/simple_shared_chain/ChainPollingPolicy.hpp>
 #include <chrono>
@@ -55,6 +56,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             static auto handlerIdleCallbackChecker = boost::hana::is_valid(
                 [](auto *h, auto *c, auto const *v) -> decltype((void) h->idleCallback(c, *v)) {}
             );
+            TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(env_, ":idlework");
             if constexpr (std::is_same_v<IdleLogic, void>) {
                 //only read one, since this is just a helper
                 std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
@@ -137,7 +139,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
-            
+            TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(data.environment, ":handle");
             auto id = data.timedData.value.id();
             while (true) {
                 while (true) {
@@ -367,6 +369,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
+            TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(data.environment, ":handle");
             auto id = data.timedData.value.id();
             while (true) {
                 while (true) {
@@ -420,6 +423,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         virtual typename infra::SinglePassIterationApp<Env>::template Data<typename OffChainUpdateTypeExtractor<IdleLogic>::T> generate(
             typename OffChainUpdateTypeExtractor<IdleLogic>::T const *notUsed=nullptr
         ) {
+            TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(env_, ":idlework");
             if constexpr (!std::is_same_v<IdleLogic, void>) {
                 static auto foldInPlaceChecker = boost::hana::is_valid(
                     [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
