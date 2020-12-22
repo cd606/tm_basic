@@ -18,6 +18,7 @@ tm_basic_headers = [
     , 'CalculationsOnInit.hpp'
     , 'IntIDComponent.hpp'
     , 'WrapFacilitioidConnectorForSerialization.hpp'
+    , 'AppClockHelper.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')

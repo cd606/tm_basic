@@ -6,8 +6,7 @@
 #include <tm_kit/basic/CommonFlowUtils.hpp>
 #include <tm_kit/basic/SingleLayerWrapper.hpp>
 #include <tm_kit/basic/ForceDifferentType.hpp>
-#include <tm_kit/basic/real_time_clock/ClockOnOrderFacility.hpp>
-#include <tm_kit/basic/single_pass_iteration_clock/ClockOnOrderFacility.hpp>
+#include <tm_kit/basic/AppClockHelper.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
 
@@ -538,18 +537,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             };
         }
 
-    private:
-        template <class T>
-        struct DefaultClockFacility {};
-        template <class Env>
-        struct DefaultClockFacility<infra::RealTimeApp<Env>> {
-            using TheFacility = real_time_clock::ClockOnOrderFacility<Env>;
-        };
-        template <class Env>
-        struct DefaultClockFacility<infra::SinglePassIterationApp<Env>> {
-            using TheFacility = single_pass_iteration_clock::ClockOnOrderFacility<Env>;
-        };
-
     public:
 
         //This utility function is provided because in SinglePassIterationApp
@@ -561,16 +548,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         //, we can set up this exit timer.
         //However, this is not limited to SinglePassIterationApp, it is completely ok
         //to use this in RealTimeApp too.
-        template <class T, class ClockFacility = typename DefaultClockFacility<M>::TheFacility>
+        template <class T>
         static void setupExitTimer(
             R &r
-            , std::chrono::system_clock::duration const &exitAfterThisDurationFromFirstInput
+            , typename M::Duration const &exitAfterThisDurationFromFirstInput
             , typename R::template Source<T> &&inputSource
             , std::function<void(TheEnvironment *)> wrapUpFunc
             , std::string const &componentNamePrefix) 
         {
+            using ClockFacility = typename AppClockHelper<M>::Facility;
             auto exitTimer = ClockFacility::template createClockCallback<VoidStruct, VoidStruct>(
-                [](std::chrono::system_clock::time_point const &, std::size_t thisIdx, std::size_t totalCount) {
+                [](typename M::TimePoint const &, std::size_t thisIdx, std::size_t totalCount) {
                     return VoidStruct {};
                 }
             );
@@ -600,6 +588,64 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 , r.exporterAsSink(componentNamePrefix+"/doExit", doExit)
             );
         } 
+
+        template <class A, class B>
+        static typename R::template Pathway<A,B> pathwayWithTimeout(
+            typename M::Duration const &timeout 
+            , typename R::template Pathway<A,B> mainPathway 
+            , typename R::template Pathway<A,B> secondaryPathway 
+            , std::string const &prefix
+        ) {
+            using ClockFacility = typename AppClockHelper<M>::Facility;
+            return [timeout,mainPathway,secondaryPathway,prefix](
+                R &r 
+                , typename R::template Source<A> &&source 
+                , typename R::template Sink<B> const &sink
+            ) {
+                auto timer = ClockFacility::template createClockCallback<VoidStruct, VoidStruct>(
+                    [](typename M::TimePoint const &, std::size_t thisIdx, std::size_t totalCount) {
+                        return VoidStruct {};
+                    }
+                );
+                auto setupTimer = M::template liftMaybe<A>(
+                    [timeout](A &&) -> std::optional<typename M::template Key<typename ClockFacility::template FacilityInput<VoidStruct>>> {
+                        return infra::withtime_utils::keyify<typename ClockFacility::template FacilityInput<VoidStruct>,TheEnvironment>(
+                            typename ClockFacility::template FacilityInput<VoidStruct> {
+                                VoidStruct {}
+                                , {timeout}
+                            }
+                        );
+                    }
+                    , infra::LiftParameters<typename M::TimePoint>().FireOnceOnly(true)
+                );
+                using ClockFacilityOutput = typename M::template KeyedData<typename ClockFacility::template FacilityInput<VoidStruct>, VoidStruct>;
+                auto synchronizer = CommonFlowUtilComponents<M>::template synchronizer2<
+                    A
+                    , ClockFacilityOutput
+                >([](A &&a, ClockFacilityOutput &&) -> A {
+                    return std::move(a);
+                });
+                auto collector = M::template kleisli<B>(
+                    CommonFlowUtilComponents<M>::template idFunc<B>()
+                    , infra::LiftParameters<typename M::TimePoint>().FireOnceOnly(true)
+                );
+
+                r.registerOnOrderFacility(prefix+"/timer", timer);
+                r.registerAction(prefix+"/setupTimer", setupTimer);
+                r.registerAction(prefix+"/synchronizer", synchronizer);
+                r.registerAction(prefix+"/collector", collector);
+
+                r.placeOrderWithFacility(
+                    r.execute(setupTimer, source.clone())
+                    , timer 
+                    , r.actionAsSink_2_1(synchronizer)
+                );
+                r.connect(source.clone(), r.actionAsSink_2_0(synchronizer));
+                mainPathway(r, source.clone(), r.actionAsSink(collector));
+                secondaryPathway(r, r.actionAsSource(synchronizer), r.actionAsSink(collector));
+                r.connect(r.actionAsSource(collector), sink);
+            };
+        }
     };
 
 } } } }
