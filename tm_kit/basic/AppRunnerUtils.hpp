@@ -625,6 +625,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 >([](A &&a, ClockFacilityOutput &&) -> A {
                     return std::move(a);
                 });
+                auto passThrough = M::template kleisli2<A,B>(
+                    CommonFlowUtilComponents<M>::template idFunc<std::variant<A,B>>()
+                    , infra::LiftParameters<typename M::TimePoint>().FireOnceOnly(true)
+                );
+                auto passThroughConverter = M::template kleisli<A>(
+                    CommonFlowUtilComponents<M>::template idFunc<A>()
+                    , infra::LiftParameters<typename M::TimePoint>().FireOnceOnly(true)
+                );
                 auto collector = M::template kleisli<B>(
                     CommonFlowUtilComponents<M>::template idFunc<B>()
                     , infra::LiftParameters<typename M::TimePoint>().FireOnceOnly(true)
@@ -633,6 +641,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 r.registerOnOrderFacility(prefix+"/timer", timer);
                 r.registerAction(prefix+"/setupTimer", setupTimer);
                 r.registerAction(prefix+"/synchronizer", synchronizer);
+                r.registerAction(prefix+"/passThrough", passThrough);
+                r.registerAction(prefix+"/passThroughConverter", passThroughConverter);
                 r.registerAction(prefix+"/collector", collector);
 
                 r.placeOrderWithFacility(
@@ -641,8 +651,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     , r.actionAsSink_2_1(synchronizer)
                 );
                 r.connect(source.clone(), r.actionAsSink_2_0(synchronizer));
-                mainPathway(r, source.clone(), r.actionAsSink(collector));
-                secondaryPathway(r, r.actionAsSource(synchronizer), r.actionAsSink(collector));
+                mainPathway(r, source.clone(), r.actionAsSink_2_1(passThrough));
+                r.connect_2_1(r.actionAsSource(passThrough), r.actionAsSink(collector));
+                r.connect(r.actionAsSource(synchronizer), r.actionAsSink_2_0(passThrough));
+                r.connect_2_0(r.actionAsSource(passThrough), r.actionAsSink(passThroughConverter));
+                secondaryPathway(r, r.actionAsSource(passThroughConverter), r.actionAsSink(collector));
                 r.connect(r.actionAsSource(collector), sink);
             };
         }
