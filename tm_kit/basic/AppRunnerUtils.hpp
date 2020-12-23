@@ -590,6 +590,45 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         } 
 
         template <class A, class B>
+        static typename R::template Pathway<A,B> singleActionPathway(
+            typename R::template ActionPtr<A,B> const &action
+        ) {
+            return [action](
+                R &r 
+                , typename R::template Source<A> &&source 
+                , typename R::template Sink<B> const &sink
+            ) {
+                r.connect(r.execute(action, std::move(source)), sink);
+            };
+        }
+        template <class A, class B>
+        static typename R::template Pathway<A,B> singleFacilityPathway(
+            typename R::template FacilitioidConnector<A,B> facility
+            , std::string const &prefix
+        ) {
+            return [facility,prefix](
+                R &r 
+                , typename R::template Source<A> &&source 
+                , typename R::template Sink<B> const &sink
+            ) {
+                auto keyify = M::template kleisli<A>(
+                    CommonFlowUtilComponents<M>::template keyify<A>()
+                );
+                auto extractData = M::template kleisli<typename M::template KeyedData<A,B>>(
+                    CommonFlowUtilComponents<M>::template extractDataFromKeyedData<A,B>()
+                );
+                r.registerAction(prefix+"/keyify", keyify);
+                r.registerAction(prefix+"/extractData", extractData);
+                facility(
+                    r 
+                    , r.execute(keyify, std::move(source))
+                    , r.actionAsSink(extractData)
+                );
+                r.connect(r.actionAsSource(extractData), sink);
+            };
+        }
+
+        template <class A, class B>
         static typename R::template Pathway<A,B> pathwayWithTimeout(
             typename M::Duration const &timeout 
             , typename R::template Pathway<A,B> mainPathway 
