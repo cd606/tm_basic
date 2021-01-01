@@ -6,6 +6,10 @@
 #include <deque>
 
 #include <tm_kit/infra/KleisliUtils.hpp>
+#include <tm_kit/infra/BasicWithTimeApp.hpp>
+#include <tm_kit/infra/RealTimeApp.hpp>
+#include <tm_kit/infra/SinglePassIterationApp.hpp>
+#include <tm_kit/infra/WithTimeData.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
@@ -43,6 +47,106 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::move(x);
                 }
             );
+        }
+
+        //This is the "reverse" of dispatchOneByOne
+        //It is not defined for RealTimeApp because it does not make sense there (there will 
+        //never be events happening at "precisely the same time" in RealTimeApp)
+        template <class T, class Enable=std::enable_if_t<!std::is_same_v<M, infra::RealTimeApp<TheEnvironment>>>>
+        static auto bunch() -> typename std::shared_ptr<typename M::template Action<T, std::vector<T>>> {
+            struct State {
+                std::optional<typename M::TimePoint> currentBunchTime;
+                std::vector<T> currentBunch;
+                bool endReached;
+                bool repeatCallForThisInput;
+                State() : currentBunchTime(std::nullopt), currentBunch(), endReached(false), repeatCallForThisInput(false) {}
+                State(State const &) = default;
+                State(State &&) = default;
+                State &operator=(State const &) = default;
+                State &operator=(State &&) = default;
+                ~State() = default;
+                std::optional<typename M::TimePoint> nextTimePoint() const {
+                    return currentBunchTime;
+                }
+            };
+            auto cont = [](typename M::template InnerData<T> &&input, State &state, std::function<void(typename M::template InnerData<std::vector<T>> &&)> handler) {                
+                if (state.repeatCallForThisInput) {
+                    if (state.currentBunchTime && state.endReached) {
+                        handler(
+                            typename M::template InnerData<std::vector<T>> {
+                                input.environment 
+                                , {
+                                    *state.currentBunchTime
+                                    , std::move(state.currentBunch)
+                                    , true
+                                }
+                            }
+                        );
+                        state.currentBunchTime = std::nullopt;
+                        state.currentBunch.clear();
+                    } else {
+                        //do nothing
+                    }
+                    state.repeatCallForThisInput = false;
+                } else {                    
+                    if (!state.currentBunchTime) {
+                        if (input.timedData.finalFlag) {
+                            handler(
+                                typename M::template InnerData<std::vector<T>> {
+                                    input.environment 
+                                    , {
+                                        input.timedData.timePoint
+                                        , std::vector<T> { std::move(input.timedData.value) }
+                                        , true
+                                    }
+                                }
+                            );
+                            state.repeatCallForThisInput = true;
+                        } else {
+                            state.currentBunchTime = input.timedData.timePoint;
+                            state.currentBunch.push_back(std::move(input.timedData.value));
+                        }
+                    } else {
+                        if (*(state.currentBunchTime) >= input.timedData.timePoint) {
+                            state.currentBunch.push_back(std::move(input.timedData.value));
+                            if (input.timedData.finalFlag) {
+                                handler(
+                                    typename M::template InnerData<std::vector<T>> {
+                                        input.environment 
+                                        , {
+                                            *state.currentBunchTime
+                                            , std::move(state.currentBunch)
+                                            , true
+                                        }
+                                    }
+                                );
+                                state.repeatCallForThisInput = true;
+                                state.currentBunchTime = std::nullopt;
+                                state.currentBunch.clear();
+                            } else {
+                                //do nothing
+                            }
+                        } else {
+                            handler(
+                                typename M::template InnerData<std::vector<T>> {
+                                    input.environment 
+                                    , {
+                                        *state.currentBunchTime
+                                        , std::move(state.currentBunch)
+                                        , false
+                                    }
+                                }
+                            );
+                            state.repeatCallForThisInput = true;
+                            state.currentBunchTime = input.timedData.timePoint;
+                            state.currentBunch.clear();
+                            state.currentBunch.push_back(std::move(input.timedData.value));
+                            state.endReached = input.timedData.finalFlag;
+                        }
+                    }
+                }
+            };
+            return M::template continuationAction<T,std::vector<T>,State>(cont);
         }
 
         template <class T>
