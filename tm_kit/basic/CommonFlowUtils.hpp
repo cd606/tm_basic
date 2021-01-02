@@ -928,6 +928,94 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 );
             }
         }
+        template <class T>
+        static std::shared_ptr<typename M::template Action<T,T>> expediter(
+            decltype(typename M::TimePoint {}-typename M::TimePoint {}) duration
+        ) {
+            if constexpr (std::is_same_v<M, infra::RealTimeApp<TheEnvironment>>) {
+                return M::template kleisli<T>(
+                    idFunc<T>()
+                );
+            } else {
+                return CommonFlowUtilComponents<M>::template delayer<T>(-duration);
+            }
+        }
+        template <class T>
+        static std::shared_ptr<typename M::template Action<T,T>> rightShift(
+            std::size_t steps
+        ) {
+            return M::template kleisli<T>(
+                [steps](typename M::template InnerData<T> &&input) -> typename M::template Data<T> {
+                    static std::deque<typename M::template InnerData<T>> buffer;
+                    if (buffer.size() < steps) {
+                        buffer.push_back(std::move(input));
+                        return std::nullopt;
+                    } else {
+                        auto tp = input.environment->resolveTime(input.timedData.timePoint);
+                        bool final = input.timedData.finalFlag;
+                        buffer.push_back(std::move(input));
+                        typename M::template InnerData<T> ret = std::move(buffer.front());
+                        buffer.pop_front();
+                        ret.timedData.timePoint = tp;
+                        ret.timedData.finalFlag = final;
+                        return ret;
+                    }
+                }
+            );
+        }
+        template <class T>
+        static std::shared_ptr<typename M::template Action<T,T>> leftShift(
+            std::size_t steps
+        ) {
+            if constexpr (std::is_same_v<M, infra::RealTimeApp<TheEnvironment>>) {
+                //left shift does not make sense in real time app
+                return M::template kleisli<T>(
+                    idFunc<T>()
+                );
+            } else {
+                struct State {
+                    std::size_t steps;
+                    std::deque<typename M::template InnerData<T>> buffer;
+                    bool repeatCall;
+                    std::optional<typename M::TimePoint> nextTimePoint() const {
+                        if (buffer.size() < steps) {
+                            return std::nullopt;
+                        }
+                        return buffer.front().timedData.timePoint;
+                    }
+                    State(std::size_t s) : steps(s), buffer(), repeatCall(false) {}
+                    State(State const &) = default;
+                    State(State &&) = default;
+                    State &operator=(State const &) = default;
+                    State &operator=(State &&) = default;
+                    ~State() = default;
+                };
+                auto cont = [](typename M::template InnerData<T> &&input, State &state, std::function<void(typename M::template InnerData<T> &&)> handler) {                
+                    if (state.repeatCall) {
+                        state.repeatCall = false;
+                        return;
+                    }
+                    state.buffer.push_back(std::move(input));
+                    if (state.buffer.size() <= state.steps) {
+                        return;
+                    }
+                    typename M::TimePoint tp = state.buffer.front().timedData.timePoint;
+                    state.buffer.pop_front();
+                    handler(
+                        typename M::template InnerData<T> {
+                            state.buffer.back().environment 
+                            , {
+                                tp
+                                , std::move(state.buffer.back().timedData.value)
+                                , state.buffer.back().timedData.finalFlag
+                            }
+                        }
+                    );
+                    state.repeatCall = true;
+                };
+                return M::template continuationAction<T,T,State>(cont, State(steps));
+            }
+        }
     private:
         template <class A, class B, class F>
         class SnapshotOnRight {
