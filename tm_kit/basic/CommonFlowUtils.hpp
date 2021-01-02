@@ -978,7 +978,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     std::deque<typename M::template InnerData<T>> buffer;
                     bool repeatCall;
                     std::optional<typename M::TimePoint> nextTimePoint() const {
-                        if (buffer.size() < steps) {
+                        if (buffer.empty()) {
                             return std::nullopt;
                         }
                         return buffer.front().timedData.timePoint;
