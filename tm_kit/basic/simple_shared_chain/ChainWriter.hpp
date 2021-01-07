@@ -165,7 +165,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 std::tuple<
                     typename InputHandler::ResponseType
                     , std::optional<std::tuple<std::string, typename Chain::DataType>>
-                > processResult = inputHandler_.handleInput(data.environment, chain_, std::move(data.timedData), currentState_);
+                > processResult = inputHandler_.handleInput(data.environment, chain_, data.timedData, currentState_);
                 if (std::get<1>(processResult)) {   
                     std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
                     if (newID == "") {
@@ -395,7 +395,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 std::tuple<
                     typename InputHandler::ResponseType
                     , std::optional<std::tuple<std::string, typename Chain::DataType>>
-                > processResult = inputHandler_.handleInput(data.environment, chain_, std::move(data.timedData), currentState_);
+                > processResult = inputHandler_.handleInput(data.environment, chain_, data.timedData, currentState_);
                 if (std::get<1>(processResult)) {   
                     std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
                     if (newID == "") {
@@ -582,7 +582,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         static void initialize(void *, void *) {}
         template <class Env, class ChainState>
         static std::tuple<ResponseType, std::optional<std::tuple<std::string, ChainData>>>
-        handleInput(Env *, void *, typename infra::RealTimeApp<Env>::template TimedDataType<typename infra::RealTimeApp<Env>::template Key<ChainData>> &&input, ChainState const &) {
+        handleInput(Env *, void *, typename infra::RealTimeApp<Env>::template TimedDataType<typename infra::RealTimeApp<Env>::template Key<ChainData>> const &input, ChainState const &) {
             return {true, {{"", input.value.key()}}};
         }
     };
