@@ -154,7 +154,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             >
         {
             if (lockFree) {
-                return chainReaderHelper<App,ChainItemFolder,TriggerT>(
+                return chainReaderHelper<ChainItemFolder,TriggerT>(
                     env
                     , getChain<simple_shared_chain::InMemoryLockFreeChain<ChainData>>(
                         name
@@ -166,7 +166,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     , std::move(folder)
                 );
             } else {
-                return chainReaderHelper<App,ChainItemFolder,TriggerT>(
+                return chainReaderHelper<ChainItemFolder,TriggerT>(
                     env
                     , getChain<simple_shared_chain::InMemoryWithLockChain<ChainData>>(
                         name
@@ -224,7 +224,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             >
         {
             if (lockFree) {
-                return chainWriterHelper<App,ChainItemFolder,InputHandler,IdleLogic>(
+                return chainWriterHelper<ChainItemFolder,InputHandler,IdleLogic>(
                     getChain<simple_shared_chain::InMemoryLockFreeChain<ChainData>>(
                         name
                         , []() {
@@ -237,7 +237,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     , std::move(idleLogic)
                 );
             } else {
-                return chainWriterHelper<App,ChainItemFolder,InputHandler,IdleLogic>(
+                return chainWriterHelper<ChainItemFolder,InputHandler,IdleLogic>(
                     getChain<simple_shared_chain::InMemoryWithLockChain<ChainData>>(
                         name
                         , []() {
