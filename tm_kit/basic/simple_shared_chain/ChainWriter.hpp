@@ -755,8 +755,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
 
         using ParentInterface = std::conditional_t<
             std::is_same_v<IdleLogic, void>
-            , typename infra::RealTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>
-            , typename infra::RealTimeApp<Env>::template AbstractIntegratedOnOrderFacilityWithExternalEffects<typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+            , typename infra::BasicWithTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>
+            , typename infra::BasicWithTimeApp<Env>::template AbstractIntegratedOnOrderFacilityWithExternalEffects<typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T>
         >;
     public:
         using IdleLogicPlaceHolder = std::conditional_t<
