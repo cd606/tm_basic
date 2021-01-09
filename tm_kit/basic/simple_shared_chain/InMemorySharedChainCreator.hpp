@@ -26,11 +26,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             if (boost::starts_with(s, "lock-free://")) {
                 return {true, s};
             } else {
-                return {false, s}
+                return {false, s};
             }
         }
 
-        template <class App, class ChainItemFolder, class TriggerT, class Chain>
+        template <class ChainItemFolder, class TriggerT, class Chain>
         inline auto chainReaderHelper(
             typename App::EnvironmentType *env
             , Chain *chain 
@@ -65,7 +65,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
 
-        template <class App, class ChainItemFolder, class InputHandler, class IdleLogic, class Chain>
+        template <class ChainItemFolder, class InputHandler, class IdleLogic, class Chain>
         inline auto chainWriterHelper(
             Chain *chain 
             , simple_shared_chain::ChainPollingPolicy const &pollingPolicy
@@ -136,7 +136,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         template <class ChainData, class ChainItemFolder, class TriggerT=void>
         auto reader(
             typename App::EnvironmentType *env
-            , bool LockFree
+            , bool lockFree
             , std::string const &name
             , simple_shared_chain::ChainPollingPolicy const &pollingPolicy = simple_shared_chain::ChainPollingPolicy()
         )
@@ -279,7 +279,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 , basic::simple_shared_chain::ChainReaderActionFactory<App, ChainItemFolder, TriggerT>
             >
         {
-            return [this,env,locatorStr,pollingPolicy]() {
+            return [this,env,descriptor,pollingPolicy]() {
                 return reader<ChainData,ChainItemFolder,TriggerT>(
                     env, descriptor, pollingPolicy
                 );
@@ -314,7 +314,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 , basic::VoidStruct
                 , IdleLogic
             > l = std::move(idleLogic);
-            return [this,env,locatorStr,pollingPolicy,h=std::move(h),l=std::move(l)]() {
+            return [this,env,descriptor,pollingPolicy,h=std::move(h),l=std::move(l)]() {
                 InputHandler h1 = std::move(h);
                 std::conditional_t<
                     std::is_same_v<IdleLogic, void>
@@ -322,7 +322,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     , IdleLogic
                 > l1 = std::move(l);
                 return writer<ChainData,ChainItemFolder,InputHandler,IdleLogic>(
-                    env, locatorStr, pollingPolicy, std::move(h1), std::move(l1)
+                    env, descriptor, pollingPolicy, std::move(h1), std::move(l1)
                 );
             };
         }
