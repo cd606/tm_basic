@@ -22,10 +22,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainItemFolder folder_;
         typename ChainItemFolder::ResultType currentValue_;
     public:
-        ChainReader(Env *env, Chain *chain) : 
+        ChainReader(Env *env, Chain *chain, ChainItemFolder &&folder=ChainItemFolder {}) : 
             chain_(chain)
             , currentItem_()
-            , folder_()
+            , folder_(std::move(folder))
             , currentValue_(folder_.initialize(env, chain)) 
         {
             static auto checker = boost::hana::is_valid(
@@ -78,8 +78,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 return std::nullopt;
             }
         }
-        static std::shared_ptr<typename App::template Action<TriggerT, typename ChainItemFolder::ResultType>> action(Env *env, Chain *chain) {
-            return App::template liftMaybe<TriggerT>(ChainReader(env, chain));
+        static std::shared_ptr<typename App::template Action<TriggerT, typename ChainItemFolder::ResultType>> action(Env *env, Chain *chain, ChainItemFolder &&folder=ChainItemFolder {}) {
+            return App::template liftMaybe<TriggerT>(ChainReader(env, chain, std::move(folder)));
         }
     };
 
@@ -153,13 +153,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
     public:
-        ChainReader(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}) :
+        ChainReader(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}) :
             callbackPerUpdate_(pollingPolicy.callbackPerUpdate)
             , busyLoop_(pollingPolicy.busyLoop)
             , noYield_(pollingPolicy.noYield)
             , chain_(chain)
             , currentItem_()
-            , folder_()
+            , folder_(std::move(folder))
             , currentValue_()
             , running_(false)
             , th_()
@@ -193,8 +193,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
             th_ = std::thread(&ChainReader::run, this, env);
         }
-        static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}) {
-            return infra::RealTimeApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain, pollingPolicy));
+        static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}) {
+            return infra::RealTimeApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain, pollingPolicy, std::move(folder)));
         }
     };
 
@@ -212,11 +212,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainItemFolder folder_;
         typename ChainItemFolder::ResultType currentValue_;
     public:
-        ChainReader(Chain *chain) :
+        ChainReader(Chain *chain, ChainItemFolder &&folder=ChainItemFolder {}) :
             env_(nullptr)
             , chain_(chain)
             , currentItem_()
-            , folder_()
+            , folder_(std::move(folder))
             , currentValue_()
         {}
         ~ChainReader() {}
@@ -281,8 +281,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 return std::nullopt;
             }
         }
-        static std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain, ChainPollingPolicy const &notUsed=ChainPollingPolicy {}) {
-            return infra::SinglePassIterationApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain));
+        static std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain, ChainPollingPolicy const &notUsed=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}) {
+            return infra::SinglePassIterationApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain, std::move(folder)));
         }
     };
 
@@ -328,10 +328,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
     public:
-        ChainReader(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}) :
+        ChainReader(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}) :
             chain_(chain)
             , currentItem_()
-            , folder_()
+            , folder_(std::move(folder))
             , currentValue_()
         {}
         ~ChainReader() {
@@ -357,8 +357,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 currentItem_ = chain_->head(env);
             }
         }
-        static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}) {
-            return infra::BasicWithTimeApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain, pollingPolicy));
+        static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}) {
+            return infra::BasicWithTimeApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain, pollingPolicy, std::move(folder)));
         }
     };
 

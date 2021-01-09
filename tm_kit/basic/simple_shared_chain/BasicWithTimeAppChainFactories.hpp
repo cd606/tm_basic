@@ -46,7 +46,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
     class BasicWithTimeAppChainCreator<infra::BasicWithTimeApp<Env>> {
     public:
         template <class ChainData, class ChainItemFolder, class TriggerT=void>
-        static auto readerFactory(Env *, std::string const &, ChainItemFolder &&=ChainItemFolder())
+        static auto readerFactory(Env *, std::string const &, simple_shared_chain::ChainPollingPolicy const &pollingPolicy = simple_shared_chain::ChainPollingPolicy(), ChainItemFolder &&=ChainItemFolder())
             -> std::conditional_t<
                 std::is_same_v<TriggerT, void>
                 , ChainReaderImporterFactory<infra::BasicWithTimeApp<Env>, ChainItemFolder>
@@ -60,7 +60,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
         template <class ChainData, class ChainItemFolder, class InputHandler, class IdleLogic=void>
-        static auto writerFactory(Env *, std::string const &, ChainItemFolder &&=ChainItemFolder(), InputHandler &&=InputHandler(), std::conditional_t<std::is_same_v<IdleLogic,void>,bool,IdleLogic> &&=std::conditional_t<std::is_same_v<IdleLogic,void>,bool,IdleLogic>())
+        static auto writerFactory(Env *, std::string const &, simple_shared_chain::ChainPollingPolicy const &pollingPolicy = simple_shared_chain::ChainPollingPolicy(), ChainItemFolder &&=ChainItemFolder(), InputHandler &&=InputHandler(), std::conditional_t<std::is_same_v<IdleLogic,void>,bool,IdleLogic> &&=std::conditional_t<std::is_same_v<IdleLogic,void>,bool,IdleLogic>())
             -> std::conditional_t<
                 std::is_same_v<IdleLogic, void>
                 , ChainWriterOnOrderFacilityFactory<infra::BasicWithTimeApp<Env>, ChainItemFolder, InputHandler>

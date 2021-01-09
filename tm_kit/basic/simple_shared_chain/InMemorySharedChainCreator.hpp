@@ -35,6 +35,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             typename App::EnvironmentType *env
             , Chain *chain 
             , simple_shared_chain::ChainPollingPolicy const &pollingPolicy
+            , ChainItemFolder &&folder
         ) 
             -> std::conditional_t<
                 std::is_same_v<TriggerT, void>
@@ -51,6 +52,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 >::importer(
                     chain
                     , pollingPolicy
+                    , std::move(folder)
                 );
             } else {
                 return simple_shared_chain::ChainReader<
@@ -61,6 +63,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 >::action(
                     env
                     , chain
+                    , std::move(folder)
                 );
             }
         }
@@ -139,6 +142,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , bool lockFree
             , std::string const &name
             , simple_shared_chain::ChainPollingPolicy const &pollingPolicy = simple_shared_chain::ChainPollingPolicy()
+            , ChainItemFolder &&folder = ChainItemFolder {}
         )
             -> std::conditional_t<
                 std::is_same_v<TriggerT, void>
@@ -156,6 +160,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         }
                     )
                     , pollingPolicy
+                    , std::move(folder)
                 );
             } else {
                 return chainReaderHelper<App,ChainItemFolder,TriggerT>(
@@ -167,6 +172,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         }
                     )
                     , pollingPolicy
+                    , std::move(folder)
                 );
             }
         }
@@ -176,6 +182,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             typename App::EnvironmentType *env
             , std::string const &descriptor
             , simple_shared_chain::ChainPollingPolicy const &pollingPolicy = simple_shared_chain::ChainPollingPolicy()
+            , ChainItemFolder &&folder = ChainItemFolder {}
         )
             -> std::conditional_t<
                 std::is_same_v<TriggerT, void>
@@ -185,7 +192,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         {
             auto parsed = parseDescriptor(descriptor);
             return reader<ChainData,ChainItemFolder,TriggerT>(
-                env, std::get<0>(parsed), std::get<1>(parsed), pollingPolicy
+                env, std::get<0>(parsed), std::get<1>(parsed), pollingPolicy, std::move(folder)
             );
         }
 
@@ -195,6 +202,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , bool lockFree
             , std::string const &name
             , simple_shared_chain::ChainPollingPolicy const &pollingPolicy = simple_shared_chain::ChainPollingPolicy()
+            , ChainItemFolder &&folder = ChainItemFolder {}
             , InputHandler &&inputHandler = InputHandler()
             , std::conditional_t<
                 std::is_same_v<IdleLogic, void>
@@ -221,6 +229,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         }
                     )
                     , pollingPolicy
+                    , std::move(folder)
                     , std::move(inputHandler)
                     , std::move(idleLogic)
                 );
@@ -233,6 +242,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         }
                     )
                     , pollingPolicy
+                    , std::move(folder)
                     , std::move(inputHandler)
                     , std::move(idleLogic)
                 );
@@ -244,6 +254,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             typename App::EnvironmentType *env
             , std::string const &descriptor
             , simple_shared_chain::ChainPollingPolicy const &pollingPolicy = simple_shared_chain::ChainPollingPolicy()
+            , ChainItemFolder &&folder = ChainItemFolder {}
             , InputHandler &&inputHandler = InputHandler()
             , std::conditional_t<
                 std::is_same_v<IdleLogic, void>
@@ -263,7 +274,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         {
             auto parsed = parseDescriptor(descriptor);
             return writer<ChainData,ChainItemFolder,InputHandler,IdleLogic>(
-                env, std::get<0>(parsed), std::get<1>(parsed), pollingPolicy, std::move(inputHandler), std::move(idleLogic)
+                env, std::get<0>(parsed), std::get<1>(parsed), pollingPolicy, std::move(folder), std::move(inputHandler), std::move(idleLogic)
             );
         }
 
@@ -272,6 +283,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             typename App::EnvironmentType *env
             , std::string const &descriptor
             , simple_shared_chain::ChainPollingPolicy const &pollingPolicy = simple_shared_chain::ChainPollingPolicy()
+            , ChainItemFolder &&folder = ChainItemFolder {}
         )
             -> std::conditional_t<
                 std::is_same_v<TriggerT, void>
@@ -279,9 +291,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 , basic::simple_shared_chain::ChainReaderActionFactory<App, ChainItemFolder, TriggerT>
             >
         {
-            return [this,env,descriptor,pollingPolicy]() {
+            auto f = std::move(folder);
+            return [this,env,descriptor,pollingPolicy,f=std::move(f)]() {
+                auto f1 = std::move(f);
                 return reader<ChainData,ChainItemFolder,TriggerT>(
-                    env, descriptor, pollingPolicy
+                    env, descriptor, pollingPolicy, std::move(f1)
                 );
             };
         }
@@ -291,6 +305,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             typename App::EnvironmentType *env
             , std::string const &descriptor
             , simple_shared_chain::ChainPollingPolicy const &pollingPolicy = simple_shared_chain::ChainPollingPolicy()
+            , ChainItemFolder &&folder = ChainItemFolder {}
             , InputHandler &&inputHandler = InputHandler()
             , std::conditional_t<
                 std::is_same_v<IdleLogic, void>
@@ -308,13 +323,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 , basic::simple_shared_chain::ChainWriterOnOrderFacilityWithExternalEffectsFactory<App, ChainItemFolder, InputHandler, IdleLogic>
             >
         {
+            ChainItemFolder f = std::move(folder);
             InputHandler h = std::move(inputHandler);
             std::conditional_t<
                 std::is_same_v<IdleLogic, void>
                 , basic::VoidStruct
                 , IdleLogic
             > l = std::move(idleLogic);
-            return [this,env,descriptor,pollingPolicy,h=std::move(h),l=std::move(l)]() {
+            return [this,env,descriptor,pollingPolicy,f=std::move(f),h=std::move(h),l=std::move(l)]() {
+                ChainItemFolder f1 = std::move(f);
                 InputHandler h1 = std::move(h);
                 std::conditional_t<
                     std::is_same_v<IdleLogic, void>
@@ -322,7 +339,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     , IdleLogic
                 > l1 = std::move(l);
                 return writer<ChainData,ChainItemFolder,InputHandler,IdleLogic>(
-                    env, descriptor, pollingPolicy, std::move(h1), std::move(l1)
+                    env, descriptor, pollingPolicy, std::move(f1), std::move(h1), std::move(l1)
                 );
             };
         }
