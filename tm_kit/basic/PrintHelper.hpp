@@ -29,6 +29,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
     template <>
+    class PrintHelper<uint8_t> {
+    public:
+        static void print(std::ostream &os, uint8_t const &t) {
+            if (t >= 32 && t <= 126) {
+                os << "'" << (char) t << "'(" << (int) t << ")";
+            } else {
+                os << "(" << (int) t << ")";
+            }
+        }
+    };
+    template <>
     class PrintHelper<std::chrono::system_clock::time_point> {
     public:
         static void print(std::ostream &os, std::chrono::system_clock::time_point const &t) {
