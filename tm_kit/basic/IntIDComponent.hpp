@@ -26,12 +26,14 @@ public:
         }
     }
     static basic::ByteData id_to_bytes(IDType const &id) {
-        char buf[sizeof(IntType)];
-        std::memcpy(buf, &id, sizeof(IntType));
-        return basic::ByteData {std::string(buf, buf+sizeof(IntType))};
+        constexpr std::size_t BufSize = (sizeof(IntType)<16?16:sizeof(IntType));
+        char buf[BufSize];
+        std::memset(buf, 0, BufSize);
+        std::memcpy(buf, &id, std::min(sizeof(IntType), BufSize));
+        return basic::ByteData {std::string(buf, buf+BufSize)};
     }
     static IDType id_from_bytes(basic::ByteDataView const &bytes) {
-        if (bytes.content.length() != sizeof(IntType)) {
+        if (bytes.content.length() < sizeof(IntType)) {
             return IDType {};
         }
         IDType id;
