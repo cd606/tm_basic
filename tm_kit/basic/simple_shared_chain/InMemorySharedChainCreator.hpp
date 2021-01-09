@@ -72,6 +72,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         inline auto chainWriterHelper(
             Chain *chain 
             , simple_shared_chain::ChainPollingPolicy const &pollingPolicy
+            , ChainItemFolder &&folder
             , InputHandler &&inputHandler
             , std::conditional_t<
                 std::is_same_v<IdleLogic, void>
@@ -95,6 +96,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 >::onOrderFacility(
                     chain
                     , pollingPolicy
+                    , std::move(folder)
                     , std::move(inputHandler)
                     , std::move(idleLogic)
                 );
@@ -108,6 +110,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 >::onOrderFacilityWithExternalEffects(
                     chain
                     , pollingPolicy
+                    , std::move(folder)
                     , std::move(inputHandler)
                     , std::move(idleLogic)
                 );
