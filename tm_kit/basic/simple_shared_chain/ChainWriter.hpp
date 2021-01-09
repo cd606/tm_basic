@@ -3,6 +3,7 @@
 
 #include <tm_kit/infra/RealTimeApp.hpp>
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
+#include <tm_kit/infra/BasicWithTimeApp.hpp>
 #include <tm_kit/infra/TraceNodesComponent.hpp>
 #include <tm_kit/basic/simple_shared_chain/FolderUsingPartialHistoryInformation.hpp>
 #include <tm_kit/basic/simple_shared_chain/ChainPollingPolicy.hpp>
@@ -570,6 +571,266 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 return infra::SinglePassIterationApp<Env>::template onOrderFacilityWithExternalEffects<
                     typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T
                 >(new ChainWriter(chain, std::move(inputHandler), std::move(idleLogic)));
+            }
+        }
+    };
+
+    //This is just for compilation check, the logic will never be run
+
+    template <class Env, class Chain, class ChainItemFolder, class InputHandler, class IdleLogic>
+    class ChainWriter<typename infra::BasicWithTimeApp<Env>, Chain, ChainItemFolder, InputHandler, IdleLogic>
+        : 
+        public virtual infra::BasicWithTimeApp<Env>::IExternalComponent
+        , public virtual 
+            std::conditional_t<
+                std::is_same_v<IdleLogic, void>
+                , typename infra::BasicWithTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>
+                , typename infra::BasicWithTimeApp<Env>::template AbstractIntegratedOnOrderFacilityWithExternalEffects<typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+            >
+    {
+    private:
+        using OOF = typename infra::BasicWithTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>;
+        using IM = typename infra::BasicWithTimeApp<Env>::template AbstractImporter<typename OffChainUpdateTypeExtractor<IdleLogic>::T>;
+        void idleWork() {
+            static_assert(!std::is_convertible_v<
+                    ChainItemFolder *, FolderUsingPartialHistoryInformation *
+            >);
+
+            static auto foldInPlaceChecker = boost::hana::is_valid(
+                [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
+            );
+            //This is to give the facility handler a chance to do something
+            //with current state, for example to save it. This is not needed
+            //when we have IdleLogic.
+            //Also, this is specific to real-time mode. Single-pass iteration
+            //mode does not really need state-saving in the middle.
+            static auto handlerIdleCallbackChecker = boost::hana::is_valid(
+                [](auto *h, auto *c, auto const *v) -> decltype((void) h->idleCallback(c, *v)) {}
+            );
+            if constexpr (std::is_same_v<IdleLogic, void>) {
+                //only read one, since this is just a helper
+                std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+                if (nextItem) {
+                    currentItem_ = std::move(*nextItem);
+                    auto const *dataPtr = Chain::extractData(currentItem_);
+                    if (dataPtr) {
+                        if constexpr (foldInPlaceChecker(
+                            (ChainItemFolder *) nullptr
+                            , (typename ChainItemFolder::ResultType *) nullptr
+                            , (std::string_view *) nullptr
+                            , (typename Chain::DataType const *) nullptr
+                        )) {
+                            folder_.foldInPlace(currentState_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                        } else {
+                            currentState_ = folder_.fold(currentState_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                        }
+                        if constexpr (handlerIdleCallbackChecker(
+                            (InputHandler *) nullptr
+                            , (Chain *) nullptr
+                            , (typename ChainItemFolder::ResultType const *) nullptr
+                        )) {
+                            inputHandler_.idleCallback(chain_, currentState_);
+                        }
+                    }
+                }
+            } else {
+                //we must read until the end
+                while (true) {
+                    while (true) {
+                        std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+                        if (!nextItem) {
+                            break;
+                        }
+                        currentItem_ = std::move(*nextItem);
+                        auto const *dataPtr = Chain::extractData(currentItem_);
+                        if (dataPtr) {
+                            if constexpr (foldInPlaceChecker(
+                                (ChainItemFolder *) nullptr
+                                , (typename ChainItemFolder::ResultType *) nullptr
+                                , (std::string_view *) nullptr
+                                , (typename Chain::DataType const *) nullptr
+                            )) {
+                                folder_.foldInPlace(currentState_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                            } else {
+                                currentState_ = folder_.fold(currentState_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                            }
+                        }
+                    }
+                    std::tuple<
+                        std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+                        , std::optional<std::tuple<std::string, typename Chain::DataType>>
+                    > processResult = idleLogic_.work(env_, chain_, currentState_);
+                    if (std::get<1>(processResult)) {
+                        std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
+                        if (newID == "") {
+                            newID = Chain::template newStorageIDAsString<Env>();
+                        }   
+                        if (chain_->appendAfter(
+                            currentItem_
+                            , chain_->formChainItem(
+                                newID
+                                , std::move(std::get<1>(*std::get<1>(processResult))))
+                        )) {
+                            if (std::get<0>(processResult)) {
+                                this->IM::publish(env_, std::move(*(std::get<0>(processResult))));
+                            }
+                            break;
+                        }
+                    } else {
+                        if (std::get<0>(processResult)) {
+                            this->IM::publish(env_, std::move(*(std::get<0>(processResult))));
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) {
+            static auto foldInPlaceChecker = boost::hana::is_valid(
+                [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
+            );
+            TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(data.environment, ":handle");
+            auto id = data.timedData.value.id();
+            while (true) {
+                while (true) {
+                    std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+                    if (!nextItem) {
+                        break;
+                    }
+                    currentItem_ = std::move(*nextItem);
+                    auto const *dataPtr = Chain::extractData(currentItem_);
+                    if (dataPtr) {
+                        if constexpr (foldInPlaceChecker(
+                            (ChainItemFolder *) nullptr
+                            , (typename ChainItemFolder::ResultType *) nullptr
+                            , (std::string_view *) nullptr
+                            , (typename Chain::DataType const *) nullptr
+                        )) {
+                            folder_.foldInPlace(currentState_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                        } else {
+                            currentState_ = folder_.fold(currentState_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                        }
+                    }
+                }
+                std::tuple<
+                    typename InputHandler::ResponseType
+                    , std::optional<std::tuple<std::string, typename Chain::DataType>>
+                > processResult = inputHandler_.handleInput(data.environment, chain_, data.timedData, currentState_);
+                if (std::get<1>(processResult)) {   
+                    std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
+                    if (newID == "") {
+                        newID = Chain::template newStorageIDAsString<Env>();
+                    }
+                    if (chain_->appendAfter(
+                        currentItem_
+                        , chain_->formChainItem(
+                            newID
+                            , std::move(std::get<1>(*std::get<1>(processResult))))
+                    )) { 
+                        this->OOF::publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
+                            id, std::move(std::get<0>(processResult))
+                        }, true);
+                        break;
+                    }
+                } else {
+                    this->OOF::publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
+                        id, std::move(std::get<0>(processResult))
+                    }, true);
+                    break;
+                }
+            }
+        }
+        
+        Chain *chain_;
+        typename Chain::ItemType currentItem_;
+        ChainItemFolder folder_;
+        InputHandler inputHandler_;
+        typename ChainItemFolder::ResultType currentState_;  
+        Env *env_;
+        std::conditional_t<
+            std::is_same_v<IdleLogic, void>
+            , basic::VoidStruct
+            , IdleLogic
+        > idleLogic_; 
+
+        using ParentInterface = std::conditional_t<
+            std::is_same_v<IdleLogic, void>
+            , typename infra::RealTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>
+            , typename infra::RealTimeApp<Env>::template AbstractIntegratedOnOrderFacilityWithExternalEffects<typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+        >;
+    public:
+        using IdleLogicPlaceHolder = std::conditional_t<
+            std::is_same_v<IdleLogic, void>
+            , basic::VoidStruct
+            , IdleLogic
+        >;
+        ChainWriter(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder()) : 
+#ifndef _MSC_VER
+            infra::BasicWithTimeApp<Env>::IExternalComponent(), 
+            ParentInterface(), 
+#endif
+            chain_(chain)
+            , currentItem_()
+            , folder_()
+            , inputHandler_(std::move(inputHandler))
+            , currentState_() 
+            , env_(nullptr)
+            , idleLogic_(std::move(idleLogic))
+        {}
+        virtual ~ChainWriter() {
+        }
+        ChainWriter(ChainWriter const &) = delete;
+        ChainWriter &operator=(ChainWriter const &) = delete;
+        ChainWriter(ChainWriter &&) = default;
+        ChainWriter &operator=(ChainWriter &&) = default;
+        virtual void start(Env *env) override final {
+            static auto checker = boost::hana::is_valid(
+                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
+            );
+
+            env_ = env;
+            
+            currentState_ = folder_.initialize(env, chain_);
+            
+            if constexpr (checker(
+                (Chain *) nullptr
+                , (ChainItemFolder *) nullptr
+                , (typename ChainItemFolder::ResultType const *) nullptr
+            )) {
+                currentItem_ = chain_->loadUntil(env, folder_.chainIDForState(currentState_));
+            } else {
+                currentItem_ = chain_->head(env);
+            }
+            inputHandler_.initialize(env, chain_);
+        }
+        virtual void handle(typename infra::BasicWithTimeApp<Env>::template InnerData<typename infra::BasicWithTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
+        }
+        static std::shared_ptr<typename infra::BasicWithTimeApp<Env>::template OnOrderFacility<
+            typename InputHandler::InputType, typename InputHandler::ResponseType
+        >> onOrderFacility(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder())
+        {
+            if constexpr (std::is_same_v<IdleLogic, void>) {
+                return infra::BasicWithTimeApp<Env>::template fromAbstractOnOrderFacility<
+                    typename InputHandler::InputType, typename InputHandler::ResponseType
+                >(new ChainWriter(chain, pollingPolicy, std::move(inputHandler), std::move(idleLogic)));
+            } else {
+                return std::shared_ptr<typename infra::BasicWithTimeApp<Env>::template OnOrderFacility<
+                    typename InputHandler::InputType, typename InputHandler::ResponseType
+                >>();
+            }
+        }
+        static std::shared_ptr<typename infra::BasicWithTimeApp<Env>::template OnOrderFacilityWithExternalEffects<
+            typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T
+        >> onOrderFacilityWithExternalEffects(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, InputHandler &&inputHandler=InputHandler(), IdleLogicPlaceHolder &&idleLogic=IdleLogicPlaceHolder())
+        {
+            if constexpr (std::is_same_v<IdleLogic, void>) {
+                return std::shared_ptr<typename infra::BasicWithTimeApp<Env>::template OnOrderFacilityWithExternalEffects<
+                    typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T
+                >>();
+            } else {
+                return infra::BasicWithTimeApp<Env>::template onOrderFacilityWithExternalEffects<
+                    typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T
+                >(new ChainWriter(chain, pollingPolicy, std::move(inputHandler), std::move(idleLogic)));
             }
         }
     };

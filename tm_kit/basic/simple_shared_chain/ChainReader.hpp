@@ -3,6 +3,7 @@
 
 #include <tm_kit/infra/RealTimeApp.hpp>
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
+#include <tm_kit/infra/BasicWithTimeApp.hpp>
 #include <tm_kit/infra/TraceNodesComponent.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <tm_kit/basic/simple_shared_chain/FolderUsingPartialHistoryInformation.hpp>
@@ -282,6 +283,82 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
         static std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain, ChainPollingPolicy const &notUsed=ChainPollingPolicy {}) {
             return infra::SinglePassIterationApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain));
+        }
+    };
+
+    //This whole thing is just for compilation check, the logic will never be run
+    template <class Env, class Chain, class ChainItemFolder>
+    class ChainReader<infra::BasicWithTimeApp<Env>,Chain,ChainItemFolder,void> final
+        : public infra::BasicWithTimeApp<Env>::template AbstractImporter<typename ChainItemFolder::ResultType> {
+    private:
+        Chain *chain_;
+        typename Chain::ItemType currentItem_;
+        ChainItemFolder folder_;
+        typename ChainItemFolder::ResultType currentValue_;
+        void run(Env *env) {
+            static auto foldInPlaceChecker = boost::hana::is_valid(
+                [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
+            );
+            static constexpr bool UsesPartialHistory = 
+                std::is_convertible_v<
+                    ChainItemFolder *, FolderUsingPartialHistoryInformation *
+                >;
+            
+            bool hasData = false;
+            std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+            if (nextItem) {
+                currentItem_ = std::move(*nextItem);
+                auto const *dataPtr = Chain::extractData(currentItem_);
+                if (dataPtr) {
+                    hasData = true;
+                    if constexpr (foldInPlaceChecker(
+                        (ChainItemFolder *) nullptr
+                        , (typename ChainItemFolder::ResultType *) nullptr
+                        , (std::string_view *) nullptr
+                        , (typename Chain::DataType const *) nullptr
+                    )) {
+                        folder_.foldInPlace(currentValue_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                    } else {
+                        currentValue_ = folder_.fold(currentValue_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                    }
+                }
+            }
+            if (hasData) {
+                this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
+            }
+        }
+    public:
+        ChainReader(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}) :
+            chain_(chain)
+            , currentItem_()
+            , folder_()
+            , currentValue_()
+        {}
+        ~ChainReader() {
+        }
+        ChainReader(ChainReader const &) = delete;
+        ChainReader &operator=(ChainReader const &) = delete;
+        ChainReader(ChainReader &&) = default;
+        ChainReader &operator=(ChainReader &&) = delete;
+        virtual void start(Env *env) override final {
+            static auto checker = boost::hana::is_valid(
+                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
+            );
+
+            currentValue_ = folder_.initialize(env, chain_); 
+            
+            if constexpr (checker(
+                (Chain *) nullptr
+                , (ChainItemFolder *) nullptr
+                , (typename ChainItemFolder::ResultType const *) nullptr
+            )) {
+                currentItem_ = chain_->loadUntil(env, folder_.chainIDForState(currentValue_));
+            } else {
+                currentItem_ = chain_->head(env);
+            }
+        }
+        static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}) {
+            return infra::BasicWithTimeApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain, pollingPolicy));
         }
     };
 
