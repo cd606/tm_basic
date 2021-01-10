@@ -44,7 +44,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     public:
         static void print(std::ostream &os, std::byte const &t) {
             os << std::setw(2) << std::setfill('0') << std::hex << (uint8_t) t << std::dec;
-            return os;
         }
     };
     template <>
