@@ -73,6 +73,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 return BasicWithTimeAppChainFactories<Env>::template chainWriterOnOrderFacilityWithExternalEffectsFactory<ChainItemFolder, InputHandler, IdleLogic>();
             }
         }
+        template <class ChainData, class ExtraData>
+        static void writeExtraData(Env *, std::string const &, std::string const &, ExtraData const &) {}
+        template <class ChainData, class ExtraData>
+        static std::optional<ExtraData> readExtraData(Env *, std::string const &, std::string const &) {
+            return std::nullopt;
+        }
     };
 } } } } } 
 

@@ -31,12 +31,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
     class InMemoryLockFreeChain {
     private:
         InMemoryLockFreeChainStorageItem<T> head_;
+        std::mutex mutex_; //for extra data only
+        std::unordered_map<std::string, void *> extraData_;
     public:
         using StorageIDType = std::string;
         using DataType = T;
         using ItemType = InMemoryLockFreeChainItem<T>;
-        static constexpr bool SupportsExtraData = false;
-        InMemoryLockFreeChain() : head_() {
+        static constexpr bool SupportsExtraData = true;
+        InMemoryLockFreeChain() : head_(), mutex_(), extraData_() {
         }
         ItemType head(void *) {
             return &head_;
@@ -91,6 +93,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
         static std::string_view extractStorageIDStringView(ItemType const &p) {
             return std::string_view {p->id};
+        }
+        template <class ExtraData>
+        void saveExtraData(std::string const &key, ExtraData const &data) {
+            std::lock_guard<std::mutex> _(mutex_);
+            extraData_[key] = new ExtraData(data);
+        }
+        template <class ExtraData>
+        std::optional<ExtraData> loadExtraData(std::string const &key) {
+            std::lock_guard<std::mutex> _(mutex_);
+            auto iter = extraData_.find(key);
+            if (iter == extraData_.end()) {
+                return std::nullopt;
+            }
+            return ExtraData(*((ExtraData *) (iter->second)));
         }
     };
 

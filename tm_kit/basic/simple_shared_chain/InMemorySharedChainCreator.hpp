@@ -117,6 +117,31 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
 
+        template <class ExtraData, class Chain>
+        inline auto readExtraDataHelper(
+            Chain *chain 
+            , std::string const &key
+        ) -> std::optional<ExtraData> {
+            if constexpr (Chain::SupportsExtraData) {
+                return chain->template loadExtraData<ExtraData>(key);
+            } else {
+                return std::nullopt;
+            }
+        }
+
+        template <class ExtraData, class Chain>
+        inline void writeExtraDataHelper(
+            Chain *chain 
+            , std::string const &key
+            , ExtraData const &data
+        ) {
+            if constexpr (Chain::SupportsExtraData) {
+                chain->template saveExtraData<ExtraData>(key);
+            } else {
+                return std::nullopt;
+            }
+        }
+
         template <class T>
         T *getChain(std::string const &name, std::function<T *()> creator) {
             std::lock_guard<std::mutex> _(mutex_);
@@ -345,6 +370,59 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     env, descriptor, pollingPolicy, std::move(f1), std::move(h1), std::move(l1)
                 );
             };
+        }
+
+        template <class ChainData, class ExtraData>
+        static void writeExtraData(Env *env, std::string const &descriptor, std::string const &key, ExtraData const &extraData) {
+            auto parsed = parseDescriptor(descriptor);
+            if (std::get<0>(parsed)) {
+                writeExtraDataHelper<ExtraData>(
+                    getChain<simple_shared_chain::InMemoryLockFreeChain<ChainData>>(
+                        std::get<1>(parsed)
+                        , []() {
+                            return new basic::simple_shared_chain::InMemoryLockFreeChain<ChainData>();
+                        }
+                    )
+                    , key
+                    , extraData
+                );
+            } else {
+                writeExtraDataHelper<ExtraData>(
+                    getChain<simple_shared_chain::InMemoryWithLockChain<ChainData>>(
+                        std::get<1>(parsed)
+                        , []() {
+                            return new basic::simple_shared_chain::InMemoryWithLockChain<ChainData>();
+                        }
+                    )
+                    , key
+                    , extraData
+                );
+            }
+        }
+        template <class ChainData, class ExtraData>
+        static std::optional<ExtraData> readExtraData(Env *, std::string const &, std::string const &) {
+            auto parsed = parseDescriptor(descriptor);
+            if (std::get<0>(parsed)) {
+                return readExtraDataHelper<ExtraData>(
+                    getChain<simple_shared_chain::InMemoryLockFreeChain<ChainData>>(
+                        std::get<1>(parsed)
+                        , []() {
+                            return new basic::simple_shared_chain::InMemoryLockFreeChain<ChainData>();
+                        }
+                    )
+                    , key
+                );
+            } else {
+                return readExtraDataHelper<ExtraData>(
+                    getChain<simple_shared_chain::InMemoryWithLockChain<ChainData>>(
+                        std::get<1>(parsed)
+                        , []() {
+                            return new basic::simple_shared_chain::InMemoryWithLockChain<ChainData>();
+                        }
+                    )
+                    , key
+                );
+            }
         }
     };
 
