@@ -23,7 +23,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         inline auto parseDescriptor(std::string const &s)
             -> std::tuple<bool, std::string>
         {
-            if (boost::starts_with(s, "lock-free://")) {
+            if (boost::starts_with(s, "lock_free://") || boost::starts_with(s, "in_memory_lock_free://")) {
                 return {true, s};
             } else {
                 return {false, s};
