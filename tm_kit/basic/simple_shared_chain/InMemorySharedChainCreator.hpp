@@ -137,8 +137,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ) {
             if constexpr (Chain::SupportsExtraData) {
                 chain->template saveExtraData<ExtraData>(key);
-            } else {
-                return std::nullopt;
             }
         }
 
