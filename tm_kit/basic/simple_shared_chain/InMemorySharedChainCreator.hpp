@@ -398,7 +398,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
         template <class ChainData, class ExtraData>
-        static std::optional<ExtraData> readExtraData(typename App::EnvironmentType *, std::string const &, std::string const &) {
+        static std::optional<ExtraData> readExtraData(typename App::EnvironmentType *, std::string const &descriptor, std::string const &key) {
             auto parsed = parseDescriptor(descriptor);
             if (std::get<0>(parsed)) {
                 return readExtraDataHelper<ExtraData>(
