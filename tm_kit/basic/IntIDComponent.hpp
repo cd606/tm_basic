@@ -8,12 +8,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 template <class IntType = uint64_t>
 class IntIDComponent {
 private:
-    static IntType id;
+    static IntType s_id;
 public:
     using IDType = IntType;
     using IDHash = std::hash<IntType>;
     static IDType new_id() {
-        return (id++);
+        return (++s_id);
     }
     static std::string id_to_string(IDType const &id) {
         return std::to_string(id);
@@ -46,7 +46,7 @@ public:
 };
 
 template <class IntType>
-IntType IntIDComponent<IntType>::id = 0;
+IntType IntIDComponent<IntType>::s_id = 0;
 
 } } } }
 
