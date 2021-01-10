@@ -43,7 +43,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     class PrintHelper<std::byte> {
     public:
         static void print(std::ostream &os, std::byte const &t) {
-            os << std::setw(2) << std::setfill('0') << std::hex << (uint8_t) t << std::dec;
+            os << std::setw(2) << std::setfill('0') << std::hex << (unsigned) t << std::dec;
         }
     };
     template <>
