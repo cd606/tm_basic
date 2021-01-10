@@ -40,6 +40,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
     template <>
+    class PrintHelper<std::byte> {
+    public:
+        static void print(std::ostream &os, std::byte const &t) {
+            os << std::setw(2) << std::setfill('0') << std::hex << (uint8_t) t << std::dec;
+            return os;
+        }
+    };
+    template <>
     class PrintHelper<std::chrono::system_clock::time_point> {
     public:
         static void print(std::ostream &os, std::chrono::system_clock::time_point const &t) {
