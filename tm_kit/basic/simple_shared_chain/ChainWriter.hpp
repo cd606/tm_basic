@@ -107,31 +107,63 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                             }
                         }
                     }
-                    std::tuple<
-                        std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
-                        , std::optional<std::tuple<std::string, typename Chain::DataType>>
-                    > processResult = idleLogic_.work(env_, chain_, currentState_);
-                    if (std::get<1>(processResult)) {
-                        std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
-                        if (newID == "") {
-                            newID = Chain::template newStorageIDAsString<Env>();
-                        }   
+                    auto processResult = idleLogic_.work(env_, chain_, currentState_);
+                    if constexpr (
+                        std::is_same_v<
+                            decltype(processResult)
+                            , std::tuple<
+                                std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+                                , std::vector<std::tuple<std::string, typename Chain::DataType>>
+                            >
+                        >
+                    ) {
+                        for (auto &x : std::get<1>(processResult)) {
+                            if (std::get<0>(x) == "") {
+                                std::get<0>(x) = Chain::template newStorageIDAsString<Env>();
+                            }
+                        }
                         if (chain_->appendAfter(
                             currentItem_
-                            , chain_->formChainItem(
-                                newID
-                                , std::move(std::get<1>(*std::get<1>(processResult))))
+                            , chain_->formChainItems(std::move(std::get<1>(processResult)))
                         )) {
                             if (std::get<0>(processResult)) {
                                 this->IM::publish(env_, std::move(*(std::get<0>(processResult))));
                             }
                             break;
                         }
-                    } else {
-                        if (std::get<0>(processResult)) {
-                            this->IM::publish(env_, std::move(*(std::get<0>(processResult))));
+                    } else if constexpr (
+                        std::is_same_v<
+                            decltype(processResult)
+                            , std::tuple<
+                                std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+                                , std::optional<std::tuple<std::string, typename Chain::DataType>>
+                            >
+                        >
+                    ) {
+                        if (std::get<1>(processResult)) {
+                            std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
+                            if (newID == "") {
+                                newID = Chain::template newStorageIDAsString<Env>();
+                            }   
+                            if (chain_->appendAfter(
+                                currentItem_
+                                , chain_->formChainItem(
+                                    newID
+                                    , std::move(std::get<1>(*std::get<1>(processResult))))
+                            )) {
+                                if (std::get<0>(processResult)) {
+                                    this->IM::publish(env_, std::move(*(std::get<0>(processResult))));
+                                }
+                                break;
+                            }
+                        } else {
+                            if (std::get<0>(processResult)) {
+                                this->IM::publish(env_, std::move(*(std::get<0>(processResult))));
+                            }
+                            break;
                         }
-                        break;
+                    } else {
+                        throw std::runtime_error("Wrong processResult type");
                     }
                 }
             }
@@ -163,31 +195,63 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         }
                     }
                 }
-                std::tuple<
-                    typename InputHandler::ResponseType
-                    , std::optional<std::tuple<std::string, typename Chain::DataType>>
-                > processResult = inputHandler_.handleInput(data.environment, chain_, data.timedData, currentState_);
-                if (std::get<1>(processResult)) {   
-                    std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
-                    if (newID == "") {
-                        newID = Chain::template newStorageIDAsString<Env>();
+                auto processResult = inputHandler_.handleInput(data.environment, chain_, data.timedData, currentState_);
+                if constexpr (
+                    std::is_same_v<
+                        decltype(processResult)
+                        , std::tuple<
+                            typename InputHandler::ResponseType
+                            , std::vector<std::tuple<std::string, typename Chain::DataType>>
+                        >
+                    >
+                ) {
+                    for (auto &x : std::get<1>(processResult)) {
+                        if (std::get<0>(x) == "") {
+                            std::get<0>(x) = Chain::template newStorageIDAsString<Env>();
+                        }
                     }
                     if (chain_->appendAfter(
                         currentItem_
-                        , chain_->formChainItem(
-                            newID
-                            , std::move(std::get<1>(*std::get<1>(processResult))))
+                        , chain_->formChainItems(std::move(std::get<1>(processResult)))
                     )) { 
                         this->OOF::publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
                             id, std::move(std::get<0>(processResult))
                         }, true);
                         break;
                     }
+                } else if constexpr (
+                    std::is_same_v<
+                        decltype(processResult)
+                        , std::tuple<
+                            typename InputHandler::ResponseType
+                            , std::optional<std::tuple<std::string, typename Chain::DataType>>
+                        >
+                    >
+                ) {
+                    if (std::get<1>(processResult)) {   
+                        std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
+                        if (newID == "") {
+                            newID = Chain::template newStorageIDAsString<Env>();
+                        }
+                        if (chain_->appendAfter(
+                            currentItem_
+                            , chain_->formChainItem(
+                                newID
+                                , std::move(std::get<1>(*std::get<1>(processResult))))
+                        )) { 
+                            this->OOF::publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
+                                id, std::move(std::get<0>(processResult))
+                            }, true);
+                            break;
+                        }
+                    } else {
+                        this->OOF::publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
+                            id, std::move(std::get<0>(processResult))
+                        }, true);
+                        break;
+                    }
                 } else {
-                    this->OOF::publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
-                        id, std::move(std::get<0>(processResult))
-                    }, true);
-                    break;
+                    throw std::runtime_error("Wrong processResult type");
                 }
             }
         }
@@ -393,31 +457,63 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         }
                     }
                 }
-                std::tuple<
-                    typename InputHandler::ResponseType
-                    , std::optional<std::tuple<std::string, typename Chain::DataType>>
-                > processResult = inputHandler_.handleInput(data.environment, chain_, data.timedData, currentState_);
-                if (std::get<1>(processResult)) {   
-                    std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
-                    if (newID == "") {
-                        newID = Chain::template newStorageIDAsString<Env>();
-                    } 
+                auto processResult = inputHandler_.handleInput(data.environment, chain_, data.timedData, currentState_);
+                if constexpr (
+                    std::is_same_v<
+                        decltype(processResult)
+                        , std::tuple<
+                            typename InputHandler::ResponseType
+                            , std::vector<std::tuple<std::string, typename Chain::DataType>>
+                        >
+                    >
+                ) {
+                    for (auto &x : std::get<1>(processResult)) {
+                        if (std::get<0>(x) == "") {
+                            std::get<0>(x) = Chain::template newStorageIDAsString<Env>();
+                        }
+                    }
                     if (chain_->appendAfter(
                         currentItem_
-                        , chain_->formChainItem(
-                            newID
-                            , std::move(std::get<1>(*std::get<1>(processResult))))
+                        , chain_->formChainItems(std::move(std::get<1>(processResult)))
                     )) {
+                        this->publish(data.environment, typename infra::SinglePassIterationApp<Env>::template Key<typename InputHandler::ResponseType> {
+                            id, std::move(std::get<0>(processResult))
+                        }, true);
+                        break;
+                    }
+                } else if constexpr (
+                    std::is_same_v<
+                        decltype(processResult)
+                        , std::tuple<
+                            typename InputHandler::ResponseType
+                            , std::optional<std::tuple<std::string, typename Chain::DataType>>
+                        >
+                    >
+                ) {
+                    if (std::get<1>(processResult)) {   
+                        std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
+                        if (newID == "") {
+                            newID = Chain::template newStorageIDAsString<Env>();
+                        } 
+                        if (chain_->appendAfter(
+                            currentItem_
+                            , chain_->formChainItem(
+                                newID
+                                , std::move(std::get<1>(*std::get<1>(processResult))))
+                        )) {
+                            this->publish(data.environment, typename infra::SinglePassIterationApp<Env>::template Key<typename InputHandler::ResponseType> {
+                                id, std::move(std::get<0>(processResult))
+                            }, true);
+                            break;
+                        }
+                    } else {
                         this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
                             id, std::move(std::get<0>(processResult))
                         }, true);
                         break;
                     }
                 } else {
-                    this->publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
-                        id, std::move(std::get<0>(processResult))
-                    }, true);
-                    break;
+                    throw std::runtime_error("Wrong processResult type");
                 }
             }
         }
@@ -446,21 +542,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     } else {
                         currentState_ = folder_.fold(currentState_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
                     }
-                    std::tuple<
-                        std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
-                        , std::optional<std::tuple<std::string, typename Chain::DataType>>
-                    > processResult = idleLogic_.work(env_, chain_, currentState_);
-                    if (std::get<1>(processResult)) {   
-                        std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
-                        if (newID == "") {
-                            newID = Chain::template newStorageIDAsString<Env>();
-                        } 
+                    auto processResult = idleLogic_.work(env_, chain_, currentState_);
+                    if constexpr (
+                        std::is_same_v<
+                            decltype(processResult)
+                            , std::tuple<
+                                std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+                                , std::vector<std::tuple<std::string, typename Chain::DataType>>
+                            >
+                        >
+                    ) {
+                        for (auto &x : std::get<1>(processResult)) {
+                            if (std::get<0>(x) == "") {
+                                std::get<0>(x) = Chain::template newStorageIDAsString<Env>();
+                            }
+                        }
                         if (chain_->appendAfter(
-                            currentItem_
-                            , chain_->formChainItem(
-                                newID
-                                , std::move(std::get<1>(*std::get<1>(processResult))))
-                        )) {
+                                currentItem_
+                                , chain_->formChainItems(std::move(std::get<1>(processResult)))
+                            )) {
                             if (std::get<0>(processResult)) {
                                 return typename infra::SinglePassIterationApp<Env>::template InnerData<typename OffChainUpdateTypeExtractor<IdleLogic>::T> {
                                     env_
@@ -476,19 +576,57 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         } else {
                             return std::nullopt;
                         }
-                    } else {
-                        if (std::get<0>(processResult)) {
-                            return typename infra::SinglePassIterationApp<Env>::template InnerData<typename OffChainUpdateTypeExtractor<IdleLogic>::T> {
-                                env_
-                                , {
-                                    env_->resolveTime(folder_.extractTime(currentState_))
-                                    , std::move(*(std::get<0>(processResult)))
-                                    , false
+                    } else if constexpr (
+                        std::is_same_v<
+                            decltype(processResult)
+                            , std::tuple<
+                                std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+                                , std::optional<std::tuple<std::string, typename Chain::DataType>>
+                            >
+                        >
+                    ) {
+                        if (std::get<1>(processResult)) {   
+                            std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
+                            if (newID == "") {
+                                newID = Chain::template newStorageIDAsString<Env>();
+                            } 
+                            if (chain_->appendAfter(
+                                currentItem_
+                                , chain_->formChainItem(
+                                    newID
+                                    , std::move(std::get<1>(*std::get<1>(processResult))))
+                            )) {
+                                if (std::get<0>(processResult)) {
+                                    return typename infra::SinglePassIterationApp<Env>::template InnerData<typename OffChainUpdateTypeExtractor<IdleLogic>::T> {
+                                        env_
+                                        , {
+                                            env_->resolveTime(folder_.extractTime(currentState_))
+                                            , std::move(*(std::get<0>(processResult)))
+                                            , false
+                                        }
+                                    };
+                                } else {
+                                    return std::nullopt;
                                 }
-                            };
+                            } else {
+                                return std::nullopt;
+                            }
                         } else {
-                            return std::nullopt;
+                            if (std::get<0>(processResult)) {
+                                return typename infra::SinglePassIterationApp<Env>::template InnerData<typename OffChainUpdateTypeExtractor<IdleLogic>::T> {
+                                    env_
+                                    , {
+                                        env_->resolveTime(folder_.extractTime(currentState_))
+                                        , std::move(*(std::get<0>(processResult)))
+                                        , false
+                                    }
+                                };
+                            } else {
+                                return std::nullopt;
+                            }
                         }
+                    } else {
+                        throw std::runtime_error("Wrong processResult type");
                     }
                 } else {
                     return std::nullopt;
@@ -656,31 +794,63 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                             }
                         }
                     }
-                    std::tuple<
-                        std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
-                        , std::optional<std::tuple<std::string, typename Chain::DataType>>
-                    > processResult = idleLogic_.work(env_, chain_, currentState_);
-                    if (std::get<1>(processResult)) {
-                        std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
-                        if (newID == "") {
-                            newID = Chain::template newStorageIDAsString<Env>();
-                        }   
+                    auto processResult = idleLogic_.work(env_, chain_, currentState_);
+                    if constexpr (
+                        std::is_same_v<
+                            decltype(processResult)
+                            , std::tuple<
+                                std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+                                , std::vector<std::tuple<std::string, typename Chain::DataType>>
+                            >
+                        >
+                    ) {
+                        for (auto &x : std::get<1>(processResult)) {
+                            if (std::get<0>(x) == "") {
+                                std::get<0>(x) = Chain::template newStorageIDAsString<Env>();
+                            }
+                        }
                         if (chain_->appendAfter(
-                            currentItem_
-                            , chain_->formChainItem(
-                                newID
-                                , std::move(std::get<1>(*std::get<1>(processResult))))
+                                currentItem_
+                                , chain_->formChainItems(std::move(std::get<1>(processResult)))
                         )) {
                             if (std::get<0>(processResult)) {
                                 this->IM::publish(env_, std::move(*(std::get<0>(processResult))));
                             }
                             break;
                         }
-                    } else {
-                        if (std::get<0>(processResult)) {
-                            this->IM::publish(env_, std::move(*(std::get<0>(processResult))));
+                    } else if constexpr (
+                        std::is_same_v<
+                            decltype(processResult)
+                            , std::tuple<
+                                std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+                                , std::optional<std::tuple<std::string, typename Chain::DataType>>
+                            >
+                        >
+                    ) {
+                        if (std::get<1>(processResult)) {
+                            std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
+                            if (newID == "") {
+                                newID = Chain::template newStorageIDAsString<Env>();
+                            }   
+                            if (chain_->appendAfter(
+                                currentItem_
+                                , chain_->formChainItem(
+                                    newID
+                                    , std::move(std::get<1>(*std::get<1>(processResult))))
+                            )) {
+                                if (std::get<0>(processResult)) {
+                                    this->IM::publish(env_, std::move(*(std::get<0>(processResult))));
+                                }
+                                break;
+                            }
+                        } else {
+                            if (std::get<0>(processResult)) {
+                                this->IM::publish(env_, std::move(*(std::get<0>(processResult))));
+                            }
+                            break;
                         }
-                        break;
+                    } else {
+                        throw std::runtime_error("Wrong processResult type");
                     }
                 }
             }
@@ -712,31 +882,63 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         }
                     }
                 }
-                std::tuple<
-                    typename InputHandler::ResponseType
-                    , std::optional<std::tuple<std::string, typename Chain::DataType>>
-                > processResult = inputHandler_.handleInput(data.environment, chain_, data.timedData, currentState_);
-                if (std::get<1>(processResult)) {   
-                    std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
-                    if (newID == "") {
-                        newID = Chain::template newStorageIDAsString<Env>();
+                auto processResult = inputHandler_.handleInput(data.environment, chain_, data.timedData, currentState_);
+                if constexpr (
+                    std::is_same_v<
+                        decltype(processResult)
+                        , std::tuple<
+                            typename InputHandler::ResponseType
+                            , std::vector<std::tuple<std::string, typename Chain::DataType>>
+                        >
+                    >
+                ) {
+                    for (auto &x : std::get<1>(processResult)) {
+                        if (std::get<0>(x) == "") {
+                            std::get<0>(x) = Chain::template newStorageIDAsString<Env>();
+                        }
                     }
                     if (chain_->appendAfter(
                         currentItem_
-                        , chain_->formChainItem(
-                            newID
-                            , std::move(std::get<1>(*std::get<1>(processResult))))
+                        , chain_->formChainItems(std::move(std::get<1>(processResult)))
                     )) { 
                         this->OOF::publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
                             id, std::move(std::get<0>(processResult))
                         }, true);
                         break;
                     }
+                } else if constexpr (
+                    std::is_same_v<
+                        decltype(processResult)
+                        , std::tuple<
+                            typename InputHandler::ResponseType
+                            , std::optional<std::tuple<std::string, typename Chain::DataType>>
+                        >
+                    >
+                ) {
+                    if (std::get<1>(processResult)) {   
+                        std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
+                        if (newID == "") {
+                            newID = Chain::template newStorageIDAsString<Env>();
+                        }
+                        if (chain_->appendAfter(
+                            currentItem_
+                            , chain_->formChainItem(
+                                newID
+                                , std::move(std::get<1>(*std::get<1>(processResult))))
+                        )) { 
+                            this->OOF::publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
+                                id, std::move(std::get<0>(processResult))
+                            }, true);
+                            break;
+                        }
+                    } else {
+                        this->OOF::publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
+                            id, std::move(std::get<0>(processResult))
+                        }, true);
+                        break;
+                    }
                 } else {
-                    this->OOF::publish(data.environment, typename infra::RealTimeApp<Env>::template Key<typename InputHandler::ResponseType> {
-                        id, std::move(std::get<0>(processResult))
-                    }, true);
-                    break;
+                    throw std::runtime_error("Wrong processResult type");
                 }
             }
         }

@@ -72,6 +72,33 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
             return ret;
         }
+        bool appendAfter(ItemType const &current, std::vector<ItemType> &&toBeWritten) {
+            if (toBeWritten.empty()) {
+                return true;
+            }
+            if (toBeWritten.size() == 1) {
+                return appendAfter(current, std::move(toBeWritten[0]));
+            }
+            if (!current) {
+                throw InMemoryLockFreeChainException("AppendAfter on nullptr");
+            }
+            auto *first = toBeWritten[0];
+            if (!first) {
+                throw InMemoryLockFreeChainException("AppendAfter trying to append nullptr");
+            }
+            InMemoryLockFreeChainStorageItem<T> *p = nullptr;
+            bool ret = std::atomic_compare_exchange_strong<InMemoryLockFreeChainStorageItem<T> *>(
+                &(current->next)
+                , &p
+                , first
+            );
+            if (!ret) {
+                for (auto *p : toBeWritten) {
+                    delete p;
+                }
+            }
+            return ret;
+        }
         template <class Env>
         static StorageIDType newStorageID() {
             return Env::id_to_string(Env::new_id());
@@ -84,6 +111,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             return new InMemoryLockFreeChainStorageItem<T> {
                 itemID, std::move(itemData), nullptr
             };
+        }
+        static std::vector<ItemType> formChainItems(std::vector<std::tuple<StorageIDType, T>> &&itemDatas) {
+            std::vector<ItemType> ret;
+            bool first = true;
+            for (auto &&x : itemDatas) {
+                auto *p = (first?nullptr:ret.back());
+                auto *q = formChainItem(std::get<0>(x), std::move(std::get<1>(x)));
+                if (p) {
+                    p->next = q;
+                }
+                ret.push_back(q);
+                first = false;
+            }
+            return ret;
         }
         static StorageIDType extractStorageID(ItemType const &p) {
             return p->id;

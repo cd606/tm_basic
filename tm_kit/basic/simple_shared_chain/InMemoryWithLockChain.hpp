@@ -100,6 +100,35 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
             return true;
         }
+        bool appendAfter(ItemType const &current, std::vector<ItemType> &&toBeWritten) {
+            if (toBeWritten.empty()) {
+                return true;
+            }
+            if (toBeWritten.size() == 1) {
+                return appendAfter(current, std::move(toBeWritten[0]));
+            }
+            std::lock_guard<std::mutex> _(mutex_);
+            auto const &firstID = toBeWritten[0].id;
+            if (theMap_.find(firstID) != theMap_.end()) {
+                return false;
+            }
+            auto iter = theMap_.find(current.id);
+            if (iter == theMap_.end()) {
+                return false;
+            }
+            if (iter->second.nextID != "") {
+                return false;
+            }
+            iter->second.nextID = firstID;
+            for (auto &&x : toBeWritten) {
+                theMap_.insert({x.id, MapData {std::move(x.data), std::move(x.nextID)}});
+            }
+            
+            if (updateTriggerFunc_) {
+                updateTriggerFunc_();
+            }
+            return true;
+        }
         template <class ExtraData>
         void saveExtraData(std::string const &key, ExtraData const &data) {
             std::lock_guard<std::mutex> _(mutex_);
@@ -136,6 +165,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             return ItemType {
                 0, itemID, std::move(itemData), ""
             };
+        }
+        static std::vector<ItemType> formChainItems(std::vector<std::tuple<StorageIDType, T>> &&itemDatas) {
+            std::vector<ItemType> ret;
+            bool first = true;
+            for (auto &&x: itemDatas) {
+                auto *p = (first?nullptr:&(ret.back()));
+                if (p) {
+                    p->nextID = std::get<0>(x);
+                }
+                ret.push_back(formChainItem(std::get<0>(x), std::move(std::get<1>(x))));
+                first = false;
+            }
+            return ret;
         }
         static StorageIDType extractStorageID(ItemType const &p) {
             return p.id;
