@@ -1054,6 +1054,106 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     .SuggestThreaded(suggestThreaded)
             );
         }
+
+        template <class T>
+        static auto mergedImporter(std::list<typename M::template AbstractImporter<T> *> const &underlyingImporters)
+            -> std::shared_ptr<typename M::template Importer<T>>
+        {
+            if constexpr (std::is_same_v<M, infra::BasicWithTimeApp<TheEnvironment>>) {
+                return M::template vacuousImporter<T>();
+            } else if constexpr (std::is_same_v<M, infra::RealTimeApp<TheEnvironment>>) {
+                class LocalI : public M::template AbstractImporter<T>, public M::template IHandler<T> {
+                private:
+                    std::list<typename M::template AbstractImporter<T> *> underlyingImporters_;
+                public:
+                    LocalI(std::list<typename M::template AbstractImporter<T> *> const &u) : 
+#ifndef _MSC_VER
+                        M::template AbstractImporter<T>(),
+                        M::template IHandler<T>(),
+#endif
+                        underlyingImporters_(u) 
+                    {
+                    }
+                    virtual void start(TheEnvironment *env) override final {
+                        for (auto *importer : underlyingImporters_) {
+                            importer->addHandler(this);
+                            importer->start(env);
+                        }
+                    }
+                    virtual void handle(typename M::template InnerData<T> &&data) override final {
+                        this->publish(std::move(data));
+                    }
+                };
+                return M::template importer<T>(new LocalI(underlyingImporters));
+            } else if constexpr (std::is_same_v<M, infra::SinglePassIterationApp<TheEnvironment>>) {
+                class LocalI : public M::template AbstractImporter<T> {
+                private:
+                    std::list<typename M::template AbstractImporter<T> *> underlyingImporters_;
+                    using QueueItem = std::tuple<typename M::template AbstractImporter<T> *, typename M::template Data<T>>;
+                    class Comparer {
+                    public:
+                        bool operator()(QueueItem &a, QueueItem const &b) const {
+                            if (!std::get<1>(a)) {
+                                return true;
+                            }
+                            if (!std::get<1>(b)) {
+                                return false;
+                            }
+                            return (std::get<1>(a)->timedData.timePoint > std::get<1>(b)->timedData.timePoint);
+                        }
+                    };
+                    std::priority_queue<QueueItem, std::vector<QueueItem>, Comparer> queue_;
+                public:
+                    LocalI(std::list<typename M::template AbstractImporter<T> *> const &u) : 
+#ifndef _MSC_VER
+                        M::template AbstractImporter<T>(),
+#endif
+                        underlyingImporters_(u) 
+                        , queue_()
+                    {
+                    }
+                    virtual void start(TheEnvironment *env) override final {
+                        for (auto *importer : underlyingImporters_) {
+                            importer->start(env);
+                            queue_.push({importer, importer->generate((T const *) nullptr)});
+                        }
+                    }
+                    virtual typename M::template Data<T> generate(T const *notUsed=nullptr) override final {
+                        if (underlyingImporters_.empty()) {
+                            return std::nullopt;
+                        }
+                        QueueItem ret = std::move(queue_.top());
+                        queue_.pop();
+                        auto *importer = std::get<0>(ret);
+                        bool maybeFinal = (queue_.empty() || !std::get<1>(queue_.top()));
+                        if (!(std::get<1>(ret)) || !(std::get<1>(ret)->timedData.finalFlag)) {
+                            queue_.push({importer, importer->generate((T const *) nullptr)});
+                        }
+                        if (!maybeFinal) {
+                            std::get<1>(ret)->timedData.finalFlag = false;
+                        }
+                        return std::move(std::get<1>(ret));
+                    }
+                };
+                return M::template importer<T>(new LocalI(underlyingImporters));
+            } else {
+                return std::shared_ptr<typename M::template Importer<T>>();
+            }
+        }
+
+        template <class T>
+        static auto mergedImporter(std::list<std::shared_ptr<typename M::template Importer<T>>> const &underlyingImporters)
+            -> std::shared_ptr<typename M::template Importer<T>>
+        {
+            std::list<typename M::template AbstractImporter<T> *> l;
+            for (auto const &x : underlyingImporters) {
+                auto p = x->getUnderlyingPointers();
+                if (!p.empty()) {
+                    l.push_back((typename M::template AbstractImporter<T> *) *(p.begin()));
+                }
+            }
+            return mergedImporter<T>(l);
+        }
     };
 
 } } } }
