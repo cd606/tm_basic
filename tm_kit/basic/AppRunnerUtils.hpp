@@ -589,6 +589,37 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         } 
 
+        static void setupBackgroundClockAndExiter(
+            R &r
+            , typename M::TimePoint const &startTime
+            , typename M::TimePoint const &exitTime 
+            , typename M::Duration const &frequency
+            , std::function<void(TheEnvironment *)> const &wrapUpFunc
+            , std::string const &prefix) 
+        {
+            if constexpr (std::is_same_v<M, typename infra::SinglePassIterationApp<TheEnvironment>>) {
+                using ClockImporter = typename basic::AppClockHelper<M>::Importer;
+                auto backgroundClock = ClockImporter::template createRecurringClockConstImporter<basic::VoidStruct>(
+                    startTime
+                    , exitTime
+                    , frequency
+                    , basic::VoidStruct {}
+                );
+                r.registerImporter(prefix+"/backgroundClock", backgroundClock);
+                auto exiter = M::template simpleExporter<basic::VoidStruct>(
+                    [exitTime,wrapUpFunc](typename M::template InnerData<basic::VoidStruct> &&data) {
+                        data.environment->resolveTime(data.timedData.timePoint);
+                        if (data.timedData.timePoint >= exitTime) {
+                            wrapUpFunc(data.environment);
+                            data.environment->exit();
+                        }
+                    }
+                );
+                r.registerExporter(prefix+"/exiter", exiter);
+                r.exportItem(exiter, r.importItem(backgroundClock));
+            }
+        } 
+
         template <class A, class B>
         static typename R::template Pathway<A,B> singleActionPathway(
             typename R::template ActionPtr<A,B> const &action
