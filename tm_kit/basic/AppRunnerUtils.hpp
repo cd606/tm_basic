@@ -607,9 +607,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 );
                 r.registerImporter(prefix+"/backgroundClock", backgroundClock);
                 auto exiter = M::template simpleExporter<basic::VoidStruct>(
-                    [exitTime,wrapUpFunc](typename M::template InnerData<basic::VoidStruct> &&data) {
+                    [exitTime,frequency,wrapUpFunc](typename M::template InnerData<basic::VoidStruct> &&data) {
                         data.environment->resolveTime(data.timedData.timePoint);
-                        if (data.timedData.timePoint >= exitTime) {
+                        if (data.timedData.timePoint+frequency > exitTime) {
                             wrapUpFunc(data.environment);
                             data.environment->exit();
                         }
