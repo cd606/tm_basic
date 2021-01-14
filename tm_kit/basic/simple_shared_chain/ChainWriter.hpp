@@ -436,6 +436,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
             TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(data.environment, ":handle");
+            data.environment->resolveTime(data.timedData.timePoint);
             auto id = data.timedData.value.id();
             while (true) {
                 while (true) {
