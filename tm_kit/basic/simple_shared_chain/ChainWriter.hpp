@@ -425,6 +425,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , basic::VoidStruct
             , IdleLogic
         > idleLogic_;
+        typename Env::TimePointType lastIdleCheckTime_;
     protected:
         virtual void handle(typename infra::SinglePassIterationApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
             static_assert(!std::is_convertible_v<
@@ -526,46 +527,91 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
                 );
                 std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
-                if (!nextItem) {
-                    return std::nullopt;
-                }
-                currentItem_ = std::move(*nextItem);
-                auto const *dataPtr = Chain::extractData(currentItem_);
-                if (dataPtr) {
-                    if constexpr (foldInPlaceChecker(
-                        (ChainItemFolder *) nullptr
-                        , (typename ChainItemFolder::ResultType *) nullptr
-                        , (std::string_view *) nullptr
-                        , (typename Chain::DataType const *) nullptr
-                    )) {
-                        folder_.foldInPlace(currentState_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
-                    } else {
-                        currentState_ = folder_.fold(currentState_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
-                    }
-                    auto processResult = idleLogic_.work(env_, chain_, currentState_);
-                    if constexpr (
-                        std::is_same_v<
-                            decltype(processResult)
-                            , std::tuple<
-                                std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
-                                , std::vector<std::tuple<std::string, typename Chain::DataType>>
-                            >
-                        >
-                    ) {
-                        for (auto &x : std::get<1>(processResult)) {
-                            if (std::get<0>(x) == "") {
-                                std::get<0>(x) = Chain::template newStorageIDAsString<Env>();
-                            }
+                bool hasUpdate = false;
+                if (nextItem) {
+                    currentItem_ = std::move(*nextItem);
+                    auto const *dataPtr = Chain::extractData(currentItem_);
+                    if (dataPtr) {
+                        if constexpr (foldInPlaceChecker(
+                            (ChainItemFolder *) nullptr
+                            , (typename ChainItemFolder::ResultType *) nullptr
+                            , (std::string_view *) nullptr
+                            , (typename Chain::DataType const *) nullptr
+                        )) {
+                            folder_.foldInPlace(currentState_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                        } else {
+                            currentState_ = folder_.fold(currentState_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
                         }
+                        hasUpdate = true;
+                    }
+                }
+                env_->resolveTime(folder_.extractTime(currentState_));
+                auto now = env_->now();
+                if (!hasUpdate) {
+                    if (now <= lastIdleCheckTime_) {
+                        return std::nullopt;
+                    }
+                }
+                lastIdleCheckTime_ = now;
+                auto processResult = idleLogic_.work(env_, chain_, currentState_);
+                if constexpr (
+                    std::is_same_v<
+                        decltype(processResult)
+                        , std::tuple<
+                            std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+                            , std::vector<std::tuple<std::string, typename Chain::DataType>>
+                        >
+                    >
+                ) {
+                    for (auto &x : std::get<1>(processResult)) {
+                        if (std::get<0>(x) == "") {
+                            std::get<0>(x) = Chain::template newStorageIDAsString<Env>();
+                        }
+                    }
+                    if (chain_->appendAfter(
+                            currentItem_
+                            , chain_->formChainItems(std::move(std::get<1>(processResult)))
+                        )) {
+                        if (std::get<0>(processResult)) {
+                            return typename infra::SinglePassIterationApp<Env>::template InnerData<typename OffChainUpdateTypeExtractor<IdleLogic>::T> {
+                                env_
+                                , {
+                                    now
+                                    , std::move(*(std::get<0>(processResult)))
+                                    , false
+                                }
+                            };
+                        } else {
+                            return std::nullopt;
+                        }
+                    } else {
+                        return std::nullopt;
+                    }
+                } else if constexpr (
+                    std::is_same_v<
+                        decltype(processResult)
+                        , std::tuple<
+                            std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
+                            , std::optional<std::tuple<std::string, typename Chain::DataType>>
+                        >
+                    >
+                ) {
+                    if (std::get<1>(processResult)) {   
+                        std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
+                        if (newID == "") {
+                            newID = Chain::template newStorageIDAsString<Env>();
+                        } 
                         if (chain_->appendAfter(
-                                currentItem_
-                                , chain_->formChainItems(std::move(std::get<1>(processResult)))
-                            )) {
+                            currentItem_
+                            , chain_->formChainItem(
+                                newID
+                                , std::move(std::get<1>(*std::get<1>(processResult))))
+                        )) {
                             if (std::get<0>(processResult)) {
                                 return typename infra::SinglePassIterationApp<Env>::template InnerData<typename OffChainUpdateTypeExtractor<IdleLogic>::T> {
                                     env_
                                     , {
-                                        env_->resolveTime(folder_.extractTime(currentState_))
+                                        now
                                         , std::move(*(std::get<0>(processResult)))
                                         , false
                                     }
@@ -576,60 +622,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         } else {
                             return std::nullopt;
                         }
-                    } else if constexpr (
-                        std::is_same_v<
-                            decltype(processResult)
-                            , std::tuple<
-                                std::optional<typename OffChainUpdateTypeExtractor<IdleLogic>::T>
-                                , std::optional<std::tuple<std::string, typename Chain::DataType>>
-                            >
-                        >
-                    ) {
-                        if (std::get<1>(processResult)) {   
-                            std::string newID = std::move(std::get<0>(*std::get<1>(processResult)));
-                            if (newID == "") {
-                                newID = Chain::template newStorageIDAsString<Env>();
-                            } 
-                            if (chain_->appendAfter(
-                                currentItem_
-                                , chain_->formChainItem(
-                                    newID
-                                    , std::move(std::get<1>(*std::get<1>(processResult))))
-                            )) {
-                                if (std::get<0>(processResult)) {
-                                    return typename infra::SinglePassIterationApp<Env>::template InnerData<typename OffChainUpdateTypeExtractor<IdleLogic>::T> {
-                                        env_
-                                        , {
-                                            env_->resolveTime(folder_.extractTime(currentState_))
-                                            , std::move(*(std::get<0>(processResult)))
-                                            , false
-                                        }
-                                    };
-                                } else {
-                                    return std::nullopt;
-                                }
-                            } else {
-                                return std::nullopt;
-                            }
-                        } else {
-                            if (std::get<0>(processResult)) {
-                                return typename infra::SinglePassIterationApp<Env>::template InnerData<typename OffChainUpdateTypeExtractor<IdleLogic>::T> {
-                                    env_
-                                    , {
-                                        env_->resolveTime(folder_.extractTime(currentState_))
-                                        , std::move(*(std::get<0>(processResult)))
-                                        , false
-                                    }
-                                };
-                            } else {
-                                return std::nullopt;
-                            }
-                        }
                     } else {
-                        throw std::runtime_error("Wrong processResult type");
+                        if (std::get<0>(processResult)) {
+                            return typename infra::SinglePassIterationApp<Env>::template InnerData<typename OffChainUpdateTypeExtractor<IdleLogic>::T> {
+                                env_
+                                , {
+                                    now
+                                    , std::move(*(std::get<0>(processResult)))
+                                    , false
+                                }
+                            };
+                        } else {
+                            return std::nullopt;
+                        }
                     }
                 } else {
-                    return std::nullopt;
+                    throw std::runtime_error("Wrong processResult type");
                 }
             }
             return std::nullopt;
@@ -657,6 +665,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , currentState_() 
             , env_(nullptr)
             , idleLogic_(std::move(idleLogic))
+            , lastIdleCheckTime_()
         {}
         virtual ~ChainWriter() {
         }
