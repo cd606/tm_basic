@@ -100,6 +100,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
+            static auto filterUpdateChecker = boost::hana::is_valid(
+                [](auto *f, auto const *id, auto const *data) -> decltype((void) (f->filterUpdate(*id, *data))) {}
+            );
             static constexpr bool UsesPartialHistory = 
                 std::is_convertible_v<
                     ChainItemFolder *, FolderUsingPartialHistoryInformation *
@@ -116,6 +119,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         auto const *dataPtr = Chain::extractData(currentItem_);
                         if (dataPtr) {
                             hasData = true;
+                            if constexpr (filterUpdateChecker(
+                                (ChainItemFolder *) nullptr
+                                , (std::string_view *) nullptr
+                                , (typename Chain::DataType const *) nullptr
+                            )) {
+                                if (!folder_.filterUpdate(Chain::extractStorageIDStringView(currentItem_), *dataPtr)) {
+                                    continue;
+                                }
+                            }
                             if constexpr (foldInPlaceChecker(
                                 (ChainItemFolder *) nullptr
                                 , (typename ChainItemFolder::ResultType *) nullptr
@@ -250,12 +262,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
+            static auto filterUpdateChecker = boost::hana::is_valid(
+                [](auto *f, auto const *id, auto const *data) -> decltype((void) (f->filterUpdate(*id, *data))) {}
+            );
             TM_INFRA_IMPORTER_TRACER(env_);
             std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
             if (nextItem) {
                 currentItem_ = std::move(*nextItem);
                 auto const *dataPtr = Chain::extractData(currentItem_);
                 if (dataPtr) {
+                    if constexpr (filterUpdateChecker(
+                        (ChainItemFolder *) nullptr
+                        , (std::string_view *) nullptr
+                        , (typename Chain::DataType const *) nullptr
+                    )) {
+                        if (!folder_.filterUpdate(Chain::extractStorageIDStringView(currentItem_), *dataPtr)) {
+                            return std::nullopt;
+                        }
+                    }
                     if constexpr (foldInPlaceChecker(
                         (ChainItemFolder *) nullptr
                         , (typename ChainItemFolder::ResultType *) nullptr
@@ -299,6 +323,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
+            static auto filterUpdateChecker = boost::hana::is_valid(
+                [](auto *f, auto const *id, auto const *data) -> decltype((void) (f->filterUpdate(*id, *data))) {}
+            );
             static constexpr bool UsesPartialHistory = 
                 std::is_convertible_v<
                     ChainItemFolder *, FolderUsingPartialHistoryInformation *
@@ -311,15 +338,26 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 auto const *dataPtr = Chain::extractData(currentItem_);
                 if (dataPtr) {
                     hasData = true;
-                    if constexpr (foldInPlaceChecker(
+                    if constexpr (filterUpdateChecker(
                         (ChainItemFolder *) nullptr
-                        , (typename ChainItemFolder::ResultType *) nullptr
                         , (std::string_view *) nullptr
                         , (typename Chain::DataType const *) nullptr
                     )) {
-                        folder_.foldInPlace(currentValue_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
-                    } else {
-                        currentValue_ = folder_.fold(currentValue_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                        if (!folder_.filterUpdate(Chain::extractStorageIDStringView(currentItem_), *dataPtr)) {
+                            hasData = false;
+                        }
+                    }
+                    if (hasData) {
+                        if constexpr (foldInPlaceChecker(
+                            (ChainItemFolder *) nullptr
+                            , (typename ChainItemFolder::ResultType *) nullptr
+                            , (std::string_view *) nullptr
+                            , (typename Chain::DataType const *) nullptr
+                        )) {
+                            folder_.foldInPlace(currentValue_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                        } else {
+                            currentValue_ = folder_.fold(currentValue_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                        }
                     }
                 }
             }
