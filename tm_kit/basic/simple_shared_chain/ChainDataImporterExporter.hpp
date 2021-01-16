@@ -66,6 +66,65 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         return r.actionAsSink(keyify);
     }
 
+    template <class R, template <class M> class ChainCreator, class ChainData>
+    inline typename R::template Source<ChainData> setupChainTranscriber(
+        R &r 
+        , ChainCreator<typename R::AppType> &chainCreator
+        , std::string const &inputChainDescriptor
+        , std::string const &outputChainDescriptor
+        , std::function<typename R::AppType::TimePoint(ChainData const &)> const &timestampExtractor
+        , std::string const &prefix
+    ) {
+        class AugmentedTrivialChainDataFolder : public TrivialChainDataFetchingFolder<ChainData> {
+        private:
+            std::function<typename R::AppType::TimePoint(ChainData const &)> timestampExtractor_;
+        public:
+            AugmentedTrivialChainDataFolder(std::function<typename R::AppType::TimePoint(ChainData const &)> const &timestampExtractor) : timestampExtractor_(timestampExtractor) {}
+            typename R::AppType::TimePoint extractTime(std::optional<ChainData> const &st) {
+                if (st) {
+                    return timestampExtractor_(*st);
+                } else {
+                    return typename R::AppType::TimePoint {};
+                }
+            }
+        };
+
+        auto chainDataSource = createChainDataSource<
+            R, ChainData
+        >(
+            r 
+            , chainCreator.template readerFactory<
+                ChainData
+                , AugmentedTrivialChainDataFolder
+            >(
+                r.environment()
+                , inputChainDescriptor
+                , ChainPollingPolicy()
+                , AugmentedTrivialChainDataFolder(timestampExtractor)
+            )
+            , prefix+"/input_chain"
+        );
+
+        auto chainDataSink = createChainDataSink<
+            R, ChainData
+        >(
+            r 
+            , chainCreator.template writerFactory<
+                ChainData
+                , EmptyStateChainFolder
+                , SimplyPlaceOnChainInputHandler<ChainData>
+            >(
+                r.environment()
+                , outputChainDescriptor
+            )
+            , prefix+"/output_chain"
+        );
+
+        r.connect(chainDataSource.clone(), chainDataSink);
+
+        return chainDataSource.clone();
+    }
+
 } } } } }
 
 #endif
