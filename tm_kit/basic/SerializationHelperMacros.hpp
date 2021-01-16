@@ -7,7 +7,15 @@
 #include <boost/preprocessor/punctuation/comma_if.hpp>
 #include <boost/preprocessor/arithmetic/sub.hpp>
 
+#include <boost/version.hpp>
+
 #include <tm_kit/basic/PrintHelper.hpp>
+
+#if BOOST_VERSION >= 107500
+    #define TM_SERIALIZATION_HELPER_COMMA_START_POS 1
+#else
+    #define TM_SERIALIZATION_HELPER_COMMA_START_POS 2
+#endif
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils {
     //This implementation of type with parenthesis is from
@@ -39,11 +47,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
     struct name {};
 
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST_ITEM(r, data, elem) \
-    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) BOOST_PP_TUPLE_ELEM(0,elem) BOOST_PP_TUPLE_ELEM(1,elem)
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) BOOST_PP_TUPLE_ELEM(0,elem) BOOST_PP_TUPLE_ELEM(1,elem)
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams) \
     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST_ITEM,_,templateParams)
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST_ITEM(r, data, elem) \
-    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) BOOST_PP_TUPLE_ELEM(1,elem)
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) BOOST_PP_TUPLE_ELEM(1,elem)
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams) \
     BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST_ITEM,_,templateParams)
 
@@ -115,23 +123,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
     }
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR(r, data, elem) \
-    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) \
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem)) const *
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE(r, data, elem) \
-    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) \
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem))
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_PTRS(r, data, elem) \
-    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) \
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) \
     &(x.BOOST_PP_TUPLE_ELEM(1,elem))
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_NAMES(r, data, elem) \
-    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) \
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) \
     BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(1,elem))
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_MOVE_VALUE(r, data, elem) \
-    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) \
-    std::move(std::get<BOOST_PP_SUB(r,2)>(std::get<0>(*t)))
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) \
+    std::move(std::get<BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)>(std::get<0>(*t)))
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_MOVE_VALUE_PLAIN(r, data, elem) \
-    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) \
-    std::move(std::get<BOOST_PP_SUB(r,2)>(*t))
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) \
+    std::move(std::get<BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)>(*t))
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_ENCODE(name, content) \
     namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
@@ -718,7 +726,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 //you don't need these macros
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_ITEM_DEF(r, data, elem) \
-    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) elem
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) elem
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_DEF(name, items) \
     enum class name { \
@@ -726,7 +734,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
     };
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_ARRAY_ITEM(r, data, elem) \
-    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) BOOST_PP_STRINGIZE(elem)
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) BOOST_PP_STRINGIZE(elem)
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_PRINT(name, items) \
     inline std::ostream &operator<<(std::ostream &os, name const &x) { \
@@ -763,7 +771,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
     } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_MAP_ITEM(r, data, elem) \
-    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) { BOOST_PP_STRINGIZE(elem), data::elem }
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) { BOOST_PP_STRINGIZE(elem), data::elem }
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_DECODE(name, items) \
     namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
@@ -802,7 +810,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
     } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ITEM_DEF(r, data, elem) \
-    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) BOOST_PP_TUPLE_ELEM(0,elem)
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) BOOST_PP_TUPLE_ELEM(0,elem)
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_DEF(name, items) \
     enum class name { \
@@ -810,7 +818,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
     };
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ARRAY_ITEM(r, data, elem) \
-    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) BOOST_PP_TUPLE_ELEM(1,elem)
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) BOOST_PP_TUPLE_ELEM(1,elem)
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_PRINT(name, items) \
     inline std::ostream &operator<<(std::ostream &os, name const &x) { \
@@ -847,7 +855,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
     } } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_MAP_ITEM(r, data, elem) \
-    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,2)) { BOOST_PP_TUPLE_ELEM(1,elem), data::BOOST_PP_TUPLE_ELEM(0,elem) }
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) { BOOST_PP_TUPLE_ELEM(1,elem), data::BOOST_PP_TUPLE_ELEM(0,elem) }
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_DECODE(name, items) \
     namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
