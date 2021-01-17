@@ -30,7 +30,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
 
-        template <class ChainItemFolder, class TriggerT, class Chain, class ResultTransformer>
+        template <class ChainItemFolder, class TriggerT, class ResultTransformer, class Chain>
         inline auto chainReaderHelper(
             typename App::EnvironmentType *env
             , Chain *chain 
