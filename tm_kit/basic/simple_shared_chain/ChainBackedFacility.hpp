@@ -40,6 +40,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         , ChainReaderImporterFactory<
             typename R::AppType
             , TrivialChainDataFetchingFolder<ChainData>
+            , void
         > chainReaderFactory
         , std::shared_ptr<IDAndFinalFlagExtractor> const &idAndFinalFlagExtractor
         , std::string const &prefix

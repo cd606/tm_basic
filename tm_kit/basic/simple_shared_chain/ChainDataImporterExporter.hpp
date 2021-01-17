@@ -16,6 +16,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         , ChainReaderImporterFactory<
             typename R::AppType 
             , TrivialChainDataFetchingFolder<ChainData>
+            , void
         > chainReaderFactory
         , std::string const &prefix
     ) {

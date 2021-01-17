@@ -9,18 +9,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
     template <class Env>
     class BasicWithTimeAppChainFactories {
     public:
-        template <class ChainItemFolder, class TriggerT>
-        static ChainReaderActionFactory<infra::BasicWithTimeApp<Env>, ChainItemFolder, TriggerT>
+        template <class ChainItemFolder, class TriggerT, class ResultTransformer>
+        static ChainReaderActionFactory<infra::BasicWithTimeApp<Env>, ChainItemFolder, TriggerT, ResultTransformer>
         chainReaderActionFactory() {
             return []() {
-                return infra::BasicWithTimeApp<Env>::template emptyAction<TriggerT, typename ChainItemFolder::ResultType>();
+                return infra::BasicWithTimeApp<Env>::template emptyAction<TriggerT, std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>>();
             };
         }
-        template <class ChainItemFolder>
-        static ChainReaderImporterFactory<infra::BasicWithTimeApp<Env>, ChainItemFolder>
+        template <class ChainItemFolder, class ResultTransformer>
+        static ChainReaderImporterFactory<infra::BasicWithTimeApp<Env>, ChainItemFolder, ResultTransformer>
         chainReaderImporterFactory() {
             return []() {
-                return infra::BasicWithTimeApp<Env>::template vacuousImporter<typename ChainItemFolder::ResultType>();
+                return infra::BasicWithTimeApp<Env>::template vacuousImporter<std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>>();
             };
         }
         template <class ChainItemFolder, class InputHandler, class IdleLogic>
@@ -45,18 +45,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
     template <class Env>
     class BasicWithTimeAppChainCreator<infra::BasicWithTimeApp<Env>> {
     public:
-        template <class ChainData, class ChainItemFolder, class TriggerT=void>
-        static auto readerFactory(Env *, std::string const &, simple_shared_chain::ChainPollingPolicy const &pollingPolicy = simple_shared_chain::ChainPollingPolicy(), ChainItemFolder &&=ChainItemFolder())
+        template <class ChainData, class ChainItemFolder, class TriggerT=void, class ResultTransformer=void>
+        static auto readerFactory(Env *, std::string const &, simple_shared_chain::ChainPollingPolicy const &pollingPolicy = simple_shared_chain::ChainPollingPolicy(), ChainItemFolder &&=ChainItemFolder(), std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>())
             -> std::conditional_t<
                 std::is_same_v<TriggerT, void>
-                , ChainReaderImporterFactory<infra::BasicWithTimeApp<Env>, ChainItemFolder>
-                , ChainReaderActionFactory<infra::BasicWithTimeApp<Env>, ChainItemFolder, TriggerT>
+                , ChainReaderImporterFactory<infra::BasicWithTimeApp<Env>, ChainItemFolder, ResultTransformer>
+                , ChainReaderActionFactory<infra::BasicWithTimeApp<Env>, ChainItemFolder, TriggerT, ResultTransformer>
             >
         {
             if constexpr (std::is_same_v<TriggerT, void>) {
-                return BasicWithTimeAppChainFactories<Env>::template chainReaderImporterFactory<ChainItemFolder>();
+                return BasicWithTimeAppChainFactories<Env>::template chainReaderImporterFactory<ChainItemFolder, ResultTransformer>();
             } else {
-                return BasicWithTimeAppChainFactories<Env>::template chainReaderActionFactory<ChainItemFolder, TriggerT>();
+                return BasicWithTimeAppChainFactories<Env>::template chainReaderActionFactory<ChainItemFolder, TriggerT, ResultTransformer>();
             }
         }
         template <class ChainData, class ChainItemFolder, class InputHandler, class IdleLogic=void>

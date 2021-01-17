@@ -13,7 +13,19 @@
 #include <boost/hana/type.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace simple_shared_chain {
-    template <class App, class Chain, class ChainItemFolder, class TriggerT=VoidStruct>
+
+    template <class T>
+    class ResultTypeExtractor {
+    public:
+        using TheType = typename T::ResultType;
+    };
+    template <>
+    class ResultTypeExtractor<void> {
+    public:
+        using TheType = VoidStruct;
+    };
+
+    template <class App, class Chain, class ChainItemFolder, class TriggerT=VoidStruct, class ResultTransformer=void>
     class ChainReader {
     private:
         using Env = typename App::EnvironmentType;
@@ -21,12 +33,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         typename Chain::ItemType currentItem_;
         ChainItemFolder folder_;
         typename ChainItemFolder::ResultType currentValue_;
+        std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> resultTransformer_;
+        using OutputType = std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>;
     public:
-        ChainReader(Env *env, Chain *chain, ChainItemFolder &&folder=ChainItemFolder {}) : 
+        ChainReader(Env *env, Chain *chain, ChainItemFolder &&folder=ChainItemFolder {}, std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()) : 
             chain_(chain)
             , currentItem_()
             , folder_(std::move(folder))
             , currentValue_(folder_.initialize(env, chain)) 
+            , resultTransformer_(std::move(resultTransformer))
         {
             static auto checker = boost::hana::is_valid(
                 [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
@@ -46,7 +61,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainReader &operator=(ChainReader const &) = delete;
         ChainReader(ChainReader &&) = default;
         ChainReader &operator=(ChainReader &&) = default;
-        typename std::optional<typename ChainItemFolder::ResultType> operator()(TriggerT &&) {
+        typename std::optional<OutputType> operator()(TriggerT &&) {
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
@@ -73,20 +88,28 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 }
             }
             if (hasNew) {
-                return {currentValue_};
+                if constexpr (std::is_same_v<ResultTransformer, void>) {
+                    return {currentValue_};
+                } else {
+                    return {resultTransformer_.transform(currentValue_)};
+                }
             } else {
                 return std::nullopt;
             }
         }
-        static std::shared_ptr<typename App::template Action<TriggerT, typename ChainItemFolder::ResultType>> action(Env *env, Chain *chain, ChainItemFolder &&folder=ChainItemFolder {}) {
-            return App::template liftMaybe<TriggerT>(ChainReader(env, chain, std::move(folder)));
+        static std::shared_ptr<typename App::template Action<TriggerT, OutputType>> action(Env *env, Chain *chain, ChainItemFolder &&folder=ChainItemFolder {}, std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()) {
+            return App::template liftMaybe<TriggerT>(ChainReader(env, chain, std::move(folder), std::move(resultTransformer)));
         }
     };
 
-    template <class Env, class Chain, class ChainItemFolder>
-    class ChainReader<infra::RealTimeApp<Env>,Chain,ChainItemFolder,void> final
-        : public infra::RealTimeApp<Env>::template AbstractImporter<typename ChainItemFolder::ResultType> {
+    template <class Env, class Chain, class ChainItemFolder, class ResultTransformer>
+    class ChainReader<infra::RealTimeApp<Env>,Chain,ChainItemFolder,void,ResultTransformer> final
+        : public infra::RealTimeApp<Env>::template AbstractImporter<
+            std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>
+          > {
     private:
+        using OutputType = std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>;
+        
         const bool callbackPerUpdate_;
         const bool busyLoop_;
         const bool noYield_;
@@ -94,6 +117,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         typename Chain::ItemType currentItem_;
         ChainItemFolder folder_;
         typename ChainItemFolder::ResultType currentValue_;
+        std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> resultTransformer_;
         bool running_;
         std::thread th_;
         void run(Env *env) {
@@ -139,10 +163,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                                 currentValue_ = folder_.fold(currentValue_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
                             }
                             if constexpr (UsesPartialHistory) {
-                                this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
+                                if constexpr (std::is_same_v<ResultTransformer, void>) {
+                                    this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
+                                } else {
+                                    this->publish(env, resultTransformer_.transform(currentValue_));
+                                }
                             } else {
                                 if (callbackPerUpdate_) {
-                                    this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
+                                    if constexpr (std::is_same_v<ResultTransformer, void>) {
+                                        this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
+                                    } else {
+                                        this->publish(env, resultTransformer_.transform(currentValue_));
+                                    }
                                 }
                             }
                         }
@@ -151,7 +183,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 if constexpr (!UsesPartialHistory) {
                     if (!callbackPerUpdate_) {
                         if (hasData) {
-                            this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
+                            if constexpr (std::is_same_v<ResultTransformer, void>) {
+                                this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
+                            } else {
+                                this->publish(env, resultTransformer_.transform(currentValue_));
+                            }
                         }
                     }
                 }
@@ -165,7 +201,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
     public:
-        ChainReader(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}) :
+        ChainReader(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}, std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()) :
             callbackPerUpdate_(pollingPolicy.callbackPerUpdate)
             , busyLoop_(pollingPolicy.busyLoop)
             , noYield_(pollingPolicy.noYield)
@@ -173,6 +209,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , currentItem_()
             , folder_(std::move(folder))
             , currentValue_()
+            , resultTransformer_(std::move(resultTransformer))
             , running_(false)
             , th_()
         {}
@@ -205,8 +242,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
             th_ = std::thread(&ChainReader::run, this, env);
         }
-        static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}) {
-            return infra::RealTimeApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain, pollingPolicy, std::move(folder)));
+        static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<OutputType>> importer(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}, std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()) {
+            return infra::RealTimeApp<Env>::template importer<OutputType>(new ChainReader(chain, pollingPolicy, std::move(folder), std::move(resultTransformer)));
         }
     };
 
@@ -214,22 +251,28 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
     //have the callbackPerUpdate option
     //also, in SinglePassIteration, the extractTime call must be there to provide
     //the timestamp of update
-    template <class Env, class Chain, class ChainItemFolder>
-    class ChainReader<infra::SinglePassIterationApp<Env>,Chain,ChainItemFolder,void> final
-        : public infra::SinglePassIterationApp<Env>::template AbstractImporter<typename ChainItemFolder::ResultType> {
+    template <class Env, class Chain, class ChainItemFolder, class ResultTransformer>
+    class ChainReader<infra::SinglePassIterationApp<Env>,Chain,ChainItemFolder,void,ResultTransformer> final
+        : public infra::SinglePassIterationApp<Env>::template AbstractImporter<
+            std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>
+          > {
     private:
+        using OutputType = std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>;
+
         Env *env_;
         Chain *chain_;
         typename Chain::ItemType currentItem_;
         ChainItemFolder folder_;
         typename ChainItemFolder::ResultType currentValue_;
+        std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> resultTransformer_;
     public:
-        ChainReader(Chain *chain, ChainItemFolder &&folder=ChainItemFolder {}) :
+        ChainReader(Chain *chain, ChainItemFolder &&folder=ChainItemFolder {}, std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()) :
             env_(nullptr)
             , chain_(chain)
             , currentItem_()
             , folder_(std::move(folder))
             , currentValue_()
+            , resultTransformer_(std::move(resultTransformer))
         {}
         ~ChainReader() {}
         ChainReader(ChainReader const &) = delete;
@@ -290,14 +333,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     } else {
                         currentValue_ = folder_.fold(currentValue_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
                     }
-                    return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
-                        env_
-                        , {
-                            env_->resolveTime(folder_.extractTime(currentValue_))
-                            , infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_)
-                            , false
-                        }
-                    };
+                    if constexpr (std::is_same_v<ResultTransformer, void>) {
+                        return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
+                            env_
+                            , {
+                                env_->resolveTime(folder_.extractTime(currentValue_))
+                                , infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_)
+                                , false
+                            }
+                        };
+                    } else {
+                        return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
+                            env_
+                            , {
+                                env_->resolveTime(folder_.extractTime(currentValue_))
+                                , resultTransformer_.transform(currentValue_)
+                                , false
+                            }
+                        };
+                    }
                 } else {
                     return std::nullopt;
                 }
@@ -305,20 +359,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 return std::nullopt;
             }
         }
-        static std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain, ChainPollingPolicy const &notUsed=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}) {
-            return infra::SinglePassIterationApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain, std::move(folder)));
+        static std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template Importer<OutputType>> importer(Chain *chain, ChainPollingPolicy const &notUsed=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}, std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()) {
+            return infra::SinglePassIterationApp<Env>::template importer<OutputType>(new ChainReader(chain, std::move(folder), std::move(resultTransformer)));
         }
     };
 
     //This whole thing is just for compilation check, the logic will never be run
-    template <class Env, class Chain, class ChainItemFolder>
-    class ChainReader<infra::BasicWithTimeApp<Env>,Chain,ChainItemFolder,void> final
-        : public infra::BasicWithTimeApp<Env>::template AbstractImporter<typename ChainItemFolder::ResultType> {
+    template <class Env, class Chain, class ChainItemFolder, class ResultTransformer>
+    class ChainReader<infra::BasicWithTimeApp<Env>,Chain,ChainItemFolder,void,ResultTransformer> final
+        : public infra::BasicWithTimeApp<Env>::template AbstractImporter<
+            std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>
+          > {
     private:
+        using OutputType = std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>;
+
         Chain *chain_;
         typename Chain::ItemType currentItem_;
         ChainItemFolder folder_;
         typename ChainItemFolder::ResultType currentValue_;
+        std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> resultTransformer_;
         void run(Env *env) {
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
@@ -366,11 +425,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
     public:
-        ChainReader(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}) :
+        ChainReader(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}, std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()) :
             chain_(chain)
             , currentItem_()
             , folder_(std::move(folder))
             , currentValue_()
+            , resultTransformer_(std::move(resultTransformer))
         {}
         ~ChainReader() {
         }
@@ -395,8 +455,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 currentItem_ = chain_->head(env);
             }
         }
-        static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<typename ChainItemFolder::ResultType>> importer(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}) {
-            return infra::BasicWithTimeApp<Env>::template importer<typename ChainItemFolder::ResultType>(new ChainReader(chain, pollingPolicy, std::move(folder)));
+        static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<OutputType>> importer(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}, std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()) {
+            return infra::BasicWithTimeApp<Env>::template importer<OutputType>(new ChainReader(chain, pollingPolicy, std::move(folder), std::move(resultTransformer)));
         }
     };
 
@@ -497,14 +557,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         {}
     };
 
-    template <class App, class ChainItemFolder, class TriggerT>
+    template <class App, class ChainItemFolder, class TriggerT, class ResultTransformer>
     using ChainReaderActionFactory = std::function<
-        std::shared_ptr<typename App::template Action<TriggerT, typename ChainItemFolder::ResultType>>(
+        std::shared_ptr<typename App::template Action<TriggerT, std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>>>(
         )
     >;
-    template <class App, class ChainItemFolder>
+    template <class App, class ChainItemFolder, class ResultTransformer>
     using ChainReaderImporterFactory = std::function<
-        std::shared_ptr<typename App::template Importer<typename ChainItemFolder::ResultType>>(
+        std::shared_ptr<typename App::template Importer<std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>>>(
         )
     >;
 } } } } }
