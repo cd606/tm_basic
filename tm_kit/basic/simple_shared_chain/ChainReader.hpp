@@ -297,7 +297,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 currentItem_ = chain_->head(env);
             }
         }
-        virtual typename infra::SinglePassIterationApp<Env>::template Data<typename ChainItemFolder::ResultType> generate(typename ChainItemFolder::ResultType const *notUsed=nullptr) override final {
+        virtual typename infra::SinglePassIterationApp<Env>::template Data<OutputType> generate(typename ChainItemFolder::ResultType const *notUsed=nullptr) override final {
             static constexpr bool UsesPartialHistory = 
                 std::is_convertible_v<
                     ChainItemFolder *, FolderUsingPartialHistoryInformation *
