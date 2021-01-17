@@ -332,7 +332,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             return [this,env,descriptor,pollingPolicy,f=std::move(f),t=std::move(t)]() {
                 auto f1 = std::move(f);
                 auto t1 = std::move(t);
-                return reader<ChainData,ChainItemFolder,TriggerT>(
+                return reader<ChainData,ChainItemFolder,TriggerT,ResultTransformer>(
                     env, descriptor, pollingPolicy, std::move(f1), std::move(t1)
                 );
             };
