@@ -343,7 +343,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                             }
                         };
                     } else {
-                        return typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
+                        return typename infra::SinglePassIterationApp<Env>::template InnerData<OutputType> {
                             env_
                             , {
                                 env_->resolveTime(folder_.extractTime(currentValue_))
