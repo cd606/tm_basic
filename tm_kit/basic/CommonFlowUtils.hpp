@@ -1055,8 +1055,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         }
 
-        template <class T>
-        static auto mergedImporter(std::list<typename M::template AbstractImporter<T> *> const &underlyingImporters)
+        template <class T, class Comparer=void>
+        static auto mergedImporter(
+            std::list<typename M::template AbstractImporter<T> *> const &underlyingImporters
+            , std::conditional_t<std::is_same_v<Comparer, void>, bool, Comparer> const &comparer = std::conditional_t<std::is_same_v<Comparer, void>, bool, Comparer>()
+        )
             -> std::shared_ptr<typename M::template Importer<T>>
         {
             if constexpr (std::is_same_v<M, infra::BasicWithTimeApp<TheEnvironment>>) {
@@ -1090,8 +1093,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 private:
                     std::list<typename M::template AbstractImporter<T> *> underlyingImporters_;
                     using QueueItem = std::tuple<typename M::template AbstractImporter<T> *, typename M::template Data<T>>;
-                    class Comparer {
+                    class ActualComparer {
+                    private:
+                        std::conditional_t<std::is_same_v<Comparer, void>, bool, Comparer> comparer_;
                     public:
+                        ActualComparer() : comparer_() {}
+                        ActualComparer(std::conditional_t<std::is_same_v<Comparer, void>, bool, Comparer> const &comparer) : comparer_(comparer) {}
                         bool operator()(QueueItem &a, QueueItem const &b) const {
                             if (!std::get<1>(a)) {
                                 return true;
@@ -1099,17 +1106,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                             if (!std::get<1>(b)) {
                                 return false;
                             }
-                            return (std::get<1>(a)->timedData.timePoint > std::get<1>(b)->timedData.timePoint);
+                            if constexpr (std::is_same_v<Comparer, void>) {
+                                return (std::get<1>(a)->timedData.timePoint > std::get<1>(b)->timedData.timePoint);
+                            } else {
+                                auto tp1 = std::get<1>(a)->timedData.timePoint;
+                                auto tp2 = std::get<1>(b)->timedData.timePoint;
+                                if (tp1 > tp2) {
+                                    return true;
+                                }
+                                if (tp1 < tp2) {
+                                    return false;
+                                }
+                                return comparer_(std::get<1>(a)->timedData.value, std::get<1>(b)->timedData.value);
+                            }
                         }
                     };
-                    std::priority_queue<QueueItem, std::vector<QueueItem>, Comparer> queue_;
+                    std::priority_queue<QueueItem, std::vector<QueueItem>, ActualComparer> queue_;
                 public:
-                    LocalI(std::list<typename M::template AbstractImporter<T> *> const &u) : 
+                    LocalI(std::list<typename M::template AbstractImporter<T> *> const &u, std::conditional_t<std::is_same_v<Comparer, void>, bool, Comparer> const &comparer) : 
 #ifndef _MSC_VER
                         M::template AbstractImporter<T>(),
 #endif
                         underlyingImporters_(u) 
-                        , queue_()
+                        , queue_(ActualComparer(comparer))
                     {
                     }
                     virtual void start(TheEnvironment *env) override final {
