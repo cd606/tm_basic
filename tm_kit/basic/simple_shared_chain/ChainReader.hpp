@@ -38,7 +38,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ~SaveDataOnChain() = default;
         void operator()(std::string const &key, T const &data) const {
             if constexpr (Chain::SupportsExtraData) {
-                chain_->saveExtraData<T>(key, data);
+                chain_->template saveExtraData<T>(key, data);
             }
         }
     };
