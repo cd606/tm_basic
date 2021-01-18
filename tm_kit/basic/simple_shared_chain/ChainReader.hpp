@@ -25,6 +25,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         using TheType = VoidStruct;
     };
 
+    template <class Chain, class T>
+    class SaveDataOnChain {
+    private:
+        Chain *chain_;
+    public:
+        SaveDataOnChain(Chain *chain) : chain_(chain) {}
+        SaveDataOnChain(SaveDataOnChain const &) = default;
+        SaveDataOnChain(SaveDataOnChain &&) = default;
+        SaveDataOnChain &operator=(SaveDataOnChain const &) = default;
+        SaveDataOnChain &operator=(SaveDataOnChain &&) = default;
+        ~SaveDataOnChain() = default;
+        void operator()(std::string const &key, T const &data) const {
+            if constexpr (Chain::SupportsExtraData) {
+                chain_->saveExtraData<T>(key, data);
+            }
+        }
+    };
+
     template <class App, class Chain, class ChainItemFolder, class TriggerT=VoidStruct, class ResultTransformer=void>
     class ChainReader {
     private:
@@ -35,6 +53,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         typename ChainItemFolder::ResultType currentValue_;
         std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> resultTransformer_;
         using OutputType = std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>;
+
+        SaveDataOnChain<Chain, typename ChainItemFolder::ResultType> stateSaver_;
     public:
         ChainReader(Env *env, Chain *chain, ChainItemFolder &&folder=ChainItemFolder {}, std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()) : 
             chain_(chain)
@@ -42,10 +62,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , folder_(std::move(folder))
             , currentValue_(folder_.initialize(env, chain)) 
             , resultTransformer_(std::move(resultTransformer))
+            , stateSaver_(chain)
         {
             static auto checker = boost::hana::is_valid(
                 [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
+
+            currentValue_ = folder_.initialize(env, chain_); 
+            
             if constexpr (checker(
                 (Chain *) nullptr
                 , (ChainItemFolder *) nullptr
@@ -65,8 +89,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
-            static auto twoParamTransformChecker = boost::hana::is_valid(
-                [](auto *f, auto const *v, auto *data) -> decltype((void) (f->transform(*v, std::move(*data)))) {}
+            static auto threeParamTransformChecker = boost::hana::is_valid(
+                [](auto *f, auto const *s, auto const *v, auto *data) -> decltype((void) (f->transform(*s, *v, std::move(*data)))) {}
             );
             bool hasNew = false;
             while (true) {
@@ -94,28 +118,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 if constexpr (std::is_same_v<ResultTransformer, void>) {
                     return {currentValue_};
                 } else {
-                    if constexpr (twoParamTransformChecker(
+                    if constexpr (threeParamTransformChecker(
                         (ResultTransformer *) nullptr
+                        , (SaveDataOnChain<Chain, typename ChainItemFolder::ResultType> const *) nullptr
                         , (typename ChainItemFolder::ResultType const *) nullptr
                         , (TriggerT *) nullptr
                     )) {
-                        return {resultTransformer_.transform(currentValue_, std::move(triggerData))};
+                        return {resultTransformer_.transform(stateSaver_, currentValue_, std::move(triggerData))};
                     } else {
-                        return {resultTransformer_.transform(currentValue_)};
+                        return {resultTransformer_.transform(stateSaver_, currentValue_)};
                     }
                 }
             } else {
                 if constexpr (std::is_same_v<ResultTransformer, void>) {
                     return std::nullopt;
                 } else {
-                    if constexpr (twoParamTransformChecker(
+                    if constexpr (threeParamTransformChecker(
                         (ResultTransformer *) nullptr
+                        , (SaveDataOnChain<Chain, typename ChainItemFolder::ResultType> const *) nullptr
                         , (typename ChainItemFolder::ResultType const *) nullptr
                         , (TriggerT *) nullptr
                     )) {
-                        return {resultTransformer_.transform(currentValue_, std::move(triggerData))};
+                        return {resultTransformer_.transform(stateSaver_, currentValue_, std::move(triggerData))};
                     } else {
-                        return {resultTransformer_.transform(currentValue_)};
+                        return {resultTransformer_.transform(stateSaver_, currentValue_)};
                     }
                 }
             }
@@ -143,6 +169,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> resultTransformer_;
         bool running_;
         std::thread th_;
+        SaveDataOnChain<Chain, typename ChainItemFolder::ResultType> stateSaver_;
         void run(Env *env) {
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
@@ -189,14 +216,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                                 if constexpr (std::is_same_v<ResultTransformer, void>) {
                                     this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
                                 } else {
-                                    this->publish(env, resultTransformer_.transform(currentValue_));
+                                    this->publish(env, resultTransformer_.transform(stateSaver_, currentValue_));
                                 }
                             } else {
                                 if (callbackPerUpdate_) {
                                     if constexpr (std::is_same_v<ResultTransformer, void>) {
                                         this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
                                     } else {
-                                        this->publish(env, resultTransformer_.transform(currentValue_));
+                                        this->publish(env, resultTransformer_.transform(stateSaver_, currentValue_));
                                     }
                                 }
                             }
@@ -209,7 +236,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                             if constexpr (std::is_same_v<ResultTransformer, void>) {
                                 this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
                             } else {
-                                this->publish(env, resultTransformer_.transform(currentValue_));
+                                this->publish(env, resultTransformer_.transform(stateSaver_, currentValue_));
                             }
                         }
                     }
@@ -235,6 +262,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , resultTransformer_(std::move(resultTransformer))
             , running_(false)
             , th_()
+            , stateSaver_(chain)
         {}
         ~ChainReader() {
             running_ = false;
@@ -288,6 +316,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainItemFolder folder_;
         typename ChainItemFolder::ResultType currentValue_;
         std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> resultTransformer_;
+        SaveDataOnChain<Chain, typename ChainItemFolder::ResultType> stateSaver_;
     public:
         ChainReader(Chain *chain, ChainItemFolder &&folder=ChainItemFolder {}, std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()) :
             env_(nullptr)
@@ -296,6 +325,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , folder_(std::move(folder))
             , currentValue_()
             , resultTransformer_(std::move(resultTransformer))
+            , stateSaver_(chain)
         {}
         ~ChainReader() {}
         ChainReader(ChainReader const &) = delete;
@@ -370,7 +400,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                             env_
                             , {
                                 env_->resolveTime(folder_.extractTime(currentValue_))
-                                , resultTransformer_.transform(currentValue_)
+                                , resultTransformer_.transform(stateSaver_, currentValue_)
                                 , false
                             }
                         };
@@ -401,6 +431,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainItemFolder folder_;
         typename ChainItemFolder::ResultType currentValue_;
         std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> resultTransformer_;
+        SaveDataOnChain<Chain, typename ChainItemFolder::ResultType> stateSaver_;
         void run(Env *env) {
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
@@ -444,7 +475,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 }
             }
             if (hasData) {
-                this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
+                if constexpr (std::is_same_v<ResultTransformer, void>) {
+                    this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
+                } else {
+                    this->publish(env, resultTransformer_.transform(stateSaver_, currentValue_));
+                }   
             }
         }
     public:
@@ -454,6 +489,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , folder_(std::move(folder))
             , currentValue_()
             , resultTransformer_(std::move(resultTransformer))
+            , stateSaver_(chain)
         {}
         ~ChainReader() {
         }
