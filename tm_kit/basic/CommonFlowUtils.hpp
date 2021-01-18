@@ -1055,8 +1055,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         }
 
+    private:
         template <class T, class Comparer=void>
-        static auto mergedImporter(
+        static auto mergedImporter_(
             std::list<typename M::template AbstractImporter<T> *> const &underlyingImporters
             , std::conditional_t<std::is_same_v<Comparer, void>, bool, Comparer> const &comparer = std::conditional_t<std::is_same_v<Comparer, void>, bool, Comparer>()
         )
@@ -1160,6 +1161,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         }
 
+    public:
         template <class T>
         static auto mergedImporter(std::list<std::shared_ptr<typename M::template Importer<T>>> const &underlyingImporters)
             -> std::shared_ptr<typename M::template Importer<T>>
@@ -1171,7 +1173,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     l.push_back((typename M::template AbstractImporter<T> *) *(p.begin()));
                 }
             }
-            return mergedImporter<T>(l);
+            return mergedImporter_<T, void>(l);
+        }
+        template <class T, class Comparer>
+        static auto mergedImporterWithComparer(std::list<std::shared_ptr<typename M::template Importer<T>>> const &underlyingImporters, Comparer const &comparer=Comparer())
+            -> std::shared_ptr<typename M::template Importer<T>>
+        {
+            std::list<typename M::template AbstractImporter<T> *> l;
+            for (auto const &x : underlyingImporters) {
+                auto p = x->getUnderlyingPointers();
+                if (!p.empty()) {
+                    l.push_back((typename M::template AbstractImporter<T> *) *(p.begin()));
+                }
+            }
+            return mergedImporter_<T, Comparer>(l, comparer);
         }
     };
 
