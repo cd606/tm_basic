@@ -61,9 +61,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainReader &operator=(ChainReader const &) = delete;
         ChainReader(ChainReader &&) = default;
         ChainReader &operator=(ChainReader &&) = default;
-        typename std::optional<OutputType> operator()(TriggerT &&) {
+        typename std::optional<OutputType> operator()(TriggerT &&triggerData) {
             static auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
+            );
+            static auto twoParamTransformChecker = boost::hana::is_valid(
+                [](auto *f, auto const *v, auto *data) -> decltype((void) (f->transform(*v, std::move(*data)))) {}
             );
             bool hasNew = false;
             while (true) {
@@ -91,10 +94,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 if constexpr (std::is_same_v<ResultTransformer, void>) {
                     return {currentValue_};
                 } else {
-                    return {resultTransformer_.transform(currentValue_)};
+                    if constexpr (twoParamTransformChecker(
+                        (ResultTransformer *) nullptr
+                        , (typename ChainItemFolder::ResultType const *) nullptr
+                        , (TriggerT *) nullptr
+                    )) {
+                        return {resultTransformer_.transform(currentValue_, std::move(triggerData))};
+                    } else {
+                        return {resultTransformer_.transform(currentValue_)};
+                    }
                 }
             } else {
-                return std::nullopt;
+                if constexpr (std::is_same_v<ResultTransformer, void>) {
+                    return std::nullopt;
+                } else {
+                    if constexpr (twoParamTransformChecker(
+                        (ResultTransformer *) nullptr
+                        , (typename ChainItemFolder::ResultType const *) nullptr
+                        , (TriggerT *) nullptr
+                    )) {
+                        return {resultTransformer_.transform(currentValue_, std::move(triggerData))};
+                    } else {
+                        return {resultTransformer_.transform(currentValue_)};
+                    }
+                }
             }
         }
         static std::shared_ptr<typename App::template Action<TriggerT, OutputType>> action(Env *env, Chain *chain, ChainItemFolder &&folder=ChainItemFolder {}, std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()) {
