@@ -1154,7 +1154,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         return std::move(std::get<1>(ret));
                     }
                 };
-                return M::template importer<T>(new LocalI(underlyingImporters));
+                return M::template importer<T>(new LocalI(underlyingImporters, comparer));
             } else {
                 return std::shared_ptr<typename M::template Importer<T>>();
             }
