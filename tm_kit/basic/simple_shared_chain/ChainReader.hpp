@@ -69,6 +69,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             );
 
             currentValue_ = folder_.initialize(env, chain_); 
+            if constexpr (!std::is_same_v<ResultTransformer, void>) {
+                resultTansformer_.initialize(env);
+            }
             
             if constexpr (checker(
                 (Chain *) nullptr
@@ -281,6 +284,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             );
 
             currentValue_ = folder_.initialize(env, chain_); 
+            if constexpr (!std::is_same_v<ResultTransformer, void>) {
+                resultTansformer_.initialize(env);
+            }
             
             if constexpr (checker(
                 (Chain *) nullptr
@@ -339,6 +345,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
 
             env_ = env;
             currentValue_ = folder_.initialize(env, chain_); 
+            if constexpr (!std::is_same_v<ResultTransformer, void>) {
+                resultTansformer_.initialize(env);
+            }
             
             if constexpr (checker(
                 (Chain *) nullptr
@@ -503,6 +512,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             );
 
             currentValue_ = folder_.initialize(env, chain_); 
+            if constexpr (!std::is_same_v<ResultTransformer, void>) {
+                resultTansformer_.initialize(env);
+            }
             
             if constexpr (checker(
                 (Chain *) nullptr
