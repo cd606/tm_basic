@@ -127,9 +127,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         , (typename ChainItemFolder::ResultType const *) nullptr
                         , (TriggerT *) nullptr
                     )) {
-                        return {resultTransformer_.transform(stateSaver_, currentValue_, std::move(triggerData))};
+                        auto r = resultTransformer_.transform(stateSaver_, currentValue_, std::move(triggerData));
+                        if constexpr (std::is_same_v<std::decay_t<decltype(r)>, OutputType>) {
+                            return {std::move(r)};
+                        } else if constexpr (std::is_same_v<std::decay_t<decltype(r)>, std::optional<OutputType>>) {
+                            return r;
+                        } else {
+                            return std::nullopt;
+                        }
                     } else {
-                        return {resultTransformer_.transform(stateSaver_, currentValue_)};
+                        auto r = resultTransformer_.transform(stateSaver_, currentValue_);
+                        if constexpr (std::is_same_v<std::decay_t<decltype(r)>, OutputType>) {
+                            return {std::move(r)};
+                        } else if constexpr (std::is_same_v<std::decay_t<decltype(r)>, std::optional<OutputType>>) {
+                            return r;
+                        } else {
+                            return std::nullopt;
+                        }
                     }
                 }
             } else {
@@ -142,9 +156,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         , (typename ChainItemFolder::ResultType const *) nullptr
                         , (TriggerT *) nullptr
                     )) {
-                        return {resultTransformer_.transform(stateSaver_, currentValue_, std::move(triggerData))};
+                        auto r = resultTransformer_.transform(stateSaver_, currentValue_, std::move(triggerData));
+                        if constexpr (std::is_same_v<std::decay_t<decltype(r)>, OutputType>) {
+                            return {std::move(r)};
+                        } else if constexpr (std::is_same_v<std::decay_t<decltype(r)>, std::optional<OutputType>>) {
+                            return r;
+                        } else {
+                            return std::nullopt;
+                        }
                     } else {
-                        return {resultTransformer_.transform(stateSaver_, currentValue_)};
+                        auto r = resultTransformer_.transform(stateSaver_, currentValue_);
+                        if constexpr (std::is_same_v<std::decay_t<decltype(r)>, OutputType>) {
+                            return {std::move(r)};
+                        } else if constexpr (std::is_same_v<std::decay_t<decltype(r)>, std::optional<OutputType>>) {
+                            return r;
+                        } else {
+                            return std::nullopt;
+                        }
                     }
                 }
             }
@@ -219,14 +247,28 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                                 if constexpr (std::is_same_v<ResultTransformer, void>) {
                                     this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
                                 } else {
-                                    this->publish(env, resultTransformer_.transform(stateSaver_, currentValue_));
+                                    auto r = resultTransformer_.transform(stateSaver_, currentValue_);
+                                    if constexpr (std::is_same_v<std::decay_t<decltype(r)>, OutputType>) {
+                                        this->publish(env, std::move(r));
+                                    } else if constexpr (std::is_same_v<std::decay_t<decltype(r)>, std::optional<OutputType>>) {
+                                        if (r) {
+                                            this->publish(env, std::move(*r));
+                                        }
+                                    }
                                 }
                             } else {
                                 if (callbackPerUpdate_) {
                                     if constexpr (std::is_same_v<ResultTransformer, void>) {
                                         this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
                                     } else {
-                                        this->publish(env, resultTransformer_.transform(stateSaver_, currentValue_));
+                                        auto r = resultTransformer_.transform(stateSaver_, currentValue_);
+                                        if constexpr (std::is_same_v<std::decay_t<decltype(r)>, OutputType>) {
+                                            this->publish(env, std::move(r));
+                                        } else if constexpr (std::is_same_v<std::decay_t<decltype(r)>, std::optional<OutputType>>) {
+                                            if (r) {
+                                                this->publish(env, std::move(*r));
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -239,7 +281,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                             if constexpr (std::is_same_v<ResultTransformer, void>) {
                                 this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
                             } else {
-                                this->publish(env, resultTransformer_.transform(stateSaver_, currentValue_));
+                                auto r = resultTransformer_.transform(stateSaver_, currentValue_);
+                                if constexpr (std::is_same_v<std::decay_t<decltype(r)>, OutputType>) {
+                                    this->publish(env, std::move(r));
+                                } else if constexpr (std::is_same_v<std::decay_t<decltype(r)>, std::optional<OutputType>>) {
+                                    if (r) {
+                                        this->publish(env, std::move(*r));
+                                    }
+                                }
                             }
                         }
                     }
@@ -405,14 +454,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                             }
                         };
                     } else {
-                        return typename infra::SinglePassIterationApp<Env>::template InnerData<OutputType> {
-                            env_
-                            , {
-                                env_->resolveTime(folder_.extractTime(currentValue_))
-                                , resultTransformer_.transform(stateSaver_, currentValue_)
-                                , false
+                        auto r = resultTransformer_.transform(stateSaver_, currentValue_);
+                        if constexpr (std::is_same_v<std::decay_t<decltype(r)>, OutputType>) {
+                            return typename infra::SinglePassIterationApp<Env>::template InnerData<OutputType> {
+                                env_
+                                , {
+                                    env_->resolveTime(folder_.extractTime(currentValue_))
+                                    , std::move(r)
+                                    , false
+                                }
+                            };
+                        } else if constexpr (std::is_same_v<std::decay_t<decltype(r)>, std::optional<OutputType>>) {
+                            if (r) {
+                                return typename infra::SinglePassIterationApp<Env>::template InnerData<OutputType> {
+                                    env_
+                                    , {
+                                        env_->resolveTime(folder_.extractTime(currentValue_))
+                                        , std::move(*r)
+                                        , false
+                                    }
+                                };
+                            } else {
+                                return std::nullopt;
                             }
-                        };
+                        }
                     }
                 } else {
                     return std::nullopt;
@@ -487,7 +552,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 if constexpr (std::is_same_v<ResultTransformer, void>) {
                     this->publish(env, infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_));
                 } else {
-                    this->publish(env, resultTransformer_.transform(stateSaver_, currentValue_));
+                    auto r = resultTransformer_.transform(stateSaver_, currentValue_);
+                    if constexpr (std::is_same_v<std::decay_t<decltype(r)>, OutputType>) {
+                        this->publish(env, std::move(r));
+                    } else if constexpr (std::is_same_v<std::decay_t<decltype(r)>, std::optional<OutputType>>) {
+                        if (r) {
+                            this->publish(env, std::move(*r));
+                        }
+                    }
                 }   
             }
         }
