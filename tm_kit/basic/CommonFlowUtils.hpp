@@ -1188,6 +1188,49 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
             return mergedImporter_<T, Comparer>(l, comparer);
         }
+    
+        template <class T>
+        static auto shiftedImporter(
+            std::shared_ptr<typename M::template Importer<T>> const &underlyingImporter
+            , typename M::Duration const &shiftBy
+        )
+            -> std::shared_ptr<typename M::template Importer<T>>
+        {
+            if constexpr (std::is_same_v<M, infra::BasicWithTimeApp<TheEnvironment>>) {
+                return M::template vacuousImporter<T>();
+            } else if constexpr (std::is_same_v<M, infra::RealTimeApp<TheEnvironment>>) {
+                throw std::runtime_error("shiftedImporter is not supported in RealTimeApp");
+            } else if constexpr (std::is_same_v<M, infra::SinglePassIterationApp<TheEnvironment>>) {
+                class LocalI : public M::template AbstractImporter<T> {
+                private:
+                    std::shared_ptr<typename M::template Importer<T>> underlyingImporter_;
+                    typename M::Duration shiftBy_;
+                public:
+                    LocalI(std::shared_ptr<typename M::template Importer<T>> const &underlyingImporter, typename M::Duration const &shiftBy) : 
+#ifndef _MSC_VER
+                        M::template AbstractImporter<T>(),
+#endif
+                        underlyingImporter_(underlyingImporter) 
+                        , shiftBy_(shiftBy)
+                    {
+                    }
+                    virtual void start(TheEnvironment *env) override final {
+                        underlyingImporter_->start(env);
+                    }
+                    virtual typename M::template Data<T> generate(T const *notUsed=nullptr) override final {
+                        auto item = underlyingImporter_->generate((T const *) nullptr);
+                        if (item) {
+                            item->timedData.timePoint += shiftBy_;
+                        }
+                        return item;
+                    }
+                };
+                return M::template importer<T>(new LocalI(underlyingImporter, shiftBy));
+            } else {
+                return std::shared_ptr<typename M::template Importer<T>>();
+            }
+        }
+
     };
 
 } } } }
