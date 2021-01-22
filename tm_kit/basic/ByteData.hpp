@@ -21,6 +21,7 @@
 #include <tm_kit/basic/SingleLayerWrapper.hpp>
 #include <tm_kit/basic/ConstType.hpp>
 #include <tm_kit/infra/WithTimeData.hpp>
+#include <tm_kit/infra/ChronoUtils.hpp>
 #include <boost/endian/conversion.hpp>
 #include <boost/hana/type.hpp>
 
@@ -337,6 +338,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return RunCBORSerializer<std::underlying_type_t<T>>::calculateSize(
                     static_cast<std::underlying_type_t<T>>(data)
                 );
+            }
+        };
+        template <>
+        struct RunCBORSerializer<std::chrono::system_clock::time_point, void> {
+            static std::string apply(std::chrono::system_clock::time_point const &data) {
+                return RunCBORSerializer<int64_t>::apply(infra::withtime_utils::sinceEpoch<std::chrono::microseconds>(data));
+            }
+            static std::size_t apply(std::chrono::system_clock::time_point const &data, char *output) {
+                return RunCBORSerializer<int8_t>::apply(infra::withtime_utils::sinceEpoch<std::chrono::microseconds>(data), output);
+            }
+            static std::size_t calculateSize(std::chrono::system_clock::time_point const &data) {
+                return RunCBORSerializer<int64_t>::calculateSize(infra::withtime_utils::sinceEpoch<std::chrono::microseconds>(data));
             }
         };
         template <>
@@ -1048,6 +1061,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if (ret) {
                     return std::tuple<T, size_t> {
                         static_cast<T>(std::get<0>(*ret)), std::get<1>(*ret)
+                    };
+                } else {
+                    return std::nullopt;
+                }
+            }
+        };
+        template <>
+        struct RunCBORDeserializer<std::chrono::system_clock::time_point, void> {
+            static std::optional<std::tuple<std::chrono::system_clock::time_point, size_t>> apply(std::string_view const &data, size_t start) {
+                auto ret = RunCBORDeserializer<int64_t>::apply(data, start);
+                if (ret) {
+                    return std::tuple<std::chrono::system_clock::time_point, size_t> {
+                        infra::withtime_utils::epochDurationToTime<std::chrono::microseconds>(std::get<0>(*ret)), std::get<1>(*ret)
                     };
                 } else {
                     return std::nullopt;
