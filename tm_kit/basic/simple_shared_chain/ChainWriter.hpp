@@ -1048,6 +1048,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
     };
 
     template <class ChainData>
+    class EmptyIdleWorker {
+    public:
+        using OffChainUpdateType = VoidStruct;
+        template <class Env, class ChainState>
+        static std::tuple<std::optional<OffChainUpdateType>, std::optional<std::tuple<std::string, ChainData>>>
+        work(Env *, void *, ChainState const &) {
+            return {std::nullopt, std::nullopt};
+        }
+    };
+
+    template <class ChainData>
+    class EmptyInputHandler {
+    public:
+        using InputType = VoidStruct;
+        using ResponseType = VoidStruct;
+        static void initialize(void *, void *) {}
+        template <class Env, class ChainState>
+        static std::tuple<ResponseType, std::optional<std::tuple<std::string, ChainData>>>
+        handleInput(Env *, void *, typename infra::RealTimeApp<Env>::template TimedDataType<typename infra::RealTimeApp<Env>::template Key<VoidStruct>> const &, ChainState const &) {
+            return {VoidStruct {}, std::nullopt};
+        }
+    };
+
+    template <class ChainData>
     class SimplyPlaceOnChainInputHandler {
     public:
         using InputType = ChainData;
