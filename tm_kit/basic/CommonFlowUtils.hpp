@@ -11,6 +11,7 @@
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
 #include <tm_kit/infra/WithTimeData.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
+#include <tm_kit/basic/SingleLayerWrapper.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
 
@@ -1229,6 +1230,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             } else {
                 return std::shared_ptr<typename M::template Importer<T>>();
             }
+        }
+
+        template <class... T>
+        static typename infra::KleisliUtils<M>::template KleisliFunction<std::variant<T...>,SingleLayerWrapper<std::variant<T...>>> collect() {
+            return infra::KleisliUtils<M>::template liftPure<std::variant<T...>>(
+                [](std::variant<T...> &&x) -> SingleLayerWrapper<std::variant<T...>>
+                {
+                    return {std::move(x)};
+                }
+            );
+        }
+        template <class... T>
+        static typename infra::KleisliUtils<M>::template KleisliFunction<SingleLayerWrapper<std::variant<T...>>,std::variant<T...>> dispatch() {
+            return infra::KleisliUtils<M>::template liftPure<SingleLayerWrapper<std::variant<T...>>>(
+                [](SingleLayerWrapper<std::variant<T...>> &&x) -> std::variant<T...>
+                {
+                    return std::move(x.value);
+                }
+            );
         }
 
     };
