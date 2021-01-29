@@ -51,7 +51,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
         //This is the "reverse" of dispatchOneByOne
-        //The RealTimeApp version is very simple because this action does not make too much sense there
         template <class T>
         static auto bunch() -> typename std::shared_ptr<typename M::template Action<T, std::vector<T>>> {
             if constexpr (std::is_same_v<M, infra::RealTimeApp<TheEnvironment>>) {
