@@ -4,6 +4,7 @@
 #include <memory>
 #include <optional>
 #include <deque>
+#include <type_traits>
 
 #include <tm_kit/infra/KleisliUtils.hpp>
 #include <tm_kit/infra/BasicWithTimeApp.hpp>
@@ -50,12 +51,34 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         }
 
+    private:
         //This is the "reverse" of dispatchOneByOne
-        template <class T>
-        static auto bunch() -> typename std::shared_ptr<typename M::template Action<T, std::vector<T>>> {
+        template <class T, class Buncher=void>
+        static auto bunch_(
+            std::conditional_t<std::is_same_v<Buncher, void>, bool, Buncher> &&buncher
+            = std::conditional_t<std::is_same_v<Buncher, void>, bool, Buncher> {}
+        ) -> typename std::shared_ptr<typename M::template Action<T
+            , std::decay_t<decltype((*((
+                std::conditional_t<
+                    std::is_same_v<Buncher, void>
+                    , std::function<std::vector<T>(std::vector<T> &&)>
+                    , Buncher
+                >
+            *) nullptr))(std::move(* ((std::vector<T> *) nullptr))))>
+        >> {
+            using B = std::conditional_t<std::is_same_v<Buncher, void>, bool, Buncher>;
+            using C = std::decay_t<decltype((*((
+                    std::conditional_t<
+                        std::is_same_v<Buncher, void>
+                        , std::function<std::vector<T>(std::vector<T> &&)>
+                        , Buncher
+                    > 
+            *) nullptr))(std::move(* ((std::vector<T> *) nullptr))))>;
+            std::cerr << std::is_same_v<C, std::vector<T>> << '\n';
             if constexpr (std::is_same_v<M, infra::RealTimeApp<TheEnvironment>>) {
                 class BunchAction : public infra::RealTimeAppComponents<TheEnvironment>::template AbstractAction<T,std::vector<T>> {
                 private:
+                    B buncher_;
                     typename infra::RealTimeAppComponents<TheEnvironment>::template TimeChecker<false, T> timeChecker_;
                     std::mutex mutex_;
                     std::condition_variable cond_;
@@ -94,15 +117,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                                 }
                                 processing_.pop_front();
                             }
-                            if (!output.empty()) {
-                                this->publish(typename M::template InnerData<std::vector<T>> {
-                                    env 
-                                    , {
-                                        env->resolveTime()
-                                        , std::move(output)
-                                        , isFinal
-                                    }
-                                });
+                            if constexpr (std::is_same_v<Buncher, void>) {
+                                if (!output.empty()) {
+                                    this->publish(typename M::template InnerData<std::vector<T>> {
+                                        env 
+                                        , {
+                                            env->resolveTime()
+                                            , std::move(output)
+                                            , isFinal
+                                        }
+                                    });
+                                    output.clear();
+                                }
+                            } else {
+                                if (!output.empty()) {
+                                    this->publish(typename M::template InnerData<std::vector<T>> {
+                                        env 
+                                        , {
+                                            env->resolveTime()
+                                            , buncher_(std::move(output))
+                                            , isFinal
+                                        }
+                                    });
+                                    output.clear();
+                                }
                             }
                         }  
                     }
@@ -116,7 +154,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         }                    
                     }
                 public:
-                    BunchAction() : timeChecker_(), mutex_(), cond_(), th_(), running_(false), incoming_(), processing_() {
+                    BunchAction(B &&buncher) : buncher_(std::move(buncher)), timeChecker_(), mutex_(), cond_(), th_(), running_(false), incoming_(), processing_() {
                         running_ = true;
                         th_ = std::thread(&BunchAction::runThread, this);
                         th_.detach();
@@ -134,7 +172,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         putData(std::move(data));   
                     }
                 };
-                return M::template fromAbstractAction<T, std::vector<T>>(new BunchAction());
+                return M::template fromAbstractAction<T, C>(new BunchAction(std::move(buncher)));
             } else {
                 struct State {
                     std::optional<typename M::TimePoint> currentBunchTime;
@@ -151,19 +189,32 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         return currentBunchTime;
                     }
                 };
-                auto cont = [](typename M::template InnerData<T> &&input, State &state, std::function<void(typename M::template InnerData<std::vector<T>> &&)> handler) {                
+                auto cont = [buncher=std::move(buncher)](typename M::template InnerData<T> &&input, State &state, std::function<void(typename M::template InnerData<C> &&)> handler) {                
                     if (state.repeatCallForThisInput) {
                         if (state.currentBunchTime && state.endReached) {
-                            handler(
-                                typename M::template InnerData<std::vector<T>> {
-                                    input.environment 
-                                    , {
-                                        *state.currentBunchTime
-                                        , std::move(state.currentBunch)
-                                        , true
+                            if constexpr (std::is_same_v<Buncher, void>) {
+                                handler(
+                                    typename M::template InnerData<std::vector<T>> {
+                                        input.environment 
+                                        , {
+                                            *state.currentBunchTime
+                                            , std::move(state.currentBunch)
+                                            , true
+                                        }
                                     }
-                                }
-                            );
+                                );
+                            } else {
+                                handler(
+                                    typename M::template InnerData<C> {
+                                        input.environment 
+                                        , {
+                                            *state.currentBunchTime
+                                            , buncher(std::move(state.currentBunch))
+                                            , true
+                                        }
+                                    }
+                                );
+                            }
                             state.currentBunchTime = std::nullopt;
                             state.currentBunch.clear();
                         } else {
@@ -173,16 +224,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     } else {                    
                         if (!state.currentBunchTime) {
                             if (input.timedData.finalFlag) {
-                                handler(
-                                    typename M::template InnerData<std::vector<T>> {
-                                        input.environment 
-                                        , {
-                                            input.timedData.timePoint
-                                            , std::vector<T> { std::move(input.timedData.value) }
-                                            , true
+                                if constexpr (std::is_same_v<Buncher, void>) {
+                                    handler(
+                                        typename M::template InnerData<std::vector<T>> {
+                                            input.environment 
+                                            , {
+                                                input.timedData.timePoint
+                                                , std::vector<T> { std::move(input.timedData.value) }
+                                                , true
+                                            }
                                         }
-                                    }
-                                );
+                                    );
+                                } else {
+                                    handler(
+                                        typename M::template InnerData<C> {
+                                            input.environment 
+                                            , {
+                                                input.timedData.timePoint
+                                                , buncher(std::vector<T> { std::move(input.timedData.value) })
+                                                , true
+                                            }
+                                        }
+                                    );
+                                }
                                 state.repeatCallForThisInput = true;
                             } else {
                                 state.currentBunchTime = input.timedData.timePoint;
@@ -192,16 +256,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                             if (*(state.currentBunchTime) >= input.timedData.timePoint) {
                                 state.currentBunch.push_back(std::move(input.timedData.value));
                                 if (input.timedData.finalFlag) {
-                                    handler(
-                                        typename M::template InnerData<std::vector<T>> {
-                                            input.environment 
-                                            , {
-                                                *state.currentBunchTime
-                                                , std::move(state.currentBunch)
-                                                , true
+                                    if constexpr (std::is_same_v<Buncher, void>) {
+                                        handler(
+                                            typename M::template InnerData<std::vector<T>> {
+                                                input.environment 
+                                                , {
+                                                    *state.currentBunchTime
+                                                    , std::move(state.currentBunch)
+                                                    , true
+                                                }
                                             }
-                                        }
-                                    );
+                                        );
+                                    } else {
+                                        handler(
+                                            typename M::template InnerData<C> {
+                                                input.environment 
+                                                , {
+                                                    *state.currentBunchTime
+                                                    , buncher(std::move(state.currentBunch))
+                                                    , true
+                                                }
+                                            }
+                                        );
+                                    }
                                     state.repeatCallForThisInput = true;
                                     state.currentBunchTime = std::nullopt;
                                     state.currentBunch.clear();
@@ -209,16 +286,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                                     //do nothing
                                 }
                             } else {
-                                handler(
-                                    typename M::template InnerData<std::vector<T>> {
-                                        input.environment 
-                                        , {
-                                            *state.currentBunchTime
-                                            , std::move(state.currentBunch)
-                                            , false
+                                if constexpr (std::is_same_v<Buncher, void>) {
+                                    handler(
+                                        typename M::template InnerData<std::vector<T>> {
+                                            input.environment 
+                                            , {
+                                                *state.currentBunchTime
+                                                , std::move(state.currentBunch)
+                                                , false
+                                            }
                                         }
-                                    }
-                                );
+                                    );
+                                } else {
+                                    handler(
+                                        typename M::template InnerData<C> {
+                                            input.environment 
+                                            , {
+                                                *state.currentBunchTime
+                                                , buncher(std::move(state.currentBunch))
+                                                , false
+                                            }
+                                        }
+                                    );
+                                }
                                 state.repeatCallForThisInput = true;
                                 state.currentBunchTime = input.timedData.timePoint;
                                 state.currentBunch.clear();
@@ -228,8 +318,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         }
                     }
                 };
-                return M::template continuationAction<T,std::vector<T>,State>(cont);
+                return M::template continuationAction<T,C,State>(cont);
             }
+        }
+    public:
+        template <class T>
+        static auto bunch()
+         -> typename std::shared_ptr<typename M::template Action<T
+            , std::vector<T>
+        >> {
+            return bunch_<T, void>();
+        }
+        template <class T, class Buncher>
+        static auto bunchWithProcessing(
+            Buncher &&buncher = Buncher()
+        ) -> decltype(bunch_<T,Buncher>(std::move(buncher)))
+        {
+            return bunch_<T,Buncher>(std::move(buncher));
         }
 
         template <class T>
@@ -1091,6 +1196,46 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 };
                 return M::template continuationAction<T,T,State>(cont, State(steps));
             }
+        }
+    private:
+        template <class A, class B, class F>
+        class CollectAndPassDownOnRight {
+        private:
+            F f_;
+            std::vector<A> a_;
+        public:
+            CollectAndPassDownOnRight(F &&f) : f_(std::move(f)), a_() {}
+            CollectAndPassDownOnRight(CollectAndPassDownOnRight &&s) : f_(std::move(s.f_)), a_(std::move(s.a_)) {}
+            CollectAndPassDownOnRight &operator=(CollectAndPassDownOnRight &&) = delete;
+            CollectAndPassDownOnRight(CollectAndPassDownOnRight const &) = delete;
+            CollectAndPassDownOnRight &operator=(CollectAndPassDownOnRight const &) = delete;
+
+            using C = decltype(f_(std::move(*((std::vector<A> *) nullptr)), std::move(*((B *) nullptr))));
+            std::optional<C> operator()(std::variant<A,B> &&data) {
+                if (data.index() == 0) {
+                    a_.push_back(std::get<0>(data));
+                    return std::nullopt;
+                } else {
+                    if (!a_.empty()) {
+                        auto c = f_(std::move(a_), std::move(std::get<1>(data)));
+                        a_.clear();
+                        return c;
+                    } else {
+                        return std::nullopt;
+                    }
+                }
+            }
+        };
+    public:
+        template <class A, class B, class F>
+        static std::shared_ptr<typename M::template Action<
+            std::variant<A,B>, typename CollectAndPassDownOnRight<A,B,F>::C
+        >> collectAndPassDownOnRight(F &&f, bool suggestThreaded=false) {
+            return M::template liftMaybe2<A,B>(
+                CollectAndPassDownOnRight<A,B,F>(std::move(f))
+                , infra::LiftParameters<typename M::TimePoint>()
+                    .SuggestThreaded(suggestThreaded)
+            );
         }
     private:
         template <class A, class B, class F>
