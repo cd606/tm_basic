@@ -55,11 +55,87 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <class T>
         static auto bunch() -> typename std::shared_ptr<typename M::template Action<T, std::vector<T>>> {
             if constexpr (std::is_same_v<M, infra::RealTimeApp<TheEnvironment>>) {
-                return M::template liftPure<T>(
-                    [](T &&t) -> std::vector<T> {
-                        return {std::move(t)};
+                class BunchAction : public infra::RealTimeAppComponents<TheEnvironment>::template AbstractAction<T,std::vector<T>> {
+                private:
+                    typename infra::RealTimeAppComponents<TheEnvironment>::template TimeChecker<false, T> timeChecker_;
+                    std::mutex mutex_;
+                    std::condition_variable cond_;
+                    std::thread th_;
+                    std::atomic<bool> running_;
+                    std::list<typename M::template InnerData<T>> incoming_, processing_;  
+
+                    void stopThread() {
+                        running_ = false;
                     }
-                );
+                    void runThread() {
+                        while (running_) {
+                            {
+                                std::unique_lock<std::mutex> lock(mutex_);
+                                cond_.wait_for(lock, std::chrono::milliseconds(1));
+                                if (!running_) {
+                                    lock.unlock();
+                                    return;
+                                }
+                                if (incoming_.empty()) {
+                                    lock.unlock();
+                                    continue;
+                                }
+                                processing_.splice(processing_.end(), incoming_);
+                                lock.unlock();
+                            }
+                            std::vector<T> output;
+                            TheEnvironment *env = nullptr;
+                            bool isFinal = false;
+                            while (!processing_.empty()) {
+                                auto &data = processing_.front();
+                                if (timeChecker_(data)) {
+                                    env = data.environment;
+                                    isFinal = (isFinal || data.timedData.finalFlag);
+                                    output.push_back(std::move(data.timedData.value));
+                                }
+                                processing_.pop_front();
+                            }
+                            if (!output.empty()) {
+                                this->publish(typename M::template InnerData<std::vector<T>> {
+                                    env 
+                                    , {
+                                        env->resolveTime()
+                                        , std::move(output)
+                                        , isFinal
+                                    }
+                                });
+                            }
+                        }  
+                    }
+                    void putData(typename M::template InnerData<T> &&data) {
+                        if (running_) {
+                            {
+                                std::lock_guard<std::mutex> _(mutex_);
+                                incoming_.push_back(std::move(data));
+                            }
+                            cond_.notify_one();
+                        }                    
+                    }
+                public:
+                    BunchAction() : timeChecker_(), mutex_(), cond_(), th_(), running_(false), incoming_(), processing_() {
+                        running_ = true;
+                        th_ = std::thread(&BunchAction::runThread, this);
+                        th_.detach();
+                    }
+                    virtual ~BunchAction() {
+                        stopThread();
+                    }
+                    virtual bool isThreaded() const override final {
+                        return true;
+                    }
+                    virtual bool isOneTimeOnly() const override final {
+                        return false;
+                    }
+                    virtual void handle(typename M::template InnerData<T> &&data) override final {
+                        putData(std::move(data));   
+                    }
+                };
+                return M::template fromAbstractAction<T, std::vector<T>>(new BunchAction());
             } else {
                 struct State {
                     std::optional<typename M::TimePoint> currentBunchTime;
