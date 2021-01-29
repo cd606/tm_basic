@@ -6,6 +6,7 @@
 
 #include <tm_kit/basic/ForceDifferentType.hpp>
 #include <tm_kit/basic/SingleLayerWrapper.hpp>
+#include <tm_kit/basic/TriviallySerializable.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <tm_kit/basic/ByteData.hpp>
 
@@ -103,6 +104,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     public:
         static void print(std::ostream &os, SingleLayerWrapper<T> const &t) {
             os << "SingleLayerWrapper{";
+            PrintHelper<T>::print(os, t.value);
+            os << '}';
+        }
+    };
+    template <class T>
+    class PrintHelper<TriviallySerializable<T>> {
+    public:
+        static void print(std::ostream &os, TriviallySerializable<T> const &t) {
+            os << "TriviallySerializable{";
             PrintHelper<T>::print(os, t.value);
             os << '}';
         }
