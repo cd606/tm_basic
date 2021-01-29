@@ -3,6 +3,7 @@
 
 #include <type_traits>
 #include <string>
+#include <cstring>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <class T, typename = std::enable_if_t<std::is_trivially_copyable_v<T>>>
