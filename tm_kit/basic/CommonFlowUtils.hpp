@@ -22,7 +22,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         using TheEnvironment = typename M::EnvironmentType;
 
         template <class T>
-        static typename infra::KleisliUtils<M>::template KleisliFunction<T,T> idFunc() {
+        static auto idFunc() {
             return infra::KleisliUtils<M>::template liftPure<T>(
                 [](T &&x) -> T
                 {
@@ -32,7 +32,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
         template <class T>
-        static typename infra::KleisliUtils<M>::template KleisliFunction<std::optional<T>,T> filterOnOptional() {
+        static auto filterOnOptional() {
             return infra::KleisliUtils<M>::template liftMaybe<std::optional<T>>(
                 [](std::optional<T> &&x) -> std::optional<T>
                 {
@@ -42,7 +42,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
         template <class T>
-        static typename infra::KleisliUtils<M>::template KleisliFunction<std::vector<T>,T> dispatchOneByOne() {
+        static auto dispatchOneByOne() {
             return infra::KleisliUtils<M>::template liftMulti<std::vector<T>>(
                 [](std::vector<T> &&x) -> std::vector<T>
                 {
@@ -323,22 +323,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     public:
         template <class T>
-        static auto bunch()
-         -> typename std::shared_ptr<typename M::template Action<T
-            , std::vector<T>
-        >> {
+        static auto bunch() {
             return bunch_<T, void>();
         }
         template <class T, class Buncher>
-        static auto bunchWithProcessing(
-            Buncher &&buncher = Buncher()
-        ) -> decltype(bunch_<T,Buncher>(std::move(buncher)))
-        {
+        static auto bunchWithProcessing(Buncher &&buncher = Buncher()) {
             return bunch_<T,Buncher>(std::move(buncher));
         }
 
         template <class T>
-        static typename infra::KleisliUtils<M>::template KleisliFunction<T,infra::Key<T,TheEnvironment>> keyify() {
+        static auto keyify() {
             return infra::KleisliUtils<M>::template liftPure<T>(
                 [](T &&x) -> infra::Key<T,TheEnvironment>
                 {
@@ -348,7 +342,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
         template <class T>
-        static typename infra::KleisliUtils<M>::template KleisliFunction<T,std::shared_ptr<T const>> shareBetweenDownstream() {
+        static auto shareBetweenDownstream() {
             return infra::KleisliUtils<M>::template liftPure<T>(
                 [](T &&x) -> std::shared_ptr<T const>
                 {
@@ -358,7 +352,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
         template <class A, class B>
-        static typename infra::KleisliUtils<M>::template KleisliFunction<infra::KeyedData<A,B,TheEnvironment>,B> extractDataFromKeyedData() {
+        static auto extractDataFromKeyedData() {
             return infra::KleisliUtils<M>::template liftPure<infra::KeyedData<A,B,TheEnvironment>>(
                 [](infra::KeyedData<A,B,TheEnvironment> &&x) -> B
                 {
@@ -368,7 +362,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
         template <class A, class B>
-        static typename infra::KleisliUtils<M>::template KleisliFunction<infra::KeyedData<A,B,TheEnvironment>,infra::Key<B,TheEnvironment>> extractIDAndDataFromKeyedData() {
+        static auto extractIDAndDataFromKeyedData() {
             return infra::KleisliUtils<M>::template liftPure<infra::KeyedData<A,B,TheEnvironment>>(
                 [](infra::KeyedData<A,B,TheEnvironment> &&x) -> infra::Key<B,TheEnvironment>
                 {
@@ -378,7 +372,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
         template <class A, class B>
-        static typename infra::KleisliUtils<M>::template KleisliFunction<infra::KeyedData<A,B,TheEnvironment>,std::tuple<std::string,B>> extractIDStringAndDataFromKeyedData() {
+        static auto extractIDStringAndDataFromKeyedData() {
             return infra::KleisliUtils<M>::template liftPure<infra::KeyedData<A,B,TheEnvironment>>(
                 [](infra::KeyedData<A,B,TheEnvironment> &&x) -> std::tuple<std::string, B>
                 {
@@ -388,8 +382,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
         template <class T>
-        static typename infra::KleisliUtils<M>::template KleisliFunction<T,std::tuple<T,T>> duplicateInput() {
-            return
+        static auto duplicateInput() {
+            return infra::KleisliUtils<M>::template kleisli<T>(
                 [](typename M::template InnerData<T> &&x) -> typename M::template Data<std::tuple<T,T>>
                 {
                     auto xCopy = infra::withtime_utils::makeCopy<typename M::TimePoint, T>(x.timedData);
@@ -401,10 +395,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                             , x.timedData.finalFlag
                         }
                     };
-                };
+                }
+            );
         }
         template <class A, class B>
-        static typename infra::KleisliUtils<M>::template KleisliFunction<std::tuple<A,B>,std::tuple<B,A>> switchTupleOrder() {
+        static auto switchTupleOrder() {
             return infra::KleisliUtils<M>::template liftPure<std::tuple<A,B>>(
                 [](std::tuple<A,B> &&x) -> std::tuple<B,A>
                 {
@@ -413,7 +408,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         }
         template <class A, class B>
-        static typename infra::KleisliUtils<M>::template KleisliFunction<std::tuple<A,B>,B> dropLeft() {
+        static auto dropLeft() {
             return infra::KleisliUtils<M>::template liftPure<std::tuple<A,B>>(
                 [](std::tuple<A,B> &&x) -> B
                 {
@@ -422,7 +417,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         }
         template <class A, class B>
-        static typename infra::KleisliUtils<M>::template KleisliFunction<std::tuple<A,B>,A> dropRight() {
+        static auto dropRight() {
             return infra::KleisliUtils<M>::template liftPure<std::tuple<A,B>>(
                 [](std::tuple<A,B> &&x) -> A
                 {
@@ -781,7 +776,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
         template <class A, class F>
         static EnhancedPureFilter<A,F> enhancedPureFilter(F &&f) {
-            return enhancedPureFilter<A,F>(std::move(f));
+            return EnhancedPureFilter<A,F>(std::move(f));
         }
         template <class A, class F>
         static PureTwoWayFilter<A,F> pureTwoWayFilter(F &&f) {
@@ -789,7 +784,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
         template <class A, class F>
         static EnhancedPureTwoWayFilter<A,F> enhancedPureTwoWayFilter(F &&f) {
-            return enhancedPureTwoWayFilter<A,F>(std::move(f));
+            return EnhancedPureTwoWayFilter<A,F>(std::move(f));
         }
         
         template <class T>
@@ -1453,7 +1448,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
         template <class... T>
-        static typename infra::KleisliUtils<M>::template KleisliFunction<std::variant<T...>,SingleLayerWrapper<std::variant<T...>>> collect() {
+        static auto collect() {
             return infra::KleisliUtils<M>::template liftPure<std::variant<T...>>(
                 [](std::variant<T...> &&x) -> SingleLayerWrapper<std::variant<T...>>
                 {
@@ -1462,7 +1457,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         }
         template <class... T>
-        static typename infra::KleisliUtils<M>::template KleisliFunction<SingleLayerWrapper<std::variant<T...>>,std::variant<T...>> dispatch() {
+        static auto dispatch() {
             return infra::KleisliUtils<M>::template liftPure<SingleLayerWrapper<std::variant<T...>>>(
                 [](SingleLayerWrapper<std::variant<T...>> &&x) -> std::variant<T...>
                 {
