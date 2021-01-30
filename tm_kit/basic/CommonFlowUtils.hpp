@@ -74,7 +74,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         , Buncher
                     > 
             *) nullptr))(std::move(* ((std::vector<T> *) nullptr))))>;
-            std::cerr << std::is_same_v<C, std::vector<T>> << '\n';
             if constexpr (std::is_same_v<M, infra::RealTimeApp<TheEnvironment>>) {
                 class BunchAction : public infra::RealTimeAppComponents<TheEnvironment>::template AbstractAction<T,std::vector<T>> {
                 private:
