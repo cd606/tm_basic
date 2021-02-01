@@ -1465,6 +1465,250 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         }
 
+        template <class Input, class Output, class State, class StateUpdater, class OutputProducer, class StateResetter>
+        static auto actionWithBufferedState(StateUpdater &&stateUpdater = StateUpdater{}, OutputProducer &&outputProducer = OutputProducer{}, StateResetter &&stateResetter = StateResetter{}, State &&state = State {})
+            -> std::shared_ptr<typename M::template Action<Input, Output>> 
+        {
+            if constexpr (std::is_same_v<M, infra::RealTimeApp<TheEnvironment>>) {
+                class LocalAction 
+                    : public M::template ActionCore<Input,Output,false,false> 
+                {
+                private:
+                    StateUpdater stateUpdater_;
+                    OutputProducer outputProducer_;
+                    StateResetter stateResetter_;
+                    State state_;
+                    typename infra::RealTimeAppComponents<TheEnvironment>::template TimeChecker<true, Input> timeChecker_;
+                    TheEnvironment *env_;
+                    std::thread thread_;
+                    std::mutex mutex_;
+                    std::condition_variable cond_;
+                    std::atomic<bool> running_;
+
+                    void run() {
+                        while (running_) {
+                            std::unique_lock<std::mutex> lock(mutex_);
+                            cond_.wait_for(lock, std::chrono::milliseconds(100));
+                            if (!running_) {
+                                lock.unlock();
+                                break;
+                            }
+                            
+                            if constexpr (std::is_invocable_v<
+                                OutputProducer &
+                                , State &
+                                , bool *
+                            >) {
+                                bool needReset = true;
+                                auto ret = outputProducer_(state_, &needReset);
+                                if (needReset) {
+                                    stateResetter_(state_);
+                                }
+                                lock.unlock();
+                                if (!running_) {
+                                    break;
+                                }
+                                using T = std::decay_t<decltype(ret)>;
+                                if constexpr (std::is_same_v<T, Output>) {
+                                    this->publish(
+                                        typename M::template InnerData<Output> {
+                                            env_
+                                            , {
+                                                env_->resolveTime()
+                                                , std::move(ret)
+                                                , false
+                                            }
+                                        }
+                                    );
+                                } else if constexpr (std::is_same_v<T, std::optional<Output>>) {
+                                    if (ret) {
+                                        this->publish(
+                                            typename M::template InnerData<Output> {
+                                                env_
+                                                , {
+                                                    env_->resolveTime()
+                                                    , std::move(*ret)
+                                                    , false
+                                                }
+                                            }
+                                        );
+                                    }
+                                } else if constexpr (std::is_same_v<T, std::vector<Output>>) {
+                                    for (auto &item : ret) {
+                                        this->publish(
+                                            typename M::template InnerData<Output> {
+                                                env_
+                                                , {
+                                                    env_->resolveTime()
+                                                    , std::move(item)
+                                                    , false
+                                                }
+                                            }
+                                        );
+                                    }
+                                }
+                            } else {
+                                auto ret = outputProducer_(state_);
+                                stateResetter_(state_);
+                                lock.unlock();
+                                if (!running_) {
+                                    break;
+                                }
+                                using T = std::decay_t<decltype(ret)>;
+                                if constexpr (std::is_same_v<T, Output>) {
+                                    this->publish(
+                                        typename M::template InnerData<Output> {
+                                            env_
+                                            , {
+                                                env_->resolveTime()
+                                                , std::move(ret)
+                                                , false
+                                            }
+                                        }
+                                    );
+                                } else if constexpr (std::is_same_v<T, std::optional<Output>>) {
+                                    if (ret) {
+                                        this->publish(
+                                            typename M::template InnerData<Output> {
+                                                env_
+                                                , {
+                                                    env_->resolveTime()
+                                                    , std::move(*ret)
+                                                    , false
+                                                }
+                                            }
+                                        );
+                                    }
+                                } else if constexpr (std::is_same_v<T, std::vector<Output>>) {
+                                    for (auto &item : ret) {
+                                        this->publish(
+                                            typename M::template InnerData<Output> {
+                                                env_
+                                                , {
+                                                    env_->resolveTime()
+                                                    , std::move(item)
+                                                    , false
+                                                }
+                                            }
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                public:
+                    LocalAction(
+                        StateUpdater &&stateUpdater
+                        , OutputProducer &&outputProducer
+                        , StateResetter &&stateResetter
+                        , State &&state
+                    ) : M::template ActionCore<Input,Output,false,false>()
+                        , stateUpdater_(std::move(stateUpdater))
+                        , outputProducer_(std::move(outputProducer))
+                        , stateResetter_(std::move(stateResetter))
+                        , state_(std::move(state))
+                        , timeChecker_()
+                        , env_(nullptr)
+                        , thread_()
+                        , mutex_()
+                        , cond_()
+                        , running_(true)
+                    {
+                        thread_ = std::thread(&LocalAction::run, this);
+                        thread_.detach();
+                    }
+                    ~LocalAction() {
+                        running_ = false;
+                        cond_.notify_one();
+                        try {
+                            if (thread_.joinable()) {
+                                thread_.join();
+                            }
+                        } catch (std::exception const &) {
+                        }
+                    }
+                    typename M::template Data<Output> action(typename M::template InnerData<Input> &&data) override final {
+                        if (running_ && timeChecker_(data)) {
+                            std::lock_guard<std::mutex> _(mutex_);
+                            env_ = data.environment;
+                            stateUpdater_(std::move(data.timedData.value), state_);
+                            cond_.notify_one();
+                        }
+                        return std::nullopt;
+                    }
+                };
+                return M::template fromAbstractAction<Input,Output>(new LocalAction(std::move(stateUpdater), std::move(outputProducer), std::move(stateResetter), std::move(state)));
+            } else {
+                if constexpr (std::is_invocable_v<
+                                OutputProducer &
+                                , State &
+                                , bool *
+                            >) {
+                    using T = decltype(
+                        (* ((OutputProducer *) nullptr))(State {}, (bool *) nullptr)
+                    );
+                    class LocalF {
+                    private:
+                        StateUpdater stateUpdater_;
+                        OutputProducer outputProducer_;
+                        StateResetter stateResetter_;
+                        State state_;
+                    public:
+                        LocalF(StateUpdater &&stateUpdater, OutputProducer &&outputProducer, StateResetter &&stateResetter, State &&state)
+                            : stateUpdater_(std::move(stateUpdater)), outputProducer_(std::move(outputProducer)), stateResetter_(std::move(stateResetter)), state_(std::move(state))
+                        {}
+                        T operator()(Input &&data) {
+                            stateUpdater_(std::move(data), state_);
+                            bool needReset = true;
+                            auto ret = outputProducer_(state_, &needReset);
+                            if (needReset) {
+                                stateResetter_(state_);
+                            }
+                            return ret;
+                        }
+                    };
+                    if constexpr (std::is_same_v<std::decay_t<T>, Output>) {
+                        return M::template liftPure<Input>(LocalF(std::move(stateUpdater), std::move(outputProducer), std::move(stateResetter), std::move(state)));
+                    } else if constexpr (std::is_same_v<std::decay_t<T>, std::optional<Output>>) {
+                        return M::template liftMaybe<Input>(LocalF(std::move(stateUpdater), std::move(outputProducer), std::move(stateResetter), std::move(state)));
+                    } else if constexpr (std::is_same_v<std::decay_t<T>, std::vector<Output>>) {
+                        return M::template liftMulti<Input>(LocalF(std::move(stateUpdater), std::move(outputProducer), std::move(stateResetter), std::move(state)));
+                    } else {
+                        throw std::runtime_error("Unknown return type of OutputProducer in actionWithBufferedState");
+                    }
+                } else {
+                    using T = decltype(
+                        (* ((OutputProducer *) nullptr))(State {})
+                    );
+                    class LocalF {
+                    private:
+                        StateUpdater stateUpdater_;
+                        OutputProducer outputProducer_;
+                        StateResetter stateResetter_;
+                        State state_;
+                    public:
+                        LocalF(StateUpdater &&stateUpdater, OutputProducer &&outputProducer, StateResetter &&stateResetter, State &&state)
+                            : stateUpdater_(std::move(stateUpdater)), outputProducer_(std::move(outputProducer)), stateResetter_(std::move(stateResetter)), state_(std::move(state))
+                        {}
+                        T operator()(Input &&data) {
+                            stateUpdater_(std::move(data), state_);
+                            auto ret = outputProducer_(state_);
+                            stateResetter_(state_);
+                            return ret;
+                        }
+                    };
+                    if constexpr (std::is_same_v<std::decay_t<T>, Output>) {
+                        return M::template liftPure<Input>(LocalF(std::move(stateUpdater), std::move(outputProducer), std::move(stateResetter), std::move(state)));
+                    } else if constexpr (std::is_same_v<std::decay_t<T>, std::optional<Output>>) {
+                        return M::template liftMaybe<Input>(LocalF(std::move(stateUpdater), std::move(outputProducer), std::move(stateResetter), std::move(state)));
+                    } else if constexpr (std::is_same_v<std::decay_t<T>, std::vector<Output>>) {
+                        return M::template liftMulti<Input>(LocalF(std::move(stateUpdater), std::move(outputProducer), std::move(stateResetter), std::move(state)));
+                    } else {
+                        throw std::runtime_error("Unknown return type of OutputProducer in actionWithBufferedState");
+                    }
+                }
+            }
+        }
     };
 
 } } } }
