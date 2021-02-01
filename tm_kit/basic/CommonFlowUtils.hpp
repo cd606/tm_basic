@@ -1645,7 +1645,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                                 , bool *
                             >) {
                     using T = decltype(
-                        (* ((OutputProducer *) nullptr))(State {}, (bool *) nullptr)
+                        (* ((OutputProducer *) nullptr))((* ((State *) nullptr)), (bool *) nullptr)
                     );
                     class LocalF {
                     private:
@@ -1678,7 +1678,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     }
                 } else {
                     using T = decltype(
-                        (* ((OutputProducer *) nullptr))(State {})
+                        (* ((OutputProducer *) nullptr))((* ((State *) nullptr)))
                     );
                     class LocalF {
                     private:
