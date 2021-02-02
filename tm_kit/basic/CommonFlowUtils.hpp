@@ -923,13 +923,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         //void add(std::tuple<typename M::TimePoint, T> const &);
         //std::optional<...> readResult()
         template <class T, class WholeHistoryHandler>
-        class WholeHistoryKleisli {
+        class WholeHistoryFold {
         public:
             using Result = typename decltype(((WholeHistoryHandler *) nullptr)->readResult())::value_type;
         private:
             WholeHistoryHandler handler_;
         public:
-            WholeHistoryKleisli(WholeHistoryHandler &&handler) : handler_(std::move(handler)) {}
+            WholeHistoryFold(WholeHistoryHandler &&handler) : handler_(std::move(handler)) {}
             typename M::template Data<Result> operator()(typename M::template InnerData<T> &&a) {
                 auto tp = a.timedData.timePoint;
                 handler_.add(std::tuple<typename M::TimePoint, T> {std::move(a.timedData.timePoint), std::move(a.timedData.value)});
@@ -946,8 +946,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
     public:
         template <class T, class WholeHistoryHandler>
-        static auto wholeHistoryKleisli(WholeHistoryHandler &&handler) {
-            return WholeHistoryKleisli<T,WholeHistoryHandler>(std::move(handler));
+        static auto wholeHistoryFold(WholeHistoryHandler &&handler) {
+            return WholeHistoryFold<T,WholeHistoryHandler>(std::move(handler));
         }
     public:
         template <class Input, class Output, class ToSupplyDefaultValue>
