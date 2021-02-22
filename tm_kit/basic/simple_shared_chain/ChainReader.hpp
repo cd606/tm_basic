@@ -184,7 +184,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
 
     template <class Env, class Chain, class ChainItemFolder, class ResultTransformer>
     class ChainReader<infra::RealTimeApp<Env>,Chain,ChainItemFolder,void,ResultTransformer> final
-        : public infra::RealTimeApp<Env>::template AbstractImporter<
+        : public infra::IRealTimeAppPossiblyThreadedNode
+          , public infra::RealTimeApp<Env>::template AbstractImporter<
             std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>
           > {
     private:
@@ -350,6 +351,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
         static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<OutputType>> importer(Chain *chain, ChainPollingPolicy const &pollingPolicy=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}, std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()) {
             return infra::RealTimeApp<Env>::template importer<OutputType>(new ChainReader(chain, pollingPolicy, std::move(folder), std::move(resultTransformer)));
+        }
+        virtual std::optional<std::thread::native_handle_type> threadHandle() override final {
+            return th_.native_handle();
         }
     };
 

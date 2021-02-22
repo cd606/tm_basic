@@ -75,7 +75,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     > 
             *) nullptr))(std::move(* ((std::vector<T> *) nullptr))))>;
             if constexpr (std::is_same_v<M, infra::RealTimeApp<TheEnvironment>>) {
-                class BunchAction : public infra::RealTimeAppComponents<TheEnvironment>::template AbstractAction<T,std::vector<T>> {
+                class BunchAction : public infra::IRealTimeAppPossiblyThreadedNode, public infra::RealTimeAppComponents<TheEnvironment>::template AbstractAction<T,std::vector<T>> {
                 private:
                     B buncher_;
                     typename infra::RealTimeAppComponents<TheEnvironment>::template TimeChecker<false, T> timeChecker_;
@@ -169,6 +169,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     }
                     virtual void handle(typename M::template InnerData<T> &&data) override final {
                         putData(std::move(data));   
+                    }
+                    virtual std::optional<std::thread::native_handle_type> threadHandle() override final {
+                        return th_.native_handle();
                     }
                 };
                 return M::template fromAbstractAction<T, C>(new BunchAction(std::move(buncher)));
@@ -1471,7 +1474,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         {
             if constexpr (std::is_same_v<M, infra::RealTimeApp<TheEnvironment>>) {
                 class LocalAction 
-                    : public M::template ActionCore<Input,Output,false,false> 
+                    : public infra::IRealTimeAppPossiblyThreadedNode, public M::template ActionCore<Input,Output,false,false> 
                 {
                 private:
                     StateUpdater stateUpdater_;
@@ -1635,6 +1638,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                             cond_.notify_one();
                         }
                         return std::nullopt;
+                    }
+                    virtual std::optional<std::thread::native_handle_type> threadHandle() override final {
+                        return thread_.native_handle();
                     }
                 };
                 return M::template fromAbstractAction<Input,Output>(new LocalAction(std::move(stateUpdater), std::move(outputProducer), std::move(stateResetter), std::move(state)));
