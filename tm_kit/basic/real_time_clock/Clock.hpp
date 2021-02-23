@@ -67,6 +67,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
         bool isActualClock() const {
             return (!settings_);
         }
+        std::optional<ClockSettings> clockSettings() const {
+            return settings_;
+        }
     };
 
 } } } } }
