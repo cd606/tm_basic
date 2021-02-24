@@ -3,6 +3,7 @@
 
 #include <tm_kit/infra/KleisliUtils.hpp>
 #include <tm_kit/infra/WithTimeData.hpp>
+#include <tm_kit/infra/TupleVariantHelper.hpp>
 #include <tm_kit/basic/CommonFlowUtils.hpp>
 #include <tm_kit/basic/SingleLayerWrapper.hpp>
 #include <tm_kit/basic/ForceDifferentType.hpp>
@@ -728,6 +729,125 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 secondaryPathway(r, r.actionAsSource(passThroughConverter), r.actionAsSink(collector));
                 r.connect(r.actionAsSource(collector), sink);
             };
+        }
+
+    private:
+        template <std::size_t N, std::size_t K, class S, class T>
+        class DispatchForParallel {
+        public:
+            using ToBeDispatched = infra::VariantConcat<S, infra::VariantRepeat<N,T>>;
+            using SinkCreator = std::function<typename R::template Sink<T>(std::size_t)>;
+            static void apply(R &r, typename R::template Source<ToBeDispatched> &&source, SinkCreator sinkCreator) {
+                auto sink = sinkCreator(K);
+                infra::AppRunnerHelper::Connect<N+1,K+1>::template call<R,ToBeDispatched>(r, source.clone(), sink);
+                if constexpr (K+1 < N) {
+                    DispatchForParallel<N, K+1, S, T>::apply(r, source.clone(), sinkCreator);
+                }
+            }
+        };
+    public:
+        template <
+            std::size_t N //how many processor copies
+            , class Input //overall input
+            , class Output //overall output
+            , class InputSeparatorF //separate input into shared and individual inputs
+                    //requires:
+                    //InputSeparatorF::SharedPartialInputType
+                    //InputSeparatorF::IndividualPartialInputType
+                    //std::variant<SharedPartialInputType, IndividualPartialInputType> call(Input &&)
+            , class InputDispatcherF //dispatch individual inputs
+                    //requires:
+                    //std::size_t call(std::size_t, IndividualPartialInputType const &)
+        >
+        static void parallel(
+            R &r
+            , typename R::template Sourceoid<Input> inputSource
+            , InputSeparatorF &&inputSeparator 
+            , InputDispatcherF &&inputDispatcher 
+            , std::function<
+                typename R::template ActionPtr<
+                    std::variant<
+                        typename InputSeparatorF::SharedPartialInputType
+                        , typename InputSeparatorF::IndividualPartialInputType 
+                    >
+                    , Output
+                >(std::size_t)
+            > actionCreator
+            , typename R::template Sinkoid<Output> outputSink
+            , std::string const &prefix
+        ) {
+            if constexpr (std::is_same_v<M, typename infra::RealTimeApp<TheEnvironment>>) {
+                //parallel only makes sense in real time
+                using SeparatedInput =
+                    infra::VariantConcat<
+                        typename InputSeparatorF::SharedPartialInputType
+                        , infra::VariantRepeat<N, typename InputSeparatorF::IndividualPartialInputType>
+                    >;
+                class LocalSeparatorAction {
+                private:
+                    InputSeparatorF separator_;
+                    InputDispatcherF dispatcher_;
+                public:
+                    LocalSeparatorAction(InputSeparatorF &&separator, InputDispatcherF &&dispatcher) : separator_(std::move(separator)), dispatcher_(std::move(dispatcher)) {}
+                    SeparatedInput operator()(Input &&input) {
+                        return std::visit([this](auto &&x) -> SeparatedInput {
+                            using T = std::decay_t<decltype(x)>;
+                            if constexpr (std::is_same_v<T, typename InputSeparatorF::SharedPartialInputType>) {
+                                return SeparatedInput {
+                                    std::in_place_index<0>
+                                    , std::move(x)
+                                };
+                            } else {
+                                auto idx = dispatcher_.call(N, x) % N;
+                                return infra::augmentedDispatchVariantConstruct<
+                                    N, typename InputSeparatorF::SharedPartialInputType, typename InputSeparatorF::IndividualPartialInputType
+                                >(idx, std::move(x));
+                            }
+                        }, separator_.call(std::move(input)));
+                    }
+                };
+                auto separator = M::template liftPure<Input>(LocalSeparatorAction(std::move(inputSeparator), std::move(inputDispatcher)));
+                r.registerAction(prefix+"/separator", separator);
+                inputSource(r, r.actionAsSink(separator));
+
+                DispatchForParallel<N,0,typename InputSeparatorF::SharedPartialInputType,typename InputSeparatorF::IndividualPartialInputType>::apply(
+                    r
+                    , r.actionAsSource(separator)
+                    , [&r,&prefix,&separator,actionCreator,outputSink](std::size_t idx) -> typename R::template Sink<typename InputSeparatorF::IndividualPartialInputType> {
+                        auto action = actionCreator(idx);
+                        r.registerAction(prefix+"/action_"+std::to_string(idx), action);
+                        infra::AppRunnerHelper::Connect<N+1,0>::template call<R,SeparatedInput>(r, r.actionAsSource(separator), r.actionAsSink_2_0(action));
+                        outputSink(r, r.actionAsSource(action));
+                        return r.actionAsSink_2_1(action);
+                    }
+                );
+            } else {
+                class LocalSeparatorAction {
+                private:
+                    InputSeparatorF separator_;
+                    InputDispatcherF dispatcher_;
+                public:
+                    LocalSeparatorAction(InputSeparatorF &&separator, InputDispatcherF &&dispatcher) : separator_(std::move(separator)), dispatcher_(std::move(dispatcher)) {}
+                    std::variant<
+                        typename InputSeparatorF::SharedPartialInputType, typename InputSeparatorF::IndividualPartialInputType
+                    > operator()(Input &&input) {
+                        auto x = separator_.call(std::move(input));
+                        if (x.index() == 1) {
+                            dispatcher_.call(0, std::get<1>(x));
+                        }
+                        return std::move(x);
+                    }
+                };
+                auto separator = M::template liftPure<Input>(LocalSeparatorAction(std::move(inputSeparator), std::move(inputDispatcher)));
+                r.registerAction(prefix+"/separator", separator);
+                inputSource(r, r.actionAsSink(separator));
+
+                auto action = actionCreator(0);
+                r.registerAction(prefix+"/action", action);
+                r.connect_2_0(r.actionAsSource(separator), r.actionAsSink_2_0(action));
+                r.connect_2_1(r.actionAsSource(separator), r.actionAsSink_2_1(action));
+                outputSink(r, r.actionAsSource(action));
+            }
         }
     };
 
