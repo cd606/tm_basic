@@ -759,7 +759,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     //requires:
                     //std::size_t call(std::size_t, IndividualPartialInputType const &)
         >
-        static void parallel(
+        static void parallel_withSeparatorNode(
             R &r
             , typename R::template Sourceoid<Input> inputSource
             , InputSeparatorF &&inputSeparator 
@@ -846,6 +846,99 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 r.registerAction(prefix+"/action", action);
                 r.connect_2_0(r.actionAsSource(separator), r.actionAsSink_2_0(action));
                 r.connect_2_1(r.actionAsSource(separator), r.actionAsSink_2_1(action));
+                outputSink(r, r.actionAsSource(action));
+            }
+        }
+    private:
+        template <std::size_t N, std::size_t K, class T>
+        class DispatchForParallel2 {
+        public:
+            using ToBeDispatched = infra::VariantRepeat<N,T>;
+            using SinkCreator = std::function<typename R::template Sink<T>(std::size_t)>;
+            static void apply(R &r, typename R::template Source<ToBeDispatched> &&source, SinkCreator sinkCreator) {
+                auto sink = sinkCreator(K);
+                infra::AppRunnerHelper::Connect<N,K>::template call<R,ToBeDispatched>(r, source.clone(), sink);
+                if constexpr (K+1 < N) {
+                    DispatchForParallel2<N, K+1, T>::apply(r, source.clone(), sinkCreator);
+                }
+            }
+        };
+    public:
+        template <
+            std::size_t N //how many processor copies
+            , class SharedInput //shared input
+            , class IndividualInput //individual input
+            , class Output //overall output
+            , class InputDispatcherF //dispatch individual inputs
+                    //requires:
+                    //std::size_t call(std::size_t, IndividualInput const &)
+        >
+        static void parallel_withoutSeparatorNode(
+            R &r
+            , typename R::template Sourceoid<SharedInput> sharedInputSource
+            , typename R::template Sourceoid<IndividualInput> individualInputSource
+            , InputDispatcherF &&inputDispatcher 
+            , std::function<
+                typename R::template ActionPtr<
+                    std::variant<
+                        SharedInput
+                        , IndividualInput
+                    >
+                    , Output
+                >(std::size_t)
+            > actionCreator
+            , typename R::template Sinkoid<Output> outputSink
+            , std::string const &prefix
+        ) {
+            if constexpr (std::is_same_v<M, typename infra::RealTimeApp<TheEnvironment>>) {
+                //parallel only makes sense in real time
+                using DispatchedInput = infra::VariantRepeat<N, IndividualInput>;
+                class LocalDispatcherAction {
+                private:
+                    InputDispatcherF dispatcher_;
+                public:
+                    LocalDispatcherAction(InputDispatcherF &&dispatcher) : dispatcher_(std::move(dispatcher)) {}
+                    DispatchedInput operator()(IndividualInput &&input) {
+                        auto idx = dispatcher_.call(N, input) % N;
+                        return infra::dispatchVariantConstruct<
+                            N, IndividualInput
+                        >(idx, std::move(input));
+                    }
+                };
+                auto dispatcher = M::template liftPure<IndividualInput>(LocalDispatcherAction(std::move(inputDispatcher)));
+                r.registerAction(prefix+"/dispatcher", dispatcher);
+                individualInputSource(r, r.actionAsSink(dispatcher));
+
+                DispatchForParallel2<N,0,IndividualInput>::apply(
+                    r
+                    , r.actionAsSource(dispatcher)
+                    , [&r,&prefix,sharedInputSource,actionCreator,outputSink](std::size_t idx) -> typename R::template Sink<IndividualInput> {
+                        auto action = actionCreator(idx);
+                        r.registerAction(prefix+"/action_"+std::to_string(idx), action);
+                        sharedInputSource(r, r.actionAsSink_2_0(action));
+                        outputSink(r, r.actionAsSource(action));
+                        return r.actionAsSink_2_1(action);
+                    }
+                );
+            } else {
+                class LocalDispatcherAction {
+                private:
+                    InputDispatcherF dispatcher_;
+                public:
+                    LocalDispatcherAction(InputDispatcherF &&dispatcher) : dispatcher_(std::move(dispatcher)) {}
+                    IndividualInput operator()(IndividualInput &&input) {
+                        dispatcher_.call(0, input);
+                        return std::move(std::move(input));
+                    }
+                };
+                auto dispatcher = M::template liftPure<IndividualInput>(LocalDispatcherAction(std::move(inputDispatcher)));
+                r.registerAction(prefix+"/dispatcher", dispatcher);
+                individualInputSource(r, r.actionAsSink(dispatcher));
+
+                auto action = actionCreator(0);
+                r.registerAction(prefix+"/action", action);
+                sharedInputSource(r, r.actionAsSink_2_0(action));
+                r.connect(r.actionAsSource(dispatcher), r.actionAsSink_2_1(action));
                 outputSink(r, r.actionAsSource(action));
             }
         }
