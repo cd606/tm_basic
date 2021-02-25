@@ -44,7 +44,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         }
                         auto t = env_->now();
                         if (overrideDate_) {
+#ifdef _MSC_VER
+                            auto sinceMidnight = infra::withtime_utils::sinceMidnight<std::chrono::microseconds>(d->timePoint);
+#else
                             auto sinceMidnight = infra::withtime_utils::sinceMidnight<std::chrono::nanoseconds>(d->timePoint);
+#endif
                             if (!virtualToday_) {
                                 std::time_t tt = std::chrono::system_clock::to_time_t(t);
                                 std::tm *m = std::localtime(&tt);
@@ -54,7 +58,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                                 m->tm_isdst = -1;
                                 virtualToday_ =  std::chrono::system_clock::from_time_t(std::mktime(m));
                             }
+#ifdef _MSC_VER
+                            d->timePoint = *virtualToday_+std::chrono::microseconds(sinceMidnight);
+#else
                             d->timePoint = *virtualToday_+std::chrono::nanoseconds(sinceMidnight);
+#endif
                         }
                         if (d->timePoint < t) {
                             if (d->timePoint >= t-std::chrono::seconds(1)) {
