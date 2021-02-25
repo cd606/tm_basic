@@ -42,6 +42,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
          *  }
          * }
          * The date and time formats must be exact
+         * if virtual date is empty string, the actual date is used
          */
         static ClockSettings loadClockSettingsFromJSONFile(std::string const &fileName);
         static ClockSettings loadClockSettingsFromJSONString(std::string const &jsonContent);

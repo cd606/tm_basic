@@ -19,13 +19,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     public:
         template <class Format, bool PublishFinalEmptyMessage=false>
         static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<ByteDataWithTopic>>
-        createImporter(std::istream &is, std::vector<std::byte> const &fileMagic=std::vector<std::byte>(), std::vector<std::byte> const &recordMagic=std::vector<std::byte>()) {
+        createImporter(std::istream &is, std::vector<std::byte> const &fileMagic=std::vector<std::byte>(), std::vector<std::byte> const &recordMagic=std::vector<std::byte>(), bool overrideDate=false) {
             class LocalI : public infra::RealTimeApp<Env>::template AbstractImporter<ByteDataWithTopic> {
             private:
                 std::istream *is_;
                 ByteDataWithTopicRecordFileReader<Format> reader_;
                 Env *env_;
                 std::thread th_;
+                bool overrideDate_;
+                std::optional<std::chrono::system_clock::time_point> virtualToday_;
+
                 void run() {
                     reader_.startReadingByteDataWithTopicRecordFile(*is_);
                     while (true) {
@@ -40,8 +43,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                             break;
                         }
                         auto t = env_->now();
+                        if (overrideDate_) {
+                            auto sinceMidnight = infra::withtime_utils::sinceMidnight<std::chrono::nanoseconds>(d->timePoint);
+                            if (!virtualToday_) {
+                                std::time_t tt = std::chrono::system_clock::to_time_t(t);
+                                std::tm *m = std::localtime(&tt);
+                                m->tm_hour = 0;
+                                m->tm_min = 0;
+                                m->tm_sec = 0;
+                                m->tm_isdst = -1;
+                                virtualToday_ =  std::chrono::system_clock::from_time_t(std::mktime(m));
+                            }
+                            d->timePoint = *virtualToday_+std::chrono::nanoseconds(sinceMidnight);
+                        }
                         if (d->timePoint < t) {
-                            continue;
+                            if (d->timePoint >= t-std::chrono::seconds(1)) {
+                                this->publish(typename infra::RealTimeApp<Env>::template InnerData<ByteDataWithTopic> {
+                                    env_, *d
+                                });
+                            } else {
+                                continue;
+                            }
                         } else if (d->timePoint == t) {
                             this->publish(typename infra::RealTimeApp<Env>::template InnerData<ByteDataWithTopic> {
                                 env_, *d
@@ -55,14 +77,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     }
                 }
             public:
-                LocalI(std::istream &is, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic) : is_(&is), reader_(fileMagic, recordMagic), env_(nullptr), th_() {}
+                LocalI(std::istream &is, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic, bool overrideDate) : is_(&is), reader_(fileMagic, recordMagic), env_(nullptr), th_(), overrideDate_(overrideDate), virtualToday_(std::nullopt) {}
                 virtual void start(Env *env) override final {
                     env_ = env;
                     th_ = std::thread(&LocalI::run, this);
                     th_.detach();
                 }
             };
-            return infra::RealTimeApp<Env>::template importer(new LocalI(is, fileMagic, recordMagic));
+            return infra::RealTimeApp<Env>::template importer(new LocalI(is, fileMagic, recordMagic, overrideDate));
         }
         
         template <class Format>

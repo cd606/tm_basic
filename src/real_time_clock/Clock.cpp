@@ -32,11 +32,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
 
             parts.clear();
             boost::trim(yyyymmddVirtual);
-            boost::split(parts, yyyymmddVirtual, boost::is_any_of("-"));
-            m->tm_year = boost::lexical_cast<int>(parts[0])-1900;
-            m->tm_mon = boost::lexical_cast<int>(parts[1])-1;
-            m->tm_mday = boost::lexical_cast<int>(parts[2]);
-            parts.clear();
+            if (yyyymmddVirtual != "") {
+                boost::split(parts, yyyymmddVirtual, boost::is_any_of("-"));
+                m->tm_year = boost::lexical_cast<int>(parts[0])-1900;
+                m->tm_mon = boost::lexical_cast<int>(parts[1])-1;
+                m->tm_mday = boost::lexical_cast<int>(parts[2]);
+                parts.clear();
+            }
             boost::trim(hhmmVirtual);
             boost::split(parts, hhmmVirtual, boost::is_any_of(":"));
             m->tm_hour = boost::lexical_cast<int>(parts[0]);
