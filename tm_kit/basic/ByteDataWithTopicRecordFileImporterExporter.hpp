@@ -6,6 +6,7 @@
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
 #include <tm_kit/infra/TraceNodesComponent.hpp>
 #include <tm_kit/infra/BasicWithTimeApp.hpp>
+#include <tm_kit/infra/ControllableNode.hpp>
 #include <tm_kit/basic/ByteDataWithTopicRecordFile.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
@@ -20,7 +21,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <class Format, bool PublishFinalEmptyMessage=false>
         static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<ByteDataWithTopic>>
         createImporter(std::istream &is, std::vector<std::byte> const &fileMagic=std::vector<std::byte>(), std::vector<std::byte> const &recordMagic=std::vector<std::byte>(), bool overrideDate=false) {
-            class LocalI : public infra::RealTimeApp<Env>::template AbstractImporter<ByteDataWithTopic> {
+            class LocalI : public infra::RealTimeApp<Env>::template AbstractImporter<ByteDataWithTopic>, public infra::IControllableNode<Env> {
             private:
                 std::istream *is_;
                 ByteDataWithTopicRecordFileReader<Format> reader_;
@@ -28,10 +29,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::thread th_;
                 bool overrideDate_;
                 std::optional<std::chrono::system_clock::time_point> virtualToday_;
+                std::atomic<bool> running_;
 
                 void run() {
                     reader_.startReadingByteDataWithTopicRecordFile(*is_);
-                    while (true) {
+                    while (running_) {
                         TM_INFRA_IMPORTER_TRACER(env_);
                         auto d = reader_.readByteDataWithTopicRecord(*is_);
                         if (!d) {
@@ -85,11 +87,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     }
                 }
             public:
-                LocalI(std::istream &is, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic, bool overrideDate) : is_(&is), reader_(fileMagic, recordMagic), env_(nullptr), th_(), overrideDate_(overrideDate), virtualToday_(std::nullopt) {}
+                LocalI(std::istream &is, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic, bool overrideDate) : is_(&is), reader_(fileMagic, recordMagic), env_(nullptr), th_(), overrideDate_(overrideDate), virtualToday_(std::nullopt), running_(false) {}
                 virtual void start(Env *env) override final {
                     env_ = env;
+                    running_ = true;
                     th_ = std::thread(&LocalI::run, this);
                     th_.detach();
+                }
+                virtual void control(Env *env, std::string const &command, std::vector<std::string> const &params) override final {
+                    if (command == "stop") {
+                        running_ = false;
+                        try {
+                            th_.join();
+                        } catch (...) {
+                        }
+                    }
                 }
             };
             return infra::RealTimeApp<Env>::template importer(new LocalI(is, fileMagic, recordMagic, overrideDate));
