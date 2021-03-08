@@ -20,6 +20,7 @@ tm_basic_headers = [
     , 'WrapFacilitioidConnectorForSerialization.hpp'
     , 'AppClockHelper.hpp'
     , 'TriviallySerializable.hpp'
+    , 'GenericIOStreamImporterExporter.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
