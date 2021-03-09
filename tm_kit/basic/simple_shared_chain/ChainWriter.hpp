@@ -27,6 +27,39 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         using T = basic::VoidStruct;
     };
 
+    template <class Chain>
+    struct ChainLock {
+    private:
+        Chain *chain_;
+    public:
+        ChainLock(Chain *c) : chain_(c) {
+            static auto acquireLockChecker = boost::hana::is_valid(
+                [](auto *c) -> decltype((void) c->acquireLock()) {}
+            );
+            static auto releaseLockChecker = boost::hana::is_valid(
+                [](auto *c) -> decltype((void) c->releaseLock()) {}
+            );
+            if constexpr (acquireLockChecker((Chain *) nullptr)) {
+                if constexpr (releaseLockChecker((Chain *) nullptr)) {
+                    chain_->acquireLock();
+                }
+            }
+        }
+        ~ChainLock() {
+            static auto acquireLockChecker = boost::hana::is_valid(
+                [](auto *c) -> decltype((void) c->acquireLock()) {}
+            );
+            static auto releaseLockChecker = boost::hana::is_valid(
+                [](auto *c) -> decltype((void) c->releaseLock()) {}
+            );
+            if constexpr (acquireLockChecker((Chain *) nullptr)) {
+                if constexpr (releaseLockChecker((Chain *) nullptr)) {
+                    chain_->releaseLock();
+                }
+            }
+        }
+    };
+
     template <class Env, class Chain, class ChainItemFolder, class InputHandler, class IdleLogic>
     class ChainWriter<typename infra::RealTimeApp<Env>, Chain, ChainItemFolder, InputHandler, IdleLogic>
         : 
@@ -85,6 +118,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     }
                 }
             } else {
+                ChainLock<Chain> _(chain_);
                 //we must read until the end
                 while (true) {
                     while (true) {
@@ -174,6 +208,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             );
             TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(data.environment, ":handle");
             auto id = data.timedData.value.id();
+            ChainLock<Chain> _(chain_);
             while (true) {
                 while (true) {
                     std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
@@ -438,6 +473,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(data.environment, ":handle");
             data.environment->resolveTime(data.timedData.timePoint);
             auto id = data.timedData.value.id();
+            ChainLock<Chain> _(chain_);
             while (true) {
                 while (true) {
                     std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
@@ -527,6 +563,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 static auto foldInPlaceChecker = boost::hana::is_valid(
                     [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
                 );
+                ChainLock<Chain> _(chain_);
                 std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
                 bool hasUpdate = false;
                 if (nextItem) {
@@ -783,6 +820,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 }
             } else {
                 //we must read until the end
+                ChainLock<Chain> _(chain_);
                 while (true) {
                     while (true) {
                         std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
@@ -871,6 +909,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             );
             TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(data.environment, ":handle");
             auto id = data.timedData.value.id();
+            ChainLock<Chain> _(chain_);
             while (true) {
                 while (true) {
                     std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
