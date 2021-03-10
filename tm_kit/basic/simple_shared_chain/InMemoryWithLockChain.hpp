@@ -40,8 +40,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         TheMap theMap_;
         std::unordered_map<std::string, std::string> extraData_;
         std::mutex mutex_;
+        std::mutex chainActionMutex_;
     public:
-        InMemoryWithLockChain() : updateTriggerFunc_(), theMap_({{"", MapData {}}}), extraData_(), mutex_() {
+        InMemoryWithLockChain() : updateTriggerFunc_(), theMap_({{"", MapData {}}}), extraData_(), mutex_(), chainActionMutex_() {
         }
         void setUpdateTriggerFunc(std::function<void()> f) {
             if (updateTriggerFunc_) {
@@ -187,6 +188,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
         static std::string_view extractStorageIDStringView(ItemType const &p) {
             return std::string_view {p.id};
+        }
+        void acquireLock() {
+            chainActionMutex_.lock();
+        }
+        void releaseLock() {
+            chainActionMutex_.unlock();
         }
     };
 
