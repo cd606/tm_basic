@@ -33,30 +33,35 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         Chain *chain_;
     public:
         ChainLock(Chain *c) : chain_(c) {
-            static auto acquireLockChecker = boost::hana::is_valid(
-                [](auto *c) -> decltype((void) c->acquireLock()) {}
-            );
-            static auto releaseLockChecker = boost::hana::is_valid(
-                [](auto *c) -> decltype((void) c->releaseLock()) {}
-            );
-            if constexpr (acquireLockChecker((Chain *) nullptr)) {
-                if constexpr (releaseLockChecker((Chain *) nullptr)) {
-                    chain_->acquireLock();
-                }
+            if constexpr (chainHasDataLock()) {
+                chain_->acquireLock();
             }
         }
         ~ChainLock() {
-            static auto acquireLockChecker = boost::hana::is_valid(
+            if constexpr (chainHasDataLock()) {
+                chain_->releaseLock();
+            }
+        }
+        static constexpr bool chainHasDataLock() {
+            auto acquireLockChecker = boost::hana::is_valid(
                 [](auto *c) -> decltype((void) c->acquireLock()) {}
             );
-            static auto releaseLockChecker = boost::hana::is_valid(
+            auto releaseLockChecker = boost::hana::is_valid(
                 [](auto *c) -> decltype((void) c->releaseLock()) {}
+            );
+            auto lockIsTrivialChecker = boost::hana::is_valid(
+                [](auto *c) -> decltype((void) c->DataLockIsTrivial) {}
             );
             if constexpr (acquireLockChecker((Chain *) nullptr)) {
                 if constexpr (releaseLockChecker((Chain *) nullptr)) {
-                    chain_->releaseLock();
+                    if constexpr (lockIsTrivialChecker((Chain *) nullptr)) {
+                        return !Chain::DataLockIsTrivial;
+                    } else {
+                        return true;
+                    }
                 }
             }
+            return false;
         }
     };
 
@@ -399,6 +404,35 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 innerHandler2_ = new InnerHandler2(this);
             } else {
                 innerHandler1_ = new InnerHandler1(this);
+            }
+
+            static auto foldInPlaceChecker = boost::hana::is_valid(
+                [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
+            );
+            //for real time writer, if the chain has data lock
+            //it might be better to read up to the end in the startup
+            //to avoid doing this while holding the data lock
+            if constexpr (ChainLock<Chain>::chainHasDataLock()) {
+                while (true) {
+                    std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+                    if (!nextItem) {
+                        break;
+                    }
+                    currentItem_ = std::move(*nextItem);
+                    auto const *dataPtr = Chain::extractData(currentItem_);
+                    if (dataPtr) {
+                        if constexpr (foldInPlaceChecker(
+                            (ChainItemFolder *) nullptr
+                            , (typename ChainItemFolder::ResultType *) nullptr
+                            , (std::string_view *) nullptr
+                            , (typename Chain::DataType const *) nullptr
+                        )) {
+                            folder_.foldInPlace(currentState_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                        } else {
+                            currentState_ = folder_.fold(currentState_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                        }
+                    }
+                }
             }
         }
         virtual void handle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
