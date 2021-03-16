@@ -328,7 +328,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
 
-    template <class T>
+    template <class T, class SizeType=std::size_t>
     class SimpleSerializingWriter {
     public:
         template <class Env>
@@ -337,18 +337,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static void writeOne(Env *env, std::ostream &os, infra::WithTime<T, TimePoint> &&data) {
             if constexpr (bytedata_utils::DirectlySerializableChecker<T>::IsDirectlySerializable()) {
                 std::string s = bytedata_utils::RunSerializer<T>::apply(data.value);
-                uint32_t l = boost::endian::native_to_little<uint32_t>(s.length());
-                os.write(reinterpret_cast<char *>(&l), sizeof(uint32_t));
+                SizeType l = boost::endian::native_to_little<SizeType>(s.length());
+                os.write(reinterpret_cast<char *>(&l), sizeof(SizeType));
                 os.write(s.data(), s.length());
             } else {
                 std::string s = bytedata_utils::RunCBORSerializer<T>::apply(data.value);
-                uint32_t l = boost::endian::native_to_little<uint32_t>(s.length());
-                os.write(reinterpret_cast<char *>(&l), sizeof(uint32_t));
+                SizeType l = boost::endian::native_to_little<SizeType>(s.length());
+                os.write(reinterpret_cast<char *>(&l), sizeof(SizeType));
                 os.write(s.data(), s.length());
             }
         }
     };
-    template <class T, class TimeExtractor>
+    template <class T, class TimeExtractor, class SizeType=std::size_t>
     class SimpleDeserializingReader {
     private:
         TimeExtractor timeExtractor_;
@@ -358,14 +358,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static void start(Env *env, std::istream &is) {}
         template <class Env>
         std::optional<std::tuple<typename Env::TimePointType, T>> readOne(Env *env, std::istream &is) {
-            char buf[sizeof(uint32_t)];
-            is.read(buf, sizeof(uint32_t));
-            if (is.gcount() != sizeof(uint32_t)) {
+            char buf[sizeof(SizeType)];
+            is.read(buf, sizeof(SizeType));
+            if (is.gcount() != sizeof(SizeType)) {
                 return std::nullopt;
             }
-            uint32_t l;
-            std::memcpy(&l, buf, sizeof(uint32_t));
-            l = boost::endian::little_to_native<uint32_t>(l);
+            SizeType l;
+            std::memcpy(&l, buf, sizeof(SizeType));
+            l = boost::endian::little_to_native<SizeType>(l);
             char *p = new char[l];
             is.read(p, l);
             if (is.gcount() != l) {
@@ -398,7 +398,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
 
-    template <class T, class TimeWriter>
+    template <class T, class TimeWriter, class SizeType=std::size_t>
     class SimpleSerializingWriterWithTime {
     private:
         TimeWriter timeWriter_;
@@ -411,18 +411,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             timeWriter_(env, os, data.timePoint);
             if constexpr (bytedata_utils::DirectlySerializableChecker<T>::IsDirectlySerializable()) {
                 std::string s = bytedata_utils::RunSerializer<T>::apply(data.value);
-                uint32_t l = boost::endian::native_to_little<uint32_t>(s.length());
-                os.write(reinterpret_cast<char *>(&l), sizeof(uint32_t));
+                SizeType l = boost::endian::native_to_little<SizeType>(s.length());
+                os.write(reinterpret_cast<char *>(&l), sizeof(SizeType));
                 os.write(s.data(), s.length());
             } else {
                 std::string s = bytedata_utils::RunCBORSerializer<T>::apply(data.value);
-                uint32_t l = boost::endian::native_to_little<uint32_t>(s.length());
-                os.write(reinterpret_cast<char *>(&l), sizeof(uint32_t));
+                SizeType l = boost::endian::native_to_little<SizeType>(s.length());
+                os.write(reinterpret_cast<char *>(&l), sizeof(SizeType));
                 os.write(s.data(), s.length());
             }
         }
     };
-    template <class T, class TimeReader>
+    template <class T, class TimeReader, class SizeType=std::size_t>
     class SimpleDeserializingReaderWithTime {
     private:
         TimeReader timeReader_;
@@ -436,14 +436,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             if (!tp) {
                 return std::nullopt;
             }
-            char buf[sizeof(uint32_t)];
-            is.read(buf, sizeof(uint32_t));
-            if (is.gcount() != sizeof(uint32_t)) {
+            char buf[sizeof(SizeType)];
+            is.read(buf, sizeof(SizeType));
+            if (is.gcount() != sizeof(SizeType)) {
                 return std::nullopt;
             }
-            uint32_t l;
-            std::memcpy(&l, buf, sizeof(uint32_t));
-            l = boost::endian::little_to_native<uint32_t>(l);
+            SizeType l;
+            std::memcpy(&l, buf, sizeof(SizeType));
+            l = boost::endian::little_to_native<SizeType>(l);
             char *p = new char[l];
             is.read(p, l);
             if (is.gcount() != l) {
