@@ -6,8 +6,8 @@
 #include <tm_kit/basic/single_pass_iteration_clock/Clock.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace single_pass_iteration_clock {
-    template <class TimePoint>
-    class ClockComponent : public Clock<TimePoint> {
+    template <class TimePoint, bool AllowLocalTimeOverride=false>
+    class ClockComponent : public Clock<TimePoint, AllowLocalTimeOverride> {
     public:
         using TimePointType = TimePoint;
         using DurationType = decltype(TimePoint()-TimePoint());
@@ -15,10 +15,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
         static constexpr bool CanBeActualTimeClock = false;
         
         TimePointType resolveTime() {
-            return Clock<TimePoint>::now();
+            return Clock<TimePoint, AllowLocalTimeOverride>::now();
         }
         TimePointType resolveTime(TimePointType const &triggeringInputTime) {
-            Clock<TimePoint>::updateLatestTime(triggeringInputTime);
+            Clock<TimePoint, AllowLocalTimeOverride>::updateLatestTime(triggeringInputTime);
             return triggeringInputTime;
         }
     };

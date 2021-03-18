@@ -12,7 +12,7 @@
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace single_pass_iteration_clock {
 
-    template <class Env, std::enable_if_t<std::is_base_of_v<ClockComponent<typename Env::TimePointType>, Env>, int> = 0>
+    template <class Env>
     class ClockOnOrderFacility {
     public:
         using M = infra::SinglePassIterationApp<Env>;
