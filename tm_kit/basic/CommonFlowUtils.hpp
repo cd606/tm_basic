@@ -32,6 +32,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
         template <class T>
+        static auto bufferingNode() {
+            return M::template kleisli<T>(idFunc<T>(), infra::LiftParameters<typename M::TimePoint>().SuggestThreaded(true));
+        }
+
+        template <class T>
         static auto filterOnOptional() {
             return infra::KleisliUtils<M>::template liftMaybe<std::optional<T>>(
                 [](std::optional<T> &&x) -> std::optional<T>
