@@ -1722,11 +1722,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
         template <class A>
-        static std::shared_ptr<typename M::template OnOrderFacility<A,A>> facilityBridge() {
-            class LocalF : public M::template AbstractOnOrderFacility<A,A> {
+        static std::shared_ptr<typename M::template OnOrderFacility<A,VoidStruct>> facilityBridge() {
+            class LocalF : public M::template AbstractOnOrderFacility<A,VoidStruct> {
             public:
                 virtual void handle(typename M::template InnerData<typename M::template Key<A>> &&x) override final {
-                    this->publish(x.environment, std::move(x.timedData.value), true);
+                    this->publish(x.environment, typename M::template Key<VoidStruct> {x.timedData.value.id(), VoidStruct {}}, true);
                 }
             };
             return M::fromAbstractOnOrderFacility(new LocalF());
