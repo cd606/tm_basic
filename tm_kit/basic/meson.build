@@ -21,6 +21,7 @@ tm_basic_headers = [
     , 'AppClockHelper.hpp'
     , 'TriviallySerializable.hpp'
     , 'GenericIOStreamImporterExporter.hpp'
+    , 'NotConstructibleStruct.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')

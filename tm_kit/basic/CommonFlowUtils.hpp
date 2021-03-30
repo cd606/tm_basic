@@ -438,6 +438,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         private:
             F f_;
         public:
+            using InputType = std::tuple<A,B>;
+
             PreserveLeft(F &&f) : f_(std::move(f)) {}
 
             using C = typename decltype(f_(std::move(* (typename M::template InnerData<B> *)nullptr)))::value_type::ValueType;
@@ -467,6 +469,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         private:
             F f_;
         public:
+            using InputType = std::tuple<A,B>;
+
             PreserveRight(F &&f) : f_(std::move(f)) {}
 
             using C = typename decltype(f_(std::move(* (typename M::template InnerData<A> *)nullptr)))::value_type::ValueType;
@@ -492,12 +496,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     private:
         template <class A, class B, class F, class G>
-        class Parallel {
+        class ParallelArrow {
         private:
             F f_;
             G g_;
         public:
-            Parallel(F &&f, G &&g) : f_(std::move(f)), g_(std::move(g)) {}
+            using InputType = std::tuple<A,B>;
+
+            ParallelArrow(F &&f, G &&g) : f_(std::move(f)), g_(std::move(g)) {}
 
             using C = typename decltype(f_(std::move(* (typename M::template InnerData<A> *)nullptr)))::value_type::ValueType;
             using D = typename decltype(g_(std::move(* (typename M::template InnerData<B> *)nullptr)))::value_type::ValueType;
@@ -525,9 +531,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         };
     public:
+        //WARNING: This is not a "parallel" processing component, it is simply
+        //a way to express two "parallel" arrows in a graph. For actually parallelizing
+        //some operation with multiple threads, please refer to "parallel_withSeparatorNode"
+        //and "parallel_withoutSeparatorNode" in AppRunnerUtils.hpp
         template <class A, class B, class F, class G>
-        static Parallel<A,B,F,G> parallel(F &&f, G &&g) {
-            return Parallel<A,B,F,G>(std::move(f), std::move(g));
+        static ParallelArrow<A,B,F,G> parallelArrow(F &&f, G &&g) {
+            return ParallelArrow<A,B,F,G>(std::move(f), std::move(g));
         }
     private:
         template <class A, class F, class G>
@@ -536,6 +546,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             F f_;
             G g_;
         public:
+            using InputType = A;
+
             FanOut(F &&f, G &&g) : f_(std::move(f)), g_(std::move(g)) {}
 
             using B = typename decltype(f_(std::move(* (typename M::template InnerData<A> *)nullptr)))::value_type::ValueType;
@@ -572,6 +584,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         private:
             F f_;
         public:
+            using InputType = typename M::template Key<A>;
+
             WithKey(F &&f) : f_(std::move(f)) {}
 
             using B = typename decltype(f_(std::move(* (typename M::template InnerData<A> *)nullptr)))::value_type::ValueType;
@@ -607,6 +621,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         private:
             F f_;
         public:
+            using InputType = typename M::template KeyedData<K,A>;
+
             WithKeyAndInput(F &&f) : f_(std::move(f)) {}
 
             using B = typename decltype(f_(std::move(* (typename M::template InnerData<A> *)nullptr)))::value_type::ValueType;
@@ -642,6 +658,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         private:
             F f_;
         public:
+            using InputType = infra::VersionedData<V,A,Cmp>;
+
             WithVersion(F &&f) : f_(std::move(f)) {}
 
             using B = typename decltype(f_(std::move(* (typename M::template InnerData<A> *)nullptr)))::value_type::ValueType;
@@ -677,6 +695,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         private:
             F f_;
         public:
+            using InputType = infra::GroupedVersionedData<G,V,A,Cmp>;
+
             WithGroupAndVersion(F &&f) : f_(std::move(f)) {}
 
             using B = typename decltype(f_(std::move(* (typename M::template InnerData<A> *)nullptr)))::value_type::ValueType;
@@ -713,6 +733,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         private:
             F f_;
         public:
+            using InputType = A;
+
             PureFilter(F &&f) : f_(std::move(f)) {}
 
             typename M::template Data<A> operator()(typename M::template InnerData<A> &&x) {
@@ -728,6 +750,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         private:
             F f_;
         public:
+            using InputType = A;
+
             EnhancedPureFilter(F &&f) : f_(std::move(f)) {}
 
             typename M::template Data<A> operator()(typename M::template InnerData<A> &&x) {
@@ -743,6 +767,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         private:
             F f_;
         public:
+            using InputType = A;
+
             PureTwoWayFilter(F &&f) : f_(std::move(f)) {}
 
             typename M::template Data<std::variant<A,A>> operator()(typename M::template InnerData<A> &&x) {
@@ -762,6 +788,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         private:
             F f_;
         public:
+            using InputType = A;
+
             EnhancedPureTwoWayFilter(F &&f) : f_(std::move(f)) {}
 
             typename M::template Data<A> operator()(typename M::template InnerData<A> &&x) {
@@ -844,6 +872,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             MTW w_;
             State state_;
         public:
+            using InputType = T;
+
             SimpleMovingTimeWindowKleisli(PushPopHandler &&handler, Duration const &d) : handler_(std::move(handler)), w_(d), state_() {}
             typename M::template Data<Result> operator()(typename M::template InnerData<T> &&a) {
                 auto *p = a.environment;
@@ -881,24 +911,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             MTW w_;
             State state_;
         public:
+            using InputType = std::variant<A,B>;
+
             ComplexMovingTimeWindowKleisli(PushPopHandler &&handler, Duration const &d) : handler_(std::move(handler)), w_(d), state_() {}
-            typename M::template Data<Result> operator()(int which, typename M::template InnerData<A> &&a, typename M::template InnerData<B> &&b) {
+            typename M::template Data<Result> operator()(typename M::template InnerData<std::variant<A,B>> &&x) {
+                int which = x.index();
                 switch (which) {
                     case 0:
                         {
-                            w_.handleData(&state_, handler_, std::tuple<typename M::TimePoint, A> {std::move(a.timedData.timePoint), std::move(a.timedData.value)});
+                            w_.handleData(&state_, handler_, std::tuple<typename M::TimePoint, A> {std::move(x.timedData.timePoint), std::move(std::get<0>(x.timedData.value))});
                             return std::nullopt;
                         }
                         break;
                     case 1:
                         {
-                            auto tp = b.timedData.timePoint;
+                            auto tp = x.timedData.timePoint;
                             w_.handleTimePoint(&state_, handler_, tp);
-                            auto res = handler_.readResult(state_, std::tuple<typename M::TimePoint, B> {std::move(b.timedData.timePoint), std::move(b.timedData.value)});
+                            auto res = handler_.readResult(state_, std::tuple<typename M::TimePoint, B> {std::move(x.timedData.timePoint), std::move(std::get<1>(x.timedData.value))});
                             if (res) {
                                 return { typename M::template InnerData<Result> {
-                                    b.environment,
-                                    { b.environment->resolveTime(tp), *res, b.timedData.finalFlag }
+                                    x.environment,
+                                    { x.environment->resolveTime(tp), *res, x.timedData.finalFlag }
                                 } };
                             } else {
                                 return std::nullopt;
@@ -937,6 +970,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         private:
             WholeHistoryHandler handler_;
         public:
+            using InputType = T;
+
             WholeHistoryFold(WholeHistoryHandler &&handler) : handler_(std::move(handler)) {}
             typename M::template Data<Result> operator()(typename M::template InnerData<T> &&a) {
                 auto tp = a.timedData.timePoint;
