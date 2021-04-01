@@ -4,6 +4,7 @@
 #include <chrono>
 #include <ctime>
 #include <optional>
+#include <tm_kit/infra/ChronoUtils.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace single_pass_iteration_clock {
     
@@ -30,6 +31,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
             }
             return latestTime_;
         }
+        uint64_t currentTimeMillis() const {
+            if constexpr (std::is_same_v<TimePoint, std::chrono::system_clock::time_point>) {
+                return infra::withtime_utils::sinceEpoch<std::chrono::milliseconds>(now());
+            } else {
+                throw std::runtime_error("single_pass_iteration_clock::currentTimeMillis only makes sense when the time point type is system_clock's time type");
+            }
+        }
         void sleepFor(decltype(TimePoint()-TimePoint()) const &duration) {
             latestTime_ += duration;
         }
@@ -55,6 +63,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
     public:
         TimePoint now() const {
             return latestTime_;
+        }
+        uint64_t currentTimeMillis() const {
+            if constexpr (std::is_same_v<TimePoint, std::chrono::system_clock::time_point>) {
+                return infra::withtime_utils::sinceEpoch<std::chrono::milliseconds>(now());
+            } else {
+                throw std::runtime_error("single_pass_iteration_clock::currentTimeMillis only makes sense when the time point type is system_clock's time type");
+            }
         }
         void sleepFor(decltype(TimePoint()-TimePoint()) const &duration) {
             latestTime_ += duration;

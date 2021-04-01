@@ -14,6 +14,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace emp
         TimePoint now() const {
             return TimePoint {};
         }
+        uint64_t currentTimeMillis() const {
+            return 0;
+        }
         void sleepFor(decltype(TimePoint()-TimePoint()) const &duration) {
         }
     };
