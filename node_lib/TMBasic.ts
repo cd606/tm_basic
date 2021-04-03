@@ -617,7 +617,7 @@ export namespace Files {
         fileMagicLength : number 
         , recordMagicLength : number 
         , timeFieldLength : number 
-        , topicFieldLength : number 
+        , topicLengthFieldLength : number 
         , dataLengthFieldLength : number 
         , hasFinalFlagField : boolean 
         , timePrecision : "second" | "millisecond" | "microsecond"
@@ -627,7 +627,7 @@ export namespace Files {
             fileMagicLength : 4 
             , recordMagicLength : 4
             , timeFieldLength : 8
-            , topicFieldLength : 4
+            , topicLengthFieldLength : 4
             , dataLengthFieldLength : 4
             , hasFinalFlagField : true 
             , timePrecision : "microsecond"
@@ -657,49 +657,57 @@ export namespace Files {
             if (l < this.option.timeFieldLength) {
                 return [-1, undefined];
             }
-            let t : bigint = b.slice(idx, idx+this.option.timeFieldLength).readBigInt64LE();
             let theTime : Date = null;
             let theTimeString : string = "";
-            switch (this.option.timePrecision) {
-            case "second":
-                theTime = new Date(Number(t*BigInt(1000)));
-                theTimeString = dateformat(theTime, "yyyy-mm-dd HH:MM:ss");
-                break;
-            case "millisecond":
-                theTime = new Date(Number(t));
-                theTimeString = dateformat(theTime, "yyyy-mm-dd HH:MM:ss.l");
-                break;
-            case "microsecond":
-                theTime = new Date(Number(t/BigInt(1000)));
-                theTimeString = dateformat(theTime, "yyyy-mm-dd HH:MM:ss")+printf('.%06d', Number(t%BigInt(1000000)));
-                break;
+            if (this.option.timeFieldLength > 0) {
+                let t : bigint = b.slice(idx, idx+this.option.timeFieldLength).readBigInt64LE();
+                switch (this.option.timePrecision) {
+                case "second":
+                    theTime = new Date(Number(t*BigInt(1000)));
+                    theTimeString = dateformat(theTime, "yyyy-mm-dd HH:MM:ss");
+                    break;
+                case "millisecond":
+                    theTime = new Date(Number(t));
+                    theTimeString = dateformat(theTime, "yyyy-mm-dd HH:MM:ss.l");
+                    break;
+                case "microsecond":
+                    theTime = new Date(Number(t/BigInt(1000)));
+                    theTimeString = dateformat(theTime, "yyyy-mm-dd HH:MM:ss")+printf('.%06d', Number(t%BigInt(1000000)));
+                    break;
+                }
+                idx += this.option.timeFieldLength;
+                l -= this.option.timeFieldLength;
             }
-            idx += this.option.timeFieldLength;
-            l -= this.option.timeFieldLength;
-            if (l < this.option.topicFieldLength) {
+            if (l < this.option.topicLengthFieldLength) {
                 return [-1, undefined];
             }
-            let topicLen = b.slice(idx, idx+this.option.topicFieldLength).readUInt32LE();
-            idx += this.option.topicFieldLength;
-            l -= this.option.topicFieldLength;
-            if (l < topicLen) {
-                return [-1, undefined];
+            let topic : string = "";
+            if (this.option.topicLengthFieldLength > 0) {
+                let topicLen = b.slice(idx, idx+this.option.topicLengthFieldLength).readUInt32LE();
+                idx += this.option.topicLengthFieldLength;
+                l -= this.option.topicLengthFieldLength;
+                if (l < topicLen) {
+                    return [-1, undefined];
+                }
+                topic = b.slice(idx, idx+topicLen).toString('utf-8');
+                idx += topicLen;
+                l -= topicLen;
             }
-            let topic = b.slice(idx, idx+topicLen).toString('utf-8');
-            idx += topicLen;
-            l -= topicLen;
             if (l < this.option.dataLengthFieldLength) {
                 return [-1, undefined];
             }
-            let dataLength = b.slice(idx, idx+this.option.dataLengthFieldLength).readUInt32LE();
-            idx += this.option.dataLengthFieldLength;
-            l -= this.option.dataLengthFieldLength;
-            if (l < dataLength) {
-                return [-1, undefined];
+            let data = Buffer.from([]);
+            if (this.option.dataLengthFieldLength > 0) {
+                let dataLength = b.slice(idx, idx+this.option.dataLengthFieldLength).readUInt32LE();
+                idx += this.option.dataLengthFieldLength;
+                l -= this.option.dataLengthFieldLength;
+                if (l < dataLength) {
+                    return [-1, undefined];
+                }
+                data = b.slice(idx, idx+dataLength);
+                idx += dataLength;
+                l -= dataLength;
             }
-            let data = b.slice(idx, idx+dataLength);
-            idx += dataLength;
-            l -= dataLength;
             let isFinal = false;
             if (this.option.hasFinalFlagField) {
                 if (l < 1) {
