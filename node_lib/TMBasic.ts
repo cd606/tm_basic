@@ -4,6 +4,7 @@ import * as dateformat from 'dateformat'
 import * as fs from 'fs'
 import * as Stream from 'stream'
 import { Console } from 'console';
+const printf = require('printf');  //this module can only be loaded this way in TypeScript
 
 export interface ClockSettings {
     synchronizationPointActual : Date;
@@ -556,6 +557,166 @@ export namespace Files {
             }
         }
         return new LocalE(name, filePrefix, recordPrefix);
+    }
+    export abstract class RecordReader<T> {
+        public abstract start(input : Buffer) : number;
+        public abstract readOne(input : Buffer) : [number, T | undefined];
+    }
+    export function genericRecordStream<T>(r : RecordReader<T>) : Stream.Transform {
+        class MyTransform extends Stream.Transform {
+            localBuffer = Buffer.from([]);
+            atStart = true;
+            reader = null;
+
+            constructor(r : RecordReader<T>) {
+                super({objectMode : true});
+                this.reader = r;
+            }
+            handleBuffer() {
+            }
+            _transform(chunk : Buffer, _encoding : BufferEncoding, callback) {
+                this.localBuffer = Buffer.concat([this.localBuffer, chunk]);
+                if (this.atStart) {
+                    let n = this.reader.start(this.localBuffer);
+                    if (n >= 0) {
+                        if (n > 0) {
+                            this.localBuffer = this.localBuffer.slice(n);
+                        }
+                        this.atStart = false;
+                    }
+                }
+                while (true) {
+                    let res : [number, T | undefined] = this.reader.readOne(this.localBuffer);
+                    if (res[0] >= 0) {
+                        if (res[1] !== undefined) {
+                            this.push(res[1], null);
+                        }
+                        if (res[0] > 0) {
+                            this.localBuffer = this.localBuffer.slice(res[0]);
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                callback();
+            }
+            _flush(callback) {
+                callback();
+            }
+        }
+        return new MyTransform(r);
+    }
+    export interface TopicCaptureFileRecord {
+        time : Date 
+        , timeString : string
+        , topic : string
+        , data : Buffer 
+        , isFinal : boolean
+    }
+    export interface TopicCaptureFileRecordReaderOption {
+        fileMagicLength : number 
+        , recordMagicLength : number 
+        , timeFieldLength : number 
+        , topicFieldLength : number 
+        , dataLengthFieldLength : number 
+        , hasFinalFlagField : boolean 
+        , timePrecision : "second" | "millisecond" | "microsecond"
+    }
+    export function defaultTopicCaptureFileRecordReaderOption() : TopicCaptureFileRecordReaderOption {
+        return {
+            fileMagicLength : 4 
+            , recordMagicLength : 4
+            , timeFieldLength : 8
+            , topicFieldLength : 4
+            , dataLengthFieldLength : 4
+            , hasFinalFlagField : true 
+            , timePrecision : "microsecond"
+        };
+    }
+    export class TopicCaptureFileRecordReader extends RecordReader<TopicCaptureFileRecord> {
+        option : TopicCaptureFileRecordReaderOption;
+        
+        constructor(o : TopicCaptureFileRecordReaderOption) {
+            super();
+            this.option = o;
+        }
+        start(b : Buffer) : number {
+            if (b.byteLength >= this.option.fileMagicLength) {
+                return this.option.fileMagicLength;
+            } else {
+                return -1;
+            }
+        }
+        readOne(b : Buffer) : [number, TopicCaptureFileRecord | undefined] {
+            let l = b.byteLength;
+            if (l < this.option.recordMagicLength) {
+                return [-1, undefined];
+            }
+            let idx = this.option.recordMagicLength;
+            l -= this.option.recordMagicLength;
+            if (l < this.option.timeFieldLength) {
+                return [-1, undefined];
+            }
+            let t : bigint = b.slice(idx, idx+this.option.timeFieldLength).readBigInt64LE();
+            let theTime : Date = null;
+            let theTimeString : string = "";
+            switch (this.option.timePrecision) {
+            case "second":
+                theTime = new Date(Number(t*BigInt(1000)));
+                theTimeString = dateformat(theTime, "yyyy-mm-dd HH:MM:ss");
+                break;
+            case "millisecond":
+                theTime = new Date(Number(t));
+                theTimeString = dateformat(theTime, "yyyy-mm-dd HH:MM:ss.l");
+                break;
+            case "microsecond":
+                theTime = new Date(Number(t/BigInt(1000)));
+                theTimeString = dateformat(theTime, "yyyy-mm-dd HH:MM:ss")+printf('.%06d', Number(t%BigInt(1000000)));
+                break;
+            }
+            idx += this.option.timeFieldLength;
+            l -= this.option.timeFieldLength;
+            if (l < this.option.topicFieldLength) {
+                return [-1, undefined];
+            }
+            let topicLen = b.slice(idx, idx+this.option.topicFieldLength).readUInt32LE();
+            idx += this.option.topicFieldLength;
+            l -= this.option.topicFieldLength;
+            if (l < topicLen) {
+                return [-1, undefined];
+            }
+            let topic = b.slice(idx, idx+topicLen).toString('utf-8');
+            idx += topicLen;
+            l -= topicLen;
+            if (l < this.option.dataLengthFieldLength) {
+                return [-1, undefined];
+            }
+            let dataLength = b.slice(idx, idx+this.option.dataLengthFieldLength).readUInt32LE();
+            idx += this.option.dataLengthFieldLength;
+            l -= this.option.dataLengthFieldLength;
+            if (l < dataLength) {
+                return [-1, undefined];
+            }
+            let data = b.slice(idx, idx+dataLength);
+            idx += dataLength;
+            l -= dataLength;
+            let isFinal = false;
+            if (this.option.hasFinalFlagField) {
+                if (l < 1) {
+                    return [-1, undefined];
+                }
+                isFinal = (b[idx] != 0);
+                ++idx;
+                --l;
+            }
+            return [idx, {
+                time : theTime
+                , timeString : theTimeString
+                , topic : topic
+                , data : data
+                , isFinal : isFinal
+            }];
+        }
     }
 }
 
