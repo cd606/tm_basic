@@ -175,6 +175,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
     template <class T>
+    class PrintHelper<std::deque<T>> {
+    public:
+        static void print(std::ostream &os, std::deque<T> const &t) {
+            os << "deque[";
+            bool start = true;
+            for (auto const &x : t) {
+                if (!start) {
+                    os << ',';
+                }
+                PrintHelper<T>::print(os, x);
+                start = false;
+            }
+            os << ']';
+        }
+    };
+    template <class T>
     class PrintHelper<std::set<T>> {
     public:
         static void print(std::ostream &os, std::set<T> const &t) {
