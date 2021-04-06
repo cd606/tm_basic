@@ -55,6 +55,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         using OutputType = std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>;
 
         SaveDataOnChain<Chain, typename ChainItemFolder::ResultType> stateSaver_;
+        void realTimeIdleWork() {
+            static auto foldInPlaceChecker = boost::hana::is_valid(
+                [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
+            );
+            std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+            if (!nextItem) {
+                return;
+            }
+            currentItem_ = std::move(*nextItem);
+            auto const *dataPtr = Chain::extractData(currentItem_);
+            if (dataPtr) {
+                if constexpr (foldInPlaceChecker(
+                    (ChainItemFolder *) nullptr
+                    , (typename ChainItemFolder::ResultType *) nullptr
+                    , (std::string_view *) nullptr
+                    , (typename Chain::DataType const *) nullptr
+                )) {
+                    folder_.foldInPlace(currentValue_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                } else {
+                    currentValue_ = folder_.fold(currentValue_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                }
+            }
+        }
     public:
         ChainReader(Env *env, Chain *chain, ChainItemFolder &&folder=ChainItemFolder {}, std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()) : 
             chain_(chain)
@@ -95,7 +118,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             static auto threeParamTransformChecker = boost::hana::is_valid(
                 [](auto *f, auto const *s, auto const *v, auto *data) -> decltype((void) (f->transform(*s, *v, std::move(*data)))) {}
             );
-            bool hasNew = false;
             while (true) {
                 std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
                 if (!nextItem) {
@@ -114,71 +136,47 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     } else {
                         currentValue_ = folder_.fold(currentValue_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
                     }
-                    hasNew = true;
                 }
             }
-            if (hasNew) {
-                if constexpr (std::is_same_v<ResultTransformer, void>) {
-                    return {currentValue_};
-                } else {
-                    if constexpr (threeParamTransformChecker(
-                        (ResultTransformer *) nullptr
-                        , (SaveDataOnChain<Chain, typename ChainItemFolder::ResultType> const *) nullptr
-                        , (typename ChainItemFolder::ResultType const *) nullptr
-                        , (TriggerT *) nullptr
-                    )) {
-                        auto r = resultTransformer_.transform(stateSaver_, currentValue_, std::move(triggerData));
-                        if constexpr (std::is_same_v<std::decay_t<decltype(r)>, OutputType>) {
-                            return {std::move(r)};
-                        } else if constexpr (std::is_same_v<std::decay_t<decltype(r)>, std::optional<OutputType>>) {
-                            return r;
-                        } else {
-                            return std::nullopt;
-                        }
-                    } else {
-                        auto r = resultTransformer_.transform(stateSaver_, currentValue_);
-                        if constexpr (std::is_same_v<std::decay_t<decltype(r)>, OutputType>) {
-                            return {std::move(r)};
-                        } else if constexpr (std::is_same_v<std::decay_t<decltype(r)>, std::optional<OutputType>>) {
-                            return r;
-                        } else {
-                            return std::nullopt;
-                        }
-                    }
-                }
+            if constexpr (std::is_same_v<ResultTransformer, void>) {
+                return {currentValue_};
             } else {
-                if constexpr (std::is_same_v<ResultTransformer, void>) {
-                    return std::nullopt;
-                } else {
-                    if constexpr (threeParamTransformChecker(
-                        (ResultTransformer *) nullptr
-                        , (SaveDataOnChain<Chain, typename ChainItemFolder::ResultType> const *) nullptr
-                        , (typename ChainItemFolder::ResultType const *) nullptr
-                        , (TriggerT *) nullptr
-                    )) {
-                        auto r = resultTransformer_.transform(stateSaver_, currentValue_, std::move(triggerData));
-                        if constexpr (std::is_same_v<std::decay_t<decltype(r)>, OutputType>) {
-                            return {std::move(r)};
-                        } else if constexpr (std::is_same_v<std::decay_t<decltype(r)>, std::optional<OutputType>>) {
-                            return r;
-                        } else {
-                            return std::nullopt;
-                        }
+                if constexpr (threeParamTransformChecker(
+                    (ResultTransformer *) nullptr
+                    , (SaveDataOnChain<Chain, typename ChainItemFolder::ResultType> const *) nullptr
+                    , (typename ChainItemFolder::ResultType const *) nullptr
+                    , (TriggerT *) nullptr
+                )) {
+                    auto r = resultTransformer_.transform(stateSaver_, currentValue_, std::move(triggerData));
+                    if constexpr (std::is_same_v<std::decay_t<decltype(r)>, OutputType>) {
+                        return {std::move(r)};
+                    } else if constexpr (std::is_same_v<std::decay_t<decltype(r)>, std::optional<OutputType>>) {
+                        return r;
                     } else {
-                        auto r = resultTransformer_.transform(stateSaver_, currentValue_);
-                        if constexpr (std::is_same_v<std::decay_t<decltype(r)>, OutputType>) {
-                            return {std::move(r)};
-                        } else if constexpr (std::is_same_v<std::decay_t<decltype(r)>, std::optional<OutputType>>) {
-                            return r;
-                        } else {
-                            return std::nullopt;
-                        }
+                        return std::nullopt;
+                    }
+                } else {
+                    auto r = resultTransformer_.transform(stateSaver_, currentValue_);
+                    if constexpr (std::is_same_v<std::decay_t<decltype(r)>, OutputType>) {
+                        return {std::move(r)};
+                    } else if constexpr (std::is_same_v<std::decay_t<decltype(r)>, std::optional<OutputType>>) {
+                        return r;
+                    } else {
+                        return std::nullopt;
                     }
                 }
             }
         }
         static std::shared_ptr<typename App::template Action<TriggerT, OutputType>> action(Env *env, Chain *chain, ChainItemFolder &&folder=ChainItemFolder {}, std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()) {
-            return App::template liftMaybe<TriggerT>(ChainReader(env, chain, std::move(folder), std::move(resultTransformer)));
+            auto ret = App::template liftMaybe<TriggerT>(ChainReader(env, chain, std::move(folder), std::move(resultTransformer)), infra::LiftParameters<typename Env::TimePointType>().SuggestThreaded(true));
+            if constexpr (std::is_same_v<App, infra::RealTimeApp<Env>>) {
+                App::setIdleWorkerForAction(ret, [](void *p) {
+                    if (p) {
+                        ((ChainReader *) p)->realTimeIdleWork();
+                    }
+                });
+            }
+            return ret;
         }
     };
 
