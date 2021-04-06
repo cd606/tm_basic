@@ -108,6 +108,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             os << '}';
         }
     };
+    template <int32_t N, class T>
+    class PrintHelper<SingleLayerWrapperWithID<N, T>> {
+    public:
+        static void print(std::ostream &os, SingleLayerWrapperWithID<N, T> const &t) {
+            os << "SingleLayerWrapperWithID[" << N << "]{";
+            PrintHelper<T>::print(os, t.value);
+            os << '}';
+        }
+    };
+    template <class Mark, class T>
+    class PrintHelper<SingleLayerWrapperWithTypeMark<Mark, T>> {
+    public:
+        static void print(std::ostream &os, SingleLayerWrapperWithTypeMark<Mark, T> const &t) {
+            os << "SingleLayerWrapperWithTypeMark[" << typeid(Mark).name() << "]{";
+            PrintHelper<T>::print(os, t.value);
+            os << '}';
+        }
+    };
     template <class T>
     class PrintHelper<TriviallySerializable<T>> {
     public:

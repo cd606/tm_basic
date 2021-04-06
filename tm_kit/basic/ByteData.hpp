@@ -861,6 +861,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return RunCBORSerializer<T>::calculateSize(data.value);
             }
         };
+        template <int32_t N, class T>
+        struct RunCBORSerializer<SingleLayerWrapperWithID<N,T>, void> {
+            static std::string apply(SingleLayerWrapperWithID<N,T> const &data) {
+                return RunCBORSerializer<std::tuple<int32_t,T>>::apply(std::tuple<int32_t,T> {N,data.value});
+            }
+            static std::size_t apply(SingleLayerWrapperWithID<N,T> const &data, char *output) {
+                return RunCBORSerializer<std::tuple<int32_t,T>>::apply(std::tuple<int32_t,T> {N,data.value}, output);
+            }
+            static std::size_t calculateSize(SingleLayerWrapperWithID<N,T> const &data) {
+                return RunCBORSerializer<std::tuple<int32_t,T>>::calculateSize(std::tuple<int32_t,T> {N,data.value});
+            }
+        };
+        template <class Mark, class T>
+        struct RunCBORSerializer<SingleLayerWrapperWithTypeMark<Mark, T>, void> {
+            static std::string apply(SingleLayerWrapperWithTypeMark<Mark, T> const &data) {
+                return RunCBORSerializer<T>::apply(data.value);
+            }
+            static std::size_t apply(SingleLayerWrapperWithTypeMark<Mark, T> const &data, char *output) {
+                return RunCBORSerializer<T>::apply(data.value, output);
+            }
+            static std::size_t calculateSize(SingleLayerWrapperWithTypeMark<Mark, T> const &data) {
+                return RunCBORSerializer<T>::calculateSize(data.value);
+            }
+        };
         template <int32_t N>
         struct RunCBORSerializer<ConstType<N>, void> {
             static std::string apply(ConstType<N> const &data) {
@@ -1600,6 +1624,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 return std::tuple<SingleLayerWrapper<T>, size_t> {SingleLayerWrapper<T> {std::move(std::get<0>(*r))}, std::get<1>(*r)};
+            }
+        };
+        template <int32_t N, class T>
+        struct RunCBORDeserializer<SingleLayerWrapperWithID<N,T>, void> {
+            static std::optional<std::tuple<SingleLayerWrapperWithID<N,T>, size_t>> apply(std::string_view const &data, size_t start) {
+                auto r = RunCBORDeserializer<std::tuple<int32_t,T>>::apply(data, start);
+                if (!r) {
+                    return std::nullopt;
+                }
+                if (std::get<0>(std::get<0>(*r)) != N) {
+                    return std::nullopt;
+                }
+                return std::tuple<SingleLayerWrapperWithID<N,T>, size_t> {SingleLayerWrapperWithID<N,T> {std::move(std::get<1>(std::get<0>(*r)))}, std::get<1>(*r)};
+            }
+        };
+        template <class Mark, class T>
+        struct RunCBORDeserializer<SingleLayerWrapperWithTypeMark<Mark, T>, void> {
+            static std::optional<std::tuple<SingleLayerWrapperWithTypeMark<Mark, T>, size_t>> apply(std::string_view const &data, size_t start) {
+                auto r = RunCBORDeserializer<T>::apply(data, start);
+                if (!r) {
+                    return std::nullopt;
+                }
+                return std::tuple<SingleLayerWrapperWithTypeMark<Mark, T>, size_t> {SingleLayerWrapperWithTypeMark<Mark, T> {std::move(std::get<0>(*r))}, std::get<1>(*r)};
             }
         };
         template <int32_t N>
