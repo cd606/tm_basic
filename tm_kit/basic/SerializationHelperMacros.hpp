@@ -1,8 +1,12 @@
 #ifndef SERIALIZATION_HELPER_MACROS_HPP_
 #define SERIALIZATION_HELPER_MACROS_HPP_
 
+#include <array>
+#include <string_view>
+
 #include <boost/preprocessor/stringize.hpp>
 #include <boost/preprocessor/tuple/elem.hpp>
+#include <boost/preprocessor/tuple/enum.hpp>
 #include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/preprocessor/punctuation/comma_if.hpp>
 #include <boost/preprocessor/arithmetic/sub.hpp>
@@ -10,6 +14,7 @@
 #include <boost/version.hpp>
 
 #include <tm_kit/basic/PrintHelper.hpp>
+#include <tm_kit/basic/StructFieldInfoHelper.hpp>
 
 #if BOOST_VERSION >= 107500
     #define TM_SERIALIZATION_HELPER_COMMA_START_POS 1
@@ -669,6 +674,100 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         }; \
     } } } } }
 
+#define TM_BASIC_CBOR_CAPABLE_STRUCT_ONE_FIELD_NAME(r, data, elem) \
+    BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(1,elem)) BOOST_PP_COMMA()
+
+#define TM_BASIC_CBOR_CAPABLE_STRUCT_ONE_GET_FIELD_INDEX(r, data, elem) \
+    if (fieldName == BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(1,elem))) { \
+        return BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS); \
+    }
+
+#define TM_BASIC_CBOR_CAPABLE_STRUCT_FIELD_TYPE_INFO(r, data, elem) \
+    template <> \
+    class StructFieldTypeInfo<data,BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)> { \
+    public: \
+        using TheType = TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem)); \
+        using FieldPointer = TheType data::*; \
+        static constexpr FieldPointer fieldPointer() {\
+            return &data::BOOST_PP_TUPLE_ELEM(1,elem); \
+        } \
+    };
+
+#define TM_BASIC_CBOR_CAPABLE_STRUCT_FIELD_INFO(name, content) \
+    namespace dev { namespace cd606 { namespace tm { namespace basic { \
+        template <> \
+        class StructFieldInfo<name> { \
+        public: \
+            static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(content)> FIELD_NAMES = { \
+                BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_ONE_FIELD_NAME,_,content) \
+            }; \
+            static constexpr int getFieldIndex(std::string_view const &fieldName) { \
+                BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_ONE_GET_FIELD_INDEX,_,content) \
+                return -1; \
+            } \
+        }; \
+        BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_FIELD_TYPE_INFO,name,content); \
+    } } } }
+
+#define TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_FIELD_INFO(name) \
+    namespace dev { namespace cd606 { namespace tm { namespace basic { \
+        template <> \
+        class StructFieldInfo<name> { \
+        public: \
+            static constexpr std::array<std::string_view, 0> FIELD_NAMES = {}; \
+            static constexpr int getFieldIndex(std::string_view const &fieldName) { \
+                return -1; \
+            } \
+        }; \
+    } } } }
+
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_ONE_FIELD_NAME(r, data, elem) \
+    BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(1,elem)) BOOST_PP_COMMA()
+
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_ONE_GET_FIELD_INDEX(r, data, elem) \
+    if (fieldName == BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(1,elem))) { \
+        return BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS); \
+    }
+
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_FIELD_TYPE_INFO(r, data, elem) \
+    template <BOOST_PP_TUPLE_ENUM(BOOST_PP_TUPLE_ELEM(1,data))> \
+    class StructFieldTypeInfo<BOOST_PP_TUPLE_ELEM(0,data)<BOOST_PP_TUPLE_ENUM(BOOST_PP_TUPLE_ELEM(2,data))>,BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)> { \
+    public: \
+        using TheType = TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem)); \
+        using FieldPointer = TheType BOOST_PP_TUPLE_ELEM(0,data)<BOOST_PP_TUPLE_ENUM(BOOST_PP_TUPLE_ELEM(2,data))>::*; \
+        static constexpr FieldPointer fieldPointer() {\
+            return &BOOST_PP_TUPLE_ELEM(0,data)<BOOST_PP_TUPLE_ENUM(BOOST_PP_TUPLE_ELEM(2,data))>::BOOST_PP_TUPLE_ELEM(1,elem); \
+        } \
+    };
+
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_FIELD_INFO(templateParams, name, content) \
+    namespace dev { namespace cd606 { namespace tm { namespace basic { \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        class StructFieldInfo<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> { \
+        public: \
+            static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(content)> FIELD_NAMES = { \
+                BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_ONE_FIELD_NAME,_,content) \
+            }; \
+            static constexpr int getFieldIndex(std::string_view const &fieldName) { \
+                BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_ONE_GET_FIELD_INDEX,_,content) \
+                return -1; \
+            } \
+        }; \
+        BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_FIELD_TYPE_INFO,(name, (TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)), (TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams))),content); \
+    } } } }
+
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_FIELD_INFO(templateParams, name) \
+    namespace dev { namespace cd606 { namespace tm { namespace basic { \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        class StructFieldInfo<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> { \
+        public: \
+            static constexpr std::array<std::string_view, 0> FIELD_NAMES = {}; \
+            static constexpr int getFieldIndex(std::string_view const &fieldName) { \
+                return -1; \
+            } \
+        }; \
+    } } } }
+
 #define TM_BASIC_CBOR_CAPABLE_STRUCT(name, content) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_DEF(name, content) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_EQ(name, content) \
@@ -676,11 +775,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_SERIALIZE(name, content) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_ENCODE(name, content) \
-    TM_BASIC_CBOR_CAPABLE_STRUCT_DECODE(name, content) 
+    TM_BASIC_CBOR_CAPABLE_STRUCT_DECODE(name, content) \
+    TM_BASIC_CBOR_CAPABLE_STRUCT_FIELD_INFO(name, content)
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_SERIALIZE_NO_FIELD_NAMES(name, content) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_ENCODE_NO_FIELD_NAMES(name, content) \
-    TM_BASIC_CBOR_CAPABLE_STRUCT_DECODE_NO_FIELD_NAMES(name, content) 
+    TM_BASIC_CBOR_CAPABLE_STRUCT_DECODE_NO_FIELD_NAMES(name, content) \
+    TM_BASIC_CBOR_CAPABLE_STRUCT_FIELD_INFO(name, content)
 
 #define TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT(name) \
     TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_DEF(name) \
@@ -689,11 +790,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 
 #define TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_SERIALIZE(name) \
     TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_ENCODE(name) \
-    TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_DECODE(name) 
+    TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_DECODE(name) \
+    TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_FIELD_INFO(name)
 
 #define TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_SERIALIZE_NO_FIELD_NAMES(name) \
     TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_ENCODE_NO_FIELD_NAMES(name) \
-    TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_DECODE_NO_FIELD_NAMES(name) 
+    TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_DECODE_NO_FIELD_NAMES(name) \
+    TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_FIELD_INFO(name)
 
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT(templateParams, name, content) \
     TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_DEF(templateParams, name, content) \
@@ -702,11 +805,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_SERIALIZE(templateParams, name, content) \
     TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_ENCODE(templateParams, name, content) \
-    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_DECODE(templateParams, name, content) 
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_DECODE(templateParams, name, content) \
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_FIELD_INFO(templateParams, name, content)
 
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_SERIALIZE_NO_FIELD_NAMES(templateParams, name, content) \
     TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_ENCODE_NO_FIELD_NAMES(templateParams, name, content) \
-    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_DECODE_NO_FIELD_NAMES(templateParams, name, content) 
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_DECODE_NO_FIELD_NAMES(templateParams, name, content) \
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_FIELD_INFO(templateParams, name, content)
 
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT(templateParams, name) \
     TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_DEF(templateParams, name) \
@@ -715,11 +820,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_SERIALIZE(templateParams, name) \
     TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_ENCODE(templateParams, name) \
-    TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_DECODE(templateParams, name) 
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_DECODE(templateParams, name) \
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_FIELD_INFO(templateParams, name)
 
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_SERIALIZE_NO_FIELD_NAMES(templateParams, name) \
     TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_ENCODE_NO_FIELD_NAMES(templateParams, name) \
-    TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_DECODE_NO_FIELD_NAMES(templateParams, name) 
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_DECODE_NO_FIELD_NAMES(templateParams, name) \
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_FIELD_INFO(templateParams, name)
 
 //The followings are for defining enum classes that should be serialized as strings
 //If you want enum classes that are serialized as underlying integer types, then

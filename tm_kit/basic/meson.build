@@ -22,6 +22,7 @@ tm_basic_headers = [
     , 'TriviallySerializable.hpp'
     , 'GenericIOStreamImporterExporter.hpp'
     , 'NotConstructibleStruct.hpp'
+    , 'StructFieldInfoHelper.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
