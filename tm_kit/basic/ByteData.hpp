@@ -16,6 +16,7 @@
 #include <iostream>
 #include <sstream>
 #include <optional>
+#include <ctime>
 #include <tm_kit/basic/ConstGenerator.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <tm_kit/basic/SingleLayerWrapper.hpp>
@@ -1863,6 +1864,64 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         struct RunCBORDeserializerWithNameList {};
 
         #include <tm_kit/basic/ByteData_Tuple_Variant_Piece.hpp>
+
+        template <>
+        struct RunCBORSerializer<std::tm> {
+            using TupleType = std::tuple<uint8_t,uint8_t,uint8_t,uint8_t,uint8_t,int32_t,uint8_t,uint16_t,int32_t>;
+            static std::string apply(std::tm const &data) {
+                std::string s;
+                s.resize(calculateSize(data)); 
+                apply(data, const_cast<char *>(s.data()));
+                return s;
+            }
+            static std::size_t apply(std::tm const &data, char *output) {
+                TupleType t {
+                    static_cast<uint8_t>(data.tm_sec), static_cast<uint8_t>(data.tm_min), static_cast<uint8_t>(data.tm_hour), static_cast<uint8_t>(data.tm_mday), static_cast<uint8_t>(data.tm_mon), 
+                    static_cast<int32_t>(data.tm_year), static_cast<uint8_t>(data.tm_wday), static_cast<uint16_t>(data.tm_yday), static_cast<int32_t>(data.tm_isdst)
+                };
+                return RunCBORSerializerWithNameList<TupleType, 9>::apply(
+                    t
+                    , {"sec", "min", "hour", "mday", "mon", "year", "wday", "yday", "isdst"}
+                    , output
+                );
+            }
+            static std::size_t calculateSize(std::tm const &data) {
+                TupleType t {
+                    static_cast<uint8_t>(data.tm_sec), static_cast<uint8_t>(data.tm_min), static_cast<uint8_t>(data.tm_hour), static_cast<uint8_t>(data.tm_mday), static_cast<uint8_t>(data.tm_mon), 
+                    static_cast<int32_t>(data.tm_year), static_cast<uint8_t>(data.tm_wday), static_cast<uint16_t>(data.tm_yday), static_cast<int32_t>(data.tm_isdst)
+                };
+                return RunCBORSerializerWithNameList<TupleType, 9>::calculateSize(
+                    t
+                    , {"sec", "min", "hour", "mday", "mon", "year", "wday", "yday", "isdst"}
+                );
+            }
+        };
+        template <>
+        struct RunCBORDeserializer<std::tm, void> {
+            static std::optional<std::tuple<std::tm,size_t>> apply(std::string_view const &data, size_t start) {
+                using TupleType = std::tuple<uint8_t,uint8_t,uint8_t,uint8_t,uint8_t,int32_t,uint8_t,uint16_t,int32_t>;
+
+                auto x = RunCBORDeserializerWithNameList<TupleType, 9>::apply(
+                    data, start
+                    , {"sec", "min", "hour", "mday", "mon", "year", "wday", "yday", "isdst"}
+                );
+                if (!x) {
+                    return std::nullopt;
+                }
+                std::tm t;
+                auto const &y = std::get<0>(*x);
+                t.tm_sec = static_cast<int>(std::get<0>(y));
+                t.tm_min = static_cast<int>(std::get<1>(y));
+                t.tm_hour = static_cast<int>(std::get<2>(y));
+                t.tm_mday = static_cast<int>(std::get<3>(y));
+                t.tm_mon = static_cast<int>(std::get<4>(y));
+                t.tm_year = static_cast<int>(std::get<5>(y));
+                t.tm_wday = static_cast<int>(std::get<6>(y));
+                t.tm_yday = static_cast<int>(std::get<7>(y));
+                t.tm_isdst = static_cast<int>(std::get<8>(y));
+                return std::tuple<std::tm,size_t> {std::move(t), std::get<1>(*x)};
+            }
+        };
 
         template <class VersionType, class DataType, class Cmp>
         struct RunCBORSerializer<infra::VersionedData<VersionType,DataType,Cmp>> {

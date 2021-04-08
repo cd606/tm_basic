@@ -698,6 +698,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         template <> \
         class StructFieldInfo<name> { \
         public: \
+            static constexpr bool HasGeneratedStructFieldInfo = true; \
             static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(content)> FIELD_NAMES = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_ONE_FIELD_NAME,_,content) \
             }; \
@@ -714,6 +715,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         template <> \
         class StructFieldInfo<name> { \
         public: \
+            static constexpr bool HasGeneratedStructFieldInfo = true; \
             static constexpr std::array<std::string_view, 0> FIELD_NAMES = {}; \
             static constexpr int getFieldIndex(std::string_view const &fieldName) { \
                 return -1; \
@@ -745,6 +747,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
         class StructFieldInfo<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> { \
         public: \
+            static constexpr bool HasGeneratedStructFieldInfo = true; \
             static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(content)> FIELD_NAMES = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_ONE_FIELD_NAME,_,content) \
             }; \
@@ -761,6 +764,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
         class StructFieldInfo<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> { \
         public: \
+            static constexpr bool HasGeneratedStructFieldInfo = true; \
             static constexpr std::array<std::string_view, 0> FIELD_NAMES = {}; \
             static constexpr int getFieldIndex(std::string_view const &fieldName) { \
                 return -1; \

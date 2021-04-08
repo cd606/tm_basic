@@ -4,6 +4,8 @@
 namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <class T>
     class StructFieldInfo {
+    public:
+        static constexpr bool HasGeneratedStructFieldInfo = false;
     };
     template <class T, int Idx>
     class StructFieldTypeInfo {

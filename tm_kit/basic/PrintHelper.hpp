@@ -13,6 +13,7 @@
 #include <boost/hana/type.hpp>
 
 #include <cctype>
+#include <ctime>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <class T>
@@ -208,10 +209,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             os << ']';
         }
     };
-    template <class T>
-    class PrintHelper<std::set<T>> {
+    template <class T, class Cmp>
+    class PrintHelper<std::set<T,Cmp>> {
     public:
-        static void print(std::ostream &os, std::set<T> const &t) {
+        static void print(std::ostream &os, std::set<T,Cmp> const &t) {
             os << "set[";
             bool start = true;
             for (auto const &x : t) {
@@ -224,10 +225,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             os << ']';
         }
     };
-    template <class T>
-    class PrintHelper<std::unordered_set<T>> {
+    template <class T, class Hash>
+    class PrintHelper<std::unordered_set<T,Hash>> {
     public:
-        static void print(std::ostream &os, std::unordered_set<T> const &t) {
+        static void print(std::ostream &os, std::unordered_set<T,Hash> const &t) {
             os << "unordered_set[";
             bool start = true;
             for (auto const &x : t) {
@@ -256,10 +257,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             os << ']';
         }
     };
-    template <class K, class V>
-    class PrintHelper<std::map<K,V>> {
+    template <class K, class V, class Cmp>
+    class PrintHelper<std::map<K,V,Cmp>> {
     public:
-        static void print(std::ostream &os, std::map<K,V> const &t) {
+        static void print(std::ostream &os, std::map<K,V,Cmp> const &t) {
             os << "map{";
             bool start = true;
             for (auto const &x : t) {
@@ -274,10 +275,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             os << '}';
         }
     };
-    template <class K, class V>
-    class PrintHelper<std::unordered_map<K,V>> {
+    template <class K, class V, class Hash>
+    class PrintHelper<std::unordered_map<K,V,Hash>> {
     public:
-        static void print(std::ostream &os, std::unordered_map<K,V> const &t) {
+        static void print(std::ostream &os, std::unordered_map<K,V,Hash> const &t) {
             os << "unordered_map{";
             bool start = true;
             for (auto const &x : t) {
@@ -490,6 +491,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             } else {
                 PrintHelper<ByteDataView>::print(os, ByteDataView {std::string_view {t.data(), N}});
             }
+        }
+    };
+    template <>
+    class PrintHelper<std::tm> {
+    public:
+        static void print(std::ostream &os, std::tm const &t) {
+            os << "tm{";
+            os << "sec=" << t.tm_sec;
+            os << ",min=" << t.tm_min;
+            os << ",hour=" << t.tm_hour;
+            os << ",mday=" << t.tm_mday;
+            os << ",mon=" << t.tm_mon;
+            os << ",year=" << t.tm_year;
+            os << ",wday=" << t.tm_wday;
+            os << ",yday=" << t.tm_yday;
+            os << ",isdst=" << t.tm_isdst;
+            os << "}";
         }
     };
 }}}}
