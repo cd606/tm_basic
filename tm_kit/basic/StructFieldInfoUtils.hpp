@@ -11,8 +11,11 @@
 #include <unordered_set>
 #include <map>
 #include <unordered_map>
+#include <chrono>
+#include <ctime>
 
 #include <tm_kit/basic/StructFieldInfoHelper.hpp>
+#include <tm_kit/basic/ByteData.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace struct_field_info_utils {
     template <class T>
@@ -111,7 +114,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     };
     template <class T, std::size_t N>
     class StructFieldInfoBasedHash<std::array<T,N>> {
-    private:
     public:
         std::size_t operator()(std::array<T,N> const &t) const {
             std::size_t ret = 2166136261;
@@ -123,7 +125,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     };
     template <class T>
     class StructFieldInfoBasedHash<std::list<T>> {
-    private:
     public:
         std::size_t operator()(std::list<T> const &t) const {
             std::size_t ret = 2166136261;
@@ -135,7 +136,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     };
     template <class T>
     class StructFieldInfoBasedHash<std::vector<T>> {
-    private:
     public:
         std::size_t operator()(std::vector<T> const &t) const {
             std::size_t ret = 2166136261;
@@ -147,7 +147,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     };
     template <class T>
     class StructFieldInfoBasedHash<std::deque<T>> {
-    private:
     public:
         std::size_t operator()(std::deque<T> const &t) const {
             std::size_t ret = 2166136261;
@@ -159,7 +158,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     };
     template <class T, class Cmp>
     class StructFieldInfoBasedHash<std::set<T,Cmp>> {
-    private:
     public:
         std::size_t operator()(std::set<T,Cmp> const &t) const {
             std::size_t ret = 2166136261;
@@ -184,7 +182,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     };
     template <class T, class Hash>
     class StructFieldInfoBasedHash<std::unordered_set<T,Hash>> {
-    private:
     public:
         std::size_t operator()(std::unordered_set<T,Hash> const &t) const {
             std::size_t ret = 2166136261;
@@ -196,7 +193,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     };
     template <class A, class B, class Hash>
     class StructFieldInfoBasedHash<std::unordered_map<A,B,Hash>> {
-    private:
     public:
         std::size_t operator()(std::unordered_map<A,B,Hash> const &t) const {
             std::size_t ret = 2166136261;
@@ -205,6 +201,55 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 ret = (ret*16777619)^StructFieldInfoBasedHash<B>()(item.second);
             }
             return ret;
+        }
+    };
+    template <>
+    class StructFieldInfoBasedHash<std::chrono::system_clock::time_point> {
+    public:
+        std::size_t operator()(std::chrono::system_clock::time_point const &t) const {
+            return (std::size_t) (std::chrono::duration_cast<std::chrono::milliseconds>(t.time_since_epoch()).count());
+        }
+    };
+    template <>
+    class StructFieldInfoBasedHash<std::tm> {
+    public:
+        std::size_t operator()(std::tm const &t) const {
+            std::size_t ret = 2166136261;
+            ret = (ret*16777619)^((std::size_t) t.tm_sec);
+            ret = (ret*16777619)^((std::size_t) t.tm_min);
+            ret = (ret*16777619)^((std::size_t) t.tm_hour);
+            ret = (ret*16777619)^((std::size_t) t.tm_mday);
+            ret = (ret*16777619)^((std::size_t) t.tm_mon);
+            ret = (ret*16777619)^((std::size_t) t.tm_year);
+            ret = (ret*16777619)^((std::size_t) t.tm_wday);
+            ret = (ret*16777619)^((std::size_t) t.tm_yday);
+            ret = (ret*16777619)^((std::size_t) t.tm_isdst);
+            return ret;
+        }
+    };
+    template <>
+    class StructFieldInfoBasedHash<ByteData> {
+    public:
+        std::size_t operator()(ByteData const &t) const {
+            return std::hash<std::string>()(t.content);
+        }
+    };
+    template <>
+    class StructFieldInfoBasedHash<ByteDataWithTopic> {
+    public:
+        std::size_t operator()(ByteDataWithTopic const &t) const {
+            std::size_t ret = 2166136261;
+            ret = (ret*16777619)^std::hash<std::string>()(t.topic);
+            ret = (ret*16777619)^std::hash<std::string>()(t.content);
+        }
+    };
+    template <>
+    class StructFieldInfoBasedHash<ByteDataWithID> {
+    public:
+        std::size_t operator()(ByteDataWithID const &t) const {
+            std::size_t ret = 2166136261;
+            ret = (ret*16777619)^std::hash<std::string>()(t.id);
+            ret = (ret*16777619)^std::hash<std::string>()(t.content);
         }
     };
 }}}}}
