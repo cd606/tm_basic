@@ -28,6 +28,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             }
         }
     public:
+        static constexpr std::size_t FieldCount = StructFieldInfo<T>::FIELD_NAMES.size();
         static std::string commaSeparatedFieldNames() {
             bool begin = true;
             std::ostringstream oss;
