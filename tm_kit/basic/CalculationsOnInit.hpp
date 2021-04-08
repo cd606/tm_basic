@@ -193,13 +193,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         public virtual App::IExternalComponent
         , public App::template AbstractOnOrderFacility<
             Req
-            , decltype((* ((CalcFunc *) nullptr))(
+            , decltype((std::declval<CalcFunc>())(
                 std::function<void(infra::LogLevel, std::string const &)>()
             ))
         >
     {
     public:
-        using PreCalculatedResult = decltype((* ((CalcFunc *) nullptr))(
+        using PreCalculatedResult = decltype((std::declval<CalcFunc>())(
                 std::function<void(infra::LogLevel, std::string const &)>()
             ));
     private:
@@ -240,7 +240,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         , public App::template AbstractOnOrderFacility<
             Req
             , decltype(
-                (* ((FetchFunc *) nullptr))(
+                (std::declval<FetchFunc>())(
                     * ((typename OnOrderFacilityReturningInternallyPreCalculatedValue<App,Req,CalcFunc>::PreCalculatedResult const *) nullptr)
                     , * ((Req const *) nullptr)
                 )
@@ -248,11 +248,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         >
     {
     public:
-        using PreCalculatedResult = decltype((* ((CalcFunc *) nullptr))(
+        using PreCalculatedResult = decltype((std::declval<CalcFunc>())(
                 std::function<void(infra::LogLevel, std::string const &)>()
             ));
         using OutputT = decltype(
-                (* ((FetchFunc *) nullptr))(
+                (std::declval<FetchFunc>())(
                     * ((PreCalculatedResult const *) nullptr)
                     , * ((Req const *) nullptr)
                 )
