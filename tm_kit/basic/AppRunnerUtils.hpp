@@ -8,6 +8,7 @@
 #include <tm_kit/basic/SingleLayerWrapper.hpp>
 #include <tm_kit/basic/ForceDifferentType.hpp>
 #include <tm_kit/basic/AppClockHelper.hpp>
+#include <tm_kit/basic/ByteData.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
 
@@ -940,6 +941,146 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 sharedInputSource(r, r.actionAsSink_2_0(action));
                 r.connect(r.actionAsSource(dispatcher), r.actionAsSink_2_1(action));
                 outputSink(r, r.actionAsSource(action));
+            }
+        }
+        
+        template <class T>
+        class WrapWithCBORIfNecessaryForServerFacilityInput {
+        public:
+            using WrappedType = std::conditional_t<
+                bytedata_utils::DirectlySerializableChecker<T>::IsDirectlySerializable()
+                , T 
+                , CBOR<T>
+            >;
+            static constexpr bool IsWrapped = !(bytedata_utils::DirectlySerializableChecker<T>::IsDirectlySerializable());
+            static WrappedType wrap(T &&t) {
+                if constexpr (IsWrapped) {
+                    return {std::move(t)};
+                } else {
+                    return std::move(t);
+                }
+            }
+            static T unwrap(WrappedType &&t) {
+                if constexpr (IsWrapped) {
+                    return {std::move(t.value)};
+                } else {
+                    return std::move(t);
+                }
+            }
+        };
+        template <class A, class T>
+        class WrapWithCBORIfNecessaryForServerFacilityInput<std::tuple<A,T>> {
+        public:
+            using WrappedType = std::conditional_t<
+                bytedata_utils::DirectlySerializableChecker<T>::IsDirectlySerializable()
+                , std::tuple<A,T> 
+                , std::tuple<A,CBOR<T>>
+            >;
+            static constexpr bool IsWrapped = !(bytedata_utils::DirectlySerializableChecker<T>::IsDirectlySerializable());
+            static WrappedType wrap(std::tuple<A,T> &&t) {
+                if constexpr (IsWrapped) {
+                    return {std::move(std::get<0>(t)), {std::move(std::get<1>(t))}};
+                } else {
+                    return std::move(t);
+                }
+            }
+            static std::tuple<A,T> unwrap(WrappedType &&t) {
+                if constexpr (IsWrapped) {
+                    return {std::move(std::get<0>(t)), std::move(std::get<1>(t).value)};
+                } else {
+                    return std::move(t);
+                }
+            }
+        };
+
+        template <class T>
+        class WrapWithCBORIfNecessaryForServerFacilityOutput {
+        public:
+            using WrappedType = std::conditional_t<
+                bytedata_utils::DirectlySerializableChecker<T>::IsDirectlySerializable()
+                , T 
+                , CBOR<T>
+            >;
+            static constexpr bool IsWrapped = !(bytedata_utils::DirectlySerializableChecker<T>::IsDirectlySerializable());
+            static WrappedType wrap(T &&t) {
+                if constexpr (IsWrapped) {
+                    return {std::move(t)};
+                } else {
+                    return std::move(t);
+                }
+            }
+            static T unwrap(WrappedType &&t) {
+                if constexpr (IsWrapped) {
+                    return {std::move(t.value)};
+                } else {
+                    return std::move(t);
+                }
+            }
+        };
+        
+        template <class T>
+        using WrapWithCBORIfNecessarySimple = WrapWithCBORIfNecessaryForServerFacilityOutput<T>;
+
+        template <class A, class B>
+        static auto makeServerSideFacilitioidConnectorSerializable(
+            typename R::template FacilitioidConnector<A,B> const &innerFacilitioid
+            , std::string const &prefix
+        ) -> typename R::template FacilitioidConnector<
+            typename WrapWithCBORIfNecessaryForServerFacilityInput<A>::WrappedType
+            , typename WrapWithCBORIfNecessaryForServerFacilityOutput<B>::WrappedType
+        > {
+            if constexpr (!WrapWithCBORIfNecessaryForServerFacilityInput<A>::IsWrapped) {
+                if constexpr (!WrapWithCBORIfNecessaryForServerFacilityOutput<B>::IsWrapped) {
+                    return innerFacilitioid;
+                } else {
+                    return wrapFacilitioidConnectorBackOnly<
+                        A 
+                        , typename WrapWithCBORIfNecessaryForServerFacilityOutput<B>::WrappedType
+                        , B
+                    >(
+                        infra::KleisliUtils<M>::template liftPure<B>(
+                            &(WrapWithCBORIfNecessaryForServerFacilityOutput<B>::wrap)
+                        )
+                        , innerFacilitioid
+                        , prefix
+                    );
+                }
+            } else {
+                if constexpr (!WrapWithCBORIfNecessaryForServerFacilityOutput<B>::IsWrapped) {
+                    return wrapFacilitioidConnectorFrontOnly<
+                        typename WrapWithCBORIfNecessaryForServerFacilityInput<A>::WrappedType
+                        , B
+                        , A
+                    >(
+                        infra::KleisliUtils<M>::template liftPure<typename WrapWithCBORIfNecessaryForServerFacilityInput<A>::WrappedType>(
+                            &(WrapWithCBORIfNecessaryForServerFacilityInput<A>::unwrap)
+                        )
+                        , infra::KleisliUtils<M>::template liftPure<A>(
+                            &(WrapWithCBORIfNecessaryForServerFacilityInput<A>::wrap)
+                        )
+                        , innerFacilitioid
+                        , prefix
+                    );
+                } else {
+                    return wrapFacilitioidConnector<
+                        typename WrapWithCBORIfNecessaryForServerFacilityInput<A>::WrappedType 
+                        , typename WrapWithCBORIfNecessaryForServerFacilityOutput<B>::WrappedType
+                        , A 
+                        , B
+                    >(
+                        infra::KleisliUtils<M>::template liftPure<typename WrapWithCBORIfNecessaryForServerFacilityInput<A>::WrappedType>(
+                            &(WrapWithCBORIfNecessaryForServerFacilityInput<A>::unwrap)
+                        )
+                        , infra::KleisliUtils<M>::template liftPure<A>(
+                            &(WrapWithCBORIfNecessaryForServerFacilityInput<A>::wrap)
+                        )
+                        , infra::KleisliUtils<M>::template liftPure<B>(
+                            &(WrapWithCBORIfNecessaryForServerFacilityOutput<B>::wrap)
+                        )
+                        , innerFacilitioid
+                        , prefix
+                    );
+                }
             }
         }
     };
