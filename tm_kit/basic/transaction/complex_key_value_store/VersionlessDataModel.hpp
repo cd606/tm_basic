@@ -122,6 +122,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
             , VersionMerger
             , ApplyDelta<ItemKey, ItemData>
         >;
+
+        template <class R, class ItemKey, class ItemData>
+        class Combinations {
+        public:
+            static auto dataStreamClientCombinationFunc() { 
+                return &transaction::v2::dataStreamClientCombination<
+                    R, DI<ItemKey,ItemData>, VersionMerger, ApplyDelta<ItemKey, ItemData>
+                >;
+            }
+            static auto basicDataStreamClientCombinationFunc() { 
+                return &transaction::v2::basicDataStreamClientCombination<
+                    R, DI<ItemKey,ItemData>, typename GS<typename R::EnvironmentType::IDType,ItemKey,ItemData>::Input, VersionMerger, ApplyDelta<ItemKey, ItemData>
+                >;
+            }
+        };
     }
 
     namespace per_item {
