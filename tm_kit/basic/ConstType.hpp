@@ -19,6 +19,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     inline bool operator==(ConstType<N> const &, ConstType<N> const &) {
         return true;
     }
+    
+    template <int32_t N>
+    inline bool operator<(ConstType<N> const &, ConstType<N> const &) {
+        return false;
+    }
 } } } }
 
 namespace std {

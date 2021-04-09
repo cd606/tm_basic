@@ -18,7 +18,7 @@ namespace transaction { namespace v2 {
 
         using Mutex = std::conditional_t<MutexProtected,std::mutex,bool>;
         using Lock = std::conditional_t<MutexProtected, std::lock_guard<std::mutex>, bool>;
-        using GlobalVersion = std::conditional_t<MutexProtected,std::atomic<typename DI::GlobalVersion>,typename DI::GlobalVersion>;
+        using GlobalVersion = std::conditional_t<(MutexProtected && std::is_integral_v<typename DI::GlobalVersion>),std::atomic<typename DI::GlobalVersion>,typename DI::GlobalVersion>;
 
         using DataMap = std::unordered_map<
             typename DI::Key
