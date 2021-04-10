@@ -349,6 +349,20 @@ export namespace Transaction {
                 , data: fu
             };
         }
+        export function eraseVersion<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta>(
+            u : Update<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta>
+        ) : Update<GlobalVersion,Key,Version,Data,VersionDelta,DataDelta> {
+            u.version = null;
+            for (let x of u.data) {
+                if (x[0] == 0) {
+                    //full update
+                    (x[1] as OneFullUpdateItem<Key,Version,Data>).version = null;
+                } else {
+                    (x[1] as OneDeltaUpdateItem<Key,VersionDelta,DataDelta>)[1] = null;
+                }
+            }
+            return u;
+        }
     }
     export namespace TransactionInterface {
         export enum RequestDecision {
