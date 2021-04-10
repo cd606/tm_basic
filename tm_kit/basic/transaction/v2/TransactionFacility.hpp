@@ -394,7 +394,7 @@ namespace transaction { namespace v2 {
                 }
             }
         }
-        virtual TransactionDataStorePtr<DI,KeyHash> const &dataStorePtr() const override final {
+        virtual TransactionDataStorePtr<DI,KeyHash,M::PossiblyMultiThreaded> const &dataStorePtr() const override final {
             return dataStore_;
         }
         void start(typename M::EnvironmentType *) override final {

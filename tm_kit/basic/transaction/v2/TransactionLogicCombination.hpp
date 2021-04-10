@@ -113,6 +113,7 @@ namespace transaction { namespace v2 {
         R &r
         , std::string const &componentPrefix
         , ITransactionFacility<typename R::AppType, TI, DI, TLogging, typename DataStoreUpdater::KeyHash> *transactionFacilityImpl
+        , bool sealTransactionFacility = false
     ) -> TransactionLogicCombinationResult<R, TI, DI, typename DataStoreUpdater::KeyHash> {
         using M = typename R::AppType;
 
@@ -138,6 +139,16 @@ namespace transaction { namespace v2 {
         );
 
         r.markStateSharing(transactionFacility, subscriptionFacility, componentPrefix+"/data_store");
+
+        if (sealTransactionFacility) {
+            auto tiImporter = M::template vacuousImporter<typename M::template Key<typename TI::TransactionWithAccountInfo>>();
+            auto tiExporter = M::template trivialExporter<typename M::template KeyedData<typename TI::TransactionWithAccountInfo,typename TI::TransactionResponse>>();
+            r.registerImporter(componentPrefix+"/sealingTIImporter", tiImporter);
+            r.registerExporter(componentPrefix+"/sealingTIExporter", tiExporter);
+            r.placeOrderWithFacilityWithExternalEffects(
+                r.importItem(tiImporter), transactionFacility, r.exporterAsSink(tiExporter)
+            );
+        }
         
         return {transactionFacility, subscriptionFacility};
     }

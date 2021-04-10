@@ -19,7 +19,7 @@ namespace transaction { namespace v2 { namespace single_pass_iteration {
     {
     private:
         using DataItem = typename infra::SinglePassIterationApp<TheEnvironment>::template InnerData<
-            DI::Update
+            typename DI::Update
         >;
         TheEnvironment *env_;
         std::deque<DataItem> updates_;
@@ -32,7 +32,7 @@ namespace transaction { namespace v2 { namespace single_pass_iteration {
         virtual void onUpdate(typename DI::Update &&u) override final {
             updates_.push_back(
                 infra::withtime_utils::pureTimedDataWithEnvironment<
-                    DI::Update
+                    typename DI::Update
                     , TheEnvironment
                     , typename TheEnvironment::TimePointType
                 >(env_, std::move(u))
@@ -40,7 +40,7 @@ namespace transaction { namespace v2 { namespace single_pass_iteration {
         }
         virtual typename infra::SinglePassIterationApp<TheEnvironment>::template Data<
             typename DI::Update
-        > generate() override final {
+        > generate(typename DI::Update const * = nullptr) override final {
             if (updates_.empty()) {
                 return std::nullopt;
             }
