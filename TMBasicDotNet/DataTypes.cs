@@ -34,6 +34,43 @@ namespace Dev.CD606.TM.Basic
     }
 
     [CborUsingCustomMethods]
+    public readonly struct NoVersion : IComparable, IComparable<NoVersion>
+    {
+        public CBORObject asCborObject()
+        {
+            return CBORObject.FromObject((int) 0);
+        }
+        public static Option<NoVersion> fromCborObject(CBORObject obj)
+        {
+            if (obj.IsNumber)
+            {
+                if (obj.AsNumber().IsZero())
+                {
+                    return new NoVersion();
+                }
+                else
+                {
+                    return Option.None;
+                }
+            }
+            else
+            {
+                return Option.None;
+            }
+        }
+        public int CompareTo(Object o) {
+            if (o is NoVersion) {
+                return 0;
+            } else {
+                throw new ArgumentException();
+            }
+        }
+        public int CompareTo(NoVersion v) {
+            return 0;
+        }
+    }
+
+    [CborUsingCustomMethods]
     public class ByteData
     {
         public readonly byte[] content;
