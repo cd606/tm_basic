@@ -30,6 +30,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
 
+        template <class ChainItemFolder, class TriggerT, class ResultTransformer>
+        static auto ImporterOrActionTypeHelper() {
+            if constexpr (std::is_same_v<TriggerT, void>) {
+                return std::shared_ptr<typename App::template Importer<std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>>>();
+            } else {
+                return std::shared_ptr<typename App::template Action<TriggerT, std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>>>();
+            }
+        }
+        template <class ChainItemFolder, class TriggerT, class ResultTransformer>
+        using ImporterOrAction = decltype(
+            ImporterOrActionTypeHelper<ChainItemFolder,TriggerT,ResultTransformer>()
+        );
+
         template <class ChainItemFolder, class TriggerT, class ResultTransformer, class Chain>
         inline auto chainReaderHelper(
             typename App::EnvironmentType *env
@@ -38,11 +51,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , ChainItemFolder &&folder
             , std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer
         ) 
-            -> std::conditional_t<
-                std::is_same_v<TriggerT, void>
-                , std::shared_ptr<typename App::template Importer<std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>>>
-                , std::shared_ptr<typename App::template Action<TriggerT, std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>>> 
-            >
+            -> ImporterOrAction<ChainItemFolder, TriggerT, ResultTransformer>
         {
             if constexpr (std::is_same_v<TriggerT, void>) {
                 return simple_shared_chain::ChainReader<
@@ -176,11 +185,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , ChainItemFolder &&folder = ChainItemFolder {}
             , std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()
         )
-            -> std::conditional_t<
-                std::is_same_v<TriggerT, void>
-                , std::shared_ptr<typename App::template Importer<std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>>>
-                , std::shared_ptr<typename App::template Action<TriggerT, std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>>> 
-            >
+            -> ImporterOrAction<ChainItemFolder, TriggerT, ResultTransformer>
         {
             if (lockFree) {
                 return chainReaderHelper<ChainItemFolder,TriggerT,ResultTransformer>(
@@ -219,11 +224,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , ChainItemFolder &&folder = ChainItemFolder {}
             , std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()
         )
-            -> std::conditional_t<
-                std::is_same_v<TriggerT, void>
-                , std::shared_ptr<typename App::template Importer<std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>>>
-                , std::shared_ptr<typename App::template Action<TriggerT, std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>>> 
-            >
+            -> ImporterOrAction<ChainItemFolder, TriggerT, ResultTransformer>
         {
             auto parsed = parseDescriptor(descriptor);
             return reader<ChainData,ChainItemFolder,TriggerT,ResultTransformer>(
@@ -313,6 +314,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             );
         }
 
+    private:
+        template <class ChainItemFolder, class TriggerT, class ResultTransformer>
+        static auto ImporterOrActionFactoryTypeHelper() {
+            if constexpr (std::is_same_v<TriggerT, void>) {
+                return basic::simple_shared_chain::ChainReaderImporterFactory<App, ChainItemFolder, ResultTransformer>();
+            } else {
+                return basic::simple_shared_chain::ChainReaderActionFactory<App, ChainItemFolder, TriggerT, ResultTransformer>();
+            }
+        }
+        template <class ChainItemFolder, class TriggerT, class ResultTransformer>
+        using ImporterOrActionFactory = decltype(
+            ImporterOrActionFactoryTypeHelper<ChainItemFolder,TriggerT,ResultTransformer>()
+        );
+
+    public:
         template <class ChainData, class ChainItemFolder, class TriggerT=void, class ResultTransformer=void>
         auto readerFactory(
             typename App::EnvironmentType *env
@@ -321,11 +337,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , ChainItemFolder &&folder = ChainItemFolder {}
             , std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()
         )
-            -> std::conditional_t<
-                std::is_same_v<TriggerT, void>
-                , basic::simple_shared_chain::ChainReaderImporterFactory<App, ChainItemFolder, ResultTransformer>
-                , basic::simple_shared_chain::ChainReaderActionFactory<App, ChainItemFolder, TriggerT, ResultTransformer>
-            >
+            -> ImporterOrActionFactory<ChainItemFolder,TriggerT,ResultTransformer>
         {
             auto f = std::move(folder);
             auto t = std::move(resultTransformer);
