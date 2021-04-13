@@ -1083,6 +1083,77 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         }
+
+        template <class T>
+        static void If(
+            R &r
+            , typename R::template Source<std::tuple<T,bool>> &&source
+            , typename R::template Sink<T> const &trueSink
+            , typename R::template Sink<T> const &falseSink
+            , std::string const &componentPrefix
+        ) {
+            auto ifDispatch = typename R::AppType::template liftPure<std::tuple<T,bool>>(
+                [](std::tuple<T,bool> &&x) -> std::variant<T,T> {
+                    if (std::get<1>(x)) {
+                        return {std::in_place_index<0>, std::move(std::get<0>(x))};
+                    } else {
+                        return {std::in_place_index<1>, std::move(std::get<0>(x))};
+                    }
+                }
+            );
+            r.registerAction(componentPrefix+"/ifDispatch", ifDispatch);
+            r.connect_2_0(r.actionAsSource(ifDispatch), trueSink);
+            r.connect_2_1(r.actionAsSource(ifDispatch), falseSink);
+            r.connect(std::move(source), r.actionAsSink(ifDispatch));
+        }
+        template <class T>
+        static void DoWhile(
+            R &r
+            , typename R::template Source<T> &&source
+            , typename R::template FacilitioidConnector<
+                T, std::tuple<T,bool>
+            > loopPart
+            , typename R::template Sink<T> const &continuationSink
+            , std::string const &componentPrefix
+        ) {
+            auto doWhileDispatch = typename R::AppType::template liftPure2<
+                T 
+                , typename R::AppType::template KeyedData<T, std::tuple<T,bool>>
+            >(
+                [](std::variant<
+                    T 
+                    , typename R::AppType::template KeyedData<T, std::tuple<T,bool>>
+                > &&data) 
+                    -> std::variant<T,T>
+                {
+                    return std::visit([](auto &&x) -> std::variant<T,T> {
+                        using X = std::decay_t<decltype(x)>;
+                        if constexpr (std::is_same_v<X, T>) {
+                            return {std::in_place_index<1>, std::move(x)};
+                        } else {
+                            if (std::get<1>(x.data)) {
+                                return {std::in_place_index<1>, std::move(std::get<0>(x.data))};
+                            } else {
+                                return {std::in_place_index<0>, std::move(std::get<0>(x.data))};
+                            }
+                        }
+                    }, std::move(data));
+                }
+            );
+            r.registerAction(componentPrefix+"/doWhileDispatch", doWhileDispatch);
+            auto keyify = infra::KleisliUtils<typename R::AppType>::action(
+                CommonFlowUtilComponents<typename R::AppType>::template keyify<T>()
+            );
+            r.registerAction(componentPrefix+"/keyify", keyify);
+            r.connect_2_0(r.actionAsSource(doWhileDispatch), continuationSink);
+            r.connect_2_1(r.actionAsSource(doWhileDispatch), r.actionAsSink(keyify));
+            loopPart(
+                r 
+                , r.actionAsSource(keyify)
+                , r.actionAsSink_2_1(doWhileDispatch)
+            );
+            r.connect(std::move(source), r.actionAsSink_2_0(doWhileDispatch));
+        }
     };
 
 } } } }

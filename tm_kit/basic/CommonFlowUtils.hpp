@@ -55,6 +55,53 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             );
         }
+        
+        //this is used when we want to convert an 
+        //input to some empty type, so it effectively becomes
+        //a triggering input
+        template <class T1, class T2, typename=std::enable_if_t<
+            std::is_empty_v<T2>
+        >>
+        static auto discardContent() {
+            return infra::KleisliUtils<M>::template liftPure<T1>(
+                [](T1 &&) -> T2 {
+                    return T2 {};
+                }
+            );
+        }
+
+        //These are also used for type safety, converting between
+        //wrapped and unwrapped types
+        template <class T, class Wrapped=SingleLayerWrapper<T>, typename=std::enable_if_t<
+            std::is_same_v<typename Wrapped::value_type, T>
+        >>
+        static auto wrap() {
+            return infra::KleisliUtils<M>::template liftPure<T>(
+                [](T &&x) -> Wrapped {
+                    return Wrapped {std::move(x)};
+                }
+            );
+        }
+        template <class T, class Wrapped=SingleLayerWrapper<T>, typename=std::enable_if_t<
+            std::is_same_v<typename Wrapped::value_type, T>
+        >>
+        static auto unwrap() {
+            return infra::KleisliUtils<M>::template liftPure<Wrapped>(
+                [](Wrapped &&x) -> T {
+                    return std::move(x.value);
+                }
+            );
+        }
+        template <class Wrapped1, class Wrapped2, typename=std::enable_if_t<
+            std::is_same_v<typename Wrapped1::value_type, typename Wrapped2::value_type>
+        >>
+        static auto changeWrap() {
+            return infra::KleisliUtils<M>::template liftPure<Wrapped1>(
+                [](Wrapped1 &&x) -> Wrapped2 {
+                    return Wrapped2 {std::move(x.value)};
+                }
+            );
+        }
 
     private:
         //This is the "reverse" of dispatchOneByOne
