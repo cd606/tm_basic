@@ -131,9 +131,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                     R, DI<ItemKey,ItemData>, VersionMerger, ApplyDelta<ItemKey, ItemData>
                 >;
             }
+            template <class Input=typename GS<typename R::EnvironmentType::IDType,ItemKey,ItemData>::Input>
             static auto basicDataStreamClientCombinationFunc() { 
                 return &transaction::v2::basicDataStreamClientCombination<
-                    R, DI<ItemKey,ItemData>, typename GS<typename R::EnvironmentType::IDType,ItemKey,ItemData>::Input, VersionMerger, ApplyDelta<ItemKey, ItemData>
+                    R, DI<ItemKey,ItemData>, Input, VersionMerger, ApplyDelta<ItemKey, ItemData>
                 >;
             }
         };
@@ -218,9 +219,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                     R, DI<ItemKey,ItemData>, VersionMerger, DataDeltaMerger<ItemData>, KeyHashType<ItemKey>
                 >;
             }
+            template <class Input=typename GS<typename R::EnvironmentType::IDType,ItemKey,ItemData>::Input>
             static auto basicDataStreamClientCombinationFunc() { 
                 return &transaction::v2::basicDataStreamClientCombination<
-                    R, DI<ItemKey,ItemData>, typename GS<typename R::EnvironmentType::IDType,ItemKey,ItemData>::Input, VersionMerger, DataDeltaMerger<ItemData>, KeyHashType<ItemKey>
+                    R, DI<ItemKey,ItemData>, Input, VersionMerger, DataDeltaMerger<ItemData>, KeyHashType<ItemKey>
                 >;
             }
         };
