@@ -1185,7 +1185,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
-                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x40) {
+                auto m = (static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0);
+                if (m != 0x40 && m != 0x60) {
                     return std::nullopt;
                 }
                 auto v = parseCBORUnsignedInt<size_t>(data, start);
@@ -1336,7 +1337,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if (data.length() < start+1) {
                     return std::nullopt;
                 }
-                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x40) {
+                auto m = (static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0);
+                if (m != 0x40 && m != 0x60) {
                     return std::nullopt;
                 }
                 auto v = parseCBORUnsignedInt<size_t>(data, start);
