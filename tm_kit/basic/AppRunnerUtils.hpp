@@ -1154,6 +1154,66 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
             r.connect(std::move(source), r.actionAsSink_2_0(doWhileDispatch));
         }
+
+        template <class A, class B, class DurationsGen, class ClockOp>
+        static auto clockBasedFacility(
+            DurationsGen &&durationsGen
+            , ClockOp &&clockOp
+            , std::string const &componentPrefix
+        ) -> typename R::template FacilitioidConnector<
+            A, B
+        > {
+            return [durationsGen=std::move(durationsGen), clockOp=std::move(clockOp), componentPrefix](
+                R &r 
+                , typename R::template Source<typename R::AppType::template Key<A>> &&source 
+                , std::optional<typename R::template Sink<typename R::AppType::template KeyedData<A,B>>> const &sink
+            ) {
+                using ClockF = typename AppClockHelper<typename R::AppType>::Facility;
+                using ClockFInput = typename ClockF::template FacilityInput<A>;
+                auto durationsGen1 = std::move(durationsGen);
+                auto genKey = R::AppType::template liftPure<typename R::AppType::template Key<A>>(
+                    [durationsGen1=std::move(durationsGen1)](typename R::AppType::template Key<A> &&k) 
+                        -> typename R::AppType::template Key<ClockFInput>
+                    {
+                        return {
+                            k.id()
+                            , {
+                                k.key()
+                                , durationsGen1(k.key())
+                            }
+                        };
+                    }
+                );
+                r.registerAction(componentPrefix+"/genKey", genKey);
+                auto clockOp1 = std::move(clockOp);
+                auto clockF = ClockF::template createGenericClockCallback<A,B>(std::move(clockOp1));
+                r.registerOnOrderFacility(componentPrefix+"/clockFacility", clockF);
+                if (!sink) {
+                    r.placeOrderWithFacilityAndForget(
+                        r.execute(genKey, std::move(source))
+                        , clockF
+                    );
+                } else {
+                    auto retrieveData = R::AppType::template liftPure<typename R::AppType::template KeyedData<ClockFInput,B>>(
+                        [](typename R::AppType::template KeyedData<ClockFInput,B> &&d) 
+                            -> typename R::AppType::template KeyedData<A,B>
+                        {
+                            return {
+                                {d.key.id(), std::move(d.key.key().inputData)}
+                                , std::move(d.data)
+                            };
+                        }
+                    );
+                    r.registerAction(componentPrefix+"/retrieveData", retrieveData);
+                    r.placeOrderWithFacility(
+                        r.execute(genKey, std::move(source))
+                        , clockF
+                        , r.actionAsSink(retrieveData)
+                    );
+                    r.connect(r.actionAsSource(retrieveData), *sink);
+                }
+            };
+        }
     };
 
 } } } }

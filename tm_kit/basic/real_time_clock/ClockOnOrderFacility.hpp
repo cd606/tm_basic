@@ -93,6 +93,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                             , (std::size_t) 0
                         )) {}
                     );
+                    static const auto full_callback_checker = boost::hana::is_valid(
+                        [](auto *c) -> decltype((void) (*c)(
+                            std::declval<typename Env::TimePointType>()
+                            , std::declval<Duration>()
+                            , (std::size_t) 0
+                            , (std::size_t) 0
+                            , std::declval<S>()
+                        )) {}
+                    );
                     TM_INFRA_FACILITY_TRACER(input.environment);
                     std::vector<Duration> filteredDurations;
                     for (auto const &d : input.timedData.value.key().callbackDurations) {
@@ -102,8 +111,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                     }
                     Env *env = input.environment;
                     typename Env::IDType id = input.timedData.value.id();
+                    auto val = std::move(input.timedData.value.key().inputData);
                     if (filteredDurations.empty()) {
-                        env->createOneShotDurationTimer(Duration(0), [this,env,id]() {
+                        env->createOneShotDurationTimer(Duration(0), [this,env,id,val=std::move(val)]() {
                             auto now = env->now();
                             if constexpr (simple_callback_checker((F *) nullptr)) {
                                 auto t = converter_(now, 0, 0);
@@ -122,6 +132,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                                 }
                             } else if constexpr (complex_callback_checker((F *) nullptr)) {
                                 auto t = converter_(now, Duration {}, 0, 0);
+                                if constexpr (std::is_same_v<T, std::decay_t<decltype(t)>>) {
+                                    this->publish(typename M::template InnerData<typename M::template Key<T>> {
+                                        env, {now, {id, std::move(t)}, true}
+                                    });
+                                } else if constexpr (std::is_same_v<std::vector<T>, std::decay_t<decltype(t)>>) {
+                                    std::size_t kk = t.size()-1;
+                                    for (auto &&item : t) {
+                                        this->publish(typename M::template InnerData<typename M::template Key<T>> {
+                                            env, {now, {id, std::move(item)}, (kk==0)}
+                                        });
+                                        --kk;
+                                    }
+                                }
+                            } else if constexpr (full_callback_checker((F *) nullptr)) {
+                                auto val1 = std::move(val);
+                                auto t = converter_(now, Duration {}, 0, 0, std::move(val1));
                                 if constexpr (std::is_same_v<T, std::decay_t<decltype(t)>>) {
                                     this->publish(typename M::template InnerData<typename M::template Key<T>> {
                                         env, {now, {id, std::move(t)}, true}
@@ -165,6 +191,26 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                                 env->createOneShotDurationTimer(d, [this,env,id,isFinal,ii,count,d]() {
                                     auto now = env->now();                                
                                     auto t = converter_(now, d, ii, count);
+                                    if constexpr (std::is_same_v<T, std::decay_t<decltype(t)>>) {
+                                        this->publish(typename M::template InnerData<typename M::template Key<T>> {
+                                            env, {now, {id, std::move(t)}, isFinal}
+                                        });
+                                    } else if constexpr (std::is_same_v<std::vector<T>, std::decay_t<decltype(t)>>) {
+                                        std::size_t kk = t.size()-1;
+                                        for (auto &&item : t) {
+                                            this->publish(typename M::template InnerData<typename M::template Key<T>> {
+                                                env, {now, {id, std::move(item)}, (isFinal && (kk==0))}
+                                            });
+                                            --kk;
+                                        }
+                                    }
+                                });
+                            } else if constexpr (full_callback_checker((F *) nullptr)) {
+                                auto d = filteredDurations[ii];                                
+                                env->createOneShotDurationTimer(d, [this,env,id,isFinal,ii,count,d,val=(isFinal?std::move(val):infra::withtime_utils::makeValueCopy<S>(val))]() {
+                                    auto now = env->now();  
+                                    auto val1 = std::move(val);
+                                    auto t = converter_(now, d, ii, count, std::move(val1));
                                     if constexpr (std::is_same_v<T, std::decay_t<decltype(t)>>) {
                                         this->publish(typename M::template InnerData<typename M::template Key<T>> {
                                             env, {now, {id, std::move(t)}, isFinal}
