@@ -1170,19 +1170,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             ) {
                 using ClockF = typename AppClockHelper<typename R::AppType>::Facility;
                 using ClockFInput = typename ClockF::template FacilityInput<A>;
-                auto durationsGen1 = std::move(durationsGen);
-                auto genKey = R::AppType::template liftPure<typename R::AppType::template Key<A>>(
-                    [durationsGen1=std::move(durationsGen1)](typename R::AppType::template Key<A> &&k) 
-                        -> typename R::AppType::template Key<ClockFInput>
-                    {
+                class GenKey {
+                private:
+                    DurationsGen durationsGen_;
+                public:
+                    GenKey(DurationsGen &&g) : durationsGen_(std::move(g)) {}
+                    typename R::AppType::template Key<ClockFInput> operator()(typename R::AppType::template Key<A> &&k) {
                         return {
                             k.id()
                             , {
                                 k.key()
-                                , durationsGen1(k.key())
+                                , durationsGen_(k.key())
                             }
                         };
                     }
+                };
+                auto durationsGen1 = std::move(durationsGen);
+                auto genKey = R::AppType::template liftPure<typename R::AppType::template Key<A>>(
+                    GenKey(std::move(durationsGen1))
                 );
                 r.registerAction(componentPrefix+"/genKey", genKey);
                 auto clockOp1 = std::move(clockOp);

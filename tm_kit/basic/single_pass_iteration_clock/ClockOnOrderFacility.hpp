@@ -193,6 +193,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                                     --kk;
                                 }
                             }
+                        } else {
+                            throw std::runtime_error("single_pass_iteration_clock::ClockFacility::createGenericClockCallback: bad function type");
                         }                        
                     } else {
                         std::sort(filteredDurations.begin(), filteredDurations.end());
@@ -275,6 +277,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                                         --kk;
                                     }
                                 }
+                            } else {
+                                throw std::runtime_error("single_pass_iteration_clock::ClockFacility::createGenericClockCallback: bad function type");
                             }
                         }
                     }

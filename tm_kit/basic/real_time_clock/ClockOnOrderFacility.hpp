@@ -161,6 +161,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                                         --kk;
                                     }
                                 }
+                            } else {
+                                throw std::runtime_error("real_time_clock::ClockFacility::createGenericClockCallback: bad function type");
                             }
                         });
                     } else {
@@ -225,6 +227,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                                         }
                                     }
                                 });
+                            } else {
+                                throw std::runtime_error("real_time_clock::ClockFacility::createGenericClockCallback: bad function type");
                             }
                         }
                     }
