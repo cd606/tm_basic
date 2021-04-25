@@ -130,17 +130,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                                     }
                                 });
                             } else if constexpr (std::is_same_v<std::vector<T>, std::decay_t<decltype(t)>>) {
-                                std::size_t kk = t.size()-1;
-                                for (auto &&item : t) {
-                                    this->publish(typename M::template InnerData<typename M::template Key<T>> {
-                                        input.environment
-                                        , {
-                                            now_tp
-                                            , {id, std::move(item)}
-                                            , (kk == 0)
-                                        }
-                                    });
-                                    --kk;
+                                if (t.empty()) {
+                                    this->markEndHandlingRequest(id);
+                                } else {
+                                    std::size_t kk = t.size()-1;
+                                    for (auto &&item : t) {
+                                        this->publish(typename M::template InnerData<typename M::template Key<T>> {
+                                            input.environment
+                                            , {
+                                                now_tp
+                                                , {id, std::move(item)}
+                                                , (kk == 0)
+                                            }
+                                        });
+                                        --kk;
+                                    }
                                 }
                             }
                         } else if constexpr (complex_callback_checker((F *) nullptr)) {
@@ -155,17 +159,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                                     }
                                 });
                             } else if constexpr (std::is_same_v<std::vector<T>, std::decay_t<decltype(t)>>) {
-                                std::size_t kk = t.size()-1;
-                                for (auto &&item : t) {
-                                    this->publish(typename M::template InnerData<typename M::template Key<T>> {
-                                        input.environment
-                                        , {
-                                            now_tp
-                                            , {id, std::move(item)}
-                                            , (kk == 0)
-                                        }
-                                    });
-                                    --kk;
+                                if (t.empty()) {
+                                    this->markEndHandlingRequest(id);
+                                } else {
+                                    std::size_t kk = t.size()-1;
+                                    for (auto &&item : t) {
+                                        this->publish(typename M::template InnerData<typename M::template Key<T>> {
+                                            input.environment
+                                            , {
+                                                now_tp
+                                                , {id, std::move(item)}
+                                                , (kk == 0)
+                                            }
+                                        });
+                                        --kk;
+                                    }
                                 }
                             }
                         } else if constexpr (full_callback_checker((F *) nullptr)) {
@@ -180,17 +188,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                                     }
                                 });
                             } else if constexpr (std::is_same_v<std::vector<T>, std::decay_t<decltype(t)>>) {
-                                std::size_t kk = t.size()-1;
-                                for (auto &&item : t) {
-                                    this->publish(typename M::template InnerData<typename M::template Key<T>> {
-                                        input.environment
-                                        , {
-                                            now_tp
-                                            , {id, std::move(item)}
-                                            , (kk == 0)
-                                        }
-                                    });
-                                    --kk;
+                                if (t.empty()) {
+                                    this->markEndHandlingRequest(id);
+                                } else {
+                                    std::size_t kk = t.size()-1;
+                                    for (auto &&item : t) {
+                                        this->publish(typename M::template InnerData<typename M::template Key<T>> {
+                                            input.environment
+                                            , {
+                                                now_tp
+                                                , {id, std::move(item)}
+                                                , (kk == 0)
+                                            }
+                                        });
+                                        --kk;
+                                    }
                                 }
                             }
                         } else {
@@ -214,17 +226,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                                         }
                                     });
                                 } else if constexpr (std::is_same_v<std::vector<T>, std::decay_t<decltype(t)>>) {
-                                    std::size_t kk = t.size()-1;
-                                    for (auto &&item : t) {
-                                        this->publish(typename M::template InnerData<typename M::template Key<T>> {
-                                            input.environment
-                                            , {
-                                                fire_tp
-                                                , {id, std::move(item)}
-                                                , (isFinal && (kk == 0))
-                                            }
-                                        });
-                                        --kk;
+                                    if (t.empty()) {
+                                        if (isFinal) {
+                                            this->markEndHandlingRequest(id);
+                                        }
+                                    } else {
+                                        std::size_t kk = t.size()-1;
+                                        for (auto &&item : t) {
+                                            this->publish(typename M::template InnerData<typename M::template Key<T>> {
+                                                input.environment
+                                                , {
+                                                    fire_tp
+                                                    , {id, std::move(item)}
+                                                    , (isFinal && (kk == 0))
+                                                }
+                                            });
+                                            --kk;
+                                        }
                                     }
                                 }
                             } else if constexpr (complex_callback_checker((F *) nullptr)) {
@@ -239,17 +257,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                                         }
                                     });
                                 } else if constexpr (std::is_same_v<std::vector<T>, std::decay_t<decltype(t)>>) {
-                                    std::size_t kk = t.size()-1;
-                                    for (auto &&item : t) {
-                                        this->publish(typename M::template InnerData<typename M::template Key<T>> {
-                                            input.environment
-                                            , {
-                                                fire_tp
-                                                , {id, std::move(item)}
-                                                , (isFinal && (kk == 0))
-                                            }
-                                        });
-                                        --kk;
+                                    if (t.empty()) {
+                                        if (isFinal) {
+                                            this->markEndHandlingRequest(id);
+                                        }
+                                    } else {
+                                        std::size_t kk = t.size()-1;
+                                        for (auto &&item : t) {
+                                            this->publish(typename M::template InnerData<typename M::template Key<T>> {
+                                                input.environment
+                                                , {
+                                                    fire_tp
+                                                    , {id, std::move(item)}
+                                                    , (isFinal && (kk == 0))
+                                                }
+                                            });
+                                            --kk;
+                                        }
                                     }
                                 }
                             } else if constexpr (full_callback_checker((F *) nullptr)) {
@@ -264,17 +288,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                                         }
                                     });
                                 } else if constexpr (std::is_same_v<std::vector<T>, std::decay_t<decltype(t)>>) {
-                                    std::size_t kk = t.size()-1;
-                                    for (auto &&item : t) {
-                                        this->publish(typename M::template InnerData<typename M::template Key<T>> {
-                                            input.environment
-                                            , {
-                                                fire_tp
-                                                , {id, std::move(item)}
-                                                , (isFinal && (kk == 0))
-                                            }
-                                        });
-                                        --kk;
+                                    if (t.empty()) {
+                                        if (isFinal) {
+                                            this->markEndHandlingRequest(id);
+                                        }
+                                    } else {
+                                        std::size_t kk = t.size()-1;
+                                        for (auto &&item : t) {
+                                            this->publish(typename M::template InnerData<typename M::template Key<T>> {
+                                                input.environment
+                                                , {
+                                                    fire_tp
+                                                    , {id, std::move(item)}
+                                                    , (isFinal && (kk == 0))
+                                                }
+                                            });
+                                            --kk;
+                                        }
                                     }
                                 }
                             } else {
