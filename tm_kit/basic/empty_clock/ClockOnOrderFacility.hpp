@@ -24,7 +24,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace emp
         template <class S, class T>
         static std::shared_ptr<typename M::template OnOrderFacility<FacilityInput<S>,T>> createClockCallback(std::function<T(typename Env::TimePointType const &, std::size_t, std::size_t)> converter) {
             return std::make_shared<typename M::template OnOrderFacility<FacilityInput<S>,T>>();
-        }    
+        }
+        template <class S, class T, class F>
+        static std::shared_ptr<typename M::template OnOrderFacility<FacilityInput<S>,T>> createGenericClockCallback(F &&converter) {
+            return std::make_shared<typename M::template OnOrderFacility<FacilityInput<S>,T>>();
+        }  
     };
 
 } } } } }
