@@ -83,6 +83,63 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             };
         }
 
+        template <class Input, class Output, class ExtraValue>
+        static auto convertIntoTuple2FacilitioidByDiscardingExtraValue(
+            typename R::template FacilitioidConnector<
+                Input
+                , Output
+            > toBeConverted
+            , std::string const &convertPrefix
+        ) -> typename R::template FacilitioidConnector<
+                std::tuple<ExtraValue, Input>
+                , Output
+            >
+        {
+            class LocalF : public M::template AbstractIntegratedVIEOnOrderFacilityWithPublish<
+                std::tuple<ExtraValue, Input>
+                , Output
+                , typename M::template KeyedData<Input, Output>
+                , typename M::template Key<Input>
+            > {
+            public:
+                LocalF() {}
+                virtual void start(TheEnvironment *) override final {}
+                virtual void handle(typename M::template InnerData<typename M::template Key<std::tuple<ExtraValue, Input>>> &&input) override final {
+                    this->ImporterParent::publish(
+                        input.environment
+                        , typename M::template Key<Input> {
+                            input.timedData.value.id()
+                            , std::move(std::get<1>(input.timedData.value.key()))
+                        }
+                    );
+                }
+                virtual void handle(typename M::template InnerData<typename M::template KeyedData<Input,Output>> &&result) override final {
+                    this->FacilityParent::publish(
+                        result.environment
+                        , typename M::template Key<Output> {
+                            result.timedData.value.key.id()
+                            , std::move(result.timedData.value.data)
+                        }
+                        , result.timedData.finalFlag
+                    );
+                }
+            };
+            return [toBeConverted,convertPrefix](
+                R &r 
+                , typename R::template Source<typename M::template Key<std::tuple<ExtraValue,Input>>> &&source 
+                , std::optional<typename R::template Sink<typename M::template KeyedData<std::tuple<ExtraValue, Input>, Output>>> const &sink
+            ) {
+                auto vieFacility = M::vieOnOrderFacility(new LocalF());
+                r.registerVIEOnOrderFacility(convertPrefix+"/vieFacility", vieFacility);
+                toBeConverted(r, r.vieFacilityAsSource(vieFacility), r.vieFacilityAsSink(vieFacility));
+                if (sink) {
+                    r.placeOrderWithVIEFacility(std::move(source), vieFacility, *sink);
+                } else {
+                    r.placeOrderWithVIEFacilityAndForget(std::move(source), vieFacility);
+                }
+            };
+        }
+
         template <class A, class B>
         static auto simulatedFacility(
             typename R::template Sink<typename M::template Key<A>> const &inputHandler
