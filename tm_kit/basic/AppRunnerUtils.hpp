@@ -101,6 +101,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 , typename M::template KeyedData<Input, Output>
                 , typename M::template Key<Input>
             > {
+            private:
+                using P = typename M::template AbstractIntegratedVIEOnOrderFacilityWithPublish<
+                    std::tuple<ExtraValue, Input>
+                    , Output
+                    , typename M::template KeyedData<Input, Output>
+                    , typename M::template Key<Input>
+                >;
+                using ImporterParent = typename P::ImporterParent;
+                using FacilityParent = typename P::FacilityParent;
             public:
                 LocalF() {}
                 virtual void start(TheEnvironment *) override final {}
@@ -129,7 +138,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 , typename R::template Source<typename M::template Key<std::tuple<ExtraValue,Input>>> &&source 
                 , std::optional<typename R::template Sink<typename M::template KeyedData<std::tuple<ExtraValue, Input>, Output>>> const &sink
             ) {
-                auto vieFacility = M::vieOnOrderFacility(new LocalF());
+                auto vieFacility = M::template vieOnOrderFacility<
+                    std::tuple<ExtraValue, Input>
+                    , Output
+                    , typename M::template KeyedData<Input, Output>
+                    , typename M::template Key<Input>
+                    , true
+                >(new LocalF());
                 r.registerVIEOnOrderFacility(convertPrefix+"/vieFacility", vieFacility);
                 toBeConverted(r, r.vieFacilityAsSource(vieFacility), r.vieFacilityAsSink(vieFacility));
                 if (sink) {
