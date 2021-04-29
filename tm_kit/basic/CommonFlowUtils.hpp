@@ -1555,6 +1555,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         }
 
+        template <int32_t ID, class T>
+        static auto tagWithID() {
+            return infra::KleisliUtils<M>::template liftPure<T>(
+                [](T &&x) -> SingleLayerWrapperWithID<ID, T>
+                {
+                    return {std::move(x)};
+                }
+            );
+        }
+        template <class Mark, class T>
+        static auto tagWithTypeMark() {
+            return infra::KleisliUtils<M>::template liftPure<T>(
+                [](T &&x) -> SingleLayerWrapperWithTypeMark<Mark, T>
+                {
+                    return {std::move(x)};
+                }
+            );
+        }
+
         template <class Input, class Output, class State, class StateUpdater, class OutputProducer, class StateResetter>
         static auto actionWithBufferedState(StateUpdater &&stateUpdater = StateUpdater{}, OutputProducer &&outputProducer = OutputProducer{}, StateResetter &&stateResetter = StateResetter{}, State &&state = State {})
             -> std::shared_ptr<typename M::template Action<Input, Output>> 
