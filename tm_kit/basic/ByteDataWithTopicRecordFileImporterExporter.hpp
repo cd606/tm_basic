@@ -6,7 +6,6 @@
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
 #include <tm_kit/infra/TraceNodesComponent.hpp>
 #include <tm_kit/infra/BasicWithTimeApp.hpp>
-#include <tm_kit/infra/ControllableNode.hpp>
 #include <tm_kit/basic/ByteDataWithTopicRecordFile.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
@@ -21,7 +20,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <class Format, bool PublishFinalEmptyMessage=false>
         static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<ByteDataWithTopic>>
         createImporter(std::istream &is, std::vector<std::byte> const &fileMagic=std::vector<std::byte>(), std::vector<std::byte> const &recordMagic=std::vector<std::byte>(), bool overrideDate=false) {
-            class LocalI : public infra::RealTimeApp<Env>::template AbstractImporter<ByteDataWithTopic>, public infra::IControllableNode<Env> {
+            class LocalI : public infra::RealTimeApp<Env>::template AbstractImporter<ByteDataWithTopic> {
             private:
                 std::istream *is_;
                 ByteDataWithTopicRecordFileReader<Format> reader_;

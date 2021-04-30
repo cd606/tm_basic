@@ -13,7 +13,6 @@
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
 #include <tm_kit/infra/TraceNodesComponent.hpp>
 #include <tm_kit/infra/BasicWithTimeApp.hpp>
-#include <tm_kit/infra/ControllableNode.hpp>
 #include <tm_kit/basic/ByteDataWithTopicRecordFile.hpp>
 #include <tm_kit/basic/ByteData.hpp>
 
@@ -142,7 +141,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             , Reader &&reader
             , DataComparer &&dataComparer = DataComparer {}
         ) {
-            class LocalI : public infra::RealTimeApp<Env>::template AbstractImporter<T>, public infra::IControllableNode<Env> {
+            class LocalI : public infra::RealTimeApp<Env>::template AbstractImporter<T> {
             private:
                 GenericIStreamImporterSpec<infra::RealTimeApp<Env>> spec_;
                 Reader reader_;
