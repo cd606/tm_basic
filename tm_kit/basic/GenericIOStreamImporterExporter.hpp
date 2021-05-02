@@ -141,7 +141,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             , Reader &&reader
             , DataComparer &&dataComparer = DataComparer {}
         ) {
-            class LocalI : public infra::RealTimeApp<Env>::template AbstractImporter<T> {
+            class LocalI : public infra::RealTimeApp<Env>::template AbstractImporter<T>, public virtual infra::IControllableNode<Env> {
             private:
                 GenericIStreamImporterSpec<infra::RealTimeApp<Env>> spec_;
                 Reader reader_;

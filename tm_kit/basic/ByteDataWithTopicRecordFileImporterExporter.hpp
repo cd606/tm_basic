@@ -20,7 +20,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <class Format, bool PublishFinalEmptyMessage=false>
         static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<ByteDataWithTopic>>
         createImporter(std::istream &is, std::vector<std::byte> const &fileMagic=std::vector<std::byte>(), std::vector<std::byte> const &recordMagic=std::vector<std::byte>(), bool overrideDate=false) {
-            class LocalI : public infra::RealTimeApp<Env>::template AbstractImporter<ByteDataWithTopic> {
+            class LocalI : public infra::RealTimeApp<Env>::template AbstractImporter<ByteDataWithTopic>, public virtual infra::IControllableNode<Env> {
             private:
                 std::istream *is_;
                 ByteDataWithTopicRecordFileReader<Format> reader_;
