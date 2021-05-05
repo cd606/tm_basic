@@ -56,7 +56,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
 
         SaveDataOnChain<Chain, typename ChainItemFolder::ResultType> stateSaver_;
         void realTimeIdleWork() {
-            static auto foldInPlaceChecker = boost::hana::is_valid(
+            static const auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
             std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
@@ -87,7 +87,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , resultTransformer_(std::move(resultTransformer))
             , stateSaver_(chain)
         {
-            static auto checker = boost::hana::is_valid(
+            static const auto checker = boost::hana::is_valid(
                 [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
 
@@ -112,10 +112,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainReader(ChainReader &&) = default;
         ChainReader &operator=(ChainReader &&) = default;
         typename std::optional<OutputType> operator()(TriggerT &&triggerData) {
-            static auto foldInPlaceChecker = boost::hana::is_valid(
+            static const auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
-            static auto threeParamTransformChecker = boost::hana::is_valid(
+            static const auto threeParamTransformChecker = boost::hana::is_valid(
                 [](auto *f, auto const *s, auto const *v, auto *data) -> decltype((void) (f->transform(*s, *v, std::move(*data)))) {}
             );
             while (true) {
@@ -201,10 +201,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         std::thread th_;
         SaveDataOnChain<Chain, typename ChainItemFolder::ResultType> stateSaver_;
         void run(Env *env) {
-            static auto foldInPlaceChecker = boost::hana::is_valid(
+            static const auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
-            static auto filterUpdateChecker = boost::hana::is_valid(
+            static const auto filterUpdateChecker = boost::hana::is_valid(
                 [](auto *f, auto const *id, auto const *data) -> decltype((void) (f->filterUpdate(*id, *data))) {}
             );
             static constexpr bool UsesPartialHistory = 
@@ -327,7 +327,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainReader(ChainReader &&) = default;
         ChainReader &operator=(ChainReader &&) = delete;
         virtual void start(Env *env) override final {
-            static auto checker = boost::hana::is_valid(
+            static const auto checker = boost::hana::is_valid(
                 [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
 
@@ -390,7 +390,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainReader(ChainReader &&) = default;
         ChainReader &operator=(ChainReader &&) = delete;
         virtual void start(Env *env) override final {
-            static auto checker = boost::hana::is_valid(
+            static const auto checker = boost::hana::is_valid(
                 [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
 
@@ -415,10 +415,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 std::is_convertible_v<
                     ChainItemFolder *, FolderUsingPartialHistoryInformation *
                 >;
-            static auto foldInPlaceChecker = boost::hana::is_valid(
+            static const auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
-            static auto filterUpdateChecker = boost::hana::is_valid(
+            static const auto filterUpdateChecker = boost::hana::is_valid(
                 [](auto *f, auto const *id, auto const *data) -> decltype((void) (f->filterUpdate(*id, *data))) {}
             );
             TM_INFRA_IMPORTER_TRACER(env_);
@@ -509,10 +509,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> resultTransformer_;
         SaveDataOnChain<Chain, typename ChainItemFolder::ResultType> stateSaver_;
         void run(Env *env) {
-            static auto foldInPlaceChecker = boost::hana::is_valid(
+            static const auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
-            static auto filterUpdateChecker = boost::hana::is_valid(
+            static const auto filterUpdateChecker = boost::hana::is_valid(
                 [](auto *f, auto const *id, auto const *data) -> decltype((void) (f->filterUpdate(*id, *data))) {}
             );
             static constexpr bool UsesPartialHistory = 
@@ -581,7 +581,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainReader(ChainReader &&) = default;
         ChainReader &operator=(ChainReader &&) = delete;
         virtual void start(Env *env) override final {
-            static auto checker = boost::hana::is_valid(
+            static const auto checker = boost::hana::is_valid(
                 [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
 
@@ -668,7 +668,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
         template <class ChainDataType>
         void foldInPlace(ResultType &res, std::string_view const &id, ChainDataType const &data) {
-            static auto foldInPlaceChecker = boost::hana::is_valid(
+            static const auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
             if constexpr (foldInPlaceChecker(

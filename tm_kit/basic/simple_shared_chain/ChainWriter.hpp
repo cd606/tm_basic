@@ -84,7 +84,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     ChainItemFolder *, FolderUsingPartialHistoryInformation *
             >);
 
-            static auto foldInPlaceChecker = boost::hana::is_valid(
+            static const auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
             //This is to give the facility handler a chance to do something
@@ -92,7 +92,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             //when we have IdleLogic.
             //Also, this is specific to real-time mode. Single-pass iteration
             //mode does not really need state-saving in the middle.
-            static auto handlerIdleCallbackChecker = boost::hana::is_valid(
+            static const auto handlerIdleCallbackChecker = boost::hana::is_valid(
                 [](auto *h, auto *c, auto const *v) -> decltype((void) h->idleCallback(c, *v)) {}
             );
             TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(env_, ":idlework");
@@ -208,7 +208,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
         void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) {
-            static auto foldInPlaceChecker = boost::hana::is_valid(
+            static const auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
             TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(data.environment, ":handle");
@@ -382,7 +382,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainWriter(ChainWriter &&) = default;
         ChainWriter &operator=(ChainWriter &&) = default;
         virtual void start(Env *env) override final {
-            static auto checker = boost::hana::is_valid(
+            static const auto checker = boost::hana::is_valid(
                 [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
 
@@ -406,7 +406,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 innerHandler1_ = new InnerHandler1(this);
             }
 
-            static auto foldInPlaceChecker = boost::hana::is_valid(
+            static const auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
             //for real time writer, if the chain has data lock
@@ -501,7 +501,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 ChainItemFolder *, FolderUsingPartialHistoryInformation *
             >);
 
-            static auto foldInPlaceChecker = boost::hana::is_valid(
+            static const auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
             TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(data.environment, ":handle");
@@ -594,7 +594,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ) {
             TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(env_, ":idlework");
             if constexpr (!std::is_same_v<IdleLogic, void>) {
-                static auto foldInPlaceChecker = boost::hana::is_valid(
+                static const auto foldInPlaceChecker = boost::hana::is_valid(
                     [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
                 );
                 ChainLock<Chain> _(chain_);
@@ -746,7 +746,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainWriter(ChainWriter &&) = default;
         ChainWriter &operator=(ChainWriter &&) = default;
         virtual void start(Env *env) override final {
-            static auto checker = boost::hana::is_valid(
+            static const auto checker = boost::hana::is_valid(
                 [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
 
@@ -815,7 +815,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     ChainItemFolder *, FolderUsingPartialHistoryInformation *
             >);
 
-            static auto foldInPlaceChecker = boost::hana::is_valid(
+            static const auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
             //This is to give the facility handler a chance to do something
@@ -823,7 +823,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             //when we have IdleLogic.
             //Also, this is specific to real-time mode. Single-pass iteration
             //mode does not really need state-saving in the middle.
-            static auto handlerIdleCallbackChecker = boost::hana::is_valid(
+            static const auto handlerIdleCallbackChecker = boost::hana::is_valid(
                 [](auto *h, auto *c, auto const *v) -> decltype((void) h->idleCallback(c, *v)) {}
             );
             if constexpr (std::is_same_v<IdleLogic, void>) {
@@ -938,7 +938,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
         void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) {
-            static auto foldInPlaceChecker = boost::hana::is_valid(
+            static const auto foldInPlaceChecker = boost::hana::is_valid(
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
             TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(data.environment, ":handle");
@@ -1069,7 +1069,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         ChainWriter(ChainWriter &&) = default;
         ChainWriter &operator=(ChainWriter &&) = default;
         virtual void start(Env *env) override final {
-            static auto checker = boost::hana::is_valid(
+            static const auto checker = boost::hana::is_valid(
                 [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
             );
 
