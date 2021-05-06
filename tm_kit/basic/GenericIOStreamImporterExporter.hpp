@@ -484,7 +484,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <class Duration>
     class SystemTimePointReader {
     public:
-        std::optional<std::chrono::system_clock::time_point> operator()(void *, std::istream &is, std::chrono::system_clock::time_point const &tp) {
+        std::optional<std::chrono::system_clock::time_point> operator()(void *, std::istream &is) {
             char buf[sizeof(int64_t)];
             is.read(buf, sizeof(int64_t));
             if (is.gcount() != sizeof(int64_t)) {
