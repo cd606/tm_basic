@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Collections.Generic;
 using Dev.CD606.TM.Infra;
 using Dev.CD606.TM.Infra.RealTimeApp;
 
@@ -74,6 +75,201 @@ namespace Dev.CD606.TM.Basic
         byteDataWithTopicOutput(string fileName, ByteData filePrefix=null, ByteData recordPrefix=null)
         {
             return new ByteDataWithTopicOutput(fileName,filePrefix?.content,recordPrefix?.content);
+        }
+
+        public interface RecordReader<T> 
+        {
+            int Start(BinaryReader r);
+            int ReadOne(BinaryReader r, out T result);
+        }
+        public static IEnumerable<T> GenericRecordDataSource<T>(BinaryReader r, RecordReader<T> reader) 
+        {
+            if (reader.Start(r) < 0)
+            {
+                yield break;
+            }
+            else
+            {
+                T t;
+                if (reader.ReadOne(r, out t) < 0)  
+                {
+                    yield break;
+                }
+                else
+                {
+                    yield return t;
+                }
+            }
+        }
+        public class TopicCaptureFileRecord 
+        {
+            public DateTimeOffset Time {get; set;}
+            public string TimeString {get; set;}
+            public string Topic {get; set;}
+            public byte[] Data {get; set;}
+            public bool IsFinal {get; set;}
+        }
+        public class TopicCaptureFileRecordReaderOption 
+        {
+            public enum TimePrecisionLevel
+            {
+                Second
+                , Millisecond
+                , Microsecond
+            }
+            public ushort FileMagicLength {get; set;} = 4;
+            public ushort RecordMagicLength {get; set;} = 4; 
+            public ushort TimeFieldLength {get; set;} = 8;
+            public ushort TopicLengthFieldLength {get; set;} = 4;
+            public ushort DataLengthFieldLength {get; set;} = 4;
+            public bool HasFinalFlagField {get; set;} = true;
+            public TimePrecisionLevel TimePrecision {get; set;} = TimePrecisionLevel.Microsecond;
+        }
+        public class TopicCaptureFileRecordReader : RecordReader<TopicCaptureFileRecord>
+        {
+            private TopicCaptureFileRecordReaderOption option;
+            private byte[] numberBuffer;
+            public TopicCaptureFileRecordReader(TopicCaptureFileRecordReaderOption option)
+            {
+                this.option = option;
+                this.numberBuffer = new byte[8];
+            }
+            public int Start(BinaryReader r)
+            {
+                if (option.FileMagicLength == 0)
+                {
+                    return 0;
+                }
+                if (r.ReadBytes(option.FileMagicLength).Length < option.FileMagicLength)
+                {
+                    return -1;
+                }
+                return option.FileMagicLength;
+            }
+            public int ReadOne(BinaryReader r, out TopicCaptureFileRecord output)
+            {
+                output = null;
+                int count = 0;
+                if (option.RecordMagicLength > 0)
+                {
+                    if (r.ReadBytes(option.RecordMagicLength).Length < option.RecordMagicLength)
+                    {
+                        return -1;
+                    }
+                    count += option.RecordMagicLength;
+                }
+                output = new TopicCaptureFileRecord();
+                if (option.TimeFieldLength > 0)
+                {
+                    var timeBytes = r.ReadBytes(option.TimeFieldLength);
+                    if (timeBytes.Length < option.TimeFieldLength)
+                    {
+                        return -1;
+                    }
+                    count += timeBytes.Length;
+                    Int64 timeInt = 0;
+                    if (timeBytes.Length != 8)
+                    {
+                        Array.Clear(numberBuffer, 0, 8);
+                        Array.Copy(timeBytes, numberBuffer, Math.Min(timeBytes.Length, 8));
+                        timeInt = BitConverter.ToInt64(numberBuffer, 0);
+                    }
+                    else
+                    {
+                        timeInt = BitConverter.ToInt64(timeBytes, 0);
+                    }
+                    switch (option.TimePrecision)
+                    {
+                        case TopicCaptureFileRecordReaderOption.TimePrecisionLevel.Second:
+                            {
+                                output.Time = DateTimeOffset.FromUnixTimeSeconds(timeInt);
+                                output.TimeString = output.Time.ToString("yyyy-MM-dd HH:mm:ss");
+                            }
+                            break;
+                        case TopicCaptureFileRecordReaderOption.TimePrecisionLevel.Millisecond:
+                            {
+                                output.Time = DateTimeOffset.FromUnixTimeMilliseconds(timeInt);
+                                output.TimeString = output.Time.ToString("yyyy-MM-dd HH:mm:ss.fff");
+                            }
+                            break;
+                        case TopicCaptureFileRecordReaderOption.TimePrecisionLevel.Microsecond:
+                        default:
+                            {
+                                output.Time = DateTimeOffset.FromUnixTimeMilliseconds(timeInt/1000);
+                                output.Time = output.Time.AddTicks((timeInt%1000)*10);
+                                output.TimeString = output.Time.ToString("yyyy-MM-dd HH:mm:ss.ffffff");
+                            }
+                            break;
+                    }
+                }
+                if (option.TopicLengthFieldLength > 0)
+                {
+                    var topicLenBytes = r.ReadBytes(option.TopicLengthFieldLength);
+                    if (topicLenBytes.Length < option.TopicLengthFieldLength)
+                    {
+                        return -1;
+                    }
+                    count += topicLenBytes.Length;
+                    Int64 topicLenL = 0;
+                    if (topicLenBytes.Length != 8)
+                    {
+                        Array.Clear(numberBuffer, 0, 8);
+                        Array.Copy(topicLenBytes, numberBuffer, Math.Min(topicLenBytes.Length, 8));
+                        topicLenL = BitConverter.ToInt64(numberBuffer, 0);
+                    }
+                    else
+                    {
+                        topicLenL = BitConverter.ToInt64(topicLenBytes, 0);
+                    }
+                    int topicLen = (int) topicLenL;
+                    var topic = r.ReadBytes(topicLen);
+                    if (topic.Length != topicLen)
+                    {
+                        return -1;
+                    }
+                    count += topic.Length;
+                    output.Topic = System.Text.Encoding.UTF8.GetString(topic);
+                }
+                if (option.DataLengthFieldLength > 0)
+                {
+                    var dataLenBytes = r.ReadBytes(option.DataLengthFieldLength);
+                    if (dataLenBytes.Length < option.DataLengthFieldLength)
+                    {
+                        return -1;
+                    }
+                    count += dataLenBytes.Length;
+                    Int64 dataLenL = 0;
+                    if (dataLenBytes.Length != 8)
+                    {
+                        Array.Clear(numberBuffer, 0, 8);
+                        Array.Copy(dataLenBytes, numberBuffer, Math.Min(dataLenBytes.Length, 8));
+                        dataLenL = BitConverter.ToInt64(numberBuffer, 0);
+                    }
+                    else
+                    {
+                        dataLenL = BitConverter.ToInt64(dataLenBytes, 0);
+                    }
+                    int dataLen = (int) dataLenL;
+                    var data = r.ReadBytes(dataLen);
+                    if (data.Length != dataLen)
+                    {
+                        return -1;
+                    }
+                    count += data.Length;
+                    output.Data = data;
+                }
+                if (option.HasFinalFlagField)
+                {
+                    var b = r.ReadBytes(1);
+                    if (b.Length != 1)
+                    {
+                        return -1;
+                    }
+                    count += 1;
+                    output.IsFinal = (b[0] != 0);
+                }
+                return count;
+            }
         }
     }
 }
