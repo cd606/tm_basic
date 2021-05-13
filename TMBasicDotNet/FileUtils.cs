@@ -171,7 +171,7 @@ namespace Dev.CD606.TM.Basic
                     if (timeBytes.Length != 8)
                     {
                         Array.Clear(numberBuffer, 0, 8);
-                        Array.Copy(timeBytes, numberBuffer, Math.Min(timeBytes.Length, 8));
+                        Buffer.BlockCopy(timeBytes, 0, numberBuffer, 0, Math.Min(timeBytes.Length, 8));
                         timeInt = BitConverter.ToInt64(numberBuffer, 0);
                     }
                     else
@@ -214,7 +214,7 @@ namespace Dev.CD606.TM.Basic
                     if (topicLenBytes.Length != 8)
                     {
                         Array.Clear(numberBuffer, 0, 8);
-                        Array.Copy(topicLenBytes, numberBuffer, Math.Min(topicLenBytes.Length, 8));
+                        Buffer.BlockCopy(topicLenBytes, 0, numberBuffer, 0, Math.Min(topicLenBytes.Length, 8));
                         topicLenL = BitConverter.ToInt64(numberBuffer, 0);
                     }
                     else
@@ -242,7 +242,7 @@ namespace Dev.CD606.TM.Basic
                     if (dataLenBytes.Length != 8)
                     {
                         Array.Clear(numberBuffer, 0, 8);
-                        Array.Copy(dataLenBytes, numberBuffer, Math.Min(dataLenBytes.Length, 8));
+                        Buffer.BlockCopy(dataLenBytes, 0, numberBuffer, 0, Math.Min(dataLenBytes.Length, 8));
                         dataLenL = BitConverter.ToInt64(numberBuffer, 0);
                     }
                     else
