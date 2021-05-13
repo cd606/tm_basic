@@ -91,13 +91,16 @@ namespace Dev.CD606.TM.Basic
             else
             {
                 T t;
-                if (reader.ReadOne(r, out t) < 0)  
+                while (true)
                 {
-                    yield break;
-                }
-                else
-                {
-                    yield return t;
+                    if (reader.ReadOne(r, out t) < 0)  
+                    {
+                        yield break;
+                    }
+                    else
+                    {
+                        yield return t;
+                    }
                 }
             }
         }
@@ -182,13 +185,13 @@ namespace Dev.CD606.TM.Basic
                     {
                         case TopicCaptureFileRecordReaderOption.TimePrecisionLevel.Second:
                             {
-                                output.Time = DateTimeOffset.FromUnixTimeSeconds(timeInt);
+                                output.Time = DateTimeOffset.FromUnixTimeSeconds(timeInt).ToLocalTime();
                                 output.TimeString = output.Time.ToString("yyyy-MM-dd HH:mm:ss");
                             }
                             break;
                         case TopicCaptureFileRecordReaderOption.TimePrecisionLevel.Millisecond:
                             {
-                                output.Time = DateTimeOffset.FromUnixTimeMilliseconds(timeInt);
+                                output.Time = DateTimeOffset.FromUnixTimeMilliseconds(timeInt).ToLocalTime();
                                 output.TimeString = output.Time.ToString("yyyy-MM-dd HH:mm:ss.fff");
                             }
                             break;
@@ -197,6 +200,7 @@ namespace Dev.CD606.TM.Basic
                             {
                                 output.Time = DateTimeOffset.FromUnixTimeMilliseconds(timeInt/1000);
                                 output.Time = output.Time.AddTicks((timeInt%1000)*10);
+                                output.Time = output.Time.ToLocalTime();
                                 output.TimeString = output.Time.ToString("yyyy-MM-dd HH:mm:ss.ffffff");
                             }
                             break;
