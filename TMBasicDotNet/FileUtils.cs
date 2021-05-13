@@ -76,7 +76,10 @@ namespace Dev.CD606.TM.Basic
         {
             return new ByteDataWithTopicOutput(fileName,filePrefix?.content,recordPrefix?.content);
         }
+    }
 
+    public static class RecordFileUtils
+    {
         public interface RecordReader<T> 
         {
             int Start(BinaryReader r);
@@ -273,6 +276,66 @@ namespace Dev.CD606.TM.Basic
                     output.IsFinal = (b[0] != 0);
                 }
                 return count;
+            }
+        }
+        public class TopicCaptureFileReplayImporter<Env> : AbstractImporter<Env, ByteDataWithTopic> where Env: ClockEnv
+        {
+            private BinaryReader reader;
+            private TopicCaptureFileRecordReaderOption option;
+            private bool overrideDate;
+            TopicCaptureFileReplayImporter(BinaryReader reader, TopicCaptureFileRecordReaderOption option, bool overrideDate=false)
+            {
+                this.reader = reader;
+                this.option = option;
+                this.overrideDate = overrideDate;
+            }
+            public override void start(Env env)
+            {
+                new System.Threading.Thread(
+                    () => {
+                        DateTimeOffset todayStart;
+                        bool todayStartSet = false;
+                        foreach (var item in GenericRecordDataSource<TopicCaptureFileRecord>(reader, new TopicCaptureFileRecordReader(option)))
+                        {
+                            var now = env.now();
+                            if (overrideDate)
+                            {
+                                if (!todayStartSet)
+                                {
+                                    todayStart = new DateTimeOffset(now.Date);
+                                    todayStartSet = true;
+                                }
+                                item.Time = todayStart+(item.Time-item.Time.Date);
+                            }
+                            if (item.Time < now)
+                            {
+                                if ((now-item.Time) < TimeSpan.FromSeconds(1))
+                                {
+                                    publish(new TimedDataWithEnvironment<Env, ByteDataWithTopic>(
+                                        env, new WithTime<ByteDataWithTopic>(item.Time, new ByteDataWithTopic(item.Topic, item.Data), item.IsFinal)
+                                    ));
+                                }
+                                else 
+                                {
+                                    continue;
+                                }
+                            }
+                            else if (item.Time == now)
+                            {
+                                publish(new TimedDataWithEnvironment<Env, ByteDataWithTopic>(
+                                    env, new WithTime<ByteDataWithTopic>(item.Time, new ByteDataWithTopic(item.Topic, item.Data), item.IsFinal)
+                                ));
+                            }
+                            else 
+                            {
+                                System.Threading.Thread.Sleep(env.actualDuration(item.Time-now));
+                                publish(new TimedDataWithEnvironment<Env, ByteDataWithTopic>(
+                                    env, new WithTime<ByteDataWithTopic>(item.Time, new ByteDataWithTopic(item.Topic, item.Data), item.IsFinal)
+                                ));
+                            }
+                        }
+                    }
+                ).Start();
             }
         }
     }
