@@ -24,6 +24,7 @@ tm_basic_headers = [
     , 'NotConstructibleStruct.hpp'
     , 'StructFieldInfoHelper.hpp'
     , 'StructFieldInfoUtils.hpp'
+    , 'GraphControlFacility.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
