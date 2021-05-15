@@ -636,17 +636,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return VoidStruct {};
                 }
             );
-            auto setupExitTimer = M::template liftMaybe<T>(
-                [exitAfterThisDurationFromFirstInput](T &&) -> std::optional<typename M::template Key<typename ClockFacility::template FacilityInput<VoidStruct>>> {
-                    return infra::withtime_utils::keyify<typename ClockFacility::template FacilityInput<VoidStruct>,TheEnvironment>(
-                        typename ClockFacility::template FacilityInput<VoidStruct> {
-                            VoidStruct {}
-                            , {exitAfterThisDurationFromFirstInput}
-                        }
-                    );
-                }
-                , infra::LiftParameters<typename M::TimePoint>().FireOnceOnly(true)
-            );
             using ClockFacilityOutput = typename M::template KeyedData<typename ClockFacility::template FacilityInput<VoidStruct>, VoidStruct>;
             auto doExit = M::template simpleExporter<ClockFacilityOutput>(
                 [wrapUpFunc](typename M::template InnerData<ClockFacilityOutput> &&data) {
@@ -655,12 +644,44 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     data.environment->exit();
                 }
             );
+            if constexpr (infra::withtime_utils::IsVariant<T>::Value) {
+                auto setupExitTimer = M::template liftMaybe<std::variant_alternative<0,T>>(
+                    [exitAfterThisDurationFromFirstInput](std::variant_alternative<0,T> &&) -> std::optional<typename M::template Key<typename ClockFacility::template FacilityInput<VoidStruct>>> {
+                        return infra::withtime_utils::keyify<typename ClockFacility::template FacilityInput<VoidStruct>,TheEnvironment>(
+                            typename ClockFacility::template FacilityInput<VoidStruct> {
+                                VoidStruct {}
+                                , {exitAfterThisDurationFromFirstInput}
+                            }
+                        );
+                    }
+                    , infra::LiftParameters<typename M::TimePoint>().FireOnceOnly(true)
+                );
+                r.registerAction(componentNamePrefix+"/setupExitTimer", setupExitTimer);
 
-            r.placeOrderWithFacility(
-                r.execute(componentNamePrefix+"/setupExitTimer", setupExitTimer, std::move(inputSource))
-                , componentNamePrefix+"/exitTimer", exitTimer
-                , r.exporterAsSink(componentNamePrefix+"/doExit", doExit)
-            );
+                r.placeOrderWithFacility(
+                    infra::AppRunnerHelper::GenericExecute<R>::call(r, setupExitTimer, std::move(inputSource))
+                    , componentNamePrefix+"/exitTimer", exitTimer
+                    , r.exporterAsSink(componentNamePrefix+"/doExit", doExit)
+                );
+            } else {
+                auto setupExitTimer = M::template liftMaybe<T>(
+                    [exitAfterThisDurationFromFirstInput](T &&) -> std::optional<typename M::template Key<typename ClockFacility::template FacilityInput<VoidStruct>>> {
+                        return infra::withtime_utils::keyify<typename ClockFacility::template FacilityInput<VoidStruct>,TheEnvironment>(
+                            typename ClockFacility::template FacilityInput<VoidStruct> {
+                                VoidStruct {}
+                                , {exitAfterThisDurationFromFirstInput}
+                            }
+                        );
+                    }
+                    , infra::LiftParameters<typename M::TimePoint>().FireOnceOnly(true)
+                );
+
+                r.placeOrderWithFacility(
+                    r.execute(componentNamePrefix+"/setupExitTimer", setupExitTimer, std::move(inputSource))
+                    , componentNamePrefix+"/exitTimer", exitTimer
+                    , r.exporterAsSink(componentNamePrefix+"/doExit", doExit)
+                );
+            }
         } 
 
         static void setupBackgroundClockAndExiter(
