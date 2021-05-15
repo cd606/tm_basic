@@ -29,7 +29,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return Output {};
             }
-            , infra::LiftParameters<typename R::AppType::TimePoint>().SuggestThreaded(true)
         );
     }
 
