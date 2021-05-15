@@ -644,18 +644,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     data.environment->exit();
                 }
             );
+            auto setupExitTimer = M::template liftMaybe<T>(
+                [exitAfterThisDurationFromFirstInput](T &&) -> std::optional<typename M::template Key<typename ClockFacility::template FacilityInput<VoidStruct>>> {
+                    return infra::withtime_utils::keyify<typename ClockFacility::template FacilityInput<VoidStruct>,TheEnvironment>(
+                        typename ClockFacility::template FacilityInput<VoidStruct> {
+                            VoidStruct {}
+                            , {exitAfterThisDurationFromFirstInput}
+                        }
+                    );
+                }
+                , infra::LiftParameters<typename M::TimePoint>().FireOnceOnly(true)
+            );
             if constexpr (infra::withtime_utils::IsVariant<T>::Value) {
-                auto setupExitTimer = M::template liftMaybe<std::variant_alternative<0,T>>(
-                    [exitAfterThisDurationFromFirstInput](std::variant_alternative<0,T> &&) -> std::optional<typename M::template Key<typename ClockFacility::template FacilityInput<VoidStruct>>> {
-                        return infra::withtime_utils::keyify<typename ClockFacility::template FacilityInput<VoidStruct>,TheEnvironment>(
-                            typename ClockFacility::template FacilityInput<VoidStruct> {
-                                VoidStruct {}
-                                , {exitAfterThisDurationFromFirstInput}
-                            }
-                        );
-                    }
-                    , infra::LiftParameters<typename M::TimePoint>().FireOnceOnly(true)
-                );
                 r.registerAction(componentNamePrefix+"/setupExitTimer", setupExitTimer);
 
                 r.placeOrderWithFacility(
@@ -664,18 +664,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     , r.exporterAsSink(componentNamePrefix+"/doExit", doExit)
                 );
             } else {
-                auto setupExitTimer = M::template liftMaybe<T>(
-                    [exitAfterThisDurationFromFirstInput](T &&) -> std::optional<typename M::template Key<typename ClockFacility::template FacilityInput<VoidStruct>>> {
-                        return infra::withtime_utils::keyify<typename ClockFacility::template FacilityInput<VoidStruct>,TheEnvironment>(
-                            typename ClockFacility::template FacilityInput<VoidStruct> {
-                                VoidStruct {}
-                                , {exitAfterThisDurationFromFirstInput}
-                            }
-                        );
-                    }
-                    , infra::LiftParameters<typename M::TimePoint>().FireOnceOnly(true)
-                );
-
                 r.placeOrderWithFacility(
                     r.execute(componentNamePrefix+"/setupExitTimer", setupExitTimer, std::move(inputSource))
                     , componentNamePrefix+"/exitTimer", exitTimer

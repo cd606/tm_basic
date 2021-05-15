@@ -18,7 +18,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
     class ClockOnOrderFacility {
     public:
         using M = infra::SinglePassIterationApp<Env>;
-        using Duration = typename Env::DurationType;
+        using Duration = typename M::Duration;
         template <class S>
         struct FacilityInput {
             S inputData;
