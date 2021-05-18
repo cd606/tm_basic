@@ -211,6 +211,95 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             };
             return infra::RealTimeApp<Env>::template importer<T>(new LocalI(spec, std::move(reader), std::move(dataComparer)));
         }
+
+        template <class T, class Reader>
+        static std::shared_ptr<typename infra::RealTimeApp<Env>::template Importer<T>>
+        createImporter(
+            std::shared_ptr<std::istream> const &stream
+            , Reader &&reader = Reader {}
+        ) {
+            class LocalI : public infra::RealTimeApp<Env>::template AbstractImporter<T>, public virtual infra::IControllableNode<Env> {
+            private:
+                std::shared_ptr<std::istream> stream_;
+                Reader reader_;
+                
+                Env *env_;
+                std::thread th_;
+                std::atomic<bool> running_;
+
+                void run() {
+                    reader_.start(env_, *stream_);
+                    std::optional<std::tuple<typename infra::RealTimeApp<Env>::TimePoint,T>> data = reader_.readOne(env_, *stream_);
+                    if (data) {
+                        while (data && running_) {
+                            TM_INFRA_IMPORTER_TRACER(env_);
+                            std::optional<std::tuple<typename infra::RealTimeApp<Env>::TimePoint,T>> newData = reader_.readOne(env_, *stream_);
+                            auto t = env_->now();
+                            auto dataT = std::get<0>(*data);
+                            if (dataT < t) {
+                                if (dataT >= t-std::chrono::seconds(1)) {
+                                    this->publish(typename infra::RealTimeApp<Env>::template InnerData<T> {
+                                        env_
+                                        , {
+                                            dataT
+                                            , std::move(std::get<1>(*data))
+                                            , (bool) newData
+                                        }
+                                    });
+                                }
+                            } else if (dataT == t) {
+                                this->publish(typename infra::RealTimeApp<Env>::template InnerData<T> {
+                                    env_
+                                    , {
+                                        dataT
+                                        , std::move(std::get<1>(*data))
+                                        , (bool) newData
+                                    }
+                                });
+                            } else {
+                                env_->sleepFor(dataT-t);
+                                this->publish(typename infra::RealTimeApp<Env>::template InnerData<T> {
+                                    env_
+                                    , {
+                                        dataT
+                                        , std::move(std::get<1>(*data))
+                                        , (bool) newData
+                                    }
+                                });
+                            }
+                            data = std::move(newData);
+                        }
+                    }
+                }
+            public:
+                LocalI(
+                    std::shared_ptr<std::istream> const &stream
+                    , Reader &&reader
+                ) :
+                    stream_(stream)
+                    , reader_(std::move(reader))
+                    , env_(nullptr)
+                    , th_()
+                    , running_(false)
+                {}
+                virtual void start(Env *env) override final {
+                    env_ = env;
+                    running_ = true;
+                    th_ = std::thread(&LocalI::run, this);
+                    th_.detach();
+                }
+                virtual void control(Env *env, std::string const &command, std::vector<std::string> const &params) override final {
+                    if (command == "stop") {
+                        running_ = false;
+                        try {
+                            th_.join();
+                        } catch (...) {
+                        }
+                    }
+                }
+            };
+            return infra::RealTimeApp<Env>::template importer<T>(new LocalI(stream, std::move(reader)));
+        }
         
         template <class T, class Writer>
         static std::shared_ptr<typename infra::RealTimeApp<Env>::template Exporter<T>>
@@ -303,6 +392,56 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             };
             return infra::SinglePassIterationApp<Env>::template importer<T>(new LocalI(spec, std::move(reader), std::move(dataComparer)));
+        }
+        
+        template <class T, class Reader>
+        static std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template Importer<T>>
+        createImporter(
+            std::shared_ptr<std::istream> const &stream
+            , Reader &&reader = Reader {}
+        ) {
+            class LocalI final : public infra::SinglePassIterationApp<Env>::template AbstractImporter<T> {
+            private:
+                std::shared_ptr<std::istream> stream_;
+                Reader reader_;
+                std::optional<std::tuple<typename infra::SinglePassIterationApp<Env>::TimePoint,T>> data_;
+                
+                Env *env_;
+            public:
+                LocalI(
+                    std::shared_ptr<std::istream> const &stream
+                    , Reader &&reader
+                ) :
+                    stream_(stream)
+                    , reader_(std::move(reader))
+                    , data_(std::nullopt)
+                    , env_(nullptr)
+                {}
+                virtual void start(Env *env) override final {
+                    env_ = env;
+                    reader_.start(env_, *stream_);
+                    data_ = reader_.readOne(env_, *stream_);
+                }
+                virtual typename infra::SinglePassIterationApp<Env>::template Data<T> 
+                generate(T const *notUsed=nullptr) override final {
+                    TM_INFRA_IMPORTER_TRACER(env_);
+                    if (!data_) {
+                        return std::nullopt;
+                    }
+                    std::optional<std::tuple<typename infra::SinglePassIterationApp<Env>::TimePoint,T>> newData = reader_.readOne(env_, *stream_);
+                    auto ret = typename infra::SinglePassIterationApp<Env>::template InnerData<T> {
+                        env_
+                        , {
+                            std::get<0>(*data_)
+                            , std::move(std::get<1>(*data_))
+                            , (bool) newData
+                        }
+                    };
+                    data_ = std::move(newData);
+                    return std::move(ret);
+                }
+            };
+            return infra::SinglePassIterationApp<Env>::template importer<T>(new LocalI(stream, std::move(reader)));
         }
 
         template <class T, class Writer>

@@ -23,9 +23,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         >(
             [&r](GraphControlFacilityInput &&input) -> Output {
                 if (input.name) {
-                    r.controlAll(input.name, input.command, input.params);
+                    r.controlAll(*(input.name), input.command, input.params);
                 } else if (input.nameRE) {
-                    r.controlAllRE(std::regex(input.name), input.command, input.params);
+                    r.controlAllRE(std::regex(*(input.nameRE)), input.command, input.params);
                 }
                 return Output {};
             }
