@@ -243,7 +243,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                                         , {
                                             dataT
                                             , std::move(std::get<1>(*data))
-                                            , (bool) newData
+                                            , !((bool) newData)
                                         }
                                     });
                                 }
@@ -253,7 +253,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                                     , {
                                         dataT
                                         , std::move(std::get<1>(*data))
-                                        , (bool) newData
+                                        , !((bool) newData)
                                     }
                                 });
                             } else {
@@ -263,7 +263,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                                     , {
                                         dataT
                                         , std::move(std::get<1>(*data))
-                                        , (bool) newData
+                                        , !((bool) newData)
                                     }
                                 });
                             }
@@ -434,7 +434,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         , {
                             std::get<0>(*data_)
                             , std::move(std::get<1>(*data_))
-                            , (bool) newData
+                            , !((bool) newData)
                         }
                     };
                     data_ = std::move(newData);
