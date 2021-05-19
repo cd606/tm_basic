@@ -1158,6 +1158,67 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         };
+        template <class A, class B, class KeyExtractorA, class KeyExtractorB, class F, class Hash=std::hash<decltype((* ((KeyExtractorA *) nullptr))(std::declval<A>()))>>
+        class KeyedSynchronizer2 {
+        private:
+            KeyExtractorA keyExtractorA_;
+            KeyExtractorB keyExtractorB_;
+            F f_;
+            using Key = decltype((* ((KeyExtractorA *) nullptr))(std::declval<A>()));
+            struct Item {
+                std::deque<A> a_;
+                std::deque<B> b_;
+            };
+            std::unordered_map<Key, Item, Hash> data_;
+            std::conditional_t<
+                M::PossiblyMultiThreaded
+                , std::mutex
+                , bool
+            > mutex_;
+        public:
+            KeyedSynchronizer2(KeyExtractorA &&keyExtractorA, KeyExtractorB &&keyExtractorB, F &&f) : keyExtractorA_(std::move(keyExtractorA)), keyExtractorB_(std::move(keyExtractorB)), f_(std::move(f)), data_(), mutex_() {}
+            KeyedSynchronizer2(KeyedSynchronizer2 &&s) : keyExtractorA_(std::move(s.keyExtractorA_)), keyExtractorB_(std::move(s.keyExtractorB_)), f_(std::move(s.f_)), data_(std::move(s.data_)), mutex_() {}
+            KeyedSynchronizer2 &operator=(KeyedSynchronizer2 &&) = delete;
+            KeyedSynchronizer2(KeyedSynchronizer2 const &) = delete;
+            KeyedSynchronizer2 &operator=(KeyedSynchronizer2 const &) = delete;
+
+            using C = decltype(f_(std::move(*((A *) nullptr)), std::move(*((B *) nullptr))));
+            std::optional<C> operator()(std::variant<A,B> &&data) {
+                if (data.index() == 0) {
+                    std::conditional_t<
+                        M::PossiblyMultiThreaded
+                        , std::lock_guard<std::mutex>
+                        , bool
+                    > _(mutex_);
+                    auto k = keyExtractorA_(std::get<0>(data));
+                    auto &rec = data_[k];
+                    if (rec.b_.empty()) {
+                        rec.a_.push_back(std::move(std::get<0>(data)));
+                        return std::nullopt;
+                    } else {
+                        C c = f_(std::move(std::get<0>(data)), std::move(rec.b_.front()));
+                        rec.b_.pop_front();
+                        return {std::move(c)};
+                    }
+                } else {
+                    std::conditional_t<
+                        M::PossiblyMultiThreaded
+                        , std::lock_guard<std::mutex>
+                        , bool
+                    > _(mutex_);
+                    auto k = keyExtractorB_(std::get<1>(data));
+                    auto &rec = data_[k];
+                    if (rec.a_.empty()) {
+                        rec.b_.push_back(std::move(std::get<1>(data)));
+                        return std::nullopt;
+                    } else {
+                        C c = f_(std::move(rec.a_.front()), std::move(std::get<1>(data)));
+                        rec.a_.pop_front();
+                        return {std::move(c)};
+                    }
+                }
+            }
+        };
     public:
         template <class A, class B, class F>
         static std::shared_ptr<typename M::template Action<
@@ -1168,6 +1229,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             } else {
                 return M::template liftMaybe2<A,B>(Synchronizer2<A,B,F,false>(std::move(f)));
             }
+        }
+        template <class A, class B, class KeyExtractorA, class KeyExtractorB, class F>
+        static std::shared_ptr<typename M::template Action<
+            std::variant<A,B>, typename KeyedSynchronizer2<A,B,KeyExtractorA,KeyExtractorB,F>::C
+        >> keyedSynchronizer2(KeyExtractorA &&keyExtractorA, KeyExtractorB &&keyExtractorB, F &&f) {
+            return M::template liftMaybe2<A,B>(KeyedSynchronizer2<A,B,KeyExtractorA,KeyExtractorB,F>(std::move(keyExtractorA), std::move(keyExtractorB), std::move(f)));
         }
 
     public:
