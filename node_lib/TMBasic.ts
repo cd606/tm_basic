@@ -740,6 +740,52 @@ export namespace Files {
             }];
         }
     }
+    export function topicCaptureFileReplayImporter<Env extends ClockEnv>(inputStream : Stream.Readable, option : TopicCaptureFileRecordReaderOption, overrideDate : boolean) : TMInfra.RealTimeApp.Importer<Env,TopicCaptureFileRecord> {
+        class LocalI extends TMInfra.RealTimeApp.Importer<Env, TopicCaptureFileRecord> {
+            private inputStream : Stream.Readable;
+            private option : TopicCaptureFileRecordReaderOption;
+            private overrideDate : boolean;
+            private todayStart : Date;
+            public constructor(inputStream : Stream.Readable, option : TopicCaptureFileRecordReaderOption, overrideDate : boolean) {
+                super();
+                this.inputStream = inputStream;
+                this.option = option;
+                this.overrideDate = overrideDate;
+                this.todayStart = null;
+            }
+            public start(e : Env) : void {
+                this.env = e;
+                if (this.overrideDate) {
+                    var t = this.env.now();
+                    this.todayStart = new Date(t.getFullYear(), t.getMonth(), t.getDate(), 0, 0, 0, 0);
+                }
+                var transform = genericRecordStream<TopicCaptureFileRecord>(new TopicCaptureFileRecordReader(this.option));
+                this.inputStream.pipe(transform);
+                (async () => {
+                    for await (const rec of transform) {
+                        var t = rec.time as Date;
+                        if (this.overrideDate) {
+                            var tStart = new Date(t.getFullYear(), t.getMonth(), t.getDate(), 0, 0, 0, 0);
+                            t = new Date(t.getTime()-tStart.getTime()+this.todayStart.getTime());
+                            rec.time = t;
+                        }
+                        var now = this.env.now();
+                        if (t < now) {
+                            if (now.getTime()-t.getTime() < 1000) {
+                                this.publish(rec, false);
+                            }
+                        } else if (rec.time.equals(now)) {
+                            this.publish(rec, false);
+                        } else {
+                            await new Promise(resolve => setTimeout(resolve, this.env.actualDuration(t.getTime()-now.getTime())));
+                            this.publish(rec, false);
+                        }
+                    }
+                })();
+            }
+        };
+        return new LocalI(inputStream, option, overrideDate);
+    }
 }
 
 export namespace CommonFlowUtils {
