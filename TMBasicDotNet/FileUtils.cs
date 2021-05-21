@@ -294,22 +294,38 @@ namespace Dev.CD606.TM.Basic
                 new System.Threading.Thread(
                     () => {
                         DateTimeOffset todayStart;
+                        var e = GenericRecordDataSource<TopicCaptureFileRecord>(reader, new TopicCaptureFileRecordReader(option)).GetEnumerator();
+                        var running = true;
                         bool todayStartSet = false;
-                        foreach (var item in GenericRecordDataSource<TopicCaptureFileRecord>(reader, new TopicCaptureFileRecordReader(option)))
-                        {
+                        while (running) {
                             var now = env.now();
-                            if (overrideDate)
-                            {
-                                if (!todayStartSet)
+                            var hasNext = false;
+                            while (e.MoveNext()) {
+                                hasNext = true;
+                                var item = e.Current;
+                                if (overrideDate)
                                 {
-                                    todayStart = new DateTimeOffset(now.Date);
-                                    todayStartSet = true;
+                                    if (!todayStartSet)
+                                    {
+                                        todayStart = new DateTimeOffset(now.Date);
+                                        todayStartSet = true;
+                                    }
+                                    item.Time = todayStart+(item.Time-item.Time.Date);
                                 }
-                                item.Time = todayStart+(item.Time-item.Time.Date);
-                            }
-                            if (item.Time < now)
-                            {
-                                if ((now-item.Time) < TimeSpan.FromSeconds(1))
+                                if (item.Time < now)
+                                {
+                                    if ((now-item.Time) < TimeSpan.FromSeconds(1))
+                                    {
+                                        publish(new TimedDataWithEnvironment<Env, ByteDataWithTopic>(
+                                            env, new WithTime<ByteDataWithTopic>(item.Time, new ByteDataWithTopic(item.Topic, item.Data), item.IsFinal)
+                                        ));
+                                    }
+                                    else 
+                                    {
+                                        continue;
+                                    }
+                                }
+                                else if (item.Time == now)
                                 {
                                     publish(new TimedDataWithEnvironment<Env, ByteDataWithTopic>(
                                         env, new WithTime<ByteDataWithTopic>(item.Time, new ByteDataWithTopic(item.Topic, item.Data), item.IsFinal)
@@ -317,21 +333,15 @@ namespace Dev.CD606.TM.Basic
                                 }
                                 else 
                                 {
-                                    continue;
+                                    System.Threading.Thread.Sleep(env.actualDuration(item.Time-now));
+                                    publish(new TimedDataWithEnvironment<Env, ByteDataWithTopic>(
+                                        env, new WithTime<ByteDataWithTopic>(item.Time, new ByteDataWithTopic(item.Topic, item.Data), item.IsFinal)
+                                    ));
+                                    break;
                                 }
                             }
-                            else if (item.Time == now)
-                            {
-                                publish(new TimedDataWithEnvironment<Env, ByteDataWithTopic>(
-                                    env, new WithTime<ByteDataWithTopic>(item.Time, new ByteDataWithTopic(item.Topic, item.Data), item.IsFinal)
-                                ));
-                            }
-                            else 
-                            {
-                                System.Threading.Thread.Sleep(env.actualDuration(item.Time-now));
-                                publish(new TimedDataWithEnvironment<Env, ByteDataWithTopic>(
-                                    env, new WithTime<ByteDataWithTopic>(item.Time, new ByteDataWithTopic(item.Topic, item.Data), item.IsFinal)
-                                ));
+                            if (!hasNext) {
+                                running = false;
                             }
                         }
                     }
