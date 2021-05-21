@@ -158,24 +158,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     );
                     while (running_) {
                         TM_INFRA_IMPORTER_TRACER(env_);
-                        auto ret = GenericIOStreamImpoterExporterHelper::template stepQueue<infra::SinglePassIterationApp<Env>,T,Reader,DataComparer>(
-                            env_, queue_, reader_
-                        );
-                        if (!ret) {
-                            break;
-                        }
                         auto t = env_->now();
-                        if (ret->timedData.timePoint < t) {
-                            if (ret->timedData.timePoint >= t-std::chrono::seconds(1)) {
+                        while (true) {
+                            auto ret = GenericIOStreamImpoterExporterHelper::template stepQueue<infra::SinglePassIterationApp<Env>,T,Reader,DataComparer>(
+                                env_, queue_, reader_
+                            );
+                            if (!ret) {
+                                running_ = false;
+                                break;
+                            }
+                            
+                            if (ret->timedData.timePoint < t) {
+                                if (ret->timedData.timePoint >= t-std::chrono::seconds(1)) {
+                                    this->publish(std::move(*ret));
+                                } else {
+                                    continue;
+                                }
+                            } else if (ret->timedData.timePoint == t) {
                                 this->publish(std::move(*ret));
                             } else {
-                                continue;
+                                env_->sleepFor(ret->timedData.timePoint-t);
+                                this->publish(std::move(*ret));
+                                break;
                             }
-                        } else if (ret->timedData.timePoint == t) {
-                            this->publish(std::move(*ret));
-                        } else {
-                            env_->sleepFor(ret->timedData.timePoint-t);
-                            this->publish(std::move(*ret));
                         }
                     }
                 }

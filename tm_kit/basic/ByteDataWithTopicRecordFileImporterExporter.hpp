@@ -34,54 +34,59 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     reader_.startReadingByteDataWithTopicRecordFile(*is_);
                     while (running_) {
                         TM_INFRA_IMPORTER_TRACER(env_);
-                        auto d = reader_.readByteDataWithTopicRecord(*is_);
-                        if (!d) {
-                            if constexpr (PublishFinalEmptyMessage) {
-                                this->publish(typename infra::RealTimeApp<Env>::template InnerData<ByteDataWithTopic> {
-                                    env_, {env_->now(), ByteDataWithTopic {std::string{}, std::string{}}, true}
-                                });
-                            }
-                            break;
-                        }
                         auto t = env_->now();
-                        if (overrideDate_) {
-#ifdef _MSC_VER
-                            auto sinceMidnight = infra::withtime_utils::sinceMidnight<std::chrono::microseconds>(d->timePoint);
-#else
-                            auto sinceMidnight = infra::withtime_utils::sinceMidnight<std::chrono::nanoseconds>(d->timePoint);
-#endif
-                            if (!virtualToday_) {
-                                std::time_t tt = std::chrono::system_clock::to_time_t(t);
-                                std::tm *m = std::localtime(&tt);
-                                m->tm_hour = 0;
-                                m->tm_min = 0;
-                                m->tm_sec = 0;
-                                m->tm_isdst = -1;
-                                virtualToday_ =  std::chrono::system_clock::from_time_t(std::mktime(m));
+                        while (true) {
+                            auto d = reader_.readByteDataWithTopicRecord(*is_);
+                            if (!d) {
+                                if constexpr (PublishFinalEmptyMessage) {
+                                    this->publish(typename infra::RealTimeApp<Env>::template InnerData<ByteDataWithTopic> {
+                                        env_, {env_->now(), ByteDataWithTopic {std::string{}, std::string{}}, true}
+                                    });
+                                }
+                                running_ = false;
+                                break;
                             }
-#ifdef _MSC_VER
-                            d->timePoint = *virtualToday_+std::chrono::microseconds(sinceMidnight);
-#else
-                            d->timePoint = *virtualToday_+std::chrono::nanoseconds(sinceMidnight);
-#endif
-                        }
-                        if (d->timePoint < t) {
-                            if (d->timePoint >= t-std::chrono::seconds(1)) {
+                            
+                            if (overrideDate_) {
+    #ifdef _MSC_VER
+                                auto sinceMidnight = infra::withtime_utils::sinceMidnight<std::chrono::microseconds>(d->timePoint);
+    #else
+                                auto sinceMidnight = infra::withtime_utils::sinceMidnight<std::chrono::nanoseconds>(d->timePoint);
+    #endif
+                                if (!virtualToday_) {
+                                    std::time_t tt = std::chrono::system_clock::to_time_t(t);
+                                    std::tm *m = std::localtime(&tt);
+                                    m->tm_hour = 0;
+                                    m->tm_min = 0;
+                                    m->tm_sec = 0;
+                                    m->tm_isdst = -1;
+                                    virtualToday_ =  std::chrono::system_clock::from_time_t(std::mktime(m));
+                                }
+    #ifdef _MSC_VER
+                                d->timePoint = *virtualToday_+std::chrono::microseconds(sinceMidnight);
+    #else
+                                d->timePoint = *virtualToday_+std::chrono::nanoseconds(sinceMidnight);
+    #endif
+                            }
+                            if (d->timePoint < t) {
+                                if (d->timePoint >= t-std::chrono::seconds(1)) {
+                                    this->publish(typename infra::RealTimeApp<Env>::template InnerData<ByteDataWithTopic> {
+                                        env_, *d
+                                    });
+                                } else {
+                                    continue;
+                                }
+                            } else if (d->timePoint == t) {
                                 this->publish(typename infra::RealTimeApp<Env>::template InnerData<ByteDataWithTopic> {
                                     env_, *d
                                 });
                             } else {
-                                continue;
+                                env_->sleepFor(d->timePoint-t);
+                                this->publish(typename infra::RealTimeApp<Env>::template InnerData<ByteDataWithTopic> {
+                                    env_, *d
+                                });
+                                break;
                             }
-                        } else if (d->timePoint == t) {
-                            this->publish(typename infra::RealTimeApp<Env>::template InnerData<ByteDataWithTopic> {
-                                env_, *d
-                            });
-                        } else {
-                            env_->sleepFor(d->timePoint-t);
-                            this->publish(typename infra::RealTimeApp<Env>::template InnerData<ByteDataWithTopic> {
-                                env_, *d
-                            });
                         }
                     }
                 }
