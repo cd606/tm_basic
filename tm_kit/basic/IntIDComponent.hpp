@@ -33,11 +33,8 @@ public:
         return basic::ByteData {std::string(buf, buf+BufSize)};
     }
     static IDType id_from_bytes(basic::ByteDataView const &bytes) {
-        if (bytes.content.length() < sizeof(IntType)) {
-            return IDType {};
-        }
-        IDType id;
-        std::memcpy(&id, bytes.content.data(), sizeof(IntType));
+        IDType id {0};
+        std::memcpy(&id, bytes.content.data(), std::min(bytes.content.length(), sizeof(IntType)));
         return id;
     }
     static bool less_comparison_id(IDType const &a, IDType const &b) {
