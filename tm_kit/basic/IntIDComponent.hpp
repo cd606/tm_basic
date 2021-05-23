@@ -12,6 +12,7 @@ private:
 public:
     using IDType = IntType;
     using IDHash = std::hash<IntType>;
+    static constexpr std::size_t IDByteRepresentationSize = sizeof(IntType);
     static IDType new_id() {
         return (++s_id);
     }
