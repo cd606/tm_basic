@@ -25,6 +25,7 @@ tm_basic_headers = [
     , 'StructFieldInfoHelper.hpp'
     , 'StructFieldInfoUtils.hpp'
     , 'GraphControlFacility.hpp'
+    , 'CounterComponent.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')

@@ -13,6 +13,8 @@
 #include <tm_kit/infra/WithTimeData.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <tm_kit/basic/SingleLayerWrapper.hpp>
+#include <tm_kit/basic/CounterComponent.hpp>
+#include <tm_kit/basic/ByteData.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
 
@@ -391,6 +393,58 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 [](T &&x) -> infra::Key<T,TheEnvironment>
                 {
                     return infra::withtime_utils::keyify<T,TheEnvironment>(std::move(x));
+                }
+            );
+        }
+
+        template <class T, class CounterMarkType>
+        static auto keyifyThroughCounter() {
+            return infra::KleisliUtils<M>::template kleisli<T>(
+                [](typename M::template InnerData<T> &&x) -> typename M::template Data<infra::Key<T,TheEnvironment>>
+                {
+                    auto counter = x.environment->getCounterValue((CounterMarkType *) nullptr);
+                    if constexpr (sizeof(counter) == TheEnvironment::IDByteRepresentationSize) {
+                        return typename M::template InnerData<infra::Key<T,TheEnvironment>> {
+                            x.environment 
+                            , {
+                                x.environment->resolveTime(x.timedData.timePoint)
+                                , {
+                                    x.environment->id_from_bytes(
+                                        basic::ByteDataView { std::string_view {
+                                            reinterpret_cast<char const *>(&counter)
+                                            , sizeof(counter)
+                                        }}
+                                    )
+                                    , std::move(x.timedData.value)
+                                }
+                                , x.timedData.finalFlag
+                            }
+                        };
+                    } else {
+                        char buf[TheEnvironment::IDByteRepresentationSize];
+                        std::memset(buf, 0, TheEnvironment::IDByteRepresentationSize);
+                        std::memcpy(
+                            buf
+                            , reinterpret_cast<char const *>(&counter)
+                            , std::min(sizeof(counter), TheEnvironment::IDByteRepresentationSize)
+                        );
+                        return typename M::template InnerData<infra::Key<T,TheEnvironment>> {
+                            x.environment 
+                            , {
+                                x.environment->resolveTime(x.timedData.timePoint)
+                                , {
+                                    x.environment->id_from_bytes(
+                                        basic::ByteDataView { std::string_view {
+                                            buf
+                                            , TheEnvironment::IDByteRepresentationSize
+                                        }}
+                                    )
+                                    , std::move(x.timedData.value)
+                                }
+                                , x.timedData.finalFlag
+                            }
+                        };
+                    }
                 }
             );
         }
