@@ -19,6 +19,19 @@
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
 
+    namespace common_flow_util_helper {
+        template <class M, class K>
+        class KeyedSynchronizer2DefaultHash {
+        public:
+            using TheType = std::hash<K>;
+        };
+        template <class M>
+        class KeyedSynchronizer2DefaultHash<M, typename M::EnvironmentType::IDType> {
+        public:
+            using TheType = typename M::EnvironmentType::IDHash;
+        };
+    }
+
     template <class M>
     class CommonFlowUtilComponents {
     public:
@@ -1213,12 +1226,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         };
-        template <class K>
-        using KeyedSynchronizer2DefaultHash = std::conditional_t<
-            std::is_same_v<K, typename M::EnvironmentType::IDType> 
-            , typename M::EnvironmentType::IDHash 
-            , std::hash<K>
-        >;
         template <class A, class B, class KeyExtractorA, class KeyExtractorB, class F>
         class KeyedSynchronizer2 {
         private:
@@ -1230,7 +1237,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::deque<A> a_;
                 std::deque<B> b_;
             };
-            using Hash = KeyedSynchronizer2DefaultHash<decltype((* ((KeyExtractorA *) nullptr))(std::declval<A>()))>;
+            using Hash = typename common_flow_util_helper::KeyedSynchronizer2DefaultHash<M,decltype((* ((KeyExtractorA *) nullptr))(std::declval<A>()))>::TheType;
             std::unordered_map<Key, Item, Hash> data_;
             std::conditional_t<
                 M::PossiblyMultiThreaded
