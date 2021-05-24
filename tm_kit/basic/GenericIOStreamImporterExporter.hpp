@@ -509,13 +509,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             SizeType l;
             std::memcpy(&l, buf, sizeof(SizeType));
             l = boost::endian::little_to_native<SizeType>(l);
-            char *p = new char[l];
-            is.read(p, l);
+            std::unique_ptr<char[]> p = std::make_unique<char[]>(l);
+            is.read(p.get(), l);
             if (is.gcount() != l) {
                 return std::nullopt;
             }
             if constexpr (bytedata_utils::DirectlySerializableChecker<T>::IsDirectlySerializable()) {
-                auto ret = bytedata_utils::RunDeserializer<T>::apply(std::string_view {p, l});
+                auto ret = bytedata_utils::RunDeserializer<T>::apply(std::string_view {p.get(), l});
                 if (!ret) {
                     return std::nullopt;
                 }
@@ -525,7 +525,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     , std::move(*ret)
                 };
             } else {
-                auto ret = bytedata_utils::RunCBORDeserializer<T>::apply(std::string_view {p, l}, 0);
+                auto ret = bytedata_utils::RunCBORDeserializer<T>::apply(std::string_view {p.get(), l}, 0);
                 if (!ret) {
                     return std::nullopt;
                 }
@@ -587,13 +587,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             SizeType l;
             std::memcpy(&l, buf, sizeof(SizeType));
             l = boost::endian::little_to_native<SizeType>(l);
-            char *p = new char[l];
-            is.read(p, l);
+            std::unique_ptr<char[]> p = std::make_unique<char[]>(l);
+            is.read(p.get(), l);
             if (is.gcount() != l) {
                 return std::nullopt;
             }
             if constexpr (bytedata_utils::DirectlySerializableChecker<T>::IsDirectlySerializable()) {
-                auto ret = bytedata_utils::RunDeserializer<T>::apply(std::string_view {p, l});
+                auto ret = bytedata_utils::RunDeserializer<T>::apply(std::string_view {p.get(), l});
                 if (!ret) {
                     return std::nullopt;
                 }
@@ -602,7 +602,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     , std::move(*ret)
                 };
             } else {
-                auto ret = bytedata_utils::RunCBORDeserializer<T>::apply(std::string_view {p, l}, 0);
+                auto ret = bytedata_utils::RunCBORDeserializer<T>::apply(std::string_view {p.get(), l}, 0);
                 if (!ret) {
                     return std::nullopt;
                 }
