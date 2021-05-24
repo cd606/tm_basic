@@ -6,7 +6,14 @@
 #include <tm_kit/basic/NotConstructibleStruct.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
-    template <class MarkerType=NotConstructibleStruct, class IntType=uint64_t, typename=std::enable_if_t<std::is_unsigned_v<IntType>>>
+    template <
+        class MarkerType=NotConstructibleStruct
+        , class IntType=uint64_t
+        , typename=std::enable_if_t<
+            std::is_unsigned_v<IntType>
+            && !std::is_same_v<MarkerType, void>
+        >
+    >
     class CounterComponent {
     private:
         std::atomic<IntType> counter_;

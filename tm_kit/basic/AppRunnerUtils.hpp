@@ -1300,6 +1300,48 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             };
         }
+
+        template <class A, class B1, class B2, class Merger>
+        static auto facilitoidSynchronizer2(
+            typename R::template FacilitioidConnector<A, B1> facility1
+            , typename R::template FacilitioidConnector<A, B2> facility2
+            , Merger &&merger
+            , std::string const &prefix
+        ) -> typename R::template FacilitioidConnector<
+            A, decltype(merger(std::declval<A>(), std::declval<B1>(), std::declval<B2>()))
+        > {
+            using B = decltype(merger(std::declval<A>(), std::declval<B1>(), std::declval<B2>()));
+            return [facility1,facility2,merger=std::move(merger),prefix](
+                R &r 
+                , typename R::template Source<typename R::AppType::template Key<A>> &&source 
+                , std::optional<typename R::template Sink<typename R::AppType::template KeyedData<A,B>>> const &sink
+            ) {
+                auto m1 = std::move(merger);
+                auto sync = CommonFlowUtilComponents<typename R::AppType>::template keyedSynchronizer2<
+                    typename R::AppType::template KeyedData<A,B1>
+                    , typename R::AppType::template KeyedData<A,B2>
+                >(
+                    [](typename R::AppType::template KeyedData<A,B1> const &x) {
+                        return x.key.id();
+                    }
+                    , [](typename R::AppType::template KeyedData<A,B2> const &y) {
+                        return y.key.id();
+                    }
+                    , [m1=std::move(m1)](typename R::AppType::template KeyedData<A,B1> &&x, typename R::AppType::template KeyedData<A,B2> &&y) -> typename R::AppType::template KeyedData<A,B> {
+                        return typename R::AppType::template KeyedData<A,B> {
+                            std::move(x.key)
+                            , m1(y.key.key(), std::move(x.data), std::move(y.data))
+                        };
+                    }
+                );
+                r.registerAction(prefix+"/sync", sync);
+                facility1(r, source.clone(), r.actionAsSink_2_0(sync));
+                facility2(r, source.clone(), r.actionAsSink_2_1(sync));
+                if (sink) {
+                    r.connect(r.actionAsSource(sync), *sink);
+                }
+            };
+        }
     };
 
 } } } }
