@@ -12,6 +12,7 @@
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
 #include <tm_kit/infra/WithTimeData.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
+#include <tm_kit/basic/NotConstructibleStruct.hpp>
 #include <tm_kit/basic/SingleLayerWrapper.hpp>
 #include <tm_kit/basic/CounterComponent.hpp>
 #include <tm_kit/basic/ByteData.hpp>
@@ -397,7 +398,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         }
 
-        template <class T, class CounterMarkType>
+        template <class T, class CounterMarkType=NotConstructibleStruct>
         static auto keyifyThroughCounter() {
             return infra::KleisliUtils<M>::template kleisli<T>(
                 [](typename M::template InnerData<T> &&x) -> typename M::template Data<infra::Key<T,TheEnvironment>>
@@ -1212,7 +1213,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         };
-        template <class A, class B, class KeyExtractorA, class KeyExtractorB, class F, class Hash=std::hash<decltype((* ((KeyExtractorA *) nullptr))(std::declval<A>()))>>
+        template <class K>
+        using KeyedSynchronizer2DefaultHash = std::conditional_t<
+            std::is_same_v<K, typename M::EnvironmentType::IDType> 
+            , typename M::EnvironmentType::IDHash 
+            , std::hash<K>
+        >;
+        template <class A, class B, class KeyExtractorA, class KeyExtractorB, class F>
         class KeyedSynchronizer2 {
         private:
             KeyExtractorA keyExtractorA_;
@@ -1223,6 +1230,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::deque<A> a_;
                 std::deque<B> b_;
             };
+            using Hash = KeyedSynchronizer2DefaultHash<decltype((* ((KeyExtractorA *) nullptr))(std::declval<A>()))>;
             std::unordered_map<Key, Item, Hash> data_;
             std::conditional_t<
                 M::PossiblyMultiThreaded

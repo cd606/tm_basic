@@ -3,9 +3,10 @@
 
 #include <type_traits>
 #include <atomic>
+#include <tm_kit/basic/NotConstructibleStruct.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
-    template <class MarkerType=void, class IntType=uint64_t, typename=std::enable_if_t<std::is_unsigned_v<IntType>>>
+    template <class MarkerType=NotConstructibleStruct, class IntType=uint64_t, typename=std::enable_if_t<std::is_unsigned_v<IntType>>>
     class CounterComponent {
     private:
         std::atomic<IntType> counter_;
@@ -13,7 +14,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         CounterComponent() : counter_(0) {}
         ~CounterComponent() {}
         IntType getCounterValue(MarkerType *notUsed) {
-            return counter_.fetch_add();
+            return counter_.fetch_add(1);
         }
     };
 } } } }
