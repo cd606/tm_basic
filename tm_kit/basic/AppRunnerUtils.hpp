@@ -1342,6 +1342,52 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             };
         }
+
+        template <class T>
+        static auto singlePassTestRunOneUpdate(
+            std::function<
+                typename R::template ImporterPtr<T>()
+            > importerGen
+        ) ->  std::optional<infra::WithTime<T, typename R::AppType::TimePoint>> 
+        {
+            static_assert(
+                std::is_same_v<
+                    typename R::AppType 
+                    , infra::SinglePassIterationApp<TheEnvironment>
+                >
+                , "singlePassTestRunOneUpdate can only be used with single pass app"
+            );
+            TheEnvironment env;
+            R r(&env);
+
+            auto importer = importerGen();
+            r.registerImporter("importer", importer);
+
+            std::optional<infra::WithTime<T, typename R::AppType::TimePoint>> ret = std::nullopt;
+            auto getFirstUpdate = R::AppType::template kleisli<T>(
+                [&ret](typename R::AppType::template InnerData<T> &&data) -> typename R::AppType::template Data<VoidStruct> {
+                    ret = { std::move(data.timedData) };
+                    return typename R::AppType::template InnerData<VoidStruct> {
+                        data.environment 
+                        , {
+                            data.environment->resolveTime(ret->timePoint)
+                            , {}
+                            , true
+                        }
+                    };
+                }
+                , infra::LiftParameters<typename R::AppType::TimePoint>().FireOnceOnly(true)
+            );
+            r.registerAction("getFirstUpdate", getFirstUpdate);
+
+            auto exporter = R::AppType::template trivialExporter<VoidStruct>();
+            r.registerExporter("exporter", exporter);
+
+            r.exportItem(exporter, r.execute(getFirstUpdate, r.importItem(importer)));
+            r.finalize();
+
+            return std::move(ret);
+        }
     };
 
 } } } }
