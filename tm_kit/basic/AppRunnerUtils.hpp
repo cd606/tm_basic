@@ -1345,9 +1345,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
         template <class T>
         static auto singlePassTestRunOneUpdate(
-            std::function<
-                typename R::template ImporterPtr<T>()
-            > importerGen
+            typename R::template Sourceoid<T> source
         ) ->  std::optional<infra::WithTime<T, typename R::AppType::TimePoint>> 
         {
             static_assert(
@@ -1359,9 +1357,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
             TheEnvironment env;
             R r(&env);
-
-            auto importer = importerGen();
-            r.registerImporter("importer", importer);
 
             std::optional<infra::WithTime<T, typename R::AppType::TimePoint>> ret = std::nullopt;
             auto getFirstUpdate = R::AppType::template kleisli<T>(
@@ -1383,10 +1378,33 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             auto exporter = R::AppType::template trivialExporter<VoidStruct>();
             r.registerExporter("exporter", exporter);
 
-            r.exportItem(exporter, r.execute(getFirstUpdate, r.importItem(importer)));
+            source(r, r.actionAsSink(getFirstUpdate));
+            r.exportItem(exporter, r.actionAsSource(getFirstUpdate));
             r.finalize();
 
             return std::move(ret);
+        }
+        template <class T>
+        static auto singlePassTestRunOneUpdate(
+            std::function<
+                typename R::template ImporterPtr<T>()
+            > importerGen
+        ) ->  std::optional<infra::WithTime<T, typename R::AppType::TimePoint>> 
+        {
+            static_assert(
+                std::is_same_v<
+                    typename R::AppType 
+                    , infra::SinglePassIterationApp<TheEnvironment>
+                >
+                , "singlePassTestRunOneUpdate can only be used with single pass app"
+            );
+            return singlePassTestRunOneUpdate<T>(
+                [importerGen](R &r, typename R::template Sink<T> const &sink) {
+                    auto importer = importerGen();
+                    r.registerImporter("importer", importer);
+                    r.connect(r.importItem(importer), sink);
+                }
+            );
         }
     };
 
