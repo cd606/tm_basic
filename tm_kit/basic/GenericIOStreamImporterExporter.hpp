@@ -30,7 +30,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <class App>
     using GenericIStreamImporterSpec = std::vector<OneGenericIStreamImporterSpec<App>>;
 
-    class GenericIOStreamImpoterExporterHelper {
+    class GenericIOStreamImporterExporterHelper {
     private:
         template <class App, class T, class DataComparer=std::less<T>>
         struct QueueItem {
@@ -109,6 +109,64 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             };
         }
+
+        template <std::size_t BufferSize>
+        class BufferedReader {
+        private:
+            std::unique_ptr<char[]> buf_[2];
+            int bufIndex_;
+            std::size_t bufPos_[2], bufEndPos_[2];
+            bool fileEof_;
+            bool done_;
+        public:
+            BufferedReader() 
+                : buf_{
+                    std::make_unique<char[]>(BufferSize)
+                    , std::make_unique<char[]>(BufferSize)
+                }
+                , bufIndex_(0)
+                , bufPos_{0,0}
+                , bufEndPos_{0,0}
+                , fileEof_(false)
+                , done_(false) 
+            {}
+            ~BufferedReader() = default;
+            BufferedReader(BufferedReader &&) = default;
+            BufferedReader &operator=(BufferedReader &&) = default;
+            std::string_view read(std::istream &is, std::size_t n) {
+                if (n > BufferSize) {
+                    return {nullptr, 0};
+                }
+                if (done_) {
+                    return {nullptr, 0};
+                }
+                if (bufEndPos_[bufIndex_] < bufPos_[bufIndex_]+n) {
+                    std::size_t needed = bufPos_[bufIndex_]+n-bufEndPos_[bufIndex_];
+                    if (fileEof_) {
+                        done_ = true;
+                        return {nullptr,0};
+                    }
+                    is.read(buf_[1-bufIndex_].get(), BufferSize);
+                    bufEndPos_[1-bufIndex_] = is.gcount();
+                    fileEof_ = (bufEndPos_[1-bufIndex_] != BufferSize);
+
+                    if (bufEndPos_[1-bufIndex_] < needed) {
+                        done_ = true;
+                        return {nullptr,0};
+                    }
+                    std::memmove(buf_[bufIndex_].get(), buf_[bufIndex_].get()+bufPos_[bufIndex_], n-needed);
+                    std::memcpy(buf_[bufIndex_].get()+(n-needed), buf_[1-bufIndex_].get(), needed);
+                    bufPos_[bufIndex_] = 0;
+                    bufEndPos_[bufIndex_] = 0;
+                    bufPos_[1-bufIndex_] = needed;
+                    bufIndex_ = 1-bufIndex_;
+                    return {buf_[1-bufIndex_].get(), n};
+                } else {
+                    bufPos_[bufIndex_] += n;
+                    return {buf_[bufIndex_].get()+bufPos_[bufIndex_]-n,n};
+                }
+            }
+        };
     };
 
     template <class Env>
@@ -146,21 +204,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 GenericIStreamImporterSpec<infra::RealTimeApp<Env>> spec_;
                 Reader reader_;
                 DataComparer dataComparer_;
-                GenericIOStreamImpoterExporterHelper::Queue<infra::RealTimeApp<Env>,T,DataComparer> queue_;
+                GenericIOStreamImporterExporterHelper::Queue<infra::RealTimeApp<Env>,T,DataComparer> queue_;
 
                 Env *env_;
                 std::thread th_;
                 std::atomic<bool> running_;
 
                 void run() {
-                    GenericIOStreamImpoterExporterHelper::template startQueue<infra::SinglePassIterationApp<Env>,T,Reader,DataComparer>(
+                    GenericIOStreamImporterExporterHelper::template startQueue<infra::SinglePassIterationApp<Env>,T,Reader,DataComparer>(
                         env_, queue_, spec_, reader_, dataComparer_
                     );
                     while (running_) {
                         TM_INFRA_IMPORTER_TRACER(env_);
                         auto t = env_->now();
                         while (true) {
-                            auto ret = GenericIOStreamImpoterExporterHelper::template stepQueue<infra::SinglePassIterationApp<Env>,T,Reader,DataComparer>(
+                            auto ret = GenericIOStreamImporterExporterHelper::template stepQueue<infra::SinglePassIterationApp<Env>,T,Reader,DataComparer>(
                                 env_, queue_, reader_
                             );
                             if (!ret) {
@@ -367,7 +425,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 GenericIStreamImporterSpec<infra::SinglePassIterationApp<Env>> spec_;
                 Reader reader_;
                 DataComparer dataComparer_;
-                GenericIOStreamImpoterExporterHelper::Queue<infra::SinglePassIterationApp<Env>,T,DataComparer> queue_;
+                GenericIOStreamImporterExporterHelper::Queue<infra::SinglePassIterationApp<Env>,T,DataComparer> queue_;
 
                 Env *env_;
             public:
@@ -384,14 +442,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 {}
                 virtual void start(Env *env) override final {
                     env_ = env;
-                    GenericIOStreamImpoterExporterHelper::template startQueue<infra::SinglePassIterationApp<Env>,T,Reader,DataComparer>(
+                    GenericIOStreamImporterExporterHelper::template startQueue<infra::SinglePassIterationApp<Env>,T,Reader,DataComparer>(
                         env_, queue_, spec_, reader_, dataComparer_
                     );
                 }
                 virtual typename infra::SinglePassIterationApp<Env>::template Data<T> 
                 generate(T const *notUsed=nullptr) override final {
                     TM_INFRA_IMPORTER_TRACER(env_);
-                    return GenericIOStreamImpoterExporterHelper::template stepQueue<infra::SinglePassIterationApp<Env>,T,Reader,DataComparer>(
+                    return GenericIOStreamImporterExporterHelper::template stepQueue<infra::SinglePassIterationApp<Env>,T,Reader,DataComparer>(
                         env_, queue_, reader_
                     );
                 }
@@ -491,31 +549,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         }
     };
-    template <class T, class TimeExtractor, class SizeType=std::size_t>
+    template <class T, class TimeExtractor, class SizeType=std::size_t, std::size_t BufferSize=4*1024*1024>
     class SimpleDeserializingReader {
     private:
         TimeExtractor timeExtractor_;
+        GenericIOStreamImporterExporterHelper::BufferedReader<BufferSize> bufferedReader_;
     public:
-        SimpleDeserializingReader(TimeExtractor &&timeExtractor = TimeExtractor {}) : timeExtractor_(std::move(timeExtractor)) {}
+        SimpleDeserializingReader(TimeExtractor &&timeExtractor = TimeExtractor {}) : timeExtractor_(std::move(timeExtractor)), bufferedReader_() {}
         template <class Env>
         static void start(Env *env, std::istream &is) {}
         template <class Env>
         std::optional<std::tuple<typename Env::TimePointType, T>> readOne(Env *env, std::istream &is) {
-            char buf[sizeof(SizeType)];
-            is.read(buf, sizeof(SizeType));
-            if (is.gcount() != sizeof(SizeType)) {
+            auto sizeBuf = bufferedReader_.read(is, sizeof(SizeType));
+            if (sizeBuf.length() == 0) {
                 return std::nullopt;
             }
             SizeType l;
-            std::memcpy(&l, buf, sizeof(SizeType));
+            std::memcpy(&l, sizeBuf.data(), sizeof(SizeType));
             l = boost::endian::little_to_native<SizeType>(l);
-            std::unique_ptr<char[]> p = std::make_unique<char[]>(l);
-            is.read(p.get(), l);
-            if (is.gcount() != l) {
+            auto dataBuf = bufferedReader_.read(is, l);
+            if (dataBuf.length() == 0) {
                 return std::nullopt;
             }
             if constexpr (bytedata_utils::DirectlySerializableChecker<T>::IsDirectlySerializable()) {
-                auto ret = bytedata_utils::RunDeserializer<T>::apply(std::string_view {p.get(), l});
+                auto ret = bytedata_utils::RunDeserializer<T>::apply(dataBuf);
                 if (!ret) {
                     return std::nullopt;
                 }
@@ -525,7 +582,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     , std::move(*ret)
                 };
             } else {
-                auto ret = bytedata_utils::RunCBORDeserializer<T>::apply(std::string_view {p.get(), l}, 0);
+                auto ret = bytedata_utils::RunCBORDeserializer<T>::apply(dataBuf, 0);
                 if (!ret) {
                     return std::nullopt;
                 }
@@ -565,35 +622,38 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         }
     };
-    template <class T, class TimeReader, class SizeType=std::size_t>
+    template <class T, class TimeReader, class SizeType=std::size_t, std::size_t BufferSize=4*1024*1024>
     class SimpleDeserializingReaderWithTime {
     private:
         TimeReader timeReader_;
+        GenericIOStreamImporterExporterHelper::BufferedReader<BufferSize> bufferedReader_;
     public:
-        SimpleDeserializingReaderWithTime(TimeReader &&timeReader = TimeReader {}) : timeReader_(std::move(timeReader)) {}
+        SimpleDeserializingReaderWithTime(TimeReader &&timeReader = TimeReader {}) : timeReader_(std::move(timeReader)), bufferedReader_() {}
         template <class Env>
         static void start(Env *env, std::istream &is) {}
         template <class Env>
         std::optional<std::tuple<typename Env::TimePointType, T>> readOne(Env *env, std::istream &is) {
-            std::optional<typename Env::TimePointType> tp = timeReader_(env, is);
+            auto timeBuf = bufferedReader_.read(is, TimeReader::TimeSize);
+            if (timeBuf.length() == 0) {
+                return std::nullopt;
+            }
+            std::optional<typename Env::TimePointType> tp = timeReader_(env, timeBuf);
             if (!tp) {
                 return std::nullopt;
             }
-            char buf[sizeof(SizeType)];
-            is.read(buf, sizeof(SizeType));
-            if (is.gcount() != sizeof(SizeType)) {
+            auto sizeBuf = bufferedReader_.read(is, sizeof(SizeType));
+            if (sizeBuf.length() == 0) {
                 return std::nullopt;
             }
             SizeType l;
-            std::memcpy(&l, buf, sizeof(SizeType));
+            std::memcpy(&l, sizeBuf.data(), sizeof(SizeType));
             l = boost::endian::little_to_native<SizeType>(l);
-            std::unique_ptr<char[]> p = std::make_unique<char[]>(l);
-            is.read(p.get(), l);
-            if (is.gcount() != l) {
+            auto dataBuf = bufferedReader_.read(is, l);
+            if (dataBuf.length() == 0) {
                 return std::nullopt;
             }
             if constexpr (bytedata_utils::DirectlySerializableChecker<T>::IsDirectlySerializable()) {
-                auto ret = bytedata_utils::RunDeserializer<T>::apply(std::string_view {p.get(), l});
+                auto ret = bytedata_utils::RunDeserializer<T>::apply(dataBuf);
                 if (!ret) {
                     return std::nullopt;
                 }
@@ -602,7 +662,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     , std::move(*ret)
                 };
             } else {
-                auto ret = bytedata_utils::RunCBORDeserializer<T>::apply(std::string_view {p.get(), l}, 0);
+                auto ret = bytedata_utils::RunCBORDeserializer<T>::apply(dataBuf, 0);
                 if (!ret) {
                     return std::nullopt;
                 }
@@ -617,26 +677,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
 
-    template <class Duration>
+    template <class Duration, class TimeType=int64_t>
     class SystemTimePointWriter {
     public:
         void operator()(void *, std::ostream &os, std::chrono::system_clock::time_point const &tp) {
-            int64_t t = boost::endian::native_to_little<int64_t>(infra::withtime_utils::sinceEpoch<Duration>(tp));
-            os.write(reinterpret_cast<char *>(&t), sizeof(int64_t));
+            TimeType t = boost::endian::native_to_little<TimeType>((TimeType) infra::withtime_utils::sinceEpoch<Duration>(tp));
+            os.write(reinterpret_cast<char *>(&t), sizeof(TimeType));
         }
     };
-    template <class Duration>
+    template <class Duration, class TimeType=int64_t>
     class SystemTimePointReader {
     public:
-        std::optional<std::chrono::system_clock::time_point> operator()(void *, std::istream &is) {
-            char buf[sizeof(int64_t)];
-            is.read(buf, sizeof(int64_t));
-            if (is.gcount() != sizeof(int64_t)) {
-                return std::nullopt;
-            }
-            int64_t t;
-            std::memcpy(&t, buf, sizeof(int64_t));
-            t = boost::endian::little_to_native<int64_t>(t);
+        static constexpr std::size_t TimeSize = sizeof(TimeType);
+        std::optional<std::chrono::system_clock::time_point> operator()(void *, std::string_view const &timeData) {
+            TimeType t;
+            std::memcpy(&t, timeData.data(), std::min(timeData.length(), sizeof(int64_t)));
+            t = boost::endian::little_to_native<TimeType>(t);
             return infra::withtime_utils::epochDurationToTime<Duration>(t);
         }
     };
