@@ -3,6 +3,7 @@
 
 #include <tm_kit/infra/RealTimeApp.hpp>
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
+#include <tm_kit/infra/TopDownSinglePassIterationApp.hpp>
 #include <tm_kit/infra/Environments.hpp>
 #include <tm_kit/infra/TraceNodesComponent.hpp>
 #include <type_traits>
@@ -78,6 +79,40 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
         virtual typename infra::template SinglePassIterationApp<Env>::template Data<OutputT> generate() override final {
             return data_;
+        }
+    };
+
+    template <class Env, class Func>
+    class ImporterOfValueCalculatedOnInit<infra::template TopDownSinglePassIterationApp<Env>, Func> 
+        : public infra::template TopDownSinglePassIterationApp<Env>::template AbstractImporter<
+            decltype((* ((Func *) nullptr))(
+                std::function<void(infra::LogLevel, std::string const &)>()
+            ))
+            >
+    {
+    public:
+        using OutputT = decltype((* ((Func *) nullptr))(
+                std::function<void(infra::LogLevel, std::string const &)>()
+            ));
+    private:
+        Func f_;
+        typename infra::template TopDownSinglePassIterationApp<Env>::template Data<OutputT> data_;
+    public:
+        ImporterOfValueCalculatedOnInit(Func &&f) : f_(std::move(f)), data_(std::nullopt) {}
+        virtual void start(Env *env) override final {
+            TM_INFRA_IMPORTER_TRACER(env);
+            data_ = infra::template TopDownSinglePassIterationApp<Env>::template pureInnerData<OutputT>(
+                env
+                , f_(
+                    [env](infra::LogLevel level, std::string const &s) {
+                        env->log(level, s);
+                    }
+                )
+                , true
+            );
+        }
+        virtual std::tuple<bool, typename infra::template TopDownSinglePassIterationApp<Env>::template Data<OutputT>> generate() override final {
+            return {false, std::move(data_)};
         }
     };
 

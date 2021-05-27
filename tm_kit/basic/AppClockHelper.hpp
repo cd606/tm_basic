@@ -4,6 +4,7 @@
 #include <tm_kit/infra/BasicWithTimeApp.hpp>
 #include <tm_kit/infra/RealTimeApp.hpp>
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
+#include <tm_kit/infra/TopDownSinglePassIterationApp.hpp>
 
 #include <tm_kit/basic/empty_clock/ClockImporter.hpp>
 #include <tm_kit/basic/empty_clock/ClockOnOrderFacility.hpp>
@@ -11,6 +12,8 @@
 #include <tm_kit/basic/real_time_clock/ClockOnOrderFacility.hpp>
 #include <tm_kit/basic/single_pass_iteration_clock/ClockImporter.hpp>
 #include <tm_kit/basic/single_pass_iteration_clock/ClockOnOrderFacility.hpp>
+#include <tm_kit/basic/top_down_single_pass_iteration_clock/ClockImporter.hpp>
+#include <tm_kit/basic/top_down_single_pass_iteration_clock/ClockOnOrderFacility.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <class App>
@@ -34,6 +37,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         using Facility = single_pass_iteration_clock::ClockOnOrderFacility<Env>;   
     }; 
     
+    template <class Env>
+    struct AppClockHelper<infra::TopDownSinglePassIterationApp<Env>> {
+        using Importer = top_down_single_pass_iteration_clock::ClockImporter<Env>;   
+        using Facility = top_down_single_pass_iteration_clock::ClockOnOrderFacility<Env>;   
+    }; 
 } } } }
 
 #endif

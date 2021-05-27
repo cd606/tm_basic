@@ -11,6 +11,7 @@
 #include <boost/endian/conversion.hpp>
 #include <tm_kit/infra/RealTimeApp.hpp>
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
+#include <tm_kit/infra/TopDownSinglePassIterationApp.hpp>
 #include <tm_kit/infra/TraceNodesComponent.hpp>
 #include <tm_kit/infra/BasicWithTimeApp.hpp>
 #include <tm_kit/basic/ByteDataWithTopicRecordFile.hpp>
@@ -519,13 +520,136 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 virtual void start(Env *env) override final {
                     writer_.start(env, *os_);
                 }
-                virtual void handle(typename infra::RealTimeApp<Env>::template InnerData<T> &&d) override final {
+                virtual void handle(typename infra::SinglePassIterationApp<Env>::template InnerData<T> &&d) override final {
                     TM_INFRA_EXPORTER_TRACER(d.environment);
                     writer_.writeOne(d.environment, *os_, std::move(d.timedData));
                     os_->flush();
                 }
             };
             return infra::SinglePassIterationApp<Env>::template exporter(new LocalE(os, std::move(writer)));
+        }
+    };
+
+    template <class Env>
+    class GenericIOStreamImporterExporter<infra::TopDownSinglePassIterationApp<Env>> {
+    public:
+        template <class T, class Reader, class DataComparer=std::less<T>>
+        static std::shared_ptr<typename infra::TopDownSinglePassIterationApp<Env>::template Importer<T>>
+        createImporter(
+            GenericIStreamImporterSpec<infra::TopDownSinglePassIterationApp<Env>> const &spec
+            , Reader &&reader
+            , DataComparer &&dataComparer = DataComparer {}
+        ) {
+            class LocalI final : public infra::TopDownSinglePassIterationApp<Env>::template AbstractImporter<T> {
+            private:
+                GenericIStreamImporterSpec<infra::TopDownSinglePassIterationApp<Env>> spec_;
+                Reader reader_;
+                DataComparer dataComparer_;
+                GenericIOStreamImporterExporterHelper::Queue<infra::TopDownSinglePassIterationApp<Env>,T,DataComparer> queue_;
+
+                Env *env_;
+            public:
+                LocalI(
+                    GenericIStreamImporterSpec<infra::TopDownSinglePassIterationApp<Env>> const &spec
+                    , Reader &&reader
+                    , DataComparer &&dataComparer
+                ) :
+                    spec_(spec)
+                    , reader_(std::move(reader))
+                    , dataComparer_(std::move(dataComparer))
+                    , queue_()
+                    , env_(nullptr)
+                {}
+                virtual void start(Env *env) override final {
+                    env_ = env;
+                    GenericIOStreamImporterExporterHelper::template startQueue<infra::TopDownSinglePassIterationApp<Env>,T,Reader,DataComparer>(
+                        env_, queue_, spec_, reader_, dataComparer_
+                    );
+                }
+                virtual std::tuple<bool, typename infra::TopDownSinglePassIterationApp<Env>::template Data<T>> 
+                generate(T const *notUsed=nullptr) override final {
+                    TM_INFRA_IMPORTER_TRACER(env_);
+                    auto ret = GenericIOStreamImporterExporterHelper::template stepQueue<infra::TopDownSinglePassIterationApp<Env>,T,Reader,DataComparer>(
+                        env_, queue_, reader_
+                    );
+                    if (!ret) {
+                        return {false, std::nullopt};
+                    }
+                    return {!(ret->timedData.finalFlag), std::move(ret)};
+                }
+            };
+            return infra::TopDownSinglePassIterationApp<Env>::template importer<T>(new LocalI(spec, std::move(reader), std::move(dataComparer)));
+        }
+        
+        template <class T, class Reader>
+        static std::shared_ptr<typename infra::TopDownSinglePassIterationApp<Env>::template Importer<T>>
+        createImporter(
+            std::shared_ptr<std::istream> const &stream
+            , Reader &&reader = Reader {}
+        ) {
+            class LocalI final : public infra::TopDownSinglePassIterationApp<Env>::template AbstractImporter<T> {
+            private:
+                std::shared_ptr<std::istream> stream_;
+                Reader reader_;
+                std::optional<std::tuple<typename infra::TopDownSinglePassIterationApp<Env>::TimePoint,T>> data_;
+                
+                Env *env_;
+            public:
+                LocalI(
+                    std::shared_ptr<std::istream> const &stream
+                    , Reader &&reader
+                ) :
+                    stream_(stream)
+                    , reader_(std::move(reader))
+                    , data_(std::nullopt)
+                    , env_(nullptr)
+                {}
+                virtual void start(Env *env) override final {
+                    env_ = env;
+                    reader_.start(env_, *stream_);
+                    data_ = reader_.readOne(env_, *stream_);
+                }
+                virtual std::tuple<bool, typename infra::TopDownSinglePassIterationApp<Env>::template Data<T>>
+                generate(T const *notUsed=nullptr) override final {
+                    TM_INFRA_IMPORTER_TRACER(env_);
+                    if (!data_) {
+                        return std::nullopt;
+                    }
+                    std::optional<std::tuple<typename infra::TopDownSinglePassIterationApp<Env>::TimePoint,T>> newData = reader_.readOne(env_, *stream_);
+                    auto ret = typename infra::SinglePassIterationApp<Env>::template InnerData<T> {
+                        env_
+                        , {
+                            std::get<0>(*data_)
+                            , std::move(std::get<1>(*data_))
+                            , !((bool) newData)
+                        }
+                    };
+                    data_ = std::move(newData);
+                    return {!(ret.timedData.finalFlag), {std::move(ret)}};
+                }
+            };
+            return infra::TopDownSinglePassIterationApp<Env>::template importer<T>(new LocalI(stream, std::move(reader)));
+        }
+
+        template <class T, class Writer>
+        static std::shared_ptr<typename infra::TopDownSinglePassIterationApp<Env>::template Exporter<T>>
+        createExporter(std::ostream &os, Writer &&writer, bool separateThread=false) {
+            class LocalE final : public infra::TopDownSinglePassIterationApp<Env>::template AbstractExporter<T> {
+            private:
+                std::ostream *os_;
+                Writer writer_;
+            public:
+                LocalE(std::ostream &os, Writer &&writer) : os_(&os), writer_(std::move(writer)) {}
+                virtual void start(Env *env) override final {
+                    writer_.start(env, *os_);
+                }
+                virtual void handle(typename infra::TopDownSinglePassIterationApp<Env>::template InnerData<T> &&d) override final {
+                    TM_INFRA_EXPORTER_TRACER(d.environment);
+                    writer_.writeOne(d.environment, *os_, std::move(d.timedData));
+                    os_->flush();
+                }
+            };
+            return infra::TopDownSinglePassIterationApp<Env>::template exporter(new LocalE(os, std::move(writer)));
         }
     };
 

@@ -680,7 +680,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             , std::function<void(TheEnvironment *)> const &wrapUpFunc
             , std::string const &prefix) 
         {
-            if constexpr (std::is_same_v<M, typename infra::SinglePassIterationApp<TheEnvironment>>) {
+            if constexpr (
+                std::is_same_v<M, typename infra::SinglePassIterationApp<TheEnvironment>>
+                ||
+                std::is_same_v<M, typename infra::TopDownSinglePassIterationApp<TheEnvironment>>
+            ) {
                 using ClockImporter = typename basic::AppClockHelper<M>::Importer;
                 auto backgroundClock = ClockImporter::template createRecurringClockConstImporter<basic::VoidStruct>(
                     startTime
@@ -1349,10 +1353,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         ) ->  std::optional<infra::WithTime<T, typename R::AppType::TimePoint>> 
         {
             static_assert(
-                std::is_same_v<
+                (std::is_same_v<
                     typename R::AppType 
                     , infra::SinglePassIterationApp<TheEnvironment>
                 >
+                ||
+                std::is_same_v<
+                    typename R::AppType 
+                    , infra::TopDownSinglePassIterationApp<TheEnvironment>
+                >)
                 , "singlePassTestRunOneUpdate can only be used with single pass app"
             );
             TheEnvironment env;
@@ -1392,10 +1401,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         ) ->  std::optional<infra::WithTime<T, typename R::AppType::TimePoint>> 
         {
             static_assert(
-                std::is_same_v<
+                (std::is_same_v<
                     typename R::AppType 
                     , infra::SinglePassIterationApp<TheEnvironment>
                 >
+                ||
+                std::is_same_v<
+                    typename R::AppType 
+                    , infra::TopDownSinglePassIterationApp<TheEnvironment>
+                >)
                 , "singlePassTestRunOneUpdate can only be used with single pass app"
             );
             return singlePassTestRunOneUpdate<T>(
