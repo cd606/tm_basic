@@ -613,7 +613,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 generate(T const *notUsed=nullptr) override final {
                     TM_INFRA_IMPORTER_TRACER(env_);
                     if (!data_) {
-                        return std::nullopt;
+                        return {false, std::nullopt};
                     }
                     std::optional<std::tuple<typename infra::TopDownSinglePassIterationApp<Env>::TimePoint,T>> newData = reader_.readOne(env_, *stream_);
                     auto ret = typename infra::SinglePassIterationApp<Env>::template InnerData<T> {
