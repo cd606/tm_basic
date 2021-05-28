@@ -5,7 +5,7 @@
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace top_down_single_pass_iteration_clock {
     
-    template <class TimePoint, bool AllowLocalTimeOverride=false>
+    template <class TimePoint, bool AllowLocalTimeOverride=true>
     using Clock = dev::cd606::tm::basic::single_pass_iteration_clock::Clock<TimePoint,AllowLocalTimeOverride>;
     
 } } } } }
