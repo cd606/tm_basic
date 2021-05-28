@@ -267,10 +267,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         //the first read
                         auto d = reader_.readByteDataWithTopicRecord(*is_);
                         if (!d) {
-                            return { typename infra::TopDownSinglePassIterationApp<Env>::template InnerData<ByteDataWithTopic> {
+                            return {false, { typename infra::TopDownSinglePassIterationApp<Env>::template InnerData<ByteDataWithTopic> {
                                 env_, 
                                 {env_->now(), ByteDataWithTopic {}, true}
-                            } };
+                            } } };
                         }
                         auto ret = typename infra::TopDownSinglePassIterationApp<Env>::template InnerData<ByteDataWithTopic> {
                             env_, *d
