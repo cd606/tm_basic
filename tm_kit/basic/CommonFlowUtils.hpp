@@ -10,6 +10,7 @@
 #include <tm_kit/infra/BasicWithTimeApp.hpp>
 #include <tm_kit/infra/RealTimeApp.hpp>
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
+#include <tm_kit/infra/TopDownSinglePassIterationApp.hpp>
 #include <tm_kit/infra/WithTimeData.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <tm_kit/basic/NotConstructibleStruct.hpp>
@@ -143,7 +144,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     > 
             *) nullptr))(std::move(* ((std::vector<T> *) nullptr))))>;
             if constexpr (std::is_same_v<M, infra::RealTimeApp<TheEnvironment>>) {
-                class BunchAction : public infra::IRealTimeAppPossiblyThreadedNode, public infra::RealTimeAppComponents<TheEnvironment>::template AbstractAction<T,std::vector<T>> {
+                class BunchAction : public infra::IRealTimeAppPossiblyThreadedNode, public infra::RealTimeAppComponents<TheEnvironment>::template AbstractAction<T,C> {
                 private:
                     B buncher_;
                     typename infra::RealTimeAppComponents<TheEnvironment>::template TimeChecker<false, T> timeChecker_;
@@ -243,7 +244,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     }
                 };
                 return M::template fromAbstractAction<T, C>(new BunchAction(std::move(buncher)));
-            } else {
+            } else if constexpr (std::is_same_v<M, infra::SinglePassIterationApp<TheEnvironment>>) {
                 struct State {
                     std::optional<typename M::TimePoint> currentBunchTime;
                     std::vector<T> currentBunch;
@@ -389,6 +390,120 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     }
                 };
                 return M::template continuationAction<T,C,State>(cont);
+            } else if constexpr (std::is_same_v<M, infra::TopDownSinglePassIterationApp<TheEnvironment>>) {
+                class BunchAction : public M::template AbstractAction<T,C> {
+                private:
+                    B buncher_;
+                    typename M::TimePoint currentBunchStart_;
+                    std::vector<T> currentBunch_;
+                public:
+                    BunchAction(B &&buncher) : buncher_(std::move(buncher)), currentBunchStart_(), currentBunch_() {
+                    }
+                    virtual ~BunchAction() = default;
+                    virtual bool isOneTimeOnly() const override final {
+                        return false;
+                    }
+                    virtual void handle(typename M::template InnerData<T> &&data) override final {
+                        if (currentBunch_.empty()) {
+                            if (data.timedData.finalFlag) {
+                                if constexpr (std::is_same_v<Buncher, void>) {
+                                    this->publish(typename M::template InnerData<C> {
+                                        data.environment 
+                                        , {
+                                            data.timedData.timePoint 
+                                            , {std::move(data.timedData.value)}
+                                            , true
+                                        }
+                                    });
+                                } else {
+                                    this->publish(typename M::template InnerData<C> {
+                                        data.environment 
+                                        , {
+                                            data.timedData.timePoint 
+                                            , buncher_(std::vector<T> {std::move(data.timedData.value)})
+                                            , true
+                                        }
+                                    });
+                                }
+                            } else {
+                                currentBunchStart_ = data.timedData.timePoint;
+                                currentBunch_.push_back(std::move(data.timedData.value));
+                            }
+                        } else {
+                            if (data.timedData.timePoint != currentBunchStart_) {
+                                if constexpr (std::is_same_v<Buncher, void>) {
+                                    this->publish(typename M::template InnerData<C> {
+                                        data.environment 
+                                        , {
+                                            currentBunchStart_
+                                            , std::move(currentBunch_)
+                                            , false
+                                        }
+                                    });
+                                } else {
+                                    this->publish(typename M::template InnerData<C> {
+                                        data.environment 
+                                        , {
+                                            currentBunchStart_ 
+                                            , buncher_(std::move(currentBunch_))
+                                            , false
+                                        }
+                                    });
+                                }
+                                currentBunch_.clear();
+                                if (data.timedData.finalFlag) {
+                                    if constexpr (std::is_same_v<Buncher, void>) {
+                                        this->publish(typename M::template InnerData<C> {
+                                            data.environment 
+                                            , {
+                                                data.timedData.timePoint 
+                                                , {std::move(data.timedData.value)}
+                                                , true
+                                            }
+                                        });
+                                    } else {
+                                        this->publish(typename M::template InnerData<C> {
+                                            data.environment 
+                                            , {
+                                                data.timedData.timePoint 
+                                                , buncher_(std::vector<T> {std::move(data.timedData.value)})
+                                                , true
+                                            }
+                                        });
+                                    }
+                                } else {
+                                    currentBunchStart_ = data.timedData.timePoint;
+                                    currentBunch_.push_back(std::move(data.timedData.value));
+                                }
+                            } else {
+                                currentBunch_.push_back(std::move(data.timedData.value));
+                                if (data.timedData.finalFlag) {
+                                    if constexpr (std::is_same_v<Buncher, void>) {
+                                        this->publish(typename M::template InnerData<C> {
+                                            data.environment 
+                                            , {
+                                                currentBunchStart_
+                                                , std::move(currentBunch_)
+                                                , true
+                                            }
+                                        });
+                                    } else {
+                                        this->publish(typename M::template InnerData<C> {
+                                            data.environment 
+                                            , {
+                                                currentBunchStart_ 
+                                                , buncher_(std::move(currentBunch_))
+                                                , true
+                                            }
+                                        });
+                                    }
+                                    currentBunch_.clear();
+                                }
+                            }
+                        }
+                    }
+                };
+                return M::template fromAbstractAction<T, C>(new BunchAction(std::move(buncher)));
             }
         }
     public:
@@ -1377,7 +1492,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return M::template kleisli<T>(
                     idFunc<T>()
                 );
-            } else {
+            } else if constexpr (std::is_same_v<M, infra::SinglePassIterationApp<TheEnvironment>>) {
                 struct State {
                     std::size_t steps;
                     std::deque<typename M::template InnerData<T>> buffer;
@@ -1419,6 +1534,35 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     state.repeatCall = true;
                 };
                 return M::template continuationAction<T,T,State>(cont, State(steps));
+            } else if constexpr (std::is_same_v<M, infra::TopDownSinglePassIterationApp<TheEnvironment>>) {
+                class LeftShiftAction : public M::template AbstractAction<T,T> {
+                private:
+                    std::deque<typename M::TimePoint> tps_;
+                    std::size_t steps_;
+                public:
+                    LeftShiftAction(std::size_t steps) : tps_(), steps_(steps) {}
+                    virtual ~LeftShiftAction() = default;
+                    virtual bool isOneTimeOnly() const override final {
+                        return false;
+                    }
+                    virtual void handle(typename M::template InnerData<T> &&data) override final {
+                        if (tps_.size() < steps_) {
+                            tps_.push_back(data.timedData.timePoint);
+                        } else {
+                            this->publish(typename M::template InnerData<T> {
+                                data.environment 
+                                , {
+                                    tps_.front()
+                                    , std::move(data.timedData.value)
+                                    , data.timedData.finalFlag
+                                }
+                            });
+                            tps_.pop_front();
+                            tps_.push_back(data.timedData.timePoint);
+                        }
+                    }
+                };
+                return M::template fromAbstractAction<T, T>(new LeftShiftAction(steps));
             }
         }
     private:
@@ -1601,6 +1745,79 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     }
                 };
                 return M::template importer<T>(new LocalI(underlyingImporters, comparer));
+            } else if constexpr (std::is_same_v<M, infra::TopDownSinglePassIterationApp<TheEnvironment>>) {
+                class LocalI : public M::template AbstractImporter<T> {
+                private:
+                    std::list<typename M::template AbstractImporter<T> *> underlyingImporters_;
+                    using QueueItem = std::tuple<typename M::template AbstractImporter<T> *, typename M::template Data<T>>;
+                    class ActualComparer {
+                    private:
+                        std::conditional_t<std::is_same_v<Comparer, void>, bool, Comparer> comparer_;
+                    public:
+                        ActualComparer() : comparer_() {}
+                        ActualComparer(std::conditional_t<std::is_same_v<Comparer, void>, bool, Comparer> const &comparer) : comparer_(comparer) {}
+                        bool operator()(QueueItem &a, QueueItem const &b) const {
+                            if (!std::get<1>(a)) {
+                                return true;
+                            }
+                            if (!std::get<1>(b)) {
+                                return false;
+                            }
+                            if constexpr (std::is_same_v<Comparer, void>) {
+                                return (std::get<1>(a)->timedData.timePoint > std::get<1>(b)->timedData.timePoint);
+                            } else {
+                                auto tp1 = std::get<1>(a)->timedData.timePoint;
+                                auto tp2 = std::get<1>(b)->timedData.timePoint;
+                                if (tp1 > tp2) {
+                                    return true;
+                                }
+                                if (tp1 < tp2) {
+                                    return false;
+                                }
+                                return comparer_(std::get<1>(a)->timedData.value, std::get<1>(b)->timedData.value);
+                            }
+                        }
+                    };
+                    std::priority_queue<QueueItem, std::vector<QueueItem>, ActualComparer> queue_;
+                public:
+                    LocalI(std::list<typename M::template AbstractImporter<T> *> const &u, std::conditional_t<std::is_same_v<Comparer, void>, bool, Comparer> const &comparer) : 
+#ifndef _MSC_VER
+                        M::template AbstractImporter<T>(),
+#endif
+                        underlyingImporters_(u) 
+                        , queue_(ActualComparer(comparer))
+                    {
+                    }
+                    virtual void start(TheEnvironment *env) override final {
+                        for (auto *importer : underlyingImporters_) {
+                            importer->start(env);
+                            queue_.push({importer, importer->generate((T const *) nullptr)});
+                        }
+                    }
+                    virtual std::tuple<bool, typename M::template Data<T>> generate(T const *notUsed=nullptr) override final {
+                        if (underlyingImporters_.empty()) {
+                            return {false, std::nullopt};
+                        }
+                        QueueItem ret = std::move(queue_.top());
+                        queue_.pop();
+                        auto *importer = std::get<0>(ret);
+                        bool maybeFinal = (queue_.empty() || !std::get<1>(queue_.top()));
+                        if (!(std::get<1>(ret)) || !(std::get<1>(ret)->timedData.finalFlag)) {
+                            queue_.push({importer, importer->generate((T const *) nullptr)});
+                        }
+                        if (!maybeFinal) {
+                            if (std::get<1>(ret)) {
+                                std::get<1>(ret)->timedData.finalFlag = false;
+                            }
+                        }
+                        if (std::get<1>(ret)) {
+                            return {true, std::nullopt};
+                        } else {
+                            return {!(std::get<1>(ret)->timedData.finalFlag), std::move(std::get<1>(ret))};
+                        }
+                    }
+                };
+                return M::template importer<T>(new LocalI(underlyingImporters, comparer));
             } else {
                 return std::shared_ptr<typename M::template Importer<T>>();
             }
@@ -1668,6 +1885,34 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                             item->timedData.timePoint += shiftBy_;
                         }
                         return item;
+                    }
+                };
+                return M::template importer<T>(new LocalI(underlyingImporter, shiftBy));
+            } else if constexpr (std::is_same_v<M, infra::TopDownSinglePassIterationApp<TheEnvironment>>) {
+                class LocalI : public M::template AbstractImporter<T> {
+                private:
+                    std::shared_ptr<typename M::template Importer<T>> underlyingImporter_;
+                    typename M::Duration shiftBy_;
+                public:
+                    LocalI(std::shared_ptr<typename M::template Importer<T>> const &underlyingImporter, typename M::Duration const &shiftBy) : 
+#ifndef _MSC_VER
+                        M::template AbstractImporter<T>(),
+#endif
+                        underlyingImporter_(underlyingImporter) 
+                        , shiftBy_(shiftBy)
+                    {
+                    }
+                    virtual void start(TheEnvironment *env) override final {
+                        underlyingImporter_->start(env);
+                    }
+                    virtual std::tuple<bool, typename M::template Data<T>> generate(T const *notUsed=nullptr) override final {
+                        auto item = underlyingImporter_->generate((T const *) nullptr);
+                        if (item) {
+                            item->timedData.timePoint += shiftBy_;
+                            return {!(item->timedData.finalFlag), std::move(item)};
+                        } else {
+                            return {true, std::move(item)};
+                        }
                     }
                 };
                 return M::template importer<T>(new LocalI(underlyingImporter, shiftBy));
