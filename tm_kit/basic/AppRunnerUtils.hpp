@@ -1028,6 +1028,90 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 outputSink(r, r.actionAsSource(action));
             }
         }
+
+        template <
+            std::size_t N //how many processor copies
+            , class Input
+            , class Output 
+            , class InputDispatcherF //dispatch individual inputs
+                    //requires:
+                    //std::size_t call(std::size_t, Input const &)
+        >
+        static void parallel_fullyIndependent(
+            R &r
+            , typename R::template Sourceoid<Input> inputSource
+            , InputDispatcherF &&inputDispatcher 
+            , std::function<
+                typename R::template ActionPtr<
+                    Input
+                    , Output
+                >(std::size_t)
+            > actionCreator
+            , typename R::template Sinkoid<Output> outputSink
+            , std::string const &prefix
+        ) {
+            if constexpr (std::is_same_v<M, typename infra::RealTimeApp<TheEnvironment>>) {
+                //parallel only makes sense in real time
+                using DispatchedInput = infra::VariantRepeat<N, Input>;
+                class LocalDispatcherAction {
+                private:
+                    InputDispatcherF dispatcher_;
+                public:
+                    LocalDispatcherAction(InputDispatcherF &&dispatcher) : dispatcher_(std::move(dispatcher)) {}
+                    DispatchedInput operator()(Input &&input) {
+                        auto idx = dispatcher_.call(N, input) % N;
+                        return infra::dispatchVariantConstruct<
+                            N, Input
+                        >(idx, std::move(input));
+                    }
+                };
+                auto dispatcher = M::template liftPure<Input>(LocalDispatcherAction(std::move(inputDispatcher)));
+                r.registerAction(prefix+"/dispatcher", dispatcher);
+                inputSource(r, r.actionAsSink(dispatcher));
+
+                DispatchForParallel2<N,0,Input>::apply(
+                    r
+                    , r.actionAsSource(dispatcher)
+                    , [&r,&prefix,actionCreator,outputSink](std::size_t idx) -> typename R::template Sink<Input> {
+                        auto action = actionCreator(idx);
+                        r.registerAction(prefix+"/action_"+std::to_string(idx), action);
+                        outputSink(r, r.actionAsSource(action));
+                        return r.actionAsSink(action);
+                    }
+                );
+            } else {
+                auto action = actionCreator(0);
+                r.registerAction(prefix+"/action", action);
+                inputSource(r, r.actionAsSink(action));
+                outputSink(r, r.actionAsSource(action));
+            }
+        }
+
+        class RoundRobinDispatcher {
+        private:
+            std::mutex mutex_;
+            std::size_t idx_;
+        public:
+            RoundRobinDispatcher() : mutex_(), idx_(0) {}
+            RoundRobinDispatcher(RoundRobinDispatcher &&d) : mutex_(), idx_(std::move(d.idx_)) {}
+            template <class T>
+            std::size_t call(std::size_t total, T const &data) {
+                std::lock_guard<std::mutex> _(mutex_);
+                auto ret = idx_++;
+                idx_ = idx_%total;
+                return ret;
+            }
+        };
+        class RandomizedDispatcher {
+        public:
+            RandomizedDispatcher() {
+                std::srand(std::time(nullptr));
+            }
+            template <class T>
+            std::size_t call(std::size_t total, T const &data) {
+                return ((std::size_t) std::rand())%total;
+            }
+        };
         
         template <class T>
         class WrapWithCBORIfNecessaryForServerFacilityInput {
