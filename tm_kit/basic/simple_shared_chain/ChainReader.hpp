@@ -3,6 +3,7 @@
 
 #include <tm_kit/infra/RealTimeApp.hpp>
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
+#include <tm_kit/infra/TopDownSinglePassIterationApp.hpp>
 #include <tm_kit/infra/BasicWithTimeApp.hpp>
 #include <tm_kit/infra/TraceNodesComponent.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
@@ -490,6 +491,140 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
         static std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template Importer<OutputType>> importer(Chain *chain, ChainPollingPolicy const &notUsed=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}, std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()) {
             return infra::SinglePassIterationApp<Env>::template importer<OutputType>(new ChainReader(chain, std::move(folder), std::move(resultTransformer)));
+        }
+    };
+
+    template <class Env, class Chain, class ChainItemFolder, class ResultTransformer>
+    class ChainReader<infra::TopDownSinglePassIterationApp<Env>,Chain,ChainItemFolder,void,ResultTransformer> final
+        : public infra::TopDownSinglePassIterationApp<Env>::template AbstractImporter<
+            std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>
+          > {
+    private:
+        using OutputType = std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>;
+
+        Env *env_;
+        Chain *chain_;
+        typename Chain::ItemType currentItem_;
+        ChainItemFolder folder_;
+        typename ChainItemFolder::ResultType currentValue_;
+        std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> resultTransformer_;
+        SaveDataOnChain<Chain, typename ChainItemFolder::ResultType> stateSaver_;
+    public:
+        ChainReader(Chain *chain, ChainItemFolder &&folder=ChainItemFolder {}, std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()) :
+            env_(nullptr)
+            , chain_(chain)
+            , currentItem_()
+            , folder_(std::move(folder))
+            , currentValue_()
+            , resultTransformer_(std::move(resultTransformer))
+            , stateSaver_(chain)
+        {}
+        ~ChainReader() {}
+        ChainReader(ChainReader const &) = delete;
+        ChainReader &operator=(ChainReader const &) = delete;
+        ChainReader(ChainReader &&) = default;
+        ChainReader &operator=(ChainReader &&) = delete;
+        virtual void start(Env *env) override final {
+            static const auto checker = boost::hana::is_valid(
+                [](auto *c, auto *f, auto const *v) -> decltype((void) (c->loadUntil((Env *) nullptr, f->chainIDForState(*v)))) {}
+            );
+
+            env_ = env;
+            currentValue_ = folder_.initialize(env, chain_); 
+            if constexpr (!std::is_same_v<ResultTransformer, void>) {
+                resultTransformer_.initialize(env);
+            }
+            
+            if constexpr (checker(
+                (Chain *) nullptr
+                , (ChainItemFolder *) nullptr
+                , (typename ChainItemFolder::ResultType const *) nullptr
+            )) {
+                currentItem_ = chain_->loadUntil(env, folder_.chainIDForState(currentValue_));
+            } else {
+                currentItem_ = chain_->head(env);
+            }
+        }
+        virtual std::tuple<bool, typename infra::TopDownSinglePassIterationApp<Env>::template Data<OutputType>> generate(OutputType const *notUsed=nullptr) override final {
+            static constexpr bool UsesPartialHistory = 
+                std::is_convertible_v<
+                    ChainItemFolder *, FolderUsingPartialHistoryInformation *
+                >;
+            static const auto foldInPlaceChecker = boost::hana::is_valid(
+                [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
+            );
+            static const auto filterUpdateChecker = boost::hana::is_valid(
+                [](auto *f, auto const *id, auto const *data) -> decltype((void) (f->filterUpdate(*id, *data))) {}
+            );
+            TM_INFRA_IMPORTER_TRACER(env_);
+            std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
+            if (nextItem) {
+                currentItem_ = std::move(*nextItem);
+                auto const *dataPtr = Chain::extractData(currentItem_);
+                if (dataPtr) {
+                    if constexpr (filterUpdateChecker(
+                        (ChainItemFolder *) nullptr
+                        , (std::string_view *) nullptr
+                        , (typename Chain::DataType const *) nullptr
+                    )) {
+                        if (!folder_.filterUpdate(Chain::extractStorageIDStringView(currentItem_), *dataPtr)) {
+                            return {true, std::nullopt};
+                        }
+                    }
+                    if constexpr (foldInPlaceChecker(
+                        (ChainItemFolder *) nullptr
+                        , (typename ChainItemFolder::ResultType *) nullptr
+                        , (std::string_view *) nullptr
+                        , (typename Chain::DataType const *) nullptr
+                    )) {
+                        folder_.foldInPlace(currentValue_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                    } else {
+                        currentValue_ = folder_.fold(currentValue_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
+                    }
+                    if constexpr (std::is_same_v<ResultTransformer, void>) {
+                        return {true, {typename infra::SinglePassIterationApp<Env>::template InnerData<typename ChainItemFolder::ResultType> {
+                            env_
+                            , {
+                                env_->resolveTime(folder_.extractTime(currentValue_))
+                                , infra::withtime_utils::ValueCopier<typename ChainItemFolder::ResultType>::copy(currentValue_)
+                                , false
+                            }
+                        }}};
+                    } else {
+                        auto r = resultTransformer_.transform(stateSaver_, currentValue_);
+                        if constexpr (std::is_same_v<std::decay_t<decltype(r)>, OutputType>) {
+                            return {true, {typename infra::SinglePassIterationApp<Env>::template InnerData<OutputType> {
+                                env_
+                                , {
+                                    env_->resolveTime(folder_.extractTime(currentValue_))
+                                    , std::move(r)
+                                    , false
+                                }
+                            }}};
+                        } else if constexpr (std::is_same_v<std::decay_t<decltype(r)>, std::optional<OutputType>>) {
+                            if (r) {
+                                return {true, {typename infra::SinglePassIterationApp<Env>::template InnerData<OutputType> {
+                                    env_
+                                    , {
+                                        env_->resolveTime(folder_.extractTime(currentValue_))
+                                        , std::move(*r)
+                                        , false
+                                    }
+                                }}};
+                            } else {
+                                return {true,std::nullopt};
+                            }
+                        }
+                    }
+                } else {
+                    return {true,std::nullopt};
+                }
+            } else {
+                return {true,std::nullopt};
+            }
+        }
+        static std::shared_ptr<typename infra::TopDownSinglePassIterationApp<Env>::template Importer<OutputType>> importer(Chain *chain, ChainPollingPolicy const &notUsed=ChainPollingPolicy {}, ChainItemFolder &&folder=ChainItemFolder {}, std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer> &&resultTransformer = std::conditional_t<std::is_same_v<ResultTransformer, void>, bool, ResultTransformer>()) {
+            return infra::TopDownSinglePassIterationApp<Env>::template importer<OutputType>(new ChainReader(chain, std::move(folder), std::move(resultTransformer)));
         }
     };
 
