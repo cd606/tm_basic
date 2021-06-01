@@ -919,6 +919,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     DispatchForParallel2<N, K+1, T>::apply(r, source.clone(), sinkCreator);
                 }
             }
+            static void applySourceoid(R &r, typename R::template Sourceoid<ToBeDispatched> const &source, SinkCreator sinkCreator) {
+                auto sink = sinkCreator(K);
+                source(r, infra::VariantRepeat<N,typename R::template Sink<T>> {std::in_place_index<K>, sink});
+                if constexpr (K+1 < N) {
+                    DispatchForParallel2<N, K+1, T>::applySourceoid(r, source, sinkCreator);
+                }
+            }
         };
     public:
         template <
@@ -1060,6 +1067,34 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             , class Input
             , class Output 
         >
+        static void parallel_fullyIndependent_alreadyDispatched(
+            R &r
+            , typename R::template Sourceoid<infra::VariantRepeat<N, Input>> const &dispatchedInputSource
+            , std::function<
+                typename R::template ActionPtr<
+                    Input
+                    , Output
+                >(std::size_t)
+            > actionCreator
+            , typename R::template Sinkoid<Output> outputSink
+            , std::string const &prefix
+        ) {
+            DispatchForParallel2<N,0,Input>::applySourceoid(
+                r
+                , dispatchedInputSource
+                , [&r,&prefix,actionCreator,outputSink](std::size_t idx) -> typename R::template Sink<Input> {
+                    auto action = actionCreator(idx);
+                    r.registerAction(prefix+"/action_"+std::to_string(idx), action);
+                    outputSink(r, r.actionAsSource(action));
+                    return r.actionAsSink(action);
+                }
+            );
+        }
+        template <
+            std::size_t N //how many processor copies
+            , class Input
+            , class Output 
+        >
         static void parallel_fullyIndependent_alreadyDispatched_arrayVersion(
             R &r
             , typename R::template Source<infra::VariantRepeat<N, Input>> &&dispatchedInputSource
@@ -1076,6 +1111,34 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             parallel_fullyIndependent_alreadyDispatched<N, Input, Output>(
                 r 
                 , std::move(dispatchedInputSource)
+                , [&actionArray](std::size_t idx) {
+                    return actionArray[idx];
+                }
+                , outputSink
+                , prefix
+            );
+        }
+        template <
+            std::size_t N //how many processor copies
+            , class Input
+            , class Output 
+        >
+        static void parallel_fullyIndependent_alreadyDispatched_arrayVersion(
+            R &r
+            , typename R::template Sourceoid<infra::VariantRepeat<N, Input>> const &dispatchedInputSource
+            , std::array<
+                typename R::template ActionPtr<
+                    Input
+                    , Output
+                >
+                , N
+            > const &actionArray
+            , typename R::template Sinkoid<Output> outputSink
+            , std::string const &prefix
+        ) {
+            parallel_fullyIndependent_alreadyDispatched<N, Input, Output>(
+                r 
+                , dispatchedInputSource
                 , [&actionArray](std::size_t idx) {
                     return actionArray[idx];
                 }
