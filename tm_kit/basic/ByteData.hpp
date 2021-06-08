@@ -11,6 +11,7 @@
 #include <map>
 #include <unordered_set>
 #include <unordered_map>
+#include <valarray>
 #include <type_traits>
 #include <memory>
 #include <iostream>
@@ -623,6 +624,32 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return (p-output);
             }
             static std::size_t calculateSize(std::list<A> const &data) {
+                auto s = RunCBORSerializer<size_t>::calculateSize(data.size());
+                for (auto const &item : data) {
+                    s += RunCBORSerializer<A>::calculateSize(item);
+                }
+                return s;
+            }
+        };
+        template <class A>
+        struct RunCBORSerializer<std::valarray<A>, void> {
+            static std::string apply(std::valarray<A> const &data) {
+                std::string s;
+                s.resize(calculateSize(data)); 
+                apply(data, const_cast<char *>(s.data()));
+                return s;
+            }
+            static std::size_t apply(std::valarray<A> const &data, char *output) {
+                auto s = RunCBORSerializer<size_t>::apply(data.size(), output);
+                output[0] = static_cast<char>(static_cast<uint8_t>(output[0]) | 0x80);
+                char *p = output+s;
+                for (auto const &item : data) {
+                    auto s1 = RunCBORSerializer<A>::apply(item, p);
+                    p += s1;
+                }
+                return (p-output);
+            }
+            static std::size_t calculateSize(std::valarray<A> const &data) {
                 auto s = RunCBORSerializer<size_t>::calculateSize(data.size());
                 for (auto const &item : data) {
                     s += RunCBORSerializer<A>::calculateSize(item);
@@ -1386,6 +1413,37 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     ret.push_back(std::move(std::get<0>(*r)));
                 }
                 return std::tuple<std::list<A>, size_t> {std::move(ret), len};
+            }
+        };
+        template <class A>
+        struct RunCBORDeserializer<std::valarray<A>, void> {
+            static std::optional<std::tuple<std::valarray<A>, size_t>> apply(std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                std::valarray<A> ret(std::get<0>(*v));
+                for (size_t ii=0; ii<std::get<0>(*v); ++ii) {
+                    auto r = RunCBORDeserializer<A>::apply(data, newStart);
+                    if (!r) {
+                        return std::nullopt;
+                    }
+                    len += std::get<1>(*r);
+                    newStart += std::get<1>(*r);
+                    ret[ii] = std::move(std::get<0>(*r));
+                }
+                return std::tuple<std::valarray<A>, size_t> {std::move(ret), len};
             }
         };
         template <class A>

@@ -11,6 +11,7 @@
 #include <unordered_set>
 #include <map>
 #include <unordered_map>
+#include <valarray>
 #include <chrono>
 #include <ctime>
 
@@ -127,6 +128,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     class StructFieldInfoBasedHash<std::list<T>> {
     public:
         std::size_t operator()(std::list<T> const &t) const {
+            std::size_t ret = 2166136261;
+            for (auto const &item : t) {
+                ret = (ret*16777619)^StructFieldInfoBasedHash<T>()(item);
+            }
+            return ret;
+        }
+    };
+    template <class T>
+    class StructFieldInfoBasedHash<std::valarray<T>> {
+    public:
+        std::size_t operator()(std::valarray<T> const &t) const {
             std::size_t ret = 2166136261;
             for (auto const &item : t) {
                 ret = (ret*16777619)^StructFieldInfoBasedHash<T>()(item);

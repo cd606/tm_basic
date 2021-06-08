@@ -178,6 +178,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
     template <class T>
+    class PrintHelper<std::valarray<T>> {
+    public:
+        static void print(std::ostream &os, std::valarray<T> const &t) {
+            os << "valarray[";
+            bool start = true;
+            for (auto const &x : t) {
+                if (!start) {
+                    os << ',';
+                }
+                PrintHelper<T>::print(os, x);
+                start = false;
+            }
+            os << ']';
+        }
+    };
+    template <class T>
     class PrintHelper<std::vector<T>> {
     public:
         static void print(std::ostream &os, std::vector<T> const &t) {
