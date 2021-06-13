@@ -99,6 +99,49 @@ struct RunCBORDeserializer<std::variant<A0,A1>> {
             return std::nullopt;
         }
     }
+    static std::optional<size_t> applyInPlace(std::variant<A0,A1> &output,std::string_view const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        default:
+            return std::nullopt;
+        }
+    }
 };
 template <class A0, class A1, class A2>
 struct RunCBORSerializer<std::variant<A0,A1,A2>> {
@@ -215,6 +258,58 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2>> {
                 }
                 accumLen += std::get<1>(*res);
                 return std::tuple<std::variant<A0,A1,A2>,size_t> { std::variant<A0,A1,A2> {std::move(std::get<0>(*res))}, accumLen };
+            }
+        default:
+            return std::nullopt;
+        }
+    }
+    static std::optional<size_t> applyInPlace(std::variant<A0,A1,A2> &output,std::string_view const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 2:
+            {
+                auto res = RunCBORDeserializer<A2>::applyInPlace(std::get<2>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
             }
         default:
             return std::nullopt;
@@ -357,6 +452,67 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3>> {
                 }
                 accumLen += std::get<1>(*res);
                 return std::tuple<std::variant<A0,A1,A2,A3>,size_t> { std::variant<A0,A1,A2,A3> {std::move(std::get<0>(*res))}, accumLen };
+            }
+        default:
+            return std::nullopt;
+        }
+    }
+    static std::optional<size_t> applyInPlace(std::variant<A0,A1,A2,A3> &output,std::string_view const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 2:
+            {
+                auto res = RunCBORDeserializer<A2>::applyInPlace(std::get<2>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 3:
+            {
+                auto res = RunCBORDeserializer<A3>::applyInPlace(std::get<3>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
             }
         default:
             return std::nullopt;
@@ -520,6 +676,76 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4>> {
                 }
                 accumLen += std::get<1>(*res);
                 return std::tuple<std::variant<A0,A1,A2,A3,A4>,size_t> { std::variant<A0,A1,A2,A3,A4> {std::move(std::get<0>(*res))}, accumLen };
+            }
+        default:
+            return std::nullopt;
+        }
+    }
+    static std::optional<size_t> applyInPlace(std::variant<A0,A1,A2,A3,A4> &output,std::string_view const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 2:
+            {
+                auto res = RunCBORDeserializer<A2>::applyInPlace(std::get<2>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 3:
+            {
+                auto res = RunCBORDeserializer<A3>::applyInPlace(std::get<3>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 4:
+            {
+                auto res = RunCBORDeserializer<A4>::applyInPlace(std::get<4>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
             }
         default:
             return std::nullopt;
@@ -704,6 +930,85 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
                 }
                 accumLen += std::get<1>(*res);
                 return std::tuple<std::variant<A0,A1,A2,A3,A4,A5>,size_t> { std::variant<A0,A1,A2,A3,A4,A5> {std::move(std::get<0>(*res))}, accumLen };
+            }
+        default:
+            return std::nullopt;
+        }
+    }
+    static std::optional<size_t> applyInPlace(std::variant<A0,A1,A2,A3,A4,A5> &output,std::string_view const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 2:
+            {
+                auto res = RunCBORDeserializer<A2>::applyInPlace(std::get<2>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 3:
+            {
+                auto res = RunCBORDeserializer<A3>::applyInPlace(std::get<3>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 4:
+            {
+                auto res = RunCBORDeserializer<A4>::applyInPlace(std::get<4>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 5:
+            {
+                auto res = RunCBORDeserializer<A5>::applyInPlace(std::get<5>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
             }
         default:
             return std::nullopt;
@@ -909,6 +1214,94 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
                 }
                 accumLen += std::get<1>(*res);
                 return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6> {std::move(std::get<0>(*res))}, accumLen };
+            }
+        default:
+            return std::nullopt;
+        }
+    }
+    static std::optional<size_t> applyInPlace(std::variant<A0,A1,A2,A3,A4,A5,A6> &output,std::string_view const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 2:
+            {
+                auto res = RunCBORDeserializer<A2>::applyInPlace(std::get<2>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 3:
+            {
+                auto res = RunCBORDeserializer<A3>::applyInPlace(std::get<3>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 4:
+            {
+                auto res = RunCBORDeserializer<A4>::applyInPlace(std::get<4>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 5:
+            {
+                auto res = RunCBORDeserializer<A5>::applyInPlace(std::get<5>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 6:
+            {
+                auto res = RunCBORDeserializer<A6>::applyInPlace(std::get<6>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
             }
         default:
             return std::nullopt;
@@ -1135,6 +1528,103 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
                 }
                 accumLen += std::get<1>(*res);
                 return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7> {std::move(std::get<0>(*res))}, accumLen };
+            }
+        default:
+            return std::nullopt;
+        }
+    }
+    static std::optional<size_t> applyInPlace(std::variant<A0,A1,A2,A3,A4,A5,A6,A7> &output,std::string_view const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 2:
+            {
+                auto res = RunCBORDeserializer<A2>::applyInPlace(std::get<2>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 3:
+            {
+                auto res = RunCBORDeserializer<A3>::applyInPlace(std::get<3>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 4:
+            {
+                auto res = RunCBORDeserializer<A4>::applyInPlace(std::get<4>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 5:
+            {
+                auto res = RunCBORDeserializer<A5>::applyInPlace(std::get<5>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 6:
+            {
+                auto res = RunCBORDeserializer<A6>::applyInPlace(std::get<6>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 7:
+            {
+                auto res = RunCBORDeserializer<A7>::applyInPlace(std::get<7>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
             }
         default:
             return std::nullopt;
@@ -1382,6 +1872,112 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
                 }
                 accumLen += std::get<1>(*res);
                 return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::move(std::get<0>(*res))}, accumLen };
+            }
+        default:
+            return std::nullopt;
+        }
+    }
+    static std::optional<size_t> applyInPlace(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> &output,std::string_view const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 2:
+            {
+                auto res = RunCBORDeserializer<A2>::applyInPlace(std::get<2>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 3:
+            {
+                auto res = RunCBORDeserializer<A3>::applyInPlace(std::get<3>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 4:
+            {
+                auto res = RunCBORDeserializer<A4>::applyInPlace(std::get<4>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 5:
+            {
+                auto res = RunCBORDeserializer<A5>::applyInPlace(std::get<5>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 6:
+            {
+                auto res = RunCBORDeserializer<A6>::applyInPlace(std::get<6>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 7:
+            {
+                auto res = RunCBORDeserializer<A7>::applyInPlace(std::get<7>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 8:
+            {
+                auto res = RunCBORDeserializer<A8>::applyInPlace(std::get<8>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
             }
         default:
             return std::nullopt;
@@ -1650,6 +2246,121 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
                 }
                 accumLen += std::get<1>(*res);
                 return std::tuple<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>,size_t> { std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::move(std::get<0>(*res))}, accumLen };
+            }
+        default:
+            return std::nullopt;
+        }
+    }
+    static std::optional<size_t> applyInPlace(std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> &output,std::string_view const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != 2) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+        auto which = parseCBORUnsignedInt<uint8_t>(data, start+accumLen);
+        if (!which) {
+            return std::nullopt;
+        }
+        accumLen += std::get<1>(*which);
+        switch (std::get<0>(*which)) {
+        case 0:
+            {
+                auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 1:
+            {
+                auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 2:
+            {
+                auto res = RunCBORDeserializer<A2>::applyInPlace(std::get<2>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 3:
+            {
+                auto res = RunCBORDeserializer<A3>::applyInPlace(std::get<3>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 4:
+            {
+                auto res = RunCBORDeserializer<A4>::applyInPlace(std::get<4>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 5:
+            {
+                auto res = RunCBORDeserializer<A5>::applyInPlace(std::get<5>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 6:
+            {
+                auto res = RunCBORDeserializer<A6>::applyInPlace(std::get<6>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 7:
+            {
+                auto res = RunCBORDeserializer<A7>::applyInPlace(std::get<7>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 8:
+            {
+                auto res = RunCBORDeserializer<A8>::applyInPlace(std::get<8>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
+            }
+        case 9:
+            {
+                auto res = RunCBORDeserializer<A9>::applyInPlace(std::get<9>(output), data, start+accumLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                accumLen += *res;
+                return accumLen;
             }
         default:
             return std::nullopt;

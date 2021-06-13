@@ -929,6 +929,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <class T, typename Enable=void>
         struct RunCBORDeserializer {
             static std::optional<std::tuple<T,size_t>> apply(std::string_view const &data, size_t start);
+            static std::optional<size_t> applyInPlace(T &output, std::string_view const &data, size_t start);
         };
 
         template <class T>
@@ -941,6 +942,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
             }
+            static std::optional<size_t> applyInPlace(CBOR<T> &output, std::string_view const &data, size_t start) {
+                return RunCBORDeserializer<T>::applyInPlace(output.value, data, start);
+            }
         };
         template <class T>
         struct RunCBORDeserializer<CBORWithMaxSizeHint<T>, void> {
@@ -951,6 +955,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 } else {
                     return std::nullopt;
                 }
+            }
+            static std::optional<size_t> applyInPlace(CBORWithMaxSizeHint<T> &output, std::string_view const &data, size_t start) {
+                return RunCBORDeserializer<T>::applyInPlace(output.value, data, start);
+            }
+        };
+        //This is only used for in-place deserialization, and in that case it always
+        //assumes that the pointer points to a valid data
+        template <class A>
+        struct RunCBORDeserializer<A *, void> {
+            static std::optional<std::tuple<A *,size_t>> apply(std::string_view const &data, size_t start) {
+                return std::nullopt;
+            }
+            static std::optional<size_t> applyInPlace(A *&output, std::string_view data, size_t start) {
+                return RunCBORDeserializer<A>::applyInPlace(*output, data, start);
             }
         };
 
@@ -1003,6 +1021,60 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return std::nullopt;
             }
         }
+        template <class T>
+        inline std::optional<size_t> parseCBORUnsignedIntInPlace(T &output, std::string_view const &data, size_t start) {
+            if (data.length() < start+1) {
+                return std::nullopt;
+            }
+            uint8_t c = (static_cast<uint8_t>(data[start]) & (uint8_t) 0x1f);
+            if (c <= 23) {
+                output = static_cast<T>(c);
+                return 1;
+            }
+            switch (c) {
+            case 24:
+                if (data.length() < start+2) {
+                    return std::nullopt;
+                }
+                output = static_cast<T>(static_cast<uint8_t>(data[start+1]));
+                return 2;
+            case 25:
+                {
+                    if (data.length() < start+3) {
+                        return std::nullopt;
+                    }
+                    uint16_t bigEndianVersion;
+                    data.copy(reinterpret_cast<char *>(&bigEndianVersion), 2, start+1);
+                    output = static_cast<T>(boost::endian::big_to_native<uint16_t>(bigEndianVersion));
+                    return 3;
+                }
+                break;
+            case 26:
+                {
+                    if (data.length() < start+5) {
+                        return std::nullopt;
+                    }
+                    uint32_t bigEndianVersion;
+                    data.copy(reinterpret_cast<char *>(&bigEndianVersion), 4, start+1);
+                    output = static_cast<T>(boost::endian::big_to_native<uint32_t>(bigEndianVersion));
+                    return 5;
+                }
+                break;
+            case 27:
+                {
+                    if (data.length() < start+9) {
+                        return std::nullopt;
+                    }
+                    uint64_t bigEndianVersion;
+                    data.copy(reinterpret_cast<char *>(&bigEndianVersion), 8, start+1);
+                    output = static_cast<T>(boost::endian::big_to_native<uint64_t>(bigEndianVersion));
+                    return 9;
+                }
+                break;
+            default:
+                return std::nullopt;
+            }
+        }
 
         template <class T>
         inline std::optional<std::tuple<T, size_t>> parseCBORInt(std::string_view const &data, size_t start) {
@@ -1022,6 +1094,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         }
 
+        template <class T>
+        inline std::optional<size_t> parseCBORIntInPlace(T &output, std::string_view const &data, size_t start) {
+            if (data.length() < start+1) {
+                return std::nullopt;
+            }
+            bool isNegative = ((static_cast<uint8_t>(data[start]) & (uint8_t) 0x20) == (uint8_t) 0x20);
+            if (isNegative) {
+                std::make_unsigned_t<T> u;
+                auto v = parseCBORUnsignedIntInPlace<std::make_unsigned_t<T>>(u, data, start);
+                if (v) {
+                    output = -(static_cast<T>(u))-1;
+                }
+                return v;
+            } else {
+                return parseCBORUnsignedIntInPlace<T>(output, data, start);
+            }
+        }
+
         template <>
         struct RunCBORDeserializer<bool, void> {
             static std::optional<std::tuple<bool, size_t>> apply(std::string_view const &data, size_t start) {
@@ -1038,6 +1128,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         return std::nullopt;
                 }
             }
+            static std::optional<size_t> applyInPlace(bool &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                switch (data[start])
+                {
+                    case (char) 0xf4:
+                        output = false;
+                        return 1;
+                    case (char) 0xf5:
+                        output = true;
+                        return 1;
+                    default:
+                        return std::nullopt;
+                }
+            }
         };
         template <>
         struct RunCBORDeserializer<uint8_t, void> {
@@ -1049,6 +1155,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 return parseCBORUnsignedInt<uint8_t>(data, start);
+            }
+            static std::optional<size_t> applyInPlace(uint8_t &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != (uint8_t) 0) {
+                    return std::nullopt;
+                }
+                return parseCBORUnsignedIntInPlace<uint8_t>(output, data, start);
             }
         };
         template <>
@@ -1062,6 +1177,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return parseCBORUnsignedInt<uint16_t>(data, start);
             }
+            static std::optional<size_t> applyInPlace(uint16_t &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != (uint8_t) 0) {
+                    return std::nullopt;
+                }
+                return parseCBORUnsignedIntInPlace<uint16_t>(output, data, start);
+            }
         };
         template <>
         struct RunCBORDeserializer<uint32_t, void> {
@@ -1074,6 +1198,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return parseCBORUnsignedInt<uint32_t>(data, start);
             }
+            static std::optional<size_t> applyInPlace(uint32_t &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != (uint8_t) 0) {
+                    return std::nullopt;
+                }
+                return parseCBORUnsignedIntInPlace<uint32_t>(output, data, start);
+            }
         };
         template <>
         struct RunCBORDeserializer<uint64_t, void> {
@@ -1085,6 +1218,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 return parseCBORUnsignedInt<uint64_t>(data, start);
+            }
+            static std::optional<size_t> applyInPlace(uint64_t &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != (uint8_t) 0) {
+                    return std::nullopt;
+                }
+                return parseCBORUnsignedIntInPlace<uint64_t>(output, data, start);
             }
         };
         template <class T>
@@ -1102,6 +1244,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return parseCBORInt<T>(data, start);
             }
+            static std::optional<size_t> applyInPlace(T &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                uint8_t c = (static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0);
+                if (c != (uint8_t) 0 && c != (uint8_t) 0x20) {
+                    return std::nullopt;
+                }
+                return parseCBORIntInPlace<T>(output, data, start);
+            }
         };
         template <class T>
         struct RunCBORDeserializer<T, std::enable_if_t<
@@ -1118,6 +1270,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
             }
+            static std::optional<size_t> applyInPlace(T &output, std::string_view const &data, size_t start) {
+                std::underlying_type_t<T> t;
+                auto ret = RunCBORDeserializer<std::underlying_type_t<T>>::applyInPlace(t, data, start);
+                if (ret) {
+                    output = static_cast<T>(t);
+                }
+                return ret;
+            }
         };
         template <>
         struct RunCBORDeserializer<std::chrono::system_clock::time_point, void> {
@@ -1131,6 +1291,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
             }
+            static std::optional<size_t> applyInPlace(std::chrono::system_clock::time_point &output, std::string_view const &data, size_t start) {
+                int64_t t;
+                auto ret = RunCBORDeserializer<int64_t>::applyInPlace(t, data, start);
+                if (ret) {
+                    output = infra::withtime_utils::epochDurationToTime<std::chrono::microseconds>(t);
+                }
+                return ret;
+            }
         };
         template <>
         struct RunCBORDeserializer<char, void> {
@@ -1143,6 +1311,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 } else {
                     return std::nullopt;
                 }
+            }
+            static std::optional<size_t> applyInPlace(char &output, std::string_view const &data, size_t start) {
+                int8_t t;
+                auto ret = RunCBORDeserializer<int8_t>::applyInPlace(t, data, start);
+                if (ret) {
+                    output = static_cast<char>(t);
+                }
+                return ret;
             }
         };
         template <>
@@ -1165,6 +1341,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::memcpy(&f, &dBuf, 4);
                 return std::tuple<float, size_t> {f, 5};
             }
+            static std::optional<size_t> applyInPlace(float &output, std::string_view const &data, size_t start) {
+                int64_t t;
+                auto tryAsInt = RunCBORDeserializer<int64_t>::applyInPlace(t, data, start);
+                if (tryAsInt) {
+                    output = static_cast<float>(t);
+                    return tryAsInt;
+                }
+                if (data.length() < start+5) {
+                    return std::nullopt;
+                }
+                if (static_cast<uint8_t>(data[start]) != ((uint8_t) 0xE0 | (uint8_t) 26)) {
+                    return std::nullopt;
+                }
+                uint32_t dBuf;
+                data.copy(reinterpret_cast<char *>(&dBuf), 4, start+1);
+                boost::endian::big_to_native_inplace<uint32_t>(dBuf);
+                std::memcpy(&output, &dBuf, 4);
+                return 5;
+            }
         };
         template <>
         struct RunCBORDeserializer<double, void> {
@@ -1186,6 +1381,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::memcpy(&f, &dBuf, 8);
                 return std::tuple<double, size_t> {f, 9};
             }
+            static std::optional<size_t> applyInPlace(double &output, std::string_view const &data, size_t start) {
+                float t;
+                auto tryAsFloat = RunCBORDeserializer<float>::applyInPlace(t, data, start);
+                if (tryAsFloat) {
+                    output = static_cast<double>(t);
+                    return tryAsFloat;
+                }
+                if (data.length() < start+9) {
+                    return std::nullopt;
+                }
+                if (static_cast<uint8_t>(data[start]) != ((uint8_t) 0xE0 | (uint8_t) 27)) {
+                    return std::nullopt;
+                }
+                uint64_t dBuf;
+                data.copy(reinterpret_cast<char *>(&dBuf), 8, start+1);
+                boost::endian::big_to_native_inplace<uint64_t>(dBuf);
+                std::memcpy(&output, &dBuf, 8);
+                return 9;
+            }
         };
         template <>
         struct RunCBORDeserializer<std::string, void> {
@@ -1204,6 +1418,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 return std::tuple<std::string, size_t> {data.substr(start+std::get<1>(*v), std::get<0>(*v)), std::get<0>(*v)+std::get<1>(*v)};
+            }
+            static std::optional<size_t> applyInPlace(std::string &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x60) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                if (data.length() < start+std::get<0>(*v)+std::get<1>(*v)) {
+                    return std::nullopt;
+                }
+                output = data.substr(start+std::get<1>(*v), std::get<0>(*v));
+                return std::get<0>(*v)+std::get<1>(*v);
             }
         };
         template <>
@@ -1224,6 +1455,28 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 return std::tuple<ByteData, size_t> {ByteData { std::string {data.substr(start+std::get<1>(*v), std::get<0>(*v))} }, std::get<0>(*v)+std::get<1>(*v)};
+            }
+            //This is designed for using in other applyInPlace calls
+            static std::optional<size_t> applyInPlace(std::string &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                auto m = (static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0);
+                if (m != 0x40 && m != 0x60) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                if (data.length() < start+std::get<0>(*v)+std::get<1>(*v)) {
+                    return std::nullopt;
+                }
+                output = std::string {data.substr(start+std::get<1>(*v), std::get<0>(*v))};
+                return std::get<0>(*v)+std::get<1>(*v);
+            }
+            static std::optional<size_t> applyInPlace(ByteData &output, std::string_view const &data, size_t start) {
+                return applyInPlace(output.content, data, start);
             }
         };
         template <>
@@ -1258,6 +1511,33 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     , accumLen
                 };
             }
+            static std::optional<size_t> applyInPlace(ByteDataWithTopic &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto n = parseCBORUnsignedInt<size_t>(data, start);
+                if (!n) {
+                    return std::nullopt;
+                }
+                if (std::get<0>(*n) != 2) {
+                    return std::nullopt;
+                }
+                size_t accumLen = std::get<1>(*n);
+                auto topic = RunCBORDeserializer<std::string>::applyInPlace(output.topic, data, start+accumLen);
+                if (!topic) {
+                    return std::nullopt;
+                }
+                accumLen += *topic;
+                auto content = RunCBORDeserializer<ByteData>::applyInPlace(output.content, data, start+accumLen);
+                if (!content) {
+                    return std::nullopt;
+                }
+                accumLen += *content;
+                return accumLen;
+            }
         };
         template <>
         struct RunCBORDeserializer<ByteDataWithID, void> {
@@ -1291,6 +1571,33 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     , accumLen
                 };
             }
+            static std::optional<size_t> applyInPlace(ByteDataWithID &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto n = parseCBORUnsignedInt<size_t>(data, start);
+                if (!n) {
+                    return std::nullopt;
+                }
+                if (std::get<0>(*n) != 2) {
+                    return std::nullopt;
+                }
+                size_t accumLen = std::get<1>(*n);
+                auto id = RunCBORDeserializer<std::string>::applyInPlace(output.id, data, start+accumLen);
+                if (!id) {
+                    return std::nullopt;
+                }
+                accumLen += *id;
+                auto content = RunCBORDeserializer<ByteData>::applyInPlace(output.content, data, start+accumLen);
+                if (!content) {
+                    return std::nullopt;
+                }
+                accumLen += *content;
+                return accumLen;
+            }
         };
         template <class A>
         struct RunCBORDeserializer<std::vector<A>, void> {
@@ -1322,6 +1629,33 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     ret[ii] = std::move(std::get<0>(*r));
                 }
                 return std::tuple<std::vector<A>, size_t> {std::move(ret), len};
+            }
+            static std::optional<size_t> applyInPlace(std::vector<A> &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                output.resize(std::get<0>(*v));
+                for (size_t ii=0; ii<std::get<0>(*v); ++ii) {
+                    auto r = RunCBORDeserializer<A>::applyInPlace(output[ii], data, newStart);
+                    if (!r) {
+                        return std::nullopt;
+                    }
+                    len += *r;
+                    newStart += *r;
+                }
+                return len;
             }
         };
         template <class A, size_t N>
@@ -1357,6 +1691,35 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return std::tuple<std::array<A,N>, size_t> {std::move(ret), len};
             }
+            static std::optional<size_t> applyInPlace(std::array<A,N> &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                if (std::get<0>(*v) != N) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }                
+                for (size_t ii=0; ii<N; ++ii) {
+                    auto r = RunCBORDeserializer<A>::applyInPlace(output[ii], data, newStart);
+                    if (!r) {
+                        return std::nullopt;
+                    }
+                    len += *r;
+                    newStart += *r;
+                }
+                return len;
+            }
         };
         template <size_t N>
         struct RunCBORDeserializer<std::array<char,N>, void> {
@@ -1382,6 +1745,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::memcpy(std::get<0>(*ret).data(), data.data()+start+std::get<1>(*v), N);
                 std::get<1>(*ret) = N+std::get<1>(*v);
                 return ret;
+            }
+            static std::optional<size_t> applyInPlace(std::array<char,N> &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                auto m = (static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0);
+                if (m != 0x40 && m != 0x60) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                if (std::get<0>(*v) != N) {
+                    return std::nullopt;
+                }
+                if (data.length() < start+N+std::get<1>(*v)) {
+                    return std::nullopt;
+                }
+                std::memcpy(output.data(), data.data()+start+std::get<1>(*v), N);
+                return N+std::get<1>(*v);
             }
         };
         template <class A>
@@ -1414,6 +1798,34 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return std::tuple<std::list<A>, size_t> {std::move(ret), len};
             }
+            static std::optional<size_t> applyInPlace(std::list<A> &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                output.clear();
+                for (size_t ii=0; ii<std::get<0>(*v); ++ii) {
+                    output.push_back(A {});
+                    auto r = RunCBORDeserializer<A>::applyInPlace(output.back(), data, newStart);
+                    if (!r) {
+                        return std::nullopt;
+                    }
+                    len += *r;
+                    newStart += *r;
+                }
+                return len;
+            }
         };
         template <class A>
         struct RunCBORDeserializer<std::valarray<A>, void> {
@@ -1444,6 +1856,33 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     ret[ii] = std::move(std::get<0>(*r));
                 }
                 return std::tuple<std::valarray<A>, size_t> {std::move(ret), len};
+            }
+            static std::optional<size_t> applyInPlace(std::valarray<A> &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                output.resize(std::get<0>(*v));
+                for (size_t ii=0; ii<std::get<0>(*v); ++ii) {
+                    auto r = RunCBORDeserializer<A>::applyInPlace(output[ii], data, newStart);
+                    if (!r) {
+                        return std::nullopt;
+                    }
+                    len += *r;
+                    newStart += *r;
+                }
+                return len;
             }
         };
         template <class A>
@@ -1476,6 +1915,34 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return std::tuple<std::deque<A>, size_t> {std::move(ret), len};
             }
+            static std::optional<size_t> applyInPlace(std::deque<A> &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                output.clear();
+                for (size_t ii=0; ii<std::get<0>(*v); ++ii) {
+                    output.push_back(A {});
+                    auto r = RunCBORDeserializer<A>::applyInPlace(output.back(), data, newStart);
+                    if (!r) {
+                        return std::nullopt;
+                    }
+                    len += *r;
+                    newStart += *r;
+                }
+                return len;
+            }
         };
         template <class A, class Cmp>
         struct RunCBORDeserializer<std::set<A, Cmp>, void> {
@@ -1507,6 +1974,34 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return std::tuple<std::set<A, Cmp>, size_t> {std::move(ret), len};
             }
+            static std::optional<size_t> applyInPlace(std::set<A,Cmp> &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                output.clear();
+                for (size_t ii=0; ii<std::get<0>(*v); ++ii) {
+                    auto iter = output.insert(A{});
+                    auto r = RunCBORDeserializer<A>::applyInPlace(*iter, data, newStart);
+                    if (!r) {
+                        return std::nullopt;
+                    }
+                    len += *r;
+                    newStart += *r;
+                }
+                return len;
+            }
         };
         template <class A, class Hash>
         struct RunCBORDeserializer<std::unordered_set<A, Hash>, void> {
@@ -1537,6 +2032,34 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     ret.insert(std::move(std::get<0>(*r)));
                 }
                 return std::tuple<std::unordered_set<A, Hash>, size_t> {std::move(ret), len};
+            }
+            static std::optional<size_t> applyInPlace(std::unordered_set<A,Hash> &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                output.clear();
+                for (size_t ii=0; ii<std::get<0>(*v); ++ii) {
+                    auto iter = output.insert(A {});
+                    auto r = RunCBORDeserializer<A>::applyInPlace(*iter, data, newStart);
+                    if (!r) {
+                        return std::nullopt;
+                    }
+                    len += *r;
+                    newStart += *r;
+                }
+                return len;
             }
         };
         template <class A, class B, class Cmp>
@@ -1575,6 +2098,40 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return std::tuple<std::map<A, B, Cmp>, size_t> {std::move(ret), len};
             }
+            static std::optional<size_t> applyInPlace(std::map<A,B,Cmp> &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0xa0) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                output.clear();
+                for (size_t ii=0; ii<std::get<0>(*v); ++ii) {
+                    auto r1 = RunCBORDeserializer<A>::apply(data, newStart);
+                    if (!r1) {
+                        return std::nullopt;
+                    }
+                    len += std::get<1>(*r1);
+                    newStart += std::get<1>(*r1);
+                    auto iter = output.insert({std::move(std::get<0>(*r1)), B{}}).first;
+                    auto r2 = RunCBORDeserializer<B>::applyInPlace(*iter, data, newStart);
+                    if (!r2) {
+                        return std::nullopt;
+                    }
+                    len += *r2;
+                    newStart += *r2;
+                }
+                return len;
+            }
         };
         template <class A, class B, class Hash>
         struct RunCBORDeserializer<std::unordered_map<A, B, Hash>, void> {
@@ -1612,6 +2169,40 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return std::tuple<std::unordered_map<A, B, Hash>, size_t> {std::move(ret), len};
             }
+            static std::optional<size_t> applyInPlace(std::unordered_map<A,B,Hash> &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0xa0) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                output.clear();
+                for (size_t ii=0; ii<std::get<0>(*v); ++ii) {
+                    auto r1 = RunCBORDeserializer<A>::apply(data, newStart);
+                    if (!r1) {
+                        return std::nullopt;
+                    }
+                    len += std::get<1>(*r1);
+                    newStart += std::get<1>(*r1);
+                    auto iter = output.insert({std::move(std::get<0>(*r1)), B{}}).first;
+                    auto r2 = RunCBORDeserializer<B>::applyInPlace(*iter, data, newStart);
+                    if (!r2) {
+                        return std::nullopt;
+                    }
+                    len += *r2;
+                    newStart += *r2;
+                }
+                return len;
+            }
         };
         template <class A>
         struct RunCBORDeserializer<std::unique_ptr<A>, void> {
@@ -1625,6 +2216,43 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::tuple<std::unique_ptr<A>, size_t> {std::unique_ptr<A>(), std::get<1>(*v)};
                 case 1:
                     return std::tuple<std::unique_ptr<A>, size_t> {std::make_unique<A>(std::move((std::get<0>(*v))[0])), std::get<1>(*v)};
+                default:
+                    return std::nullopt;
+                }
+            }
+            static std::optional<size_t> applyInPlace(std::unique_ptr<A> &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                switch (std::get<0>(*v)) {
+                case 0:
+                    output.reset();
+                    return len;
+                case 1:
+                    {
+                        if (!output) {
+                            output = std::make_unique<A>();
+                        }
+                        auto r = RunCBORDeserializer<A>::applyInPlace(*output, data, newStart);
+                        if (!r) {
+                            return std::nullopt;
+                        }
+                        len += *r;
+                        return len;
+                    }
+                    break;
                 default:
                     return std::nullopt;
                 }
@@ -1646,6 +2274,43 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
             }
+            static std::optional<size_t> applyInPlace(std::shared_ptr<A> &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                switch (std::get<0>(*v)) {
+                case 0:
+                    output.reset();
+                    return len;
+                case 1:
+                    {
+                        if (!output) {
+                            output = std::make_shared<A>();
+                        }
+                        auto r = RunCBORDeserializer<A>::applyInPlace(*output, data, newStart);
+                        if (!r) {
+                            return std::nullopt;
+                        }
+                        len += *r;
+                        return len;
+                    }
+                    break;
+                default:
+                    return std::nullopt;
+                }
+            }
         };
         template <class A>
         struct RunCBORDeserializer<std::optional<A>, void> {
@@ -1663,6 +2328,43 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
             }
+            static std::optional<size_t> applyInPlace(std::optional<A> &output, std::string_view const &data, size_t start) {
+                if (data.length() < start+1) {
+                    return std::nullopt;
+                }
+                if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+                    return std::nullopt;
+                }
+                auto v = parseCBORUnsignedInt<size_t>(data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                size_t len = std::get<1>(*v);
+                size_t newStart = start+len;
+                if (data.length() < newStart) {
+                    return std::nullopt;
+                }
+                switch (std::get<0>(*v)) {
+                case 0:
+                    output = std::nullopt;
+                    return len;
+                case 1:
+                    {
+                        if (!output) {
+                            output = A {};
+                        }
+                        auto r = RunCBORDeserializer<A>::applyInPlace(*output, data, newStart);
+                        if (!r) {
+                            return std::nullopt;
+                        }
+                        len += *r;
+                        return len;
+                    }
+                    break;
+                default:
+                    return std::nullopt;
+                }
+            }
         };
         template <>
         struct RunCBORDeserializer<VoidStruct, void> {
@@ -1676,6 +2378,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return std::tuple<VoidStruct, size_t> {VoidStruct {}, std::get<1>(*r)};
             }
+            static std::optional<size_t> applyInPlace(VoidStruct &output, std::string_view const &data, size_t start) {
+                auto r = RunCBORDeserializer<int32_t>::apply(data, start);
+                if (!r) {
+                    return std::nullopt;
+                }
+                if (std::get<0>(*r) != 0) {
+                    return std::nullopt;
+                }
+                return std::get<1>(*r);
+            }
         };
         template <class T>
         struct RunCBORDeserializer<SingleLayerWrapper<T>, void> {
@@ -1685,6 +2397,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 return std::tuple<SingleLayerWrapper<T>, size_t> {SingleLayerWrapper<T> {std::move(std::get<0>(*r))}, std::get<1>(*r)};
+            }
+            static std::optional<size_t> applyInPlace(SingleLayerWrapper<T> &output, std::string_view const &data, size_t start) {
+                return RunCBORDeserializer<T>::applyInPlace(output.value, data, start);
             }
         };
         template <int32_t N, class T>
@@ -1699,6 +2414,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return std::tuple<SingleLayerWrapperWithID<N,T>, size_t> {SingleLayerWrapperWithID<N,T> {std::move(std::get<1>(std::get<0>(*r)))}, std::get<1>(*r)};
             }
+            static std::optional<size_t> applyInPlace(SingleLayerWrapperWithID<N,T> &output, std::string_view const &data, size_t start) {
+                return RunCBORDeserializer<T>::applyInPlace(output.value, data, start);
+            }
         };
         template <class Mark, class T>
         struct RunCBORDeserializer<SingleLayerWrapperWithTypeMark<Mark, T>, void> {
@@ -1708,6 +2426,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 return std::tuple<SingleLayerWrapperWithTypeMark<Mark, T>, size_t> {SingleLayerWrapperWithTypeMark<Mark, T> {std::move(std::get<0>(*r))}, std::get<1>(*r)};
+            }
+            static std::optional<size_t> applyInPlace(SingleLayerWrapperWithTypeMark<Mark, T> &output, std::string_view const &data, size_t start) {
+                return RunCBORDeserializer<T>::applyInPlace(output.value, data, start);
             }
         };
         template <int32_t N>
@@ -1721,6 +2442,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 return std::tuple<ConstType<N>, size_t> {ConstType<N> {}, std::get<1>(*r)};
+            }
+            static std::optional<size_t> applyInPlace(ConstType<N> &output, std::string_view const &data, size_t start) {
+                auto r = RunCBORDeserializer<int32_t>::apply(data, start);
+                if (!r) {
+                    return std::nullopt;
+                }
+                if (std::get<0>(*r) != N) {
+                    return std::nullopt;
+                }
+                return std::get<1>(*r);
             }
         };
 
@@ -1848,6 +2579,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
             }
+            static bool applyInPlace(T &output, std::string_view const &data) {
+                return applyInPlace(output, std::string {data});
+            }
+            static bool applyInPlace(T &output, std::string const &data) {
+                return output.ParseFromString(data);
+            }
         };
         template <class T>
         struct RunDeserializer<CBOR<T>, void> {
@@ -1865,6 +2602,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
             static std::optional<CBOR<T>> apply(std::string const &data) {
                 return apply(std::string_view {data});
+            }
+            static bool applyInPlace(CBOR<T> &output, std::string_view const &data) {
+                auto r = RunCBORDeserializer<T>::applyInPlace(output.value, data, 0);
+                if (!r) {
+                    return false;
+                }
+                if (*r != data.length()) {
+                    return false;
+                }
+                return true;
+            }
+            static bool applyInPlace(CBOR<T> &output, std::string const &data) {
+                return applyInPlace(output, std::string_view {data});
             }
         };
         template <class T>
@@ -1884,6 +2634,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             static std::optional<CBORWithMaxSizeHint<T>> apply(std::string const &data) {
                 return apply(std::string_view {data});
             }
+            static bool applyInPlace(CBORWithMaxSizeHint<T> &output, std::string_view const &data) {
+                auto r = RunCBORDeserializer<T>::applyInPlace(output.value, data, 0);
+                if (!r) {
+                    return false;
+                }
+                if (*r != data.length()) {
+                    return false;
+                }
+                return true;
+            }
+            static bool applyInPlace(CBORWithMaxSizeHint<T> &output, std::string const &data) {
+                return applyInPlace(output, std::string_view {data});
+            }
         };
         template <>
         struct RunDeserializer<std::string, void> {
@@ -1893,6 +2656,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             static std::optional<std::string> apply(std::string const &data) {
                 return {data};
             }
+            static bool applyInPlace(std::string &output, std::string_view const &data) {
+                output = std::string {data};
+                return true;
+            }
+            static bool applyInPlace(std::string &output, std::string const &data) {
+                output = data;
+                return true;
+            }
         };
         template <>
         struct RunDeserializer<ByteData, void> {
@@ -1901,6 +2672,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
             static std::optional<ByteData> apply(std::string const &data) {
                 return {ByteData {data}};
+            }
+            static bool applyInPlace(ByteData &output, std::string_view const &data) {
+                output.content = std::string {data};
+                return true;
+            }
+            static bool applyInPlace(ByteData &output, std::string const &data) {
+                output.content = data;
+                return true;
             }
         };
         template <size_t N>
@@ -1915,6 +2694,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
             static std::optional<std::array<char, N>> apply(std::string const &data) {
                 return apply(std::string_view {data});
+            }
+            static bool applyInPlace(std::array<char, N> &output, std::string_view const &data) {
+                if (data.length() != N) {
+                    return false;
+                }
+                std::memcpy(output.data(), data.data(), N);
+                return true;
+            }
+            static bool applyInPlace(std::array<char, N> &output, std::string const &data) {
+                return applyInPlace(output, std::string_view {data});
             }
         };
 
@@ -1980,6 +2769,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 t.tm_yday = static_cast<int>(std::get<7>(y));
                 t.tm_isdst = static_cast<int>(std::get<8>(y));
                 return std::tuple<std::tm,size_t> {std::move(t), std::get<1>(*x)};
+            }
+            static std::optional<size_t> applyInPlace(std::tm &output, std::string_view const &data, size_t start) {
+                using TupleType = std::tuple<int *, int *, int *, int *, int *, int *, int *, int *, int *>;
+                TupleType t {
+                    &(output.tm_sec), &(output.tm_min), &(output.tm_hour)
+                    , &(output.tm_mday), &(output.tm_mon), &(output.tm_year)
+                    , &(output.tm_wday), &(output.tm_yday), &(output.tm_isdst)
+                };
+                return RunCBORDeserializerWithNameList<TupleType, 9>::applyInPlace(
+                    t
+                    , data, start
+                    , {"sec", "min", "hour", "mday", "mon", "year", "wday", "yday", "isdst"}
+                );
             }
         };
 
@@ -2053,6 +2855,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     std::move(std::get<0>(std::get<0>(*x))), std::move(std::get<1>(std::get<0>(*x)))
                 }, std::get<1>(*x)};
             }
+            static std::optional<size_t> apply(infra::VersionedData<VersionType,DataType,Cmp> &output, std::string_view const &data, size_t start) {
+                std::tuple<VersionType *, DataType *> t {&(output.version), &(output.data)};
+                return RunCBORDeserializerWithNameList<std::tuple<VersionType *,DataType *>, 2>::applyInPlace(
+                    t
+                    , data, start
+                    , {"version", "data"}
+                );
+            }
         };
         template <class GroupIDType, class VersionType, class DataType, class Cmp>
         struct RunCBORDeserializer<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>, void> {
@@ -2067,6 +2877,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return std::tuple<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>,size_t> {infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> {
                     std::move(std::get<0>(std::get<0>(*x))), std::move(std::get<1>(std::get<0>(*x))), std::move(std::get<2>(std::get<0>(*x)))
                 }, std::get<1>(*x)};
+            }
+            static std::optional<size_t> apply(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> &output, std::string_view const &data, size_t start) {
+                std::tuple<GroupIDType *, VersionType *, DataType *> t {&(output.groupID), &(output.version), &(output.data)};
+                return RunCBORDeserializerWithNameList<std::tuple<GroupIDType *, VersionType *,DataType *>, 3>::applyInPlace(
+                    t
+                    , data, start
+                    , {"groupID", "version", "data"}
+                );
             }
         };
         template <class VersionType, class DataType, class Cmp>
@@ -2101,6 +2919,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             static std::optional<infra::VersionedData<VersionType,DataType,Cmp>> apply(std::string const &data) {
                 return apply(std::string_view {data});
             }
+            static bool applyInPlace(infra::VersionedData<VersionType,DataType,Cmp> &output, std::string_view const &data) {
+                auto x = RunCBORDeserializer<infra::VersionedData<VersionType,DataType>>::applyInPlace(output, data, 0);
+                if (!x) {
+                    return false;
+                }
+                if (*x != data.length()) {
+                    return false;
+                }
+                return true;
+            }
+            static bool applyInPlace(infra::VersionedData<VersionType,DataType,Cmp> &output, std::string const &data) {
+                return applyInPlace(output, std::string_view {data});
+            }
         };
         template <class GroupIDType, class VersionType, class DataType, class Cmp>
         struct RunDeserializer<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>, void> {
@@ -2115,6 +2946,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
             static std::optional<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp>> apply(std::string const &data) {
                 return apply(std::string_view {data});
+            }
+            static bool applyInPlace(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> &output, std::string_view const &data) {
+                auto x = RunCBORDeserializer<infra::GroupedVersionedData<GroupIDType,VersionType,DataType>>::applyInPlace(output, data, 0);
+                if (!x) {
+                    return false;
+                }
+                if (*x != data.length()) {
+                    return false;
+                }
+                return true;
+            }
+            static bool applyInPlace(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> &output, std::string const &data) {
+                return applyInPlace(output, std::string_view {data});
             }
         };
 
@@ -2142,6 +2986,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             auto t = RunCBORDeserializer<ByteData>::apply(data, start);
             if (t) {
                 auto x = RunDeserializer<T>::apply(std::get<0>(*t).content);
+                if (x) {
+                    return std::tuple<T,size_t> { std::move(*x), std::get<1>(*t) };
+                } else {
+                    return std::nullopt;
+                }     
+            } else {
+                return std::nullopt;
+            }
+        }
+        template <class T, class Enable>
+        std::optional<size_t> RunCBORDeserializer<T,Enable>::applyInPlace(T &output, std::string_view const &data, size_t start) {
+            auto t = RunCBORDeserializer<ByteData>::apply(data, start);
+            if (t) {
+                auto x = RunDeserializer<T>::applyInPlace(output, std::get<0>(*t).content);
                 if (x) {
                     return std::tuple<T,size_t> { std::move(*x), std::get<1>(*t) };
                 } else {

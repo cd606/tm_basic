@@ -134,6 +134,15 @@ struct RunCBORDeserializer<std::tuple<>> {
             }
         };
     }
+    static std::optional<size_t> apply(std::tuple<> &output, std::string_view const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if (static_cast<uint8_t>(data[start]) != 0x80) {
+            return std::nullopt;
+        }
+        return 1;
+    }
 };
 template <>
 struct RunCBORDeserializerWithNameList<std::tuple<>, 0> {
@@ -150,6 +159,15 @@ struct RunCBORDeserializerWithNameList<std::tuple<>, 0> {
                 , 1
             }
         };
+    }
+    static std::optional<size_t> applyInPlace(std::tuple<> &output, std::string_view const &data, size_t start, std::array<std::string, 0> const &nameList) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if (static_cast<uint8_t>(data[start]) != 0xA0) {
+            return std::nullopt;
+        }
+        return 1;
     }
 };
 
@@ -243,6 +261,31 @@ struct RunCBORDeserializer<std::tuple<As...>> {
             }
         };
     }
+    static std::optional<std::tuple<std::tuple<As...>,size_t>> applyInPlace(std::tuple<As...> &output, std::string_view const &data, size_t start) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0x80) {
+            return std::nullopt;
+        }
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != sizeof...(As)) {
+            return std::nullopt;
+        }
+        size_t accumLen = std::get<1>(*n);
+
+        if (!bytedata_tuple_helper::runTupleCBORDeserializerPiece<
+            std::tuple<As...>
+            , 0
+            , As...
+        >(output, data, start+accumLen, accumLen)) {
+            return std::nullopt;
+        }
+        return accumLen;
+    }
 };
 template <class... As, size_t N>
 struct RunCBORDeserializerWithNameList<std::tuple<As...>, N> {
@@ -292,5 +335,47 @@ struct RunCBORDeserializerWithNameList<std::tuple<As...>, N> {
                 std::move(ret), accumLen
             }
         };
+    }
+    static std::optional<size_t> applyInPlace(std::tuple<As...> &output, std::string_view const &data, size_t start, std::array<std::string, N> const &nameList) {
+        static_assert(N == sizeof...(As), "name list size must match tuple size");
+
+        auto parsingMap = bytedata_tuple_helper::buildCBORParsingMap<As...>(nameList);
+
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if ((static_cast<uint8_t>(data[start]) & (uint8_t) 0xe0) != 0xa0) {
+            return std::nullopt;
+        }
+        auto n = parseCBORUnsignedInt<size_t>(data, start);
+        if (!n) {
+            return std::nullopt;
+        }
+        if (std::get<0>(*n) != sizeof...(As)) {
+            return std::nullopt;
+        }
+
+        size_t accumLen = std::get<1>(*n);        
+        for (size_t ii=0; ii<sizeof...(As); ++ii) {
+            auto nm = RunCBORDeserializer<std::string>::apply(data, start+accumLen);
+            if (!nm) {
+                return std::nullopt;
+            }
+            accumLen += std::get<1>(*nm);
+            auto parserIter = parsingMap.find(std::get<0>(*nm));
+            if (parserIter == parsingMap.end()) {
+                return std::nullopt;
+            }
+            if (std::get<0>(parserIter->second)) {
+                return std::nullopt;
+            }
+            if (!(std::get<1>(parserIter->second))(
+                output, data, start+accumLen, accumLen
+            )) {
+                return std::nullopt;
+            }
+            std::get<0>(parserIter->second) = true;
+        }
+        return accumLen;
     }
 };
