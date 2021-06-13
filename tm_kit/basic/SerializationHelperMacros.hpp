@@ -130,6 +130,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR(r, data, elem) \
     BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem)) const *
+#define TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_PTR(r, data, elem) \
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) \
+    TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem)) *
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE(r, data, elem) \
     BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem))
@@ -252,6 +255,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                     }, std::get<1>(*t) \
                 }; \
             } \
+            static std::optional<size_t> applyInPlace(name &x, std::string_view const &s, size_t start) { \
+                std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_PTR,_,content) \
+                > y { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_PTRS,_,content) \
+                }; \
+                return RunCBORDeserializerWithNameList<std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_PTR,_,content) \
+                    >, BOOST_PP_SEQ_SIZE(content) \
+                >::applyInPlace(y, s, start, { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_NAMES,_,content) \
+                }); \
+            } \
         }; \
         template <> \
         struct RunDeserializer<name, void> { \
@@ -264,6 +280,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             } \
             static std::optional<name> apply(std::string const &s) { \
                 return apply(std::string_view {s}); \
+            } \
+            static bool applyInPlace(name &output, std::string_view const &s) { \
+                auto t = RunCBORDeserializer<name, void>::applyInPlace(output, s, 0); \
+                if (!t) { \
+                    return false; \
+                } \
+                if (*t != s.length()) { \
+                    return false; \
+                } \
+                return true; \
+            } \
+            static bool applyInPlace(name &output, std::string const &s) { \
+                return applyInPlace(output, std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -286,6 +315,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                     }, std::get<1>(*t) \
                 }; \
             } \
+            static std::optional<size_t> applyInPlace(name &x, std::string_view const &s, size_t start) { \
+                std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_PTR,_,content) \
+                > y { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_PTRS,_,content) \
+                }; \
+                return RunCBORDeserializer<std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_PTR,_,content) \
+                    > \
+                >::applyInPlace(y, s, start); \
+            } \
         }; \
         template <> \
         struct RunDeserializer<name, void> { \
@@ -298,6 +338,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             } \
             static std::optional<name> apply(std::string const &s) { \
                 return apply(std::string_view {s}); \
+            } \
+            static bool applyInPlace(name &output, std::string_view const &s) { \
+                auto t = RunCBORDeserializer<name, void>::applyInPlace(output, s, 0); \
+                if (!t) { \
+                    return false; \
+                } \
+                if (*t != s.length()) { \
+                    return false; \
+                } \
+                return true; \
+            } \
+            static bool applyInPlace(name &output, std::string const &s) { \
+                return applyInPlace(output, std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -365,6 +418,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                     name {}, std::get<1>(*t) \
                 }; \
             } \
+            static std::optional<size_t> applyInPlace(name &output, std::string_view const &s, size_t start) { \
+                std::tuple<> x; \
+                return RunCBORDeserializerWithNameList<std::tuple<>, 0>::applyInPlace(x, s, start, {}); \
+            } \
         }; \
         template <> \
         struct RunDeserializer<name, void> { \
@@ -377,6 +434,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             } \
             static std::optional<name> apply(std::string const &s) { \
                 return apply(std::string_view {s}); \
+            } \
+            static bool applyInPlace(name &output, std::string_view const &s) { \
+                auto t = RunCBORDeserializer<name, void>::applyInPlace(output, s, 0); \
+                if (!t) { \
+                    return false; \
+                } \
+                if (*t != s.length()) { \
+                    return false; \
+                } \
+                return true; \
+            } \
+            static bool applyInPlace(name &output, std::string const &s) { \
+                return applyInPlace(output, std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -394,6 +464,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                     name {}, std::get<1>(*t) \
                 }; \
             } \
+            static std::optional<size_t> applyInPlace(name &output, std::string_view const &s, size_t start) { \
+                std::tuple<> x; \
+                return RunCBORDeserializer<std::tuple<>, 0>::applyInPlace(x, s, start); \
+            } \
         }; \
         template <> \
         struct RunDeserializer<name, void> { \
@@ -406,6 +480,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             } \
             static std::optional<name> apply(std::string const &s) { \
                 return apply(std::string_view {s}); \
+            } \
+            static bool applyInPlace(name &output, std::string_view const &s) { \
+                auto t = RunCBORDeserializer<name, void>::applyInPlace(output, s, 0); \
+                if (!t) { \
+                    return false; \
+                } \
+                if (*t != s.length()) { \
+                    return false; \
+                } \
+                return true; \
+            } \
+            static bool applyInPlace(name &output, std::string const &s) { \
+                return applyInPlace(output, std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -516,6 +603,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                     }, std::get<1>(*t) \
                 }; \
             } \
+            static std::optional<size_t> applyInPlace(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> &x, std::string_view const &s, size_t start) { \
+                std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_PTR,_,content) \
+                > y { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_PTRS,_,content) \
+                }; \
+                return RunCBORDeserializerWithNameList<std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_PTR,_,content) \
+                    >, BOOST_PP_SEQ_SIZE(content) \
+                >::applyInPlace(y, s, start, { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_NAMES,_,content) \
+                }); \
+            } \
         }; \
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
         struct RunDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
@@ -528,6 +628,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             } \
             static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
                 return apply(std::string_view {s}); \
+            } \
+            static bool applyInPlace(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> &output, std::string_view const &s) { \
+                auto t = RunCBORDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void>::applyInPlace(output, s, 0); \
+                if (!t) { \
+                    return false; \
+                } \
+                if (*t != s.length()) { \
+                    return false; \
+                } \
+                return true; \
+            } \
+            static bool applyInPlace(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> &output, std::string const &s) { \
+                return applyInPlace(output, std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -550,6 +663,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                     }, std::get<1>(*t) \
                 }; \
             } \
+            static std::optional<size_t> applyInPlace(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> &x, std::string_view const &s, size_t start) { \
+                std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_PTR,_,content) \
+                > y { \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_GET_FIELD_PTRS,_,content) \
+                }; \
+                return RunCBORDeserializer<std::tuple< \
+                    BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_PTR,_,content) \
+                    > \
+                >::applyInPlace(y, s, start); \
+            } \
         }; \
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
         struct RunDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
@@ -562,6 +686,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             } \
             static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
                 return apply(std::string_view {s}); \
+            } \
+            static bool applyInPlace(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> &output, std::string_view const &s) { \
+                auto t = RunCBORDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void>::applyInPlace(output, s, 0); \
+                if (!t) { \
+                    return false; \
+                } \
+                if (*t != s.length()) { \
+                    return false; \
+                } \
+                return true; \
+            } \
+            static bool applyInPlace(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> &output, std::string const &s) { \
+                return applyInPlace(output, std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -629,6 +766,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                     name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> {}, std::get<1>(*t) \
                 }; \
             } \
+            static std::optional<size_t> applyInPlace(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> &output, std::string_view const &s, size_t start) { \
+                std::tuple<> x; \
+                return RunCBORDeserializerWithNameList<std::tuple<>, 0>::applyInPlace(x, s, start, {}); \
+            } \
         }; \
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
         struct RunDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
@@ -641,6 +782,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             } \
             static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
                 return apply(std::string_view {s}); \
+            } \
+            static bool applyInPlace(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> &output, std::string_view const &s) { \
+                auto t = RunCBORDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void>::applyInPlace(output, s, 0); \
+                if (!t) { \
+                    return false; \
+                } \
+                if (*t != s.length()) { \
+                    return false; \
+                } \
+                return true; \
+            } \
+            static bool applyInPlace(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> &output, std::string const &s) { \
+                return applyInPlace(output, std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -658,6 +812,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                     name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> {}, std::get<1>(*t) \
                 }; \
             } \
+            static std::optional<size_t> applyInPlace(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> &output, std::string_view const &s, size_t start) { \
+                std::tuple<> x; \
+                return RunCBORDeserializer<std::tuple<>>::applyInPlace(x, s, start); \
+            } \
         }; \
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
         struct RunDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
@@ -670,6 +828,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             } \
             static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
                 return apply(std::string_view {s}); \
+            } \
+            static bool applyInPlace(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> &output, std::string_view const &s) { \
+                auto t = RunCBORDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void>::applyInPlace(output, s, 0); \
+                if (!t) { \
+                    return false; \
+                } \
+                if (*t != s.length()) { \
+                    return false; \
+                } \
+                return true; \
+            } \
+            static bool applyInPlace(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> &output, std::string const &s) { \
+                return applyInPlace(output, std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -904,6 +1075,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                     iter->second, std::get<1>(*t) \
                 }; \
             } \
+            static std::optional<size_t> applyInPlace(name &output, std::string_view const &s, size_t start) { \
+                auto t = RunCBORDeserializer<std::string>::apply(s, start); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                auto iter = S_MAP.find(std::get<0>(*t)); \
+                if (iter == S_MAP.end()) { \
+                    return std::nullopt; \
+                } \
+                output = iter->second; \
+                return std::get<1>(*t); \
+            } \
         }; \
         template <> \
         struct RunDeserializer<name, void> { \
@@ -916,6 +1099,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             } \
             static std::optional<name> apply(std::string const &s) { \
                 return apply(std::string_view {s}); \
+            } \
+            static bool applyInPlace(name &output, std::string_view const &s) { \
+                auto t = RunCBORDeserializer<name, void>::applyInPlace(output, s, 0); \
+                if (!t) { \
+                    return false; \
+                } \
+                if (*t != s.length()) { \
+                    return false; \
+                } \
+                return true; \
+            } \
+            static bool applyInPlace(name &output, std::string const &s) { \
+                return applyInPlace(output, std::string_view {s}); \
             } \
         }; \
     } } } } }
@@ -988,6 +1184,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                     iter->second, std::get<1>(*t) \
                 }; \
             } \
+            static std::optional<size_t> applyInPlace(name &output, std::string_view const &s, size_t start) { \
+                auto t = RunCBORDeserializer<std::string>::apply(s, start); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                auto iter = S_MAP.find(std::get<0>(*t)); \
+                if (iter == S_MAP.end()) { \
+                    return std::nullopt; \
+                } \
+                output = iter->second; \
+                return std::get<1>(*t); \
+            } \
         }; \
         template <> \
         struct RunDeserializer<name, void> { \
@@ -1000,6 +1208,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             } \
             static std::optional<name> apply(std::string const &s) { \
                 return apply(std::string_view {s}); \
+            } \
+            static bool applyInPlace(name &output, std::string_view const &s) { \
+                auto t = RunCBORDeserializer<name, void>::applyInPlace(output, s, 0); \
+                if (!t) { \
+                    return false; \
+                } \
+                if (*t != s.length()) { \
+                    return false; \
+                } \
+                return true; \
+            } \
+            static bool applyInPlace(name &output, std::string const &s) { \
+                return applyInPlace(output, std::string_view {s}); \
             } \
         }; \
     } } } } }

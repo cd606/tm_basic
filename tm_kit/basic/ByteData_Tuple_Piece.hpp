@@ -134,7 +134,7 @@ struct RunCBORDeserializer<std::tuple<>> {
             }
         };
     }
-    static std::optional<size_t> apply(std::tuple<> &output, std::string_view const &data, size_t start) {
+    static std::optional<size_t> applyInPlace(std::tuple<> &output, std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -261,7 +261,7 @@ struct RunCBORDeserializer<std::tuple<As...>> {
             }
         };
     }
-    static std::optional<std::tuple<std::tuple<As...>,size_t>> applyInPlace(std::tuple<As...> &output, std::string_view const &data, size_t start) {
+    static std::optional<size_t> applyInPlace(std::tuple<As...> &output, std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
