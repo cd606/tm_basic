@@ -122,6 +122,9 @@ struct RunCBORDeserializer<std::variant<A0,A1>> {
         switch (std::get<0>(*which)) {
         case 0:
             {
+                if (output.index() != 0) {
+                    output = std::variant<A0,A1> {std::in_place_index<0>, A0 {}};
+                }
                 auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -131,6 +134,9 @@ struct RunCBORDeserializer<std::variant<A0,A1>> {
             }
         case 1:
             {
+                if (output.index() != 1) {
+                    output = std::variant<A0,A1> {std::in_place_index<1>, A1 {}};
+                }
                 auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -286,6 +292,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2>> {
         switch (std::get<0>(*which)) {
         case 0:
             {
+                if (output.index() != 0) {
+                    output = std::variant<A0,A1,A2> {std::in_place_index<0>, A0 {}};
+                }
                 auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -295,6 +304,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2>> {
             }
         case 1:
             {
+                if (output.index() != 1) {
+                    output = std::variant<A0,A1,A2> {std::in_place_index<1>, A1 {}};
+                }
                 auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -304,6 +316,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2>> {
             }
         case 2:
             {
+                if (output.index() != 2) {
+                    output = std::variant<A0,A1,A2> {std::in_place_index<2>, A2 {}};
+                }
                 auto res = RunCBORDeserializer<A2>::applyInPlace(std::get<2>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -480,6 +495,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3>> {
         switch (std::get<0>(*which)) {
         case 0:
             {
+                if (output.index() != 0) {
+                    output = std::variant<A0,A1,A2,A3> {std::in_place_index<0>, A0 {}};
+                }
                 auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -489,6 +507,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3>> {
             }
         case 1:
             {
+                if (output.index() != 1) {
+                    output = std::variant<A0,A1,A2,A3> {std::in_place_index<1>, A1 {}};
+                }
                 auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -498,6 +519,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3>> {
             }
         case 2:
             {
+                if (output.index() != 2) {
+                    output = std::variant<A0,A1,A2,A3> {std::in_place_index<2>, A2 {}};
+                }
                 auto res = RunCBORDeserializer<A2>::applyInPlace(std::get<2>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -507,6 +531,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3>> {
             }
         case 3:
             {
+                if (output.index() != 3) {
+                    output = std::variant<A0,A1,A2,A3> {std::in_place_index<3>, A3 {}};
+                }
                 auto res = RunCBORDeserializer<A3>::applyInPlace(std::get<3>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -704,6 +731,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4>> {
         switch (std::get<0>(*which)) {
         case 0:
             {
+                if (output.index() != 0) {
+                    output = std::variant<A0,A1,A2,A3,A4> {std::in_place_index<0>, A0 {}};
+                }
                 auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -713,6 +743,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4>> {
             }
         case 1:
             {
+                if (output.index() != 1) {
+                    output = std::variant<A0,A1,A2,A3,A4> {std::in_place_index<1>, A1 {}};
+                }
                 auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -722,6 +755,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4>> {
             }
         case 2:
             {
+                if (output.index() != 2) {
+                    output = std::variant<A0,A1,A2,A3,A4> {std::in_place_index<2>, A2 {}};
+                }
                 auto res = RunCBORDeserializer<A2>::applyInPlace(std::get<2>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -731,6 +767,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4>> {
             }
         case 3:
             {
+                if (output.index() != 3) {
+                    output = std::variant<A0,A1,A2,A3,A4> {std::in_place_index<3>, A3 {}};
+                }
                 auto res = RunCBORDeserializer<A3>::applyInPlace(std::get<3>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -740,6 +779,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4>> {
             }
         case 4:
             {
+                if (output.index() != 4) {
+                    output = std::variant<A0,A1,A2,A3,A4> {std::in_place_index<4>, A4 {}};
+                }
                 auto res = RunCBORDeserializer<A4>::applyInPlace(std::get<4>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -958,6 +1000,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
         switch (std::get<0>(*which)) {
         case 0:
             {
+                if (output.index() != 0) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5> {std::in_place_index<0>, A0 {}};
+                }
                 auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -967,6 +1012,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
             }
         case 1:
             {
+                if (output.index() != 1) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5> {std::in_place_index<1>, A1 {}};
+                }
                 auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -976,6 +1024,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
             }
         case 2:
             {
+                if (output.index() != 2) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5> {std::in_place_index<2>, A2 {}};
+                }
                 auto res = RunCBORDeserializer<A2>::applyInPlace(std::get<2>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -985,6 +1036,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
             }
         case 3:
             {
+                if (output.index() != 3) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5> {std::in_place_index<3>, A3 {}};
+                }
                 auto res = RunCBORDeserializer<A3>::applyInPlace(std::get<3>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -994,6 +1048,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
             }
         case 4:
             {
+                if (output.index() != 4) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5> {std::in_place_index<4>, A4 {}};
+                }
                 auto res = RunCBORDeserializer<A4>::applyInPlace(std::get<4>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1003,6 +1060,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5>> {
             }
         case 5:
             {
+                if (output.index() != 5) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5> {std::in_place_index<5>, A5 {}};
+                }
                 auto res = RunCBORDeserializer<A5>::applyInPlace(std::get<5>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1242,6 +1302,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
         switch (std::get<0>(*which)) {
         case 0:
             {
+                if (output.index() != 0) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6> {std::in_place_index<0>, A0 {}};
+                }
                 auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1251,6 +1314,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
             }
         case 1:
             {
+                if (output.index() != 1) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6> {std::in_place_index<1>, A1 {}};
+                }
                 auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1260,6 +1326,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
             }
         case 2:
             {
+                if (output.index() != 2) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6> {std::in_place_index<2>, A2 {}};
+                }
                 auto res = RunCBORDeserializer<A2>::applyInPlace(std::get<2>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1269,6 +1338,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
             }
         case 3:
             {
+                if (output.index() != 3) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6> {std::in_place_index<3>, A3 {}};
+                }
                 auto res = RunCBORDeserializer<A3>::applyInPlace(std::get<3>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1278,6 +1350,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
             }
         case 4:
             {
+                if (output.index() != 4) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6> {std::in_place_index<4>, A4 {}};
+                }
                 auto res = RunCBORDeserializer<A4>::applyInPlace(std::get<4>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1287,6 +1362,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
             }
         case 5:
             {
+                if (output.index() != 5) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6> {std::in_place_index<5>, A5 {}};
+                }
                 auto res = RunCBORDeserializer<A5>::applyInPlace(std::get<5>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1296,6 +1374,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6>> {
             }
         case 6:
             {
+                if (output.index() != 6) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6> {std::in_place_index<6>, A6 {}};
+                }
                 auto res = RunCBORDeserializer<A6>::applyInPlace(std::get<6>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1556,6 +1637,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
         switch (std::get<0>(*which)) {
         case 0:
             {
+                if (output.index() != 0) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7> {std::in_place_index<0>, A0 {}};
+                }
                 auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1565,6 +1649,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
             }
         case 1:
             {
+                if (output.index() != 1) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7> {std::in_place_index<1>, A1 {}};
+                }
                 auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1574,6 +1661,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
             }
         case 2:
             {
+                if (output.index() != 2) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7> {std::in_place_index<2>, A2 {}};
+                }
                 auto res = RunCBORDeserializer<A2>::applyInPlace(std::get<2>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1583,6 +1673,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
             }
         case 3:
             {
+                if (output.index() != 3) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7> {std::in_place_index<3>, A3 {}};
+                }
                 auto res = RunCBORDeserializer<A3>::applyInPlace(std::get<3>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1592,6 +1685,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
             }
         case 4:
             {
+                if (output.index() != 4) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7> {std::in_place_index<4>, A4 {}};
+                }
                 auto res = RunCBORDeserializer<A4>::applyInPlace(std::get<4>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1601,6 +1697,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
             }
         case 5:
             {
+                if (output.index() != 5) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7> {std::in_place_index<5>, A5 {}};
+                }
                 auto res = RunCBORDeserializer<A5>::applyInPlace(std::get<5>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1610,6 +1709,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
             }
         case 6:
             {
+                if (output.index() != 6) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7> {std::in_place_index<6>, A6 {}};
+                }
                 auto res = RunCBORDeserializer<A6>::applyInPlace(std::get<6>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1619,6 +1721,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7>> {
             }
         case 7:
             {
+                if (output.index() != 7) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7> {std::in_place_index<7>, A7 {}};
+                }
                 auto res = RunCBORDeserializer<A7>::applyInPlace(std::get<7>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1900,6 +2005,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
         switch (std::get<0>(*which)) {
         case 0:
             {
+                if (output.index() != 0) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::in_place_index<0>, A0 {}};
+                }
                 auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1909,6 +2017,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             }
         case 1:
             {
+                if (output.index() != 1) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::in_place_index<1>, A1 {}};
+                }
                 auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1918,6 +2029,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             }
         case 2:
             {
+                if (output.index() != 2) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::in_place_index<2>, A2 {}};
+                }
                 auto res = RunCBORDeserializer<A2>::applyInPlace(std::get<2>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1927,6 +2041,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             }
         case 3:
             {
+                if (output.index() != 3) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::in_place_index<3>, A3 {}};
+                }
                 auto res = RunCBORDeserializer<A3>::applyInPlace(std::get<3>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1936,6 +2053,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             }
         case 4:
             {
+                if (output.index() != 4) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::in_place_index<4>, A4 {}};
+                }
                 auto res = RunCBORDeserializer<A4>::applyInPlace(std::get<4>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1945,6 +2065,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             }
         case 5:
             {
+                if (output.index() != 5) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::in_place_index<5>, A5 {}};
+                }
                 auto res = RunCBORDeserializer<A5>::applyInPlace(std::get<5>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1954,6 +2077,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             }
         case 6:
             {
+                if (output.index() != 6) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::in_place_index<6>, A6 {}};
+                }
                 auto res = RunCBORDeserializer<A6>::applyInPlace(std::get<6>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1963,6 +2089,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             }
         case 7:
             {
+                if (output.index() != 7) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::in_place_index<7>, A7 {}};
+                }
                 auto res = RunCBORDeserializer<A7>::applyInPlace(std::get<7>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -1972,6 +2101,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8>> {
             }
         case 8:
             {
+                if (output.index() != 8) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8> {std::in_place_index<8>, A8 {}};
+                }
                 auto res = RunCBORDeserializer<A8>::applyInPlace(std::get<8>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -2274,6 +2406,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
         switch (std::get<0>(*which)) {
         case 0:
             {
+                if (output.index() != 0) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::in_place_index<0>, A0 {}};
+                }
                 auto res = RunCBORDeserializer<A0>::applyInPlace(std::get<0>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -2283,6 +2418,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 1:
             {
+                if (output.index() != 1) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::in_place_index<1>, A1 {}};
+                }
                 auto res = RunCBORDeserializer<A1>::applyInPlace(std::get<1>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -2292,6 +2430,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 2:
             {
+                if (output.index() != 2) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::in_place_index<2>, A2 {}};
+                }
                 auto res = RunCBORDeserializer<A2>::applyInPlace(std::get<2>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -2301,6 +2442,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 3:
             {
+                if (output.index() != 3) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::in_place_index<3>, A3 {}};
+                }
                 auto res = RunCBORDeserializer<A3>::applyInPlace(std::get<3>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -2310,6 +2454,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 4:
             {
+                if (output.index() != 4) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::in_place_index<4>, A4 {}};
+                }
                 auto res = RunCBORDeserializer<A4>::applyInPlace(std::get<4>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -2319,6 +2466,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 5:
             {
+                if (output.index() != 5) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::in_place_index<5>, A5 {}};
+                }
                 auto res = RunCBORDeserializer<A5>::applyInPlace(std::get<5>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -2328,6 +2478,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 6:
             {
+                if (output.index() != 6) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::in_place_index<6>, A6 {}};
+                }
                 auto res = RunCBORDeserializer<A6>::applyInPlace(std::get<6>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -2337,6 +2490,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 7:
             {
+                if (output.index() != 7) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::in_place_index<7>, A7 {}};
+                }
                 auto res = RunCBORDeserializer<A7>::applyInPlace(std::get<7>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -2346,6 +2502,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 8:
             {
+                if (output.index() != 8) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::in_place_index<8>, A8 {}};
+                }
                 auto res = RunCBORDeserializer<A8>::applyInPlace(std::get<8>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
@@ -2355,6 +2514,9 @@ struct RunCBORDeserializer<std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9>> {
             }
         case 9:
             {
+                if (output.index() != 9) {
+                    output = std::variant<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9> {std::in_place_index<9>, A9 {}};
+                }
                 auto res = RunCBORDeserializer<A9>::applyInPlace(std::get<9>(output), data, start+accumLen);
                 if (!res) {
                     return std::nullopt;
