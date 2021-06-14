@@ -2123,7 +2123,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     len += std::get<1>(*r1);
                     newStart += std::get<1>(*r1);
                     auto iter = output.insert({std::move(std::get<0>(*r1)), B{}}).first;
-                    auto r2 = RunCBORDeserializer<B>::applyInPlace(*iter, data, newStart);
+                    auto r2 = RunCBORDeserializer<B>::applyInPlace(iter->second, data, newStart);
                     if (!r2) {
                         return std::nullopt;
                     }
@@ -2194,7 +2194,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     len += std::get<1>(*r1);
                     newStart += std::get<1>(*r1);
                     auto iter = output.insert({std::move(std::get<0>(*r1)), B{}}).first;
-                    auto r2 = RunCBORDeserializer<B>::applyInPlace(*iter, data, newStart);
+                    auto r2 = RunCBORDeserializer<B>::applyInPlace(iter->second, data, newStart);
                     if (!r2) {
                         return std::nullopt;
                     }
@@ -2855,7 +2855,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     std::move(std::get<0>(std::get<0>(*x))), std::move(std::get<1>(std::get<0>(*x)))
                 }, std::get<1>(*x)};
             }
-            static std::optional<size_t> apply(infra::VersionedData<VersionType,DataType,Cmp> &output, std::string_view const &data, size_t start) {
+            static std::optional<size_t> applyInPlace(infra::VersionedData<VersionType,DataType,Cmp> &output, std::string_view const &data, size_t start) {
                 std::tuple<VersionType *, DataType *> t {&(output.version), &(output.data)};
                 return RunCBORDeserializerWithNameList<std::tuple<VersionType *,DataType *>, 2>::applyInPlace(
                     t
@@ -2878,7 +2878,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     std::move(std::get<0>(std::get<0>(*x))), std::move(std::get<1>(std::get<0>(*x))), std::move(std::get<2>(std::get<0>(*x)))
                 }, std::get<1>(*x)};
             }
-            static std::optional<size_t> apply(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> &output, std::string_view const &data, size_t start) {
+            static std::optional<size_t> applyInPlace(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,Cmp> &output, std::string_view const &data, size_t start) {
                 std::tuple<GroupIDType *, VersionType *, DataType *> t {&(output.groupID), &(output.version), &(output.data)};
                 return RunCBORDeserializerWithNameList<std::tuple<GroupIDType *, VersionType *,DataType *>, 3>::applyInPlace(
                     t
