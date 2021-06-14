@@ -1992,11 +1992,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 output.clear();
                 for (size_t ii=0; ii<std::get<0>(*v); ++ii) {
-                    auto iter = output.insert(A{});
-                    auto r = RunCBORDeserializer<A>::applyInPlace(*iter, data, newStart);
+                    A a;
+                    auto r = RunCBORDeserializer<A>::applyInPlace(a, data, newStart);
                     if (!r) {
                         return std::nullopt;
                     }
+                    output.insert(std::move(a));
                     len += *r;
                     newStart += *r;
                 }
@@ -2051,11 +2052,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 output.clear();
                 for (size_t ii=0; ii<std::get<0>(*v); ++ii) {
-                    auto iter = output.insert(A {});
-                    auto r = RunCBORDeserializer<A>::applyInPlace(*iter, data, newStart);
+                    A a;
+                    auto r = RunCBORDeserializer<A>::applyInPlace(a, data, newStart);
                     if (!r) {
                         return std::nullopt;
                     }
+                    output.insert(std::move(a));
                     len += *r;
                     newStart += *r;
                 }
@@ -3001,7 +3003,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             if (t) {
                 auto x = RunDeserializer<T>::applyInPlace(output, std::get<0>(*t).content);
                 if (x) {
-                    return std::tuple<T,size_t> { std::move(*x), std::get<1>(*t) };
+                    return std::move(x);
                 } else {
                     return std::nullopt;
                 }     
