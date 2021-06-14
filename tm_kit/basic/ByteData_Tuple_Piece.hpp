@@ -57,6 +57,27 @@ namespace bytedata_tuple_helper {
             return true;
         }
     }
+    template <class TupleType, int Idx, class CurrentA>
+    int32_t oneCBORFieldInPlaceParsingFunc(TupleType &output, std::string_view const &data, size_t start, size_t &accumLen) {
+        auto a = RunCBORDeserializer<CurrentA>::applyInPlace(std::get<Idx>(output), data, start);
+        if (!a) {
+            return -1;
+        }
+        accumLen += *a;
+        return static_cast<int32_t>(*a);
+    }
+    template <class TupleType, int Idx, class FirstRemainingA, class... OtherRemainingAs>
+    bool runTupleCBORDeserializerInPlacePiece(TupleType &output, std::string_view const &data, size_t start, size_t &accumLen) {
+        int32_t oneParsingRet = oneCBORFieldInPlaceParsingFunc<TupleType, Idx, FirstRemainingA>(output, data, start, accumLen);
+        if (oneParsingRet < 0) {
+            return false;
+        }
+        if constexpr (sizeof...(OtherRemainingAs) > 0) {
+            return runTupleCBORDeserializerInPlacePiece<TupleType, Idx+1, OtherRemainingAs...>(output, data, start+static_cast<size_t>(oneParsingRet), accumLen);
+        } else {
+            return true;
+        }
+    }
 
     template <class... As>
     using CBORFieldParsingFunc = int32_t (*)(std::tuple<As...> &output, std::string_view const &data, size_t start, size_t &accumLen);
@@ -82,6 +103,33 @@ namespace bytedata_tuple_helper {
     {
         CBORFieldParsingFuncMap<As...> parsingMap;
         buildCBORParsingMapPiece<0, sizeof...(As), CBORFieldParsingFunc<As...>, CBORFieldParsingFuncMap<As...>, std::tuple<As...>, As...>(nameList, parsingMap);
+        return parsingMap;
+    }
+
+    template <class... As>
+    using CBORFieldInPlaceParsingFunc = int32_t (*)(std::tuple<As...> &output, std::string_view const &data, size_t start, size_t &accumLen);
+    template <class... As>
+    using CBORFieldInPlaceParsingFuncMap = std::unordered_map<std::string, std::tuple<bool, CBORFieldParsingFunc<As...>>>;
+    
+    template <int Idx, int N, class ParserType, class MapType, class TupleType, class FirstRemainingA, class... OtherRemainingAs>
+    void buildCBORInPlaceParsingMapPiece(std::array<std::string, N> const &nameList, MapType &output) {
+        ParserType f = &(oneCBORFieldInPlaceParsingFunc<TupleType, Idx, FirstRemainingA>);
+        output.insert(std::make_pair(
+            nameList[Idx]
+            , std::tuple<bool, ParserType> {
+                false, f
+            }
+        ));
+        if constexpr (sizeof...(OtherRemainingAs) > 0) {
+            buildCBORInPlaceParsingMapPiece<Idx+1, N, ParserType, MapType, TupleType, OtherRemainingAs...>(nameList, output);
+        }
+    }
+
+    template <class... As>
+    CBORFieldInPlaceParsingFuncMap<As...> buildCBORInPlaceParsingMap(std::array<std::string, sizeof...(As)> const &nameList) 
+    {
+        CBORFieldInPlaceParsingFuncMap<As...> parsingMap;
+        buildCBORInPlaceParsingMapPiece<0, sizeof...(As), CBORFieldInPlaceParsingFunc<As...>, CBORFieldInPlaceParsingFuncMap<As...>, std::tuple<As...>, As...>(nameList, parsingMap);
         return parsingMap;
     }
 }
@@ -277,7 +325,7 @@ struct RunCBORDeserializer<std::tuple<As...>> {
         }
         size_t accumLen = std::get<1>(*n);
 
-        if (!bytedata_tuple_helper::runTupleCBORDeserializerPiece<
+        if (!bytedata_tuple_helper::runTupleCBORDeserializerInPlacePiece<
             std::tuple<As...>
             , 0
             , As...
@@ -339,7 +387,7 @@ struct RunCBORDeserializerWithNameList<std::tuple<As...>, N> {
     static std::optional<size_t> applyInPlace(std::tuple<As...> &output, std::string_view const &data, size_t start, std::array<std::string, N> const &nameList) {
         static_assert(N == sizeof...(As), "name list size must match tuple size");
 
-        auto parsingMap = bytedata_tuple_helper::buildCBORParsingMap<As...>(nameList);
+        auto parsingMap = bytedata_tuple_helper::buildCBORInPlaceParsingMap<As...>(nameList);
 
         if (data.length() < start+1) {
             return std::nullopt;
