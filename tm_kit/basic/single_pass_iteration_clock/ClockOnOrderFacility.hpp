@@ -98,6 +98,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                             , (std::size_t) 0
                         )) {}
                     );
+#ifdef _MSC_VER
+                    static const auto full_callback_checker = boost::hana::is_valid(
+                        [](auto *c, auto *s) -> decltype((void) (*c)(
+                            std::declval<typename Env::TimePointType>()
+                            , std::declval<Duration>()
+                            , (std::size_t) 0
+                            , (std::size_t) 0
+                            , std::move(*s)
+                        )) {}
+                    );
+#else
                     static const auto full_callback_checker = boost::hana::is_valid(
                         [](auto *c) -> decltype((void) (*c)(
                             std::declval<typename Env::TimePointType>()
@@ -107,6 +118,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                             , std::declval<S>()
                         )) {}
                     );
+#endif
                     TM_INFRA_FACILITY_TRACER(input.environment);
                     auto now_tp = input.timedData.timePoint;
                     std::vector<Duration> filteredDurations;
@@ -176,7 +188,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                                     }
                                 }
                             }
+#ifdef _MSC_VER
+                        } else if constexpr (full_callback_checker((F *) nullptr, (S *) nullptr)) {
+#else
                         } else if constexpr (full_callback_checker((F *) nullptr)) {
+#endif
                             auto t  = converter_(now_tp, Duration {}, 0, 0, std::move(val));
                             if constexpr (std::is_same_v<T, std::decay_t<decltype(t)>>) {
                                 this->publish(typename M::template InnerData<typename M::template Key<T>> {
@@ -276,7 +292,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sin
                                         }
                                     }
                                 }
+#ifdef _MSC_VER
+                            } else if constexpr (full_callback_checker((F *) nullptr, (S *) nullptr)) {
+#else
                             } else if constexpr (full_callback_checker((F *) nullptr)) {
+#endif
                                 auto t  = converter_(fire_tp, filteredDurations[ii], ii, count, (isFinal?std::move(val):infra::withtime_utils::makeValueCopy<S>(val)));
                                 if constexpr (std::is_same_v<T, std::decay_t<decltype(t)>>) {
                                     this->publish(typename M::template InnerData<typename M::template Key<T>> {

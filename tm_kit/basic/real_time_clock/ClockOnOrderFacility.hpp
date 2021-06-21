@@ -93,6 +93,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                             , (std::size_t) 0
                         )) {}
                     );
+#ifdef _MSC_VER
+                    static const auto full_callback_checker = boost::hana::is_valid(
+                        [](auto *c, auto *s) -> decltype((void) (*c)(
+                            std::declval<typename Env::TimePointType>()
+                            , std::declval<Duration>()
+                            , (std::size_t) 0
+                            , (std::size_t) 0
+                            , std::move(*s)
+                        )) {}
+                    );
+#else
                     static const auto full_callback_checker = boost::hana::is_valid(
                         [](auto *c) -> decltype((void) (*c)(
                             std::declval<typename Env::TimePointType>()
@@ -102,6 +113,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                             , std::declval<S>()
                         )) {}
                     );
+#endif
                     TM_INFRA_FACILITY_TRACER(input.environment);
                     std::vector<Duration> filteredDurations;
                     for (auto const &d : input.timedData.value.key().callbackDurations) {
@@ -153,7 +165,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                                         }
                                     }
                                 }
+#ifdef _MSC_VER
+                            } else if constexpr (full_callback_checker((F *) nullptr, (S *) nullptr)) {
+#else
                             } else if constexpr (full_callback_checker((F *) nullptr)) {
+#endif
                                 auto val1 = std::move(val);
                                 auto t = converter_(now, Duration {}, 0, 0, std::move(val1));
                                 if constexpr (std::is_same_v<T, std::decay_t<decltype(t)>>) {
@@ -231,7 +247,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                                         }
                                     }
                                 });
+#ifdef _MSC_VER
+                            } else if constexpr (full_callback_checker((F *) nullptr, (S *) nullptr)) {
+#else
                             } else if constexpr (full_callback_checker((F *) nullptr)) {
+#endif
                                 auto d = filteredDurations[ii];                                
                                 env->createOneShotDurationTimer(d, [this,env,id,isFinal,ii,count,d,val=(isFinal?std::move(val):infra::withtime_utils::makeValueCopy<S>(val))]() {
                                     auto now = env->now();  
