@@ -63,7 +63,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
 
         auto getFullOutput = M::template kleisli<typename M::template KeyedData<Input, typename GS::Output>>(
             CommonFlowUtilComponents<M>::template withKeyAndInput<Input, typename GS::Output>(
-                infra::KleisliUtils<M>::template compose(
+                infra::KleisliUtils<M>::compose(
                     std::move(getOutput), std::move(deltaMerger)
                 )
             )
