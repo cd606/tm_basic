@@ -1965,7 +1965,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         {
             if constexpr (std::is_same_v<M, infra::RealTimeApp<TheEnvironment>>) {
                 class LocalAction 
-                    : public infra::IRealTimeAppPossiblyThreadedNode, public M::template ActionCore<Input,Output,false,false> 
+                    : public infra::IRealTimeAppPossiblyThreadedNode, public M::template SingleEntryAbstractAction<Input,Output> 
                 {
                 private:
                     StateUpdater stateUpdater_;
@@ -2096,7 +2096,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         , OutputProducer &&outputProducer
                         , StateResetter &&stateResetter
                         , State &&state
-                    ) : M::template ActionCore<Input,Output,false,false>()
+                    ) : M::template SingleEntryAbstractAction<Input,Output>()
                         , stateUpdater_(std::move(stateUpdater))
                         , outputProducer_(std::move(outputProducer))
                         , stateResetter_(std::move(stateResetter))
@@ -2121,17 +2121,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         } catch (std::exception const &) {
                         }
                     }
-                    typename M::template Data<Output> action(typename M::template InnerData<Input> &&data) override final {
+                    virtual void handle(typename M::template InnerData<Input> &&data) override final {
                         if (running_ && timeChecker_(data)) {
                             std::lock_guard<std::mutex> _(mutex_);
                             env_ = data.environment;
                             stateUpdater_(std::move(data.timedData.value), state_);
                             cond_.notify_one();
                         }
-                        return std::nullopt;
                     }
                     virtual std::optional<std::thread::native_handle_type> threadHandle() override final {
                         return thread_.native_handle();
+                    }
+                    virtual bool isThreaded() const override final {
+                        return true;
+                    }
+                    virtual bool isOneTimeOnly() const override final {
+                        return false;
+                    }
+                    virtual void setIdleWorker(std::function<void(void *)> worker) override final {
                     }
                 };
                 return M::template fromAbstractAction<Input,Output>(new LocalAction(std::move(stateUpdater), std::move(outputProducer), std::move(stateResetter), std::move(state)));
