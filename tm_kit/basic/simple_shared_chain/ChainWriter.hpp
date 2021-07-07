@@ -297,32 +297,32 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             }
         }
         friend class InnerHandler1;
-        class InnerHandler1 : public infra::RealTimeAppComponents<Env>::template ThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> {
+        class InnerHandler1 : public infra::RealTimeAppComponents<Env>::template ThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>, InnerHandler1> {
         private:
             ChainWriter *parent_;
         public:
-            InnerHandler1(ChainWriter *parent) : infra::RealTimeAppComponents<Env>::template ThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>>(), parent_(parent) {
+            InnerHandler1(ChainWriter *parent) : infra::RealTimeAppComponents<Env>::template ThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>, InnerHandler1>(), parent_(parent) {
             }
             virtual ~InnerHandler1() {}
-            virtual void idleWork() override final {
+            void idleWork() {
                 parent_->idleWork();
             }
-            virtual void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
+            void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) {
                 parent_->actuallyHandle(std::move(data));
             }
         };
         friend class InnerHandler2;
-        class InnerHandler2 : public infra::RealTimeAppComponents<Env>::template BusyLoopThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> {
+        class InnerHandler2 : public infra::RealTimeAppComponents<Env>::template BusyLoopThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>, InnerHandler2> {
         private:
             ChainWriter *parent_;
         public:
-            InnerHandler2(ChainWriter *parent) : infra::RealTimeAppComponents<Env>::template BusyLoopThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>>(parent->noYield_), parent_(parent) {
+            InnerHandler2(ChainWriter *parent) : infra::RealTimeAppComponents<Env>::template BusyLoopThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>, InnerHandler2>(parent->noYield_), parent_(parent) {
             }
             virtual ~InnerHandler2() {}
-            virtual void idleWork() override final {
+            void idleWork() {
                 parent_->idleWork();
             }
-            virtual void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {
+            void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) {
                 parent_->actuallyHandle(std::move(data));
             }
         };

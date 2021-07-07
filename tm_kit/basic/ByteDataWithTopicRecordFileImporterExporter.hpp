@@ -130,7 +130,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     os_->flush();
                 }
             };
-            class LocalEThreaded final : public infra::RealTimeApp<Env>::template AbstractExporter<ByteDataWithTopic>, public infra::RealTimeAppComponents<Env>::template ThreadedHandler<ByteDataWithTopic> {
+            class LocalEThreaded final : public infra::RealTimeApp<Env>::template AbstractExporter<ByteDataWithTopic>, public infra::RealTimeAppComponents<Env>::template ThreadedHandler<ByteDataWithTopic,LocalEThreaded> {
             private:
                 std::ostream *os_;
                 ByteDataWithTopicRecordFileWriter<Format> writer_;
@@ -138,17 +138,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             #ifdef _MSC_VER
                 LocalEThreaded(std::ostream &os, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic) : os_(&os), writer_(fileMagic, recordMagic) {}
             #else
-                LocalEThreaded(std::ostream &os, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic) : infra::RealTimeAppComponents<Env>::template ThreadedHandler<ByteDataWithTopic>(), os_(&os), writer_(fileMagic, recordMagic) {}
+                LocalEThreaded(std::ostream &os, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic) : infra::RealTimeAppComponents<Env>::template ThreadedHandler<ByteDataWithTopic,LocalEThreaded>(), os_(&os), writer_(fileMagic, recordMagic) {}
             #endif
                 virtual void start(Env *) override final {
                     writer_.startWritingByteDataWithTopicRecordFile(*os_);
                 }
-            private:
-                virtual void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<ByteDataWithTopic> &&d) override final {
+            public:
+                void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<ByteDataWithTopic> &&d) {
                     TM_INFRA_EXPORTER_TRACER(d.environment);
                     writer_.writeByteDataWithTopicRecord(*os_, d.timedData);
                     os_->flush();
                 }
+                void idleWork() {}
             };
             if (separateThread) {
                 return infra::RealTimeApp<Env>::template exporter(new LocalEThreaded(os, fileMagic, recordMagic));
