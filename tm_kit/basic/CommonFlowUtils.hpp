@@ -65,7 +65,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
         template <class T>
         static auto dispatchOneByOne() {
-            return infra::KleisliUtils<M>::template liftPure<std::vector<T>>(
+            return M::template liftMulti<std::vector<T>>(
                 [](std::vector<T> &&x) -> std::vector<T>
                 {
                     return std::move(x);
