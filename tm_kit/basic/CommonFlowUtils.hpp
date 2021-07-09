@@ -1258,7 +1258,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     public:
         template <class VariantType, class OneOfVariants>
-        static typename infra::KleisliUtils<M>::template KleisliFunction<VariantType,OneOfVariants> pickOne() {
+        static auto pickOne() {
             return infra::KleisliUtils<M>::template liftMaybe<VariantType>(
                 [](VariantType &&x) -> std::optional<OneOfVariants>
                 {
@@ -1276,7 +1276,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             );
         }
         template <class WrappedVariantType, class OneOfVariants>
-        static typename infra::KleisliUtils<M>::template KleisliFunction<WrappedVariantType,OneOfVariants> pickOneFromWrappedValue() {
+        static auto pickOneFromWrappedValue() {
             return infra::KleisliUtils<M>::template liftMaybe<WrappedVariantType>(
                 [](WrappedVariantType &&x) -> std::optional<OneOfVariants>
                 {

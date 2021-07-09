@@ -98,4 +98,48 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
             },callback);
         }
     }
+
+    SimplifiedClockComponent::SimplifiedClockComponent() : Clock(), impl_(std::make_unique<ClockComponentImpl>()) {}
+    SimplifiedClockComponent::SimplifiedClockComponent(SimplifiedClockComponent &&) = default;
+    SimplifiedClockComponent &SimplifiedClockComponent::operator=(SimplifiedClockComponent &&) = default;
+    SimplifiedClockComponent::~SimplifiedClockComponent() = default;
+
+    void SimplifiedClockComponent::createOneShotTimer(ClockComponent::TimePointType const &fireAtTime, std::function<void()> callback) {
+        if (fireAtTime >= std::chrono::system_clock::now()) {
+            impl_->scheduleOneTimeCallback(fireAtTime, callback);
+        }
+    }
+    void SimplifiedClockComponent::createOneShotDurationTimer(ClockComponent::DurationType const &fireAfterDuration, std::function<void()> callback) {
+        if (fireAfterDuration >= ClockComponent::DurationType(0)) {
+            auto t = std::chrono::system_clock::now()+fireAfterDuration;
+            impl_->scheduleOneTimeCallback(t, callback);
+        }
+    }
+    void SimplifiedClockComponent::createRecurringTimer(ClockComponent::TimePointType const &firstFireAtTime, ClockComponent::TimePointType const &lastFireAtTime, ClockComponent::DurationType const &period, std::function<void()> callback) {
+        auto t1 = firstFireAtTime;
+        auto t2 = lastFireAtTime;
+        auto d = period;
+        auto n = std::chrono::system_clock::now();
+        while (t1 < n) {
+            t1 += d;
+        }
+        if (t1 <= t2) {
+            impl_->scheduleRecurringCallback(t1,t2,d,callback);
+        }
+    }
+    void SimplifiedClockComponent::createVariableDurationRecurringTimer(ClockComponent::TimePointType const &firstFireAtTime, ClockComponent::TimePointType const &lastFireAtTime, std::function<ClockComponent::DurationType(ClockComponent::TimePointType const &)> periodCalc, std::function<void()> callback) {
+        auto t1 = firstFireAtTime;
+        auto t2 = lastFireAtTime;
+        auto d = periodCalc(firstFireAtTime);
+        auto n = std::chrono::system_clock::now();
+        while (t1 < n) {
+            t1 += d;
+        }
+        if (t1 <= t2) {
+            impl_->scheduleVariableDurationRecurringCallback(t1,t2,[this,periodCalc](ClockComponent::TimePointType const &tp) {
+                return periodCalc(tp);
+            },callback);
+        }
+    }
+
 } } } } }
