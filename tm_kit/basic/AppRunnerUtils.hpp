@@ -1568,6 +1568,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <class Input, class Output>
         class OnOrderFacilityAPIWrapperClient {
         public:
+            virtual ~OnOrderFacilityAPIWrapperClient() {}
             virtual void apiCallback(typename M::template KeyedData<Input, Output> &&) = 0;
         };
         template <class Input, class Output>
@@ -1611,6 +1612,94 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 invoker_(CommonFlowUtilComponents<M>::template keyifyThroughCounterFunc<Input,CounterMarkType>(env_, std::move(input)));
             }
         };
+
+        template <class Input, class Output, class DelayGenerator, class CalculateLogic>
+        static auto delayBasedFacilitioid(
+            std::string const &prefix
+            , DelayGenerator &&delayGenerator
+            , CalculateLogic &&calculateLogic 
+        ) -> typename R::template FacilitioidConnector<Input, Output>
+        {
+            return [prefix,delayGenerator=std::move(delayGenerator),calculateLogic=std::move(calculateLogic)](
+                R &r
+                , typename R::template Source<typename M::template Key<Input>> &&source
+                , std::optional<typename R::template Sink<typename M::template KeyedData<Input,Output>>> const &sink)
+            mutable {
+                auto timer = AppClockHelper<M>::Facility::template createClockCallback<
+                    Input
+                    , std::tuple<typename M::TimePoint, std::size_t, std::size_t>
+                >(
+                    [](typename M::TimePoint tp, std::size_t idx, std::size_t total) 
+                        -> std::tuple<typename M::TimePoint, std::size_t, std::size_t>
+                    {
+                        return {std::move(tp), idx, total};
+                    }
+                );
+                r.registerOnOrderFacility(prefix+"/timer", timer);
+                auto convertInput = M::template liftPure<typename M::template Key<Input>>(
+                    [delayGenerator=std::move(delayGenerator)](typename M::template Key<Input> &&input)
+                        mutable -> typename M::template Key<typename AppClockHelper<M>::Facility::template FacilityInput<Input>>
+                    {
+                        return {
+                            input.id()
+                            , typename AppClockHelper<M>::Facility::template FacilityInput<Input> {
+                                input.key() 
+                                , delayGenerator(input.key())
+                            }
+                        };
+                    }
+                );
+                r.registerAction(prefix+"/convertInput", convertInput);
+                if (!sink) {
+                    auto discard = M::template trivialExporter<
+                        typename M::template KeyedData<
+                            typename AppClockHelper<M>::Facility::template FacilityInput<Input>
+                            , std::tuple<typename M::TimePoint, std::size_t, std::size_t>
+                        >
+                    >();
+                    r.registerExporter(prefix+"/discard", discard);
+                    r.placeOrderWithFacility(
+                        r.execute(convertInput, std::move(source))
+                        , timer
+                        , r.exporterAsSink(discard)
+                    );
+                } else {
+                    auto convertOutput = M::template liftPure<
+                        typename M::template KeyedData<
+                            typename AppClockHelper<M>::Facility::template FacilityInput<Input>
+                            , std::tuple<typename M::TimePoint, std::size_t, std::size_t>
+                        >
+                    >(
+                        [calculateLogic=std::move(calculateLogic)](typename M::template KeyedData<
+                            typename AppClockHelper<M>::Facility::template FacilityInput<Input>
+                            , std::tuple<typename M::TimePoint, std::size_t, std::size_t>
+                        > &&x) mutable -> typename M::template KeyedData<
+                            Input, Output
+                        > {
+                            auto const &input = x.key.key();
+                            return typename M::template KeyedData<Input, Output> {
+                                typename M::template Key<Input> {
+                                    x.key.id(), input.inputData
+                                }
+                                , calculateLogic(
+                                    input.inputData
+                                    , std::get<0>(x.data)
+                                    , std::get<1>(x.data)
+                                    , std::get<2>(x.data)
+                                )
+                            };
+                        }
+                    );
+                    r.registerAction(prefix+"/convertOutput", convertOutput);
+                    r.placeOrderWithFacility(
+                        r.execute(convertInput, std::move(source))
+                        , timer
+                        , r.actionAsSink(convertOutput)
+                    );
+                    r.connect(r.actionAsSource(convertOutput), *sink);
+                }
+            };
+        }
     };
 
 } } } }
