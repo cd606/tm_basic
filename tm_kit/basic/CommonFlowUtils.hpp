@@ -527,6 +527,41 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
         template <class T, class CounterMarkType=NotConstructibleStruct>
+        static auto keyifyThroughCounterFunc(TheEnvironment *env, T &&x) 
+            -> typename M::template Key<T>
+        {
+            auto counter = env->getCounterValue((CounterMarkType *) nullptr);
+            if constexpr (sizeof(counter) == TheEnvironment::IDByteRepresentationSize) {
+                return typename M::template Key<T> {
+                    env->id_from_bytes(
+                        basic::ByteDataView { std::string_view {
+                            reinterpret_cast<char const *>(&counter)
+                            , sizeof(counter)
+                        }}
+                    )
+                    , std::move(x)
+                };
+            } else {
+                char buf[TheEnvironment::IDByteRepresentationSize];
+                std::memset(buf, 0, TheEnvironment::IDByteRepresentationSize);
+                std::memcpy(
+                    buf
+                    , reinterpret_cast<char const *>(&counter)
+                    , std::min(sizeof(counter), TheEnvironment::IDByteRepresentationSize)
+                );
+                return typename M::template Key<T> {
+                    env->id_from_bytes(
+                        basic::ByteDataView { std::string_view {
+                            buf
+                            , TheEnvironment::IDByteRepresentationSize
+                        }}
+                    )
+                    , std::move(x)
+                };
+            }
+        }
+
+        template <class T, class CounterMarkType=NotConstructibleStruct>
         static auto keyifyThroughCounter() {
             if constexpr (std::is_same_v<CounterMarkType, void>) {
                 return keyify<T>();

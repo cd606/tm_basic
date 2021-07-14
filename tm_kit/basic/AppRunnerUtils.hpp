@@ -1564,6 +1564,53 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             );
         }
+        
+        template <class Input, class Output>
+        class OnOrderFacilityAPIWrapperClient {
+        public:
+            virtual void apiCallback(typename M::template KeyedData<Input, Output> &&) = 0;
+        };
+        template <class Input, class Output>
+        class OnOrderFacilityAPIWrapper {
+        private:
+            TheEnvironment *env_;
+            OnOrderFacilityAPIWrapperClient<Input,Output> *client_;
+            std::function<void(typename M::template Key<Input> &&)> invoker_;
+        public:
+            OnOrderFacilityAPIWrapper(
+                R &r
+                , std::string const &wrapperPrefix
+                , typename R::template FacilitioidConnector<Input, Output> const &facility
+                , OnOrderFacilityAPIWrapperClient<Input,Output> *client
+            ) : env_(r.environment()), client_(client), invoker_()
+            {
+                auto importer = M::template triggerImporter<typename M::template Key<Input>>();
+                r.registerImporter(wrapperPrefix+"/trigger", std::get<0>(importer));
+                invoker_ = std::get<1>(importer);
+                auto exporter = M::template pureExporter<typename M::template KeyedData<Input,Output>>(
+                    [this](typename M::template KeyedData<Input,Output> &&data) {
+                        client_->apiCallback(std::move(data));
+                    }
+                );
+                r.registerExporter(wrapperPrefix+"/apiCallback", exporter);
+                facility(r, r.importItem(std::get<0>(importer)), r.exporterAsSink(exporter));
+            }
+            ~OnOrderFacilityAPIWrapper() = default;
+            OnOrderFacilityAPIWrapper(OnOrderFacilityAPIWrapper const &) = delete;
+            OnOrderFacilityAPIWrapper &operator=(OnOrderFacilityAPIWrapper const &) = delete;
+            OnOrderFacilityAPIWrapper(OnOrderFacilityAPIWrapper &&) = default;
+            OnOrderFacilityAPIWrapper &operator=(OnOrderFacilityAPIWrapper &&) = default;
+            void call(typename M::template Key<Input> &&key) {
+                invoker_(std::move(key));
+            }
+            void call(Input &&input) {
+                invoker_(infra::withtime_utils::keyify<Input,TheEnvironment>(std::move(input)));
+            }
+            template <class CounterMarkType=NotConstructibleStruct>
+            void callWithCounterAsID(Input &&input) {
+                invoker_(CommonFlowUtilComponents<M>::template keyifyThroughCounterFunc<Input,CounterMarkType>(env_, std::move(input)));
+            }
+        };
     };
 
 } } } }
