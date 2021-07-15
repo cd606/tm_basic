@@ -58,6 +58,26 @@ namespace dev { namespace cd606 { namespace tm { namespace infra {
     struct IsKeyedData<basic::SingleLayerWrapperWithTypeMark<Mark, T>> {
 	    enum {value=IsKeyedData<T>::value};
     };
+    namespace withtime_utils {
+        template <class T>
+        struct ValueCopier<basic::SingleLayerWrapper<T>> {
+            inline static basic::SingleLayerWrapper<T> copy(basic::SingleLayerWrapper<T> const &x) {
+                return basic::SingleLayerWrapper<T> {ValueCopier<T>::copy(x.value)};
+            }
+        };
+        template <int32_t N, class T>
+        struct ValueCopier<basic::SingleLayerWrapperWithID<N, T>> {
+            inline static basic::SingleLayerWrapperWithID<N, T> copy(basic::SingleLayerWrapperWithID<N, T> const &x) {
+                return basic::SingleLayerWrapperWithID<N, T> {ValueCopier<T>::copy(x.value)};
+            }
+        };
+        template <class Mark, class T>
+        struct ValueCopier<basic::SingleLayerWrapperWithTypeMark<Mark, T>> {
+            inline static basic::SingleLayerWrapperWithTypeMark<Mark, T> copy(basic::SingleLayerWrapperWithTypeMark<Mark, T> const &x) {
+                return basic::SingleLayerWrapperWithTypeMark<Mark, T> {ValueCopier<T>::copy(x.value)};
+            }
+        };
+    }
 } } } }
 
 #endif
