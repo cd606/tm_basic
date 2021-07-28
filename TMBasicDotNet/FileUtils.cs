@@ -293,7 +293,7 @@ namespace Dev.CD606.TM.Basic
             {
                 new System.Threading.Thread(
                     () => {
-                        DateTimeOffset todayStart;
+                        DateTimeOffset todayStart = DateTimeOffset.Now;
                         var e = GenericRecordDataSource<TopicCaptureFileRecord>(reader, new TopicCaptureFileRecordReader(option)).GetEnumerator();
                         var running = true;
                         bool todayStartSet = false;
