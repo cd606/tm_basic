@@ -618,6 +618,45 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
         template <class T>
+        static auto keyifyWithProvidedID() {
+            class LocalA {
+            private:
+                std::optional<typename M::EnvironmentType::IDType> id_;
+                std::deque<T> notProcessed_;
+            public:
+                LocalA() : id_(std::nullopt), notProcessed_() {}
+                std::vector<typename M::template Key<T>> operator()(
+                    std::variant<T,typename M::EnvironmentType::IDType> &&input
+                ) {
+                    return std::visit([this](auto &&x) -> std::vector<typename M::template Key<T>> {
+                        using X = std::decay_t<decltype(x)>;
+                        if constexpr (std::is_same_v<X, T>) {
+                            if (id_) {
+                                return {typename M::template Key<T> {
+                                    *id_, std::move(x)
+                                }};
+                            } else {
+                                notProcessed_.push_back(std::move(x));
+                                return {};
+                            }
+                        } else {
+                            id_ = x;
+                            std::vector<typename M::template Key<T>> v;
+                            while (!notProcessed_.empty()) {
+                                v.push_back(typename M::template Key<T> {
+                                    *id_, std::move(notProcessed_.front())
+                                });
+                                notProcessed_.pop_front();
+                            }
+                            return v;
+                        }
+                    }, std::move(input));
+                }
+            };
+            return M::template liftMulti2<T,typename M::EnvironmentType::IDType>(LocalA());
+        }
+
+        template <class T>
         static auto shareBetweenDownstream() {
             return infra::KleisliUtils<M>::template liftPure<T>(
                 [](T &&x) -> std::shared_ptr<T const>
