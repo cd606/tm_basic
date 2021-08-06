@@ -57,39 +57,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             return ret;
         }
     };  
-
-    template <class T, typename=std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo>>
-    class StructFieldInfoBasedSimpleCsvOutput {
-    private:
-        template <int FieldCount, int FieldIndex>
-        static void writeData_internal(std::ostream &os, T const &t) {
-            if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
-                if constexpr (FieldIndex != 0) {
-                    os << ',';
-                }
-                using ColType = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                if constexpr (std::is_same_v<ColType,std::string>) {
-                    os << std::quoted(t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()));
-                } else if constexpr (std::is_same_v<ColType,std::tm>) {
-                    os << std::put_time(&(t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer())), "%Y-%m-%dT%H:%M:%S");
-                } else if constexpr (std::is_same_v<ColType,std::chrono::system_clock::time_point>) {
-                    os << infra::withtime_utils::localTimeString(t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()));
-                } else {
-                    os << t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer());
-                }
-                writeData_internal<FieldCount,FieldIndex+1>(os, t);
-            }
-        }
-    public:
-        static void writeHeader(std::ostream &os) {
-            os << StructFieldInfoBasedDataFiller<T>::commaSeparatedFieldNames() << '\n';
-        }
-        static void writeData(std::ostream &os, T const &t) {
-            writeData_internal<StructFieldInfo<T>::FIELD_NAMES.size(),0>(os, t);
-            os << '\n';
-        }
-    };
-
     template <class T>
     class StructFieldInfoBasedInitializer {
     private:

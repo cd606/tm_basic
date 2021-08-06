@@ -13,6 +13,7 @@
 
 #include <boost/version.hpp>
 
+#include <tm_kit/basic/EqualityCheckHelper.hpp>
 #include <tm_kit/basic/PrintHelper.hpp>
 #include <tm_kit/basic/StructFieldInfoHelper.hpp>
 
@@ -79,7 +80,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
     os << ' ';    
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_EQ_ITEM(r, data, elem) \
-    && (x.BOOST_PP_TUPLE_ELEM(1,elem) == y.BOOST_PP_TUPLE_ELEM(1,elem)) 
+    && dev::cd606::tm::basic::EqualityCheckHelper<TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem))>::check(x.BOOST_PP_TUPLE_ELEM(1,elem), y.BOOST_PP_TUPLE_ELEM(1,elem)) 
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_PRINT(name, content) \
     inline std::ostream &operator<<(std::ostream &os, name const &x) { \
