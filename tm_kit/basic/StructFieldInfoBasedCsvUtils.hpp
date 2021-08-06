@@ -410,6 +410,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 using I = StructFieldInfoBasedSimpleCsvInput<T>;
                 T t_;
                 bool hasData_;
+                bool started_;
                 void read() {
                     if (option_ == StructFieldInfoBasedCsvInputOption::UseHeaderAsDict) {
                         hasData_ = I::readOneWithIdxDict(*is_, t_, idxDict_);
@@ -419,28 +420,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 }
             public:
                 LocalI(std::istream *is, TimeExtractor &&timeExtractor, StructFieldInfoBasedCsvInputOption option) 
-                    : is_(is), timeExtractor_(std::move(timeExtractor)), option_(option), idxDict_(), t_(), hasData_(false)
-                {
-                    switch (option_) {
-                    case StructFieldInfoBasedCsvInputOption::IgnoreHeader:
-                        I::readHeader(*is_);
-                        break;
-                    case StructFieldInfoBasedCsvInputOption::HasNoHeader:
-                        break;
-                    case StructFieldInfoBasedCsvInputOption::UseHeaderAsDict:
-                        idxDict_ = I::headerDictToIdxDict(I::readHeader(*is_));
-                        break;
-                    default:
-                        I::readHeader(*is_);
-                        break;
-                    }
-                    read();
-                }
+                    : is_(is), timeExtractor_(std::move(timeExtractor)), option_(option), idxDict_(), t_(), hasData_(false), started_(false)
+                {}
                 LocalI(LocalI const &) = delete;
                 LocalI &operator=(LocalI const &) = delete;
                 LocalI(LocalI &&) = default;
                 LocalI &operator=(LocalI &&) = default;
                 std::tuple<bool, typename M::template Data<T>> operator()(typename M::EnvironmentType *env) {
+                    if (!started_) {
+                        switch (option_) {
+                        case StructFieldInfoBasedCsvInputOption::IgnoreHeader:
+                            I::readHeader(*is_);
+                            break;
+                        case StructFieldInfoBasedCsvInputOption::HasNoHeader:
+                            break;
+                        case StructFieldInfoBasedCsvInputOption::UseHeaderAsDict:
+                            idxDict_ = I::headerDictToIdxDict(I::readHeader(*is_));
+                            break;
+                        default:
+                            I::readHeader(*is_);
+                            break;
+                        }
+                        read();
+                        started_ = true;
+                    }
                     if (!hasData_) {
                         return {false, std::nullopt};
                     }
