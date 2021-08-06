@@ -17,7 +17,11 @@
 #include <tm_kit/basic/StructFieldInfoHelper.hpp>
 
 #if BOOST_VERSION >= 107500
+    #ifdef _MSC_VER
+    #define TM_SERIALIZATION_HELPER_COMMA_START_POS 2
+    #else
     #define TM_SERIALIZATION_HELPER_COMMA_START_POS 1
+    #endif
 #else
     #define TM_SERIALIZATION_HELPER_COMMA_START_POS 2
 #endif
