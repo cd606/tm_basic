@@ -17,6 +17,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             ;
             static constexpr bool IsArray = false;
             static constexpr std::size_t ArrayLength = 0;
+            using BaseType = F;
         };
         template <class X, std::size_t N>
         class StructFieldIsGoodForCsv<std::array<X,N>> {
@@ -24,6 +25,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static constexpr bool Value = StructFieldIsGoodForCsv<X>::Value;
             static constexpr bool IsArray = true;
             static constexpr std::size_t ArrayLength = N;
+            using BaseType = X;
         };
         template <class T, bool IsStructWithFieldInfo=StructFieldInfo<T>::HasGeneratedStructFieldInfo>
         class StructFieldInfoCsvSupportChecker {
@@ -73,6 +75,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 writeHeader_internal<FieldCount,FieldIndex+1>(os);
             }
         }
+        template <class ColType>
+        static void writeField_internal(std::ostream &os, ColType const &x) {
+            if constexpr (std::is_same_v<ColType,std::string>) {
+                os << std::quoted(x);
+            } else if constexpr (std::is_same_v<ColType,std::tm>) {
+                os << std::put_time(&x, "%Y-%m-%dT%H:%M:%S");
+            } else if constexpr (std::is_same_v<ColType,std::chrono::system_clock::time_point>) {
+                os << infra::withtime_utils::localTimeString(x);
+            } else {
+                os << x;
+            }
+        }
         template <int FieldCount, int FieldIndex>
         static void writeData_internal(std::ostream &os, T const &t) {
             if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
@@ -80,14 +94,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     os << ',';
                 }
                 using ColType = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                if constexpr (std::is_same_v<ColType,std::string>) {
-                    os << std::quoted(t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()));
-                } else if constexpr (std::is_same_v<ColType,std::tm>) {
-                    os << std::put_time(&(t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer())), "%Y-%m-%dT%H:%M:%S");
-                } else if constexpr (std::is_same_v<ColType,std::chrono::system_clock::time_point>) {
-                    os << infra::withtime_utils::localTimeString(t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()));
+                if constexpr (internal::StructFieldIsGoodForCsv<ColType>::IsArray) {
+                    for (std::size_t ii=0; ii<internal::StructFieldIsGoodForCsv<ColType>::ArrayLength; ++ii) {
+                        if (ii > 0) {
+                            os << ',';
+                        }
+                        writeField_internal<typename internal::StructFieldIsGoodForCsv<ColType>::BaseType>(
+                            os, (t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()))[ii]
+                        );
+                    }
                 } else {
-                    os << t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer());
+                    writeField_internal<ColType>(
+                        os, t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer())
+                    );
                 }
                 writeData_internal<FieldCount,FieldIndex+1>(os, t);
             }
