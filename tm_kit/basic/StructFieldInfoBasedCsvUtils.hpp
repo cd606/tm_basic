@@ -124,6 +124,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         }
     };
     
+    enum class StructFieldInfoBasedCsvInputOption {
+        IgnoreHeader 
+        , HasNoHeader
+        , UseHeaderAsDict
+    };
+
     template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
     class StructFieldInfoBasedSimpleCsvInput {
     private:
@@ -355,47 +361,73 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             parse_internal_with_idx_dict<StructFieldInfo<T>::FIELD_NAMES.size(),0>(parts, t, idxDict);
             return true;
         }
+        template <class OutIter>
+        static void readInto(std::istream &is, OutIter iter, StructFieldInfoBasedCsvInputOption option = StructFieldInfoBasedCsvInputOption::IgnoreHeader) {
+            std::array<std::vector<int>,StructFieldInfo<T>::FIELD_NAMES.size()> idxDict;
+            switch (option) {
+            case StructFieldInfoBasedCsvInputOption::IgnoreHeader:
+                readHeader(is);
+                break;
+            case StructFieldInfoBasedCsvInputOption::HasNoHeader:
+                break;
+            case StructFieldInfoBasedCsvInputOption::UseHeaderAsDict:
+                idxDict = headerDictToIdxDict(readHeader(is));
+                break;
+            default:
+                readHeader(is);
+                break;
+            }
+            std::vector<T> ret;
+            T item;
+            while (true) {
+                if (option == StructFieldInfoBasedCsvInputOption::UseHeaderAsDict) {
+                    if (!readOneWithIdxDict(is, item, idxDict)) {
+                        return;
+                    }
+                } else {
+                    if (!readOne(is, item)) {
+                        return;
+                    }
+                }
+                *iter++ = std::move(item);
+            }
+        }
     };
 
-    enum class StructFieldInfoBasedCsvImporterOption {
-        IgnoreHeader 
-        , HasNoHeader
-        , UseHeaderAsDict
-    };
     template <class M>
     class StructFieldInfoBasedCsvImporterFactory {
     public:
         template <class T, class TimeExtractor, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
-        static auto createImporter(std::istream &is, TimeExtractor &&timeExtractor, StructFieldInfoBasedCsvImporterOption option = StructFieldInfoBasedCsvImporterOption::IgnoreHeader) 
+        static auto createImporter(std::istream &is, TimeExtractor &&timeExtractor, StructFieldInfoBasedCsvInputOption option = StructFieldInfoBasedCsvInputOption::IgnoreHeader) 
             -> std::shared_ptr<typename M::template Importer<T>>
         {
             class LocalI {
             private:
                 std::istream *is_;
                 TimeExtractor timeExtractor_;
-                StructFieldInfoBasedCsvImporterOption option_;
+                StructFieldInfoBasedCsvInputOption option_;
                 std::array<std::vector<int>,StructFieldInfo<T>::FIELD_NAMES.size()> idxDict_;
                 using I = StructFieldInfoBasedSimpleCsvInput<T>;
                 T t_;
                 bool hasData_;
                 void read() {
-                    if (option_ == StructFieldInfoBasedCsvImporterOption::UseHeaderAsDict) {
+                    if (option_ == StructFieldInfoBasedCsvInputOption::UseHeaderAsDict) {
                         hasData_ = I::readOneWithIdxDict(*is_, t_, idxDict_);
                     } else {
                         hasData_ = I::readOne(*is_, t_);
                     }
                 }
             public:
-                LocalI(std::istream *is, TimeExtractor &&timeExtractor, StructFieldInfoBasedCsvImporterOption option) 
+                LocalI(std::istream *is, TimeExtractor &&timeExtractor, StructFieldInfoBasedCsvInputOption option) 
                     : is_(is), timeExtractor_(std::move(timeExtractor)), option_(option), idxDict_(), t_(), hasData_(false)
                 {
                     switch (option_) {
-                    case StructFieldInfoBasedCsvImporterOption::IgnoreHeader:
+                    case StructFieldInfoBasedCsvInputOption::IgnoreHeader:
                         I::readHeader(*is_);
                         break;
-                    case StructFieldInfoBasedCsvImporterOption::HasNoHeader:
+                    case StructFieldInfoBasedCsvInputOption::HasNoHeader:
                         break;
-                    case StructFieldInfoBasedCsvImporterOption::UseHeaderAsDict:
+                    case StructFieldInfoBasedCsvInputOption::UseHeaderAsDict:
                         idxDict_ = I::headerDictToIdxDict(I::readHeader(*is_));
                         break;
                     default:
