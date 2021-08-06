@@ -357,6 +357,113 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         }
     };
 
+    enum class StructFieldInfoBasedCsvImporterOption {
+        IgnoreHeader 
+        , HasNoHeader
+        , UseHeaderAsDict
+    };
+    template <class M>
+    class StructFieldInfoBasedCsvImporterFactory {
+    public:
+        template <class T, class TimeExtractor, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
+        static auto createImporter(std::istream &is, TimeExtractor &&timeExtractor, StructFieldInfoBasedCsvImporterOption option = StructFieldInfoBasedCsvImporterOption::IgnoreHeader) 
+            -> std::shared_ptr<typename M::template Importer<T>>
+        {
+            class LocalI {
+            private:
+                std::istream *is_;
+                TimeExtractor timeExtractor_;
+                StructFieldInfoBasedCsvImporterOption option_;
+                std::array<std::vector<int>,StructFieldInfo<T>::FIELD_NAMES.size()> idxDict_;
+                using I = StructFieldInfoBasedSimpleCsvInput<T>;
+                T t_;
+                bool hasData_;
+                void read() {
+                    if (option_ == StructFieldInfoBasedCsvImporterOption::UseHeaderAsDict) {
+                        hasData_ = I::readOneWithIdxDict(*is_, t_, idxDict_);
+                    } else {
+                        hasData_ = I::readOne(*is_, t_);
+                    }
+                }
+            public:
+                LocalI(std::istream *is, TimeExtractor &&timeExtractor, StructFieldInfoBasedCsvImporterOption option) 
+                    : is_(is), timeExtractor_(std::move(timeExtractor)), option_(option), idxDict_(), t_(), hasData_(false)
+                {
+                    switch (option_) {
+                    case StructFieldInfoBasedCsvImporterOption::IgnoreHeader:
+                        I::readHeader(*is_);
+                        break;
+                    case StructFieldInfoBasedCsvImporterOption::HasNoHeader:
+                        break;
+                    case StructFieldInfoBasedCsvImporterOption::UseHeaderAsDict:
+                        idxDict_ = I::headerDictToIdxDict(I::readHeader(*is_));
+                        break;
+                    default:
+                        I::readHeader(*is_);
+                        break;
+                    }
+                    read();
+                }
+                LocalI(LocalI const &) = delete;
+                LocalI &operator=(LocalI const &) = delete;
+                LocalI(LocalI &&) = default;
+                LocalI &operator=(LocalI &&) = default;
+                std::tuple<bool, typename M::template Data<T>> operator()(typename M::EnvironmentType *env) {
+                    if (!hasData_) {
+                        return {false, std::nullopt};
+                    }
+                    std::tuple<bool, typename M::template Data<T>> ret {
+                        true
+                        , typename M::template InnerData<T> {
+                            env 
+                            , {
+                                timeExtractor_(env, t_)
+                                , std::move(t_)
+                                , false
+                            }
+                        }
+                    };
+                    read();
+                    if (!hasData_) {
+                        std::get<0>(ret) = false;
+                        std::get<1>(ret)->timedData.finalFlag = true;
+                    }
+                    return std::move(ret);
+                }
+            };
+            return M::template uniformSimpleImporter<T>(LocalI(&is, std::move(timeExtractor), option));
+        }
+    };
+    template <class M>
+    class StructFieldInfoBasedCsvExporterFactory {
+    public:
+        template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
+        static auto createExporter(std::ostream &os, bool dontWriteHeader=false) 
+            -> std::shared_ptr<typename M::template Exporter<T>>
+        {
+            class LocalE final : public M::template AbstractExporter<T> {
+            private:
+                std::ostream *os_;
+                bool dontWriteHeader_;
+                using O = StructFieldInfoBasedSimpleCsvOutput<T>;
+            public:
+                LocalE(std::ostream *os, bool dontWriteHeader)
+                    : os_(os), dontWriteHeader_(dontWriteHeader)
+                {}
+                virtual ~LocalE() = default;
+                virtual void start(typename M::EnvironmentType *env) override final {
+                    if (!dontWriteHeader_) {
+                        O::writeHeader(*os_);
+                    }
+                }
+                virtual void handle(typename M::template InnerData<T> &&data) override final {
+                    O::writeData(*os_, data.timedData.value);
+                }
+            };
+            return M::template exporter<T>(new LocalE(&os, dontWriteHeader));
+        }
+    };
+
 } } } } }
 
 #endif
