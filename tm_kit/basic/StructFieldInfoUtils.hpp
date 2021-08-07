@@ -135,6 +135,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         }
     };
     template <class T>
+    class StructFieldInfoBasedHash<std::optional<T>> {
+    public:
+        std::size_t operator()(std::optional<T> const &t) const {
+            if (!t) {
+                return 2166136261;
+            } else {
+                return (2166136261*16777619)^StructFieldInfoBasedHash<T>()(*t);
+            }
+        }
+    };
+    template <class T>
     class StructFieldInfoBasedHash<std::list<T>> {
     public:
         std::size_t operator()(std::list<T> const &t) const {
