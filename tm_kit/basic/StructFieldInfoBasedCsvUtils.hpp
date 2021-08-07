@@ -61,7 +61,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             template <int FieldCount, int FieldIdx>
             static constexpr bool checkGood() {
                 if constexpr (FieldIdx>=0 && FieldIdx<FieldCount) {
-                    if (!StructFieldIsGoodForCsv<typename StructFieldTypeInfo<T,FieldIdx>::TheType>::Value) {
+                    if constexpr (!StructFieldIsGoodForCsv<typename StructFieldTypeInfo<T,FieldIdx>::TheType>::Value) {
                         return false;
                     } else {
                         return checkGood<FieldCount,FieldIdx+1>();
