@@ -18,15 +18,36 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 || std::is_same_v<F, std::string>
             ;
             static constexpr bool IsArray = false;
+            static constexpr bool IsOptional = false;
             static constexpr std::size_t ArrayLength = 0;
             using BaseType = F;
         };
         template <class X, std::size_t N>
         class StructFieldIsGoodForCsv<std::array<X,N>> {
         public:
-            static constexpr bool Value = StructFieldIsGoodForCsv<X>::Value;
+            static constexpr bool Value = 
+                std::is_arithmetic_v<X>
+                || std::is_same_v<X, std::tm>
+                || std::is_same_v<X, std::chrono::system_clock::time_point>
+                || std::is_same_v<X, std::string>
+            ;
             static constexpr bool IsArray = true;
+            static constexpr bool IsOptional = false;
             static constexpr std::size_t ArrayLength = N;
+            using BaseType = X;
+        };
+        template <class X>
+        class StructFieldIsGoodForCsv<std::optional<X>> {
+        public:
+            static constexpr bool Value = 
+                std::is_arithmetic_v<X>
+                || std::is_same_v<X, std::tm>
+                || std::is_same_v<X, std::chrono::system_clock::time_point>
+                || std::is_same_v<X, std::string>
+            ;
+            static constexpr bool IsArray = false;
+            static constexpr bool IsOptional = true;
+            static constexpr std::size_t ArrayLength = 0;
             using BaseType = X;
         };
         template <class T, bool IsStructWithFieldInfo=StructFieldInfo<T>::HasGeneratedStructFieldInfo>
@@ -85,6 +106,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 os << std::put_time(&x, "%Y-%m-%dT%H:%M:%S");
             } else if constexpr (std::is_same_v<ColType,std::chrono::system_clock::time_point>) {
                 os << infra::withtime_utils::localTimeString(x);
+            } else if constexpr (internal::StructFieldIsGoodForCsv<ColType>::IsOptional) {
+                if (x) {
+                    writeField_internal<typename internal::StructFieldIsGoodForCsv<ColType>::BaseType>(os, *x);
+                }
             } else {
                 os << x;
             }
@@ -205,6 +230,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 std::istringstream(std::string(s)) >> std::get_time(&x, "%Y-%m-%dT%H:%M:%S");
             } else if constexpr (std::is_same_v<ColType,std::chrono::system_clock::time_point>) {
                 x = infra::withtime_utils::parseLocalTime(std::string(s));
+            } else if constexpr (internal::StructFieldIsGoodForCsv<ColType>::IsOptional) {
+                x = typename internal::StructFieldIsGoodForCsv<ColType>::BaseType {};
+                basic::struct_field_info_utils::StructFieldInfoBasedInitializer<typename internal::StructFieldIsGoodForCsv<ColType>::BaseType>::initialize(*x);
+                parseField_internal<typename internal::StructFieldIsGoodForCsv<ColType>::BaseType>(s, *x);
             } else {
                 x = boost::lexical_cast<ColType>(std::string(s));
             }
