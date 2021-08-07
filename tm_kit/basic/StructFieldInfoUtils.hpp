@@ -75,6 +75,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         static void initialize(T &t) {
             if constexpr (StructFieldInfo<T>::HasGeneratedStructFieldInfo) {
                 return initialize_internal<StructFieldInfo<T>::FIELD_NAMES.size(), 0>(t);
+#ifdef _MSC_VER
+            } else if constexpr (std::is_same_v<T, std::tm>) {
+                //in MSVC, if we initialize std::tm to all 0
+                //and then use std::put_time to output it, 
+                //there will be a problem since this std::tm
+                //value is not a valid date. The other compilers
+                //do not seem to care about this.
+                t = std::tm {};
+                t.tm_mday = 1;
+#endif
             } else {
                 t = T {};
             }
