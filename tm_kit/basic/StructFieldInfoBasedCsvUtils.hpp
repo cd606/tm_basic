@@ -2,8 +2,12 @@
 #define TM_KIT_BASIC_STRUCT_FIELD_INFO_BASED_CSV_UTILS_HPP_
 
 #include <tm_kit/basic/StructFieldInfoUtils.hpp>
+
 #include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
+#include <boost/iostreams/device/array.hpp>
+#include <boost/iostreams/stream.hpp>
+
+#include <chrono>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace struct_field_info_utils {
     
@@ -103,47 +107,45 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         class StructFieldInfoBasedSimpleCsvOutputImpl {
         private:
             template <int FieldCount, int FieldIndex>
-            static void writeHeader_internal(std::ostream &os, std::string const &prefix) {
+            static void collectFieldNames_internal(std::string const &prefix, std::vector<std::string> &output) {
                 if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
-                    if constexpr (FieldIndex != 0) {
-                        os << ',';
-                    }
                     using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
                     if constexpr (is_simple_csv_field_v<F>) {
-                        os << prefix << StructFieldInfo<T>::FIELD_NAMES[FieldIndex];
+                        output.push_back(prefix+std::string(StructFieldInfo<T>::FIELD_NAMES[FieldIndex]));
                     } else if constexpr (ArrayAndOptionalChecker<F>::IsArray) {
                         for (std::size_t ii=0; ii<ArrayAndOptionalChecker<F>::ArrayLength; ++ii) {
-                            if (ii>0) {
-                                os << ',';
-                            }
                             if constexpr (is_simple_csv_field_v<typename ArrayAndOptionalChecker<F>::BaseType>) {
-                                os << prefix << StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << '[' << ii << ']';
+                                if (boost::ends_with(prefix, '.')) {
+                                    output.push_back(prefix.substr(0,prefix.length()-1)+"["+std::to_string(ii)+"]");
+                                } else {
+                                    output.push_back(prefix+"["+std::to_string(ii)+"]");
+                                }
                             } else {
                                 std::ostringstream prefixOss;
                                 prefixOss << prefix << StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << '[' << ii << "].";
-                                StructFieldInfoBasedSimpleCsvOutputImpl<typename ArrayAndOptionalChecker<F>::BaseType>::writeHeader(
-                                    os, prefixOss.str()
+                                StructFieldInfoBasedSimpleCsvOutputImpl<typename ArrayAndOptionalChecker<F>::BaseType>::collectFieldNames(
+                                    prefixOss.str(), output
                                 );
                             }
                         }
                     } else if constexpr (ArrayAndOptionalChecker<F>::IsOptional) {
                         if constexpr (is_simple_csv_field_v<typename ArrayAndOptionalChecker<F>::BaseType>) {
-                            os << prefix << StructFieldInfo<T>::FIELD_NAMES[FieldIndex];
+                            output.push_back(prefix+std::string(StructFieldInfo<T>::FIELD_NAMES[FieldIndex]));
                         } else {
                             std::ostringstream prefixOss;
                             prefixOss << prefix << StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << '.';
-                            StructFieldInfoBasedSimpleCsvOutputImpl<typename ArrayAndOptionalChecker<F>::BaseType>::writeHeader(
-                                os, prefixOss.str()
+                            StructFieldInfoBasedSimpleCsvOutputImpl<typename ArrayAndOptionalChecker<F>::BaseType>::collectFieldNames(
+                                prefixOss.str(), output
                             );
                         }
                     } else {
                         std::ostringstream prefixOss;
                         prefixOss << prefix << StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << '.';
-                        StructFieldInfoBasedSimpleCsvOutputImpl<F>::writeHeader(
-                            os, prefixOss.str()
+                        StructFieldInfoBasedSimpleCsvOutputImpl<F>::collectFieldNames(
+                            prefixOss.str(), output
                         );
                     }
-                    writeHeader_internal<FieldCount,FieldIndex+1>(os,prefix);
+                    collectFieldNames_internal<FieldCount,FieldIndex+1>(prefix, output);
                 }
             }
             template <class ColType>
@@ -207,8 +209,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 }
             }
         public:
-            static void writeHeader(std::ostream &os, std::string const &prefix) {
-                writeHeader_internal<StructFieldInfo<T>::FIELD_NAMES.size(),0>(os, prefix);
+            static void collectFieldNames(std::string const &prefix, std::vector<std::string> &output) {
+                collectFieldNames_internal<StructFieldInfo<T>::FIELD_NAMES.size(),0>(prefix, output);
+            }
+            static void writeHeader(std::ostream &os) {
+                std::vector<std::string> fieldNames;
+                collectFieldNames("", fieldNames);
+                bool begin = true;
+                for (auto const &s : fieldNames) {
+                    if (!begin) {
+                        os << ',';
+                    }
+                    begin = false;
+                    os << s;
+                }
             }
             static void writeData(std::ostream &os, T const &t) {
                 writeData_internal<StructFieldInfo<T>::FIELD_NAMES.size(),0>(os, t);
@@ -219,13 +233,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
     class StructFieldInfoBasedSimpleCsvOutput {
     public:
+        static void collectFieldNames(std::vector<std::string> &output) {
+            internal::StructFieldInfoBasedSimpleCsvOutputImpl<T>::collectFieldNames("", output);
+        }
         static void writeHeader(std::ostream &os) {
-            internal::StructFieldInfoBasedSimpleCsvOutputImpl<T>::writeHeader(os, "");
+            internal::StructFieldInfoBasedSimpleCsvOutputImpl<T>::writeHeader(os);
             os << '\n';
         }
         static void writeData(std::ostream &os, T const &t) {
             internal::StructFieldInfoBasedSimpleCsvOutputImpl<T>::writeData(os, t);
             os << '\n';
+        }
+        template <class Iter>
+        static void writeDataCollection(std::ostream &os, Iter begin, Iter end, bool dontWriteHeader=false) {
+            if (!dontWriteHeader) {
+                writeHeader(os);
+            }
+            for (Iter iter = begin; iter != end; ++iter) {
+                writeData(os, *iter);
+            }
         }
     };
     
@@ -236,295 +262,179 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     };
 
     namespace internal {
-        template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
         class StructFieldInfoBasedSimpleCsvInputImpl {
         private:
-            static std::optional<std::string> readOneLine(std::istream &is) {
-                std::string s;
-                bool gotData = false;
-                while (!is.eof()) {
-                    std::getline(is, s);
-                    boost::trim(s);
-                    if (s == "") {
-                        continue;
-                    }
-                    if (s[0] == '#') {
-                        continue;
-                    }
-                    gotData = true;
-                    break;
-                }
-                if (gotData) {
-                    return s;
-                } else {
-                    return std::nullopt;
-                }
-            }
-            static void split(std::string const &input, std::vector<std::string_view> &output, char delim=',') {
-                const char *p = input.data();
-                const char *q = p;
-                bool inStringField = false;
-                while (*p != '\0') {
-                    if (!inStringField) {
-                        if (*q == '\0') {
-                            output.push_back(std::string_view(p, q-p));
-                            break;
-                        } else if (*q == delim) {
-                            output.push_back(std::string_view(p, q-p));
-                            ++q;
-                            p = q;
-                        } else if (*q == '"') {
-                            if (p != q) {
-                                throw std::runtime_error("format error in line '"+input+"': string literal not starting at beginning of field");
-                            }
-                            inStringField = true;
-                            ++q;
-                        } else {
-                            ++q;
-                        }
-                    } else {
-                        if (*q == '\\') {
-                            q += 2;
-                        } else if (*q == '"') {
-                            ++q;
-                            if (*q != delim && *q != '\0') {
-                                throw std::runtime_error("format error in line '"+input+"': string literal not terminating at end of field");
-                            }
-                            output.push_back(std::string_view(p,q-p));
-                            ++q;
-                            p = q;
-                            inStringField = false;
-                        } else {
-                            ++q;
-                        }
-                    }
-                }
-            }
-            /*
-            will convert this stackoverflow example
-            
-            #include <boost/iostreams/device/array.hpp>
-#include <boost/iostreams/stream.hpp>
-
-#include <iostream>
-#include <string>
-
-int main() {
-    std::string_view buf{"hello\n"};
-    boost::iostreams::stream<boost::iostreams::basic_array_source<char>> stream(buf.begin(), buf.size());
-
-    std::string s;
-    stream >> s;
-    std::cout << s << '\n';
-}
-*/
             template <class ColType>
             static bool parseSimpleField_internal(std::string_view const &s, ColType &x) {
                 if (s == "") {
                     return false;
                 }
                 if constexpr (std::is_same_v<ColType,std::string>) {
-                    std::istringstream(std::string(s)) >> std::quoted(x);
+                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
+                        >> std::quoted(x);
                 } else if constexpr (std::is_same_v<ColType,std::tm>) {
-                    std::istringstream(std::string(s)) >> std::get_time(&x, "%Y-%m-%dT%H:%M:%S");
+                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
+                        >> std::get_time(&x, "%Y-%m-%dT%H:%M:%S");
                 } else if constexpr (std::is_same_v<ColType,std::chrono::system_clock::time_point>) {
-                    x = infra::withtime_utils::parseLocalTime(std::string(s));
+                    x = infra::withtime_utils::parseLocalTime(s);
                 } else {
-                    x = boost::lexical_cast<ColType>(std::string(s));
+                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
+                        >> x;
                 }
                 return true;
             }
-            #if 0
-            template <int FieldCount, int FieldIndex>
-            static void parse_internal(std::vector<std::string_view> const &parts, T &t, int currentIdx) {
-                if constexpr (FieldCount >=0 && FieldIndex < FieldCount) {
-                    using ColType = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                    if constexpr (internal::StructFieldIsGoodForCsv<ColType>::IsArray) {
-                        for (std::size_t ii=0; ii<internal::StructFieldIsGoodForCsv<ColType>::ArrayLength; ++ii,++currentIdx) {
-                            if (currentIdx < parts.size()) {
-                                parseField_internal<typename internal::StructFieldIsGoodForCsv<ColType>::BaseType>(
-                                    parts[currentIdx]
-                                    , (t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()))[ii]
-                                );
+            template <class F>
+            static std::tuple<bool,std::size_t> parseOne(std::vector<std::string_view> const &parts, F &output, std::size_t currentIdx) {
+                if constexpr (is_simple_csv_field_v<F>) {
+                    return {parseSimpleField_internal<F>(parts[currentIdx], output), 1};
+                } else if constexpr (ArrayAndOptionalChecker<F>::IsArray) {
+                    using BT = typename ArrayAndOptionalChecker<F>::BaseType;
+                    bool someGood = false;
+                    if constexpr (is_simple_csv_field_v<BT>) {
+                        for (std::size_t ii=0; ii<ArrayAndOptionalChecker<F>::ArrayLength; ++ii) {
+                            if (parseSimpleField_internal<BT>(parts[currentIdx+ii], output[ii])) {
+                                someGood = true;
+                            }
+                        }
+                        return {someGood, ArrayAndOptionalChecker<F>::ArrayLength};
+                    } else {
+                        std::size_t count = 0;
+                        for (std::size_t ii=0; ii<ArrayAndOptionalChecker<F>::ArrayLength; ++ii) {
+                            auto res = parseOne<BT>(parts, output[ii], currentIdx+count);
+                            if (std::get<0>(res)) {
+                                someGood = true;
+                            }
+                            count += std::get<1>(res);
+                        }
+                        return {someGood, count};
+                    }
+                } else if constexpr (ArrayAndOptionalChecker<F>::IsOptional) {
+                    using BT = typename ArrayAndOptionalChecker<F>::BaseType;
+                    BT v;
+                    if constexpr (is_simple_csv_field_v<BT>) {
+                        if (parseSimpleField_internal<BT>(parts[currentIdx], v)) {
+                            output = std::move(v);
+                            return {true, 1};
+                        } else {
+                            output = std::nullopt;
+                            return {false, 1};
+                        }
+                    } else {
+                        auto res = parseOne<BT>(parts, v, currentIdx);
+                        if (std::get<0>(res)) {
+                            output = std::move(v);
+                        } else {
+                            output = std::nullopt;
+                        }
+                        return res;
+                    }
+                } else {
+                    auto res = StructFieldInfoBasedSimpleCsvInputImpl::template parse<F>(parts, output, currentIdx);
+                    return {std::get<0>(res), std::get<1>(res)-currentIdx};
+                }        
+            }
+            template <class F>
+            static std::tuple<bool,std::size_t> parseOneWithIdxDict(std::vector<std::string_view> const &parts, F &output, std::size_t currentIdx, std::vector<std::size_t> const &idxDict) {
+                if constexpr (is_simple_csv_field_v<F>) {
+                    auto realIdx = idxDict[currentIdx];
+                    if (realIdx != std::numeric_limits<std::size_t>::max()) {
+                        return {parseSimpleField_internal<F>(parts[realIdx], output), 1};
+                    } else {
+                        return {false, 1};
+                    }
+                } else if constexpr (ArrayAndOptionalChecker<F>::IsArray) {
+                    using BT = typename ArrayAndOptionalChecker<F>::BaseType;
+                    bool someGood = false;
+                    if constexpr (is_simple_csv_field_v<BT>) {
+                        for (std::size_t ii=0; ii<ArrayAndOptionalChecker<F>::ArrayLength; ++ii) {
+                            auto realIdx = idxDict[currentIdx+ii];
+                            if (realIdx != std::numeric_limits<std::size_t>::max()) {
+                                if (parseSimpleField_internal<BT>(parts[realIdx], output[ii])) {
+                                    someGood = true;
+                                }
+                            }
+                        }
+                        return {someGood, ArrayAndOptionalChecker<F>::ArrayLength};
+                    } else {
+                        std::size_t count = 0;
+                        for (std::size_t ii=0; ii<ArrayAndOptionalChecker<F>::ArrayLength; ++ii) {
+                            auto res = parseOneWithIdxDict<BT>(parts, output[ii], currentIdx+count, idxDict);
+                            if (std::get<0>(res)) {
+                                someGood = true;
+                            }
+                            count += std::get<1>(res);
+                        }
+                        return {someGood, count};
+                    }
+                } else if constexpr (ArrayAndOptionalChecker<F>::IsOptional) {
+                    using BT = typename ArrayAndOptionalChecker<F>::BaseType;
+                    BT v;
+                    if constexpr (is_simple_csv_field_v<BT>) {
+                        auto realIdx = idxDict[currentIdx];
+                        if (realIdx != std::numeric_limits<std::size_t>::max()) {
+                            if (parseSimpleField_internal<BT>(parts[currentIdx], v)) {
+                                output = std::move(v);
+                                return {true, 1};
+                            } else {
+                                output = std::nullopt;
+                                return {false, 1};
                             }
                         }
                     } else {
-                        if (currentIdx < parts.size()) {
-                            parseField_internal<ColType>(parts[currentIdx], t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()));
+                        auto res = parseOneWithIdxDict<BT>(parts, v, currentIdx, idxDict);
+                        if (std::get<0>(res)) {
+                            output = std::move(v);
+                        } else {
+                            output = std::nullopt;
                         }
-                        ++currentIdx;
+                        return res;
                     }
-                    parse_internal<FieldCount,FieldIndex+1>(parts,t,currentIdx);
-                }
+                } else {
+                    auto res = StructFieldInfoBasedSimpleCsvInputImpl::template parse_with_idx_dict<F>(parts, output, currentIdx, idxDict);
+                    return {std::get<0>(res), std::get<1>(res)-currentIdx};
+                }        
             }
-            template <int FieldCount, int FieldIndex>
-            static void parse_internal_with_header_dict(std::vector<std::string_view> const &parts, T &t, std::unordered_map<std::string, std::size_t> const &headerDict) {
+            template <class T, int FieldCount, int FieldIndex>
+            static std::tuple<bool,std::size_t> parse_internal(std::vector<std::string_view> const &parts, T &t, int currentIdx, bool hasGoodSoFar) {
                 if constexpr (FieldCount >=0 && FieldIndex < FieldCount) {
-                    using ColType = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                    if constexpr (internal::StructFieldIsGoodForCsv<ColType>::IsArray) {
-                        for (std::size_t ii=0; ii<internal::StructFieldIsGoodForCsv<ColType>::ArrayLength; ++ii) {
-                            std::ostringstream oss;
-                            oss << StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << '[' << ii << ']';
-                            auto iter = headerDict.find(oss.str());
-                            if (iter != headerDict.end() && iter->second >= 0 && iter->second < parts.size()) {
-                                parseField_internal<typename internal::StructFieldIsGoodForCsv<ColType>::BaseType>(
-                                    parts[iter->second]
-                                    , (t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()))[ii]
-                                );
-                            }
-                        }
-                    } else {
-                        auto iter = headerDict.find(std::string(StructFieldInfo<T>::FIELD_NAMES[FieldIndex]));
-                        if (iter != headerDict.end() && iter->second >= 0 && iter->second < parts.size()) {
-                            parseField_internal<ColType>(parts[iter->second], t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()));
-                        }
+                    using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
+                    auto T::*p = StructFieldTypeInfo<T,FieldIndex>::fieldPointer();
+                    auto res = parseOne<F>(parts, (t.*p), currentIdx);
+                    if (std::get<0>(res)) {
+                        hasGoodSoFar = true;
                     }
-                    parse_internal_with_header_dict<FieldCount,FieldIndex+1>(parts,t,headerDict);
+                    return parse_internal<T,FieldCount,FieldIndex+1>(parts, t, currentIdx+std::get<1>(res), hasGoodSoFar);
+                } else {
+                    return {hasGoodSoFar, currentIdx};
                 }
             }
-            template <int FieldCount, int FieldIndex>
-            static void headerDictToIdxDict_internal(std::unordered_map<std::string, std::size_t> const &headerDict, std::array<std::vector<int>,FieldCount> &output) {
+            template <class T, int FieldCount, int FieldIndex>
+            static std::tuple<bool,std::size_t> parse_internal_with_idx_dict(std::vector<std::string_view> const &parts, T &t, int currentIdx, bool hasGoodSoFar, std::vector<std::size_t> const &idxDict) {
                 if constexpr (FieldCount >=0 && FieldIndex < FieldCount) {
-                    using ColType = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                    if constexpr (internal::StructFieldIsGoodForCsv<ColType>::IsArray) {
-                        output[FieldIndex].resize(internal::StructFieldIsGoodForCsv<ColType>::ArrayLength);
-                        for (std::size_t ii=0; ii<internal::StructFieldIsGoodForCsv<ColType>::ArrayLength; ++ii) {
-                            output[FieldIndex][ii] = -1;
-                            std::ostringstream oss;
-                            oss << StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << '[' << ii << ']';
-                            auto iter = headerDict.find(oss.str());
-                            if (iter != headerDict.end() && iter->second >= 0) {
-                                output[FieldIndex][ii] = iter->second;
-                            }
-                        }
-                    } else {
-                        output[FieldIndex].resize(1);
-                        output[FieldIndex][0] = -1;
-                        auto iter = headerDict.find(std::string(StructFieldInfo<T>::FIELD_NAMES[FieldIndex]));
-                        if (iter != headerDict.end() && iter->second >= 0) {
-                            output[FieldIndex][0] = iter->second;
-                        }
+                    using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
+                    auto T::*p = StructFieldTypeInfo<T,FieldIndex>::fieldPointer();
+                    auto res = parseOneWithIdxDict<F>(parts, (t.*p), currentIdx, idxDict);
+                    if (std::get<0>(res)) {
+                        hasGoodSoFar = true;
                     }
-                    headerDictToIdxDict_internal<FieldCount,FieldIndex+1>(headerDict,output);
+                    return parse_internal_with_idx_dict<T,FieldCount,FieldIndex+1>(parts, t, currentIdx+std::get<1>(res), hasGoodSoFar, idxDict);
+                } else {
+                    return {hasGoodSoFar, currentIdx};
                 }
             }
-            template <int FieldCount, int FieldIndex>
-            static void parse_internal_with_idx_dict(std::vector<std::string_view> const &parts, T &t, std::array<std::vector<int>,FieldCount> const &idxDict) {
-                if constexpr (FieldCount >=0 && FieldIndex < FieldCount) {
-                    using ColType = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                    if constexpr (internal::StructFieldIsGoodForCsv<ColType>::IsArray) {
-                        for (std::size_t ii=0; ii<internal::StructFieldIsGoodForCsv<ColType>::ArrayLength; ++ii) {
-                            auto const &item = idxDict[FieldIndex];
-                            if (ii < item.size() && item[ii] >= 0 && item[ii] < parts.size()) {
-                                parseField_internal<typename internal::StructFieldIsGoodForCsv<ColType>::BaseType>(
-                                    parts[item[ii]]
-                                    , (t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()))[ii]
-                                );
-                            }
-                        }
-                    } else {
-                        auto const &item = idxDict[FieldIndex];
-                        if (0 < item.size() && item[0] >= 0 && item[0] < parts.size()) {
-                            parseField_internal<ColType>(parts[item[0]], t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()));
-                        }
-                    }
-                    parse_internal_with_idx_dict<FieldCount,FieldIndex+1>(parts,t,idxDict);
-                }
-            }
-        #endif
         public:
-        #if 0
-            static std::unordered_map<std::string, std::size_t> readHeader(std::istream &is, char delim=',') {
-                auto s = readOneLine(is);
-                if (!s) {
-                    return {};
-                }
-                std::vector<std::string_view> parts;
-                split(*s, parts, delim);
-                std::unordered_map<std::string, std::size_t> res;
-                for (std::size_t ii=0; ii<parts.size(); ++ii) {
-                    if (parts[ii] != "") {
-                        std::string p;
-                        std::istringstream(std::string(parts[ii])) >> std::quoted(p);
-                        res[p] = ii;
-                    }
-                }
-                return res;
+            //the return value is whether some components have value, and how many items it consumed
+            template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
+            static std::tuple<bool,std::size_t> parse(std::vector<std::string_view> const &parts, T &output, std::size_t currentIdx) {
+                return parse_internal<T,StructFieldInfo<T>::FIELD_NAMES.size(),0>(parts, output, currentIdx, false);
             }
-            static bool readOne(std::istream &is, T &t, char delim=',') {
-                basic::struct_field_info_utils::StructFieldInfoBasedInitializer<T>::initialize(t);
-                auto s = readOneLine(is);
-                if (!s) {
-                    return false;
-                }
-                std::vector<std::string_view> parts;
-                split(*s, parts, delim);
-                parse_internal<StructFieldInfo<T>::FIELD_NAMES.size(),0>(parts, t, 0);
-                return true;
+            template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
+            static std::tuple<bool,std::size_t> parse_with_idx_dict(std::vector<std::string_view> const &parts, T &output, std::size_t currentIdx, std::vector<std::size_t> const &idxDict) {
+                return parse_internal_with_idx_dict<T,StructFieldInfo<T>::FIELD_NAMES.size(),0>(parts, output, currentIdx, false, idxDict);
             }
-            static bool readOneWithHeaderDict(std::istream &is, T &t, std::unordered_map<std::string, std::size_t> const &headerDict, char delim=',') {
-                basic::struct_field_info_utils::StructFieldInfoBasedInitializer<T>::initialize(t);
-                auto s = readOneLine(is);
-                if (!s) {
-                    return false;
-                }
-                std::vector<std::string_view> parts;
-                split(*s, parts, delim);
-                parse_internal_with_header_dict<StructFieldInfo<T>::FIELD_NAMES.size(),0>(parts, t, headerDict);
-                return true;
-            }
-            static std::array<std::vector<int>,StructFieldInfo<T>::FIELD_NAMES.size()> headerDictToIdxDict(std::unordered_map<std::string, std::size_t> const &headerDict) {
-                std::array<std::vector<int>,StructFieldInfo<T>::FIELD_NAMES.size()> ret;
-                headerDictToIdxDict_internal<StructFieldInfo<T>::FIELD_NAMES.size(),0>(headerDict, ret);
-                return ret;
-            }
-            static bool readOneWithIdxDict(std::istream &is, T &t, std::array<std::vector<int>,StructFieldInfo<T>::FIELD_NAMES.size()> const &idxDict, char delim=',') {
-                basic::struct_field_info_utils::StructFieldInfoBasedInitializer<T>::initialize(t);
-                auto s = readOneLine(is);
-                if (!s) {
-                    return false;
-                }
-                std::vector<std::string_view> parts;
-                split(*s, parts, delim);
-                parse_internal_with_idx_dict<StructFieldInfo<T>::FIELD_NAMES.size(),0>(parts, t, idxDict);
-                return true;
-            }
-            template <class OutIter>
-            static void readInto(std::istream &is, OutIter iter, StructFieldInfoBasedCsvInputOption option = StructFieldInfoBasedCsvInputOption::IgnoreHeader) {
-                std::array<std::vector<int>,StructFieldInfo<T>::FIELD_NAMES.size()> idxDict;
-                switch (option) {
-                case StructFieldInfoBasedCsvInputOption::IgnoreHeader:
-                    readHeader(is);
-                    break;
-                case StructFieldInfoBasedCsvInputOption::HasNoHeader:
-                    break;
-                case StructFieldInfoBasedCsvInputOption::UseHeaderAsDict:
-                    idxDict = headerDictToIdxDict(readHeader(is));
-                    break;
-                default:
-                    readHeader(is);
-                    break;
-                }
-                std::vector<T> ret;
-                T item;
-                while (true) {
-                    if (option == StructFieldInfoBasedCsvInputOption::UseHeaderAsDict) {
-                        if (!readOneWithIdxDict(is, item, idxDict)) {
-                            return;
-                        }
-                    } else {
-                        if (!readOne(is, item)) {
-                            return;
-                        }
-                    }
-                    *iter++ = std::move(item);
-                }
-            }
-        #endif
         };
     }
 
-#if 0
     template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
     class StructFieldInfoBasedSimpleCsvInput {
     private:
@@ -589,121 +499,6 @@ int main() {
                 }
             }
         }
-        template <class ColType>
-        static void parseField_internal(std::string_view const &s, ColType &x) {
-            if (s == "") {
-                return;
-            }
-            if constexpr (std::is_same_v<ColType,std::string>) {
-                std::istringstream(std::string(s)) >> std::quoted(x);
-            } else if constexpr (std::is_same_v<ColType,std::tm>) {
-                std::istringstream(std::string(s)) >> std::get_time(&x, "%Y-%m-%dT%H:%M:%S");
-            } else if constexpr (std::is_same_v<ColType,std::chrono::system_clock::time_point>) {
-                x = infra::withtime_utils::parseLocalTime(std::string(s));
-            } else if constexpr (internal::StructFieldIsGoodForCsv<ColType>::IsOptional) {
-                x = typename internal::StructFieldIsGoodForCsv<ColType>::BaseType {};
-                basic::struct_field_info_utils::StructFieldInfoBasedInitializer<typename internal::StructFieldIsGoodForCsv<ColType>::BaseType>::initialize(*x);
-                parseField_internal<typename internal::StructFieldIsGoodForCsv<ColType>::BaseType>(s, *x);
-            } else {
-                x = boost::lexical_cast<ColType>(std::string(s));
-            }
-        }
-        template <int FieldCount, int FieldIndex>
-        static void parse_internal(std::vector<std::string_view> const &parts, T &t, int currentIdx) {
-            if constexpr (FieldCount >=0 && FieldIndex < FieldCount) {
-                using ColType = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                if constexpr (internal::StructFieldIsGoodForCsv<ColType>::IsArray) {
-                    for (std::size_t ii=0; ii<internal::StructFieldIsGoodForCsv<ColType>::ArrayLength; ++ii,++currentIdx) {
-                        if (currentIdx < parts.size()) {
-                            parseField_internal<typename internal::StructFieldIsGoodForCsv<ColType>::BaseType>(
-                                parts[currentIdx]
-                                , (t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()))[ii]
-                            );
-                        }
-                    }
-                } else {
-                    if (currentIdx < parts.size()) {
-                        parseField_internal<ColType>(parts[currentIdx], t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()));
-                    }
-                    ++currentIdx;
-                }
-                parse_internal<FieldCount,FieldIndex+1>(parts,t,currentIdx);
-            }
-        }
-        template <int FieldCount, int FieldIndex>
-        static void parse_internal_with_header_dict(std::vector<std::string_view> const &parts, T &t, std::unordered_map<std::string, std::size_t> const &headerDict) {
-            if constexpr (FieldCount >=0 && FieldIndex < FieldCount) {
-                using ColType = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                if constexpr (internal::StructFieldIsGoodForCsv<ColType>::IsArray) {
-                    for (std::size_t ii=0; ii<internal::StructFieldIsGoodForCsv<ColType>::ArrayLength; ++ii) {
-                        std::ostringstream oss;
-                        oss << StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << '[' << ii << ']';
-                        auto iter = headerDict.find(oss.str());
-                        if (iter != headerDict.end() && iter->second >= 0 && iter->second < parts.size()) {
-                            parseField_internal<typename internal::StructFieldIsGoodForCsv<ColType>::BaseType>(
-                                parts[iter->second]
-                                , (t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()))[ii]
-                            );
-                        }
-                    }
-                } else {
-                    auto iter = headerDict.find(std::string(StructFieldInfo<T>::FIELD_NAMES[FieldIndex]));
-                    if (iter != headerDict.end() && iter->second >= 0 && iter->second < parts.size()) {
-                        parseField_internal<ColType>(parts[iter->second], t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()));
-                    }
-                }
-                parse_internal_with_header_dict<FieldCount,FieldIndex+1>(parts,t,headerDict);
-            }
-        }
-        template <int FieldCount, int FieldIndex>
-        static void headerDictToIdxDict_internal(std::unordered_map<std::string, std::size_t> const &headerDict, std::array<std::vector<int>,FieldCount> &output) {
-            if constexpr (FieldCount >=0 && FieldIndex < FieldCount) {
-                using ColType = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                if constexpr (internal::StructFieldIsGoodForCsv<ColType>::IsArray) {
-                    output[FieldIndex].resize(internal::StructFieldIsGoodForCsv<ColType>::ArrayLength);
-                    for (std::size_t ii=0; ii<internal::StructFieldIsGoodForCsv<ColType>::ArrayLength; ++ii) {
-                        output[FieldIndex][ii] = -1;
-                        std::ostringstream oss;
-                        oss << StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << '[' << ii << ']';
-                        auto iter = headerDict.find(oss.str());
-                        if (iter != headerDict.end() && iter->second >= 0) {
-                            output[FieldIndex][ii] = iter->second;
-                        }
-                    }
-                } else {
-                    output[FieldIndex].resize(1);
-                    output[FieldIndex][0] = -1;
-                    auto iter = headerDict.find(std::string(StructFieldInfo<T>::FIELD_NAMES[FieldIndex]));
-                    if (iter != headerDict.end() && iter->second >= 0) {
-                        output[FieldIndex][0] = iter->second;
-                    }
-                }
-                headerDictToIdxDict_internal<FieldCount,FieldIndex+1>(headerDict,output);
-            }
-        }
-        template <int FieldCount, int FieldIndex>
-        static void parse_internal_with_idx_dict(std::vector<std::string_view> const &parts, T &t, std::array<std::vector<int>,FieldCount> const &idxDict) {
-            if constexpr (FieldCount >=0 && FieldIndex < FieldCount) {
-                using ColType = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                if constexpr (internal::StructFieldIsGoodForCsv<ColType>::IsArray) {
-                    for (std::size_t ii=0; ii<internal::StructFieldIsGoodForCsv<ColType>::ArrayLength; ++ii) {
-                        auto const &item = idxDict[FieldIndex];
-                        if (ii < item.size() && item[ii] >= 0 && item[ii] < parts.size()) {
-                            parseField_internal<typename internal::StructFieldIsGoodForCsv<ColType>::BaseType>(
-                                parts[item[ii]]
-                                , (t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()))[ii]
-                            );
-                        }
-                    }
-                } else {
-                    auto const &item = idxDict[FieldIndex];
-                    if (0 < item.size() && item[0] >= 0 && item[0] < parts.size()) {
-                        parseField_internal<ColType>(parts[item[0]], t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()));
-                    }
-                }
-                parse_internal_with_idx_dict<FieldCount,FieldIndex+1>(parts,t,idxDict);
-            }
-        }
     public:
         static std::unordered_map<std::string, std::size_t> readHeader(std::istream &is, char delim=',') {
             auto s = readOneLine(is);
@@ -716,11 +511,27 @@ int main() {
             for (std::size_t ii=0; ii<parts.size(); ++ii) {
                 if (parts[ii] != "") {
                     std::string p;
-                    std::istringstream(std::string(parts[ii])) >> std::quoted(p);
+                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[ii].begin(), parts[ii].size())
+                        >> std::quoted(p);
                     res[p] = ii;
                 }
             }
             return res;
+        }
+        static std::vector<std::size_t> headerDictToIdxDict(std::unordered_map<std::string, std::size_t> const &headerDict) {
+            std::vector<std::string> fieldNames;
+            StructFieldInfoBasedSimpleCsvOutput<T>::collectFieldNames(fieldNames);
+            std::vector<std::size_t> output;
+            output.resize(fieldNames.size());
+            for (std::size_t ii=0; ii<fieldNames.size(); ++ii) {
+                auto iter = headerDict.find(fieldNames[ii]);
+                if (iter == headerDict.end()) {
+                    output[ii] = std::numeric_limits<std::size_t>::max();
+                } else {
+                    output[ii] = iter->second;
+                }
+            }
+            return output;
         }
         static bool readOne(std::istream &is, T &t, char delim=',') {
             basic::struct_field_info_utils::StructFieldInfoBasedInitializer<T>::initialize(t);
@@ -730,10 +541,10 @@ int main() {
             }
             std::vector<std::string_view> parts;
             split(*s, parts, delim);
-            parse_internal<StructFieldInfo<T>::FIELD_NAMES.size(),0>(parts, t, 0);
+            internal::StructFieldInfoBasedSimpleCsvInputImpl::parse<T>(parts, t, 0);
             return true;
         }
-        static bool readOneWithHeaderDict(std::istream &is, T &t, std::unordered_map<std::string, std::size_t> const &headerDict, char delim=',') {
+        static bool readOneWithIdxDict(std::istream &is, T &t, std::vector<std::size_t> const &idxDict, char delim=',') {
             basic::struct_field_info_utils::StructFieldInfoBasedInitializer<T>::initialize(t);
             auto s = readOneLine(is);
             if (!s) {
@@ -741,28 +552,12 @@ int main() {
             }
             std::vector<std::string_view> parts;
             split(*s, parts, delim);
-            parse_internal_with_header_dict<StructFieldInfo<T>::FIELD_NAMES.size(),0>(parts, t, headerDict);
-            return true;
-        }
-        static std::array<std::vector<int>,StructFieldInfo<T>::FIELD_NAMES.size()> headerDictToIdxDict(std::unordered_map<std::string, std::size_t> const &headerDict) {
-            std::array<std::vector<int>,StructFieldInfo<T>::FIELD_NAMES.size()> ret;
-            headerDictToIdxDict_internal<StructFieldInfo<T>::FIELD_NAMES.size(),0>(headerDict, ret);
-            return ret;
-        }
-        static bool readOneWithIdxDict(std::istream &is, T &t, std::array<std::vector<int>,StructFieldInfo<T>::FIELD_NAMES.size()> const &idxDict, char delim=',') {
-            basic::struct_field_info_utils::StructFieldInfoBasedInitializer<T>::initialize(t);
-            auto s = readOneLine(is);
-            if (!s) {
-                return false;
-            }
-            std::vector<std::string_view> parts;
-            split(*s, parts, delim);
-            parse_internal_with_idx_dict<StructFieldInfo<T>::FIELD_NAMES.size(),0>(parts, t, idxDict);
+            internal::StructFieldInfoBasedSimpleCsvInputImpl::parse_with_idx_dict<T>(parts, t, 0, idxDict);
             return true;
         }
         template <class OutIter>
         static void readInto(std::istream &is, OutIter iter, StructFieldInfoBasedCsvInputOption option = StructFieldInfoBasedCsvInputOption::IgnoreHeader) {
-            std::array<std::vector<int>,StructFieldInfo<T>::FIELD_NAMES.size()> idxDict;
+            std::vector<std::size_t> idxDict;
             switch (option) {
             case StructFieldInfoBasedCsvInputOption::IgnoreHeader:
                 readHeader(is);
@@ -805,7 +600,7 @@ int main() {
                 std::istream *is_;
                 TimeExtractor timeExtractor_;
                 StructFieldInfoBasedCsvInputOption option_;
-                std::array<std::vector<int>,StructFieldInfo<T>::FIELD_NAMES.size()> idxDict_;
+                std::vector<std::size_t> idxDict_;
                 using I = StructFieldInfoBasedSimpleCsvInput<T>;
                 T t_;
                 bool hasData_;
@@ -897,7 +692,7 @@ int main() {
             return M::template exporter<T>(new LocalE(&os, dontWriteHeader));
         }
     };
-#endif
+
 } } } } }
 
 #endif
