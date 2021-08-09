@@ -47,6 +47,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         template <class T, bool IsStructWithFieldInfo=StructFieldInfo<T>::HasGeneratedStructFieldInfo>
         class StructFieldInfoCsvSupportChecker {
         public:
+            static constexpr bool IsComposite = false;
             static constexpr bool IsGoodForCsv = false;
             static constexpr std::size_t CsvFieldCount = 0;
         };
@@ -76,6 +77,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 }
             }
         public:
+            static constexpr bool IsComposite = false;
             static constexpr bool IsGoodForCsv = fieldIsGood();
             static constexpr std::size_t CsvFieldCount = fieldCount();
         };
@@ -128,6 +130,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 }
             }
         public:
+            static constexpr bool IsComposite = true;
             static constexpr bool IsGoodForCsv = checkGood<StructFieldInfo<T>::FIELD_NAMES.size(),0>();
             static constexpr std::size_t CsvFieldCount = totalFieldCount<StructFieldInfo<T>::FIELD_NAMES.size(),0,0>();
         };
@@ -181,7 +184,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     );
                 }
             }
-            template <class T, int FieldCount, int FieldIndex, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
+            template <class T, int FieldCount, int FieldIndex, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && StructFieldInfoCsvSupportChecker<T>::IsComposite>>
             static void collectFieldNames_internal(std::string const &prefix, std::vector<std::string> &output) {
                 if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                     using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
@@ -240,7 +243,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     );
                 }
             }
-            template <class T, int FieldCount, int FieldIndex, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
+            template <class T, int FieldCount, int FieldIndex, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && StructFieldInfoCsvSupportChecker<T>::IsComposite>>
             static void writeData_internal(std::ostream &os, T const &t) {
                 if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                     if constexpr (FieldIndex != 0) {
@@ -253,7 +256,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 }
             }
         public:
-            template <class T, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
+            template <class T, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && StructFieldInfoCsvSupportChecker<T>::IsComposite>>
             static void collectFieldNames(std::string const &prefix, std::vector<std::string> &output) {
                 collectFieldNames_internal<T,StructFieldInfo<T>::FIELD_NAMES.size(),0>(prefix, output);
             }
@@ -270,14 +273,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     os << s;
                 }
             }
-            template <class T, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
+            template <class T, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && StructFieldInfoCsvSupportChecker<T>::IsComposite>>
             static void writeData(std::ostream &os, T const &t) {
                 writeData_internal<T,StructFieldInfo<T>::FIELD_NAMES.size(),0>(os, t);
             }
         };
     }
 
-    template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
+    template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && internal::StructFieldInfoCsvSupportChecker<T>::IsComposite>>
     class StructFieldInfoBasedSimpleCsvOutput {
     public:
         static void collectFieldNames(std::vector<std::string> &output) {
@@ -485,18 +488,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             }
         public:
             //the return value is whether some components have value, and how many items it consumed
-            template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
+            template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && StructFieldInfoCsvSupportChecker<T>::IsComposite>>
             static std::tuple<bool,std::size_t> parse(std::vector<std::string_view> const &parts, T &output, std::size_t currentIdx) {
                 return parse_internal<T,StructFieldInfo<T>::FIELD_NAMES.size(),0>(parts, output, currentIdx, false);
             }
-            template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
+            template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && StructFieldInfoCsvSupportChecker<T>::IsComposite>>
             static std::tuple<bool,std::size_t> parse_with_idx_dict(std::vector<std::string_view> const &parts, T &output, std::size_t currentIdx, std::vector<std::size_t> const &idxDict) {
                 return parse_internal_with_idx_dict<T,StructFieldInfo<T>::FIELD_NAMES.size(),0>(parts, output, currentIdx, false, idxDict);
             }
         };
     }
 
-    template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
+    template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && internal::StructFieldInfoCsvSupportChecker<T>::IsComposite>>
     class StructFieldInfoBasedSimpleCsvInput {
     private:
         static std::optional<std::string> readOneLine(std::istream &is) {
@@ -656,7 +659,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     template <class M>
     class StructFieldInfoBasedCsvImporterFactory {
     public:
-        template <class T, class TimeExtractor, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
+        template <class T, class TimeExtractor, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && internal::StructFieldInfoCsvSupportChecker<T>::IsComposite>>
         static auto createImporter(std::istream &is, TimeExtractor &&timeExtractor, StructFieldInfoBasedCsvInputOption option = StructFieldInfoBasedCsvInputOption::IgnoreHeader) 
             -> std::shared_ptr<typename M::template Importer<T>>
         {
@@ -731,7 +734,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     template <class M>
     class StructFieldInfoBasedCsvExporterFactory {
     public:
-        template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
+        template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && internal::StructFieldInfoCsvSupportChecker<T>::IsComposite>>
         static auto createExporter(std::ostream &os, bool dontWriteHeader=false) 
             -> std::shared_ptr<typename M::template Exporter<T>>
         {
