@@ -115,7 +115,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     } else if constexpr (ArrayAndOptionalChecker<F>::IsArray) {
                         for (std::size_t ii=0; ii<ArrayAndOptionalChecker<F>::ArrayLength; ++ii) {
                             if constexpr (is_simple_csv_field_v<typename ArrayAndOptionalChecker<F>::BaseType>) {
-                                if (boost::ends_with(prefix, '.')) {
+                                if (boost::ends_with(prefix, ".")) {
                                     output.push_back(prefix.substr(0,prefix.length()-1)+"["+std::to_string(ii)+"]");
                                 } else {
                                     output.push_back(prefix+"["+std::to_string(ii)+"]");
