@@ -270,15 +270,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     return false;
                 }
                 if constexpr (std::is_same_v<ColType,std::string>) {
+#ifdef _MSC_VER
+                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
+#else
                     boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
+#endif
                         >> std::quoted(x);
                 } else if constexpr (std::is_same_v<ColType,std::tm>) {
+#ifdef _MSC_VER
+                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
+#else
                     boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
+#endif
                         >> std::get_time(&x, "%Y-%m-%dT%H:%M:%S");
                 } else if constexpr (std::is_same_v<ColType,std::chrono::system_clock::time_point>) {
                     x = infra::withtime_utils::parseLocalTime(s);
                 } else {
+#ifdef _MSC_VER
+                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
+#else
                     boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
+#endif
                         >> x;
                 }
                 return true;
@@ -379,6 +391,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                                 output = std::nullopt;
                                 return {false, 1};
                             }
+                        } else {
+                            return {false, 1};
                         }
                     } else {
                         auto res = parseOneWithIdxDict<BT>(parts, v, currentIdx, idxDict);
@@ -511,7 +525,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             for (std::size_t ii=0; ii<parts.size(); ++ii) {
                 if (parts[ii] != "") {
                     std::string p;
+#ifdef _MSC_VER
+                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[ii].data(), parts[ii].length())
+#else
                     boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[ii].begin(), parts[ii].size())
+#endif
                         >> std::quoted(p);
                     res[p] = ii;
                 }
