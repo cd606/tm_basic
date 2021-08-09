@@ -15,11 +15,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static void copy(T &dest, U const &src) {
                 dest = T(src);
             }
+            static void move(T &dest, U &&src) {
+                dest = T(std::move(src));
+            }
         };
         template <class ComplexCopy>
         class CopySimpleImpl<std::tm,std::chrono::system_clock::time_point,ComplexCopy> {
         public:
             static void copy(std::tm &dest, std::chrono::system_clock::time_point const &src) {
+                auto t = std::chrono::system_clock::to_time_t(src);
+                dest = *std::localtime(&t);
+            }
+            static void move(std::tm &dest, std::chrono::system_clock::time_point &&src) {
                 auto t = std::chrono::system_clock::to_time_t(src);
                 dest = *std::localtime(&t);
             }
@@ -31,6 +38,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 std::tm t = src;
                 dest = std::chrono::system_clock::from_time_t(std::mktime(&t));
             }
+            static void move(std::chrono::system_clock::time_point &dest, std::tm &&src) {
+                dest = std::chrono::system_clock::from_time_t(std::mktime(&src));
+            }
         };
         template <class T, std::size_t N, class U, std::size_t M, class ComplexCopy>
         class CopySimpleImpl<std::array<T,N>,std::array<U,M>,ComplexCopy> {
@@ -38,6 +48,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static void copy(std::array<T,N> &dest, std::array<U,M> const &src) {
                 for (std::size_t ii=0; ii<std::min(N,M); ++ii) {
                     ComplexCopy::template copy<T,U>(dest[ii], src[ii]);
+                }
+            }
+            static void move(std::array<T,N> &dest, std::array<U,M> &&src) {
+                for (std::size_t ii=0; ii<std::min(N,M); ++ii) {
+                    ComplexCopy::template move<T,U>(dest[ii], std::move(src[ii]));
                 }
             }
         };
@@ -48,6 +63,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 dest = T {};
                 ComplexCopy::template copy<T,U>(*dest, src);
             }
+            static void move(std::optional<T> &dest, U &&src) {
+                dest = T {};
+                ComplexCopy::template move<T,U>(*dest, std::move(src));
+            }
         };
         template <class T, class U, class ComplexCopy>
         class CopySimpleImpl<T,std::optional<U>,ComplexCopy> {
@@ -55,6 +74,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static void copy(T &dest, std::optional<U> const &src) {
                 if (src) {
                     ComplexCopy::template copy<T,U>(dest, *src);
+                }
+            }
+            static void move(T &dest, std::optional<U> &&src) {
+                if (src) {
+                    ComplexCopy::template move<T,U>(dest, std::move(*src));
                 }
             }
         };
@@ -65,6 +89,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 if (src) {
                     dest = T{};
                     ComplexCopy::template copy<T,U>(*dest, *src);
+                } else {
+                    dest = std::nullopt;
+                }
+            }
+            static void move(std::optional<T> &dest, std::optional<U> &&src) {
+                if (src) {
+                    dest = T{};
+                    ComplexCopy::template move<T,U>(*dest, std::move(*src));
                 } else {
                     dest = std::nullopt;
                 }
@@ -90,9 +122,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     }
                 }
             }
+            template <int TFieldCount, int TFieldIndex, int UFieldCount, int UFieldIndex>
+            static void move_internal(T &dest, U &&src) {
+                if constexpr (TFieldIndex >= 0 && TFieldIndex < TFieldCount) {
+                    if constexpr (UFieldIndex >= 0 && UFieldIndex < UFieldCount) {
+                        if constexpr (StructFieldInfo<T>::FIELD_NAMES[TFieldIndex] == StructFieldInfo<U>::FIELD_NAMES[UFieldIndex]) {
+                            using F1 = typename StructFieldTypeInfo<T,TFieldIndex>::TheType;
+                            auto T::*p1 = StructFieldTypeInfo<T,TFieldIndex>::fieldPointer();
+                            using F2 = typename StructFieldTypeInfo<U,UFieldIndex>::TheType;
+                            auto U::*p2 = StructFieldTypeInfo<U,UFieldIndex>::fieldPointer();
+                            ComplexCopy::template move<F1,F2>(dest.*p1, std::move(src.*p2));
+                        }
+                        move_internal<TFieldCount,TFieldIndex,UFieldCount,UFieldIndex+1>(dest, std::move(src));
+                    } else {
+                        move_internal<TFieldCount,TFieldIndex+1,UFieldCount,0>(dest, std::move(src));
+                    }
+                }
+            }
         public:
             static void copy(T &dest, U const &src) {
                 copy_internal<StructFieldInfo<T>::FIELD_NAMES.size(),0,StructFieldInfo<U>::FIELD_NAMES.size(),0>(dest, src);
+            }
+            static void move(T &dest, U &&src) {
+                move_internal<StructFieldInfo<T>::FIELD_NAMES.size(),0,StructFieldInfo<U>::FIELD_NAMES.size(),0>(dest, std::move(src));
             }
         };
         
@@ -108,6 +160,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     CopyStructure<T,U,StructuralCopyImpl>::copy(dest, src);
                 } else {
                     CopySimpleImpl<T,U,StructuralCopyImpl>::copy(dest, src);
+                }
+            }
+            template <class T, class U>
+            static void move(T &dest, U &&src) {
+                if constexpr (
+                StructFieldInfo<T>::HasGeneratedStructFieldInfo
+                &&
+                StructFieldInfo<U>::HasGeneratedStructFieldInfo
+                ) {
+                    CopyStructure<T,U,StructuralCopyImpl>::move(dest, std::move(src));
+                } else {
+                    CopySimpleImpl<T,U,StructuralCopyImpl>::move(dest, std::move(src));
                 }
             }
         };
@@ -162,6 +226,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     copy_internal<Count,Index+1,typename TupleCarCdr<RemainingTL>::Cdr,typename TupleCarCdr<RemainingUL>::Cdr>(dest, src);
                 }
             }
+            template <std::size_t Count, std::size_t Index, class RemainingTL, class RemainingUL>
+            static void move_internal(T &dest, U &&src) {
+                if constexpr (Count == 0) {
+                    return;
+                } else if constexpr (Index >= Count) {
+                    return;
+                } else {
+                    *(StructFieldFlattenedInfoCursorBasedAccess<
+                        T, typename TupleCarCdr<RemainingTL>::Car
+                    >::valuePointer(dest))
+                    =
+                    std::move(*(StructFieldFlattenedInfoCursorBasedAccess<
+                        U, typename TupleCarCdr<RemainingUL>::Car
+                    >::valuePointer(src)));
+                    move_internal<Count,Index+1,typename TupleCarCdr<RemainingTL>::Cdr,typename TupleCarCdr<RemainingUL>::Cdr>(dest, std::move(src));
+                }
+            }
         public:
             static void copy(T &dest, U const &src) {
                 static_assert(
@@ -171,6 +252,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     , "For two structures to be flat-copyable, their flattened field list must have the same size"
                 );
                 copy_internal<CountTupleParameter<TL>::Count,0,TL,UL>(dest, src);
+            };
+            static void move(T &dest, U &&src) {
+                static_assert(
+                    (CountTupleParameter<TL>::IsValid
+                    && CountTupleParameter<UL>::IsValid
+                    && CountTupleParameter<TL>::Count==CountTupleParameter<UL>::Count)
+                    , "For two structures to be flat-copyable, their flattened field list must have the same size"
+                );
+                move_internal<CountTupleParameter<TL>::Count,0,TL,UL>(dest, std::move(src));
             };
         };
     }
@@ -185,6 +275,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         static void copy(T &dest, U const &src) {
             internal::StructuralCopyImpl::template copy<T,U>(dest, src);
         }
+        template <class T, class U, typename=std::enable_if_t<
+            StructFieldInfo<T>::HasGeneratedStructFieldInfo
+            &&
+            StructFieldInfo<U>::HasGeneratedStructFieldInfo
+        >>
+        static void move(T &dest, U &&src) {
+            internal::StructuralCopyImpl::template move<T,U>(dest, std::move(src));
+        }
     };
 
     class FlatCopy {
@@ -196,6 +294,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         >>
         static void copy(T &dest, U const &src) {
             internal::FlatCopyImpl<T,U>::copy(dest, src);
+        }
+        template <class T, class U, typename=std::enable_if_t<
+            StructFieldInfo<T>::HasGeneratedStructFieldInfo
+            &&
+            StructFieldInfo<U>::HasGeneratedStructFieldInfo
+        >>
+        static void move(T &dest, U &&src) {
+            internal::FlatCopyImpl<T,U>::move(dest, std::move(src));
         }
     };
 
