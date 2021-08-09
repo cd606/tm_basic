@@ -2,6 +2,7 @@
 #define TM_KIT_BASIC_STRUCT_FIELD_INFO_BASED_COPY_HPP_
 
 #include <tm_kit/basic/StructFieldInfoUtils.hpp>
+#include <tm_kit/basic/StructFieldFlattenedInfo.hpp>
 #include <chrono>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace struct_field_info_utils {
@@ -111,85 +112,67 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             }
         };
 
-#ifndef _MSC_VER
-        //MSVC has some issue in the recursive type determination required by
-        //this class, so disabling that for now
-        class CopyOneLevelFlatStructure {
-        private:
-            template <class T, class U, class ComplexCopy, int TFieldCount, int TFieldIndex, int TFieldSubIndex, int UFieldCount, int UFieldIndex, int UFieldSubIndex>
-            static void copy_internal(T &dest, U const &src) {
-                if constexpr (TFieldIndex >= 0 && TFieldIndex < TFieldCount && UFieldIndex >= 0 && UFieldIndex < UFieldCount) {
-                    using F1 = typename StructFieldTypeInfo<T,TFieldIndex>::TheType;
-                    auto T::*p1 = StructFieldTypeInfo<T,TFieldIndex>::fieldPointer();
-                    using F2 = typename StructFieldTypeInfo<U,UFieldIndex>::TheType;
-                    auto U::*p2 = StructFieldTypeInfo<U,UFieldIndex>::fieldPointer();
-                    if constexpr (StructFieldInfo<F1>::HasGeneratedStructFieldInfo) {
-                        if constexpr (StructFieldInfo<F2>::HasGeneratedStructFieldInfo) {
-                            constexpr int x = std::min(StructFieldInfo<F1>::FIELD_NAMES.size()-TFieldSubIndex,StructFieldInfo<F2>::FIELD_NAMES.size()-UFieldSubIndex);
-                            copy_internal<F1,F2,ComplexCopy,x,TFieldSubIndex,0,x,UFieldSubIndex,0>(dest.*p1, src.*p2);
-                            if constexpr (TFieldSubIndex+x >= StructFieldInfo<F1>::FIELD_NAMES.size()) {
-                                if constexpr (UFieldSubIndex+x >= StructFieldInfo<F2>::FIELD_NAMES.size()) {
-                                    copy_internal<T,U,ComplexCopy,TFieldCount,TFieldIndex+1,0,UFieldCount,UFieldIndex+1,0>(dest,src);
-                                } else {
-                                    copy_internal<T,U,ComplexCopy,TFieldCount,TFieldIndex+1,0,UFieldCount,UFieldIndex,UFieldSubIndex+x>(dest,src);
-                                }
-                            } else {
-                                if constexpr (UFieldSubIndex+x >= StructFieldInfo<F2>::FIELD_NAMES.size()) {
-                                    copy_internal<T,U,ComplexCopy,TFieldCount,TFieldIndex,TFieldSubIndex+x,UFieldCount,UFieldIndex+1,0>(dest,src);
-                                } else {
-                                    copy_internal<T,U,ComplexCopy,TFieldCount,TFieldIndex,UFieldSubIndex+x,UFieldCount,UFieldIndex,UFieldSubIndex+x>(dest,src);
-                                }
-                            }
-                        } else {
-                            using SubF = typename StructFieldTypeInfo<F1,TFieldSubIndex>::TheType;
-                            auto F1::*subP = StructFieldTypeInfo<F1,TFieldSubIndex>::fieldPointer();
-                            ComplexCopy::template copy<SubF,F2>(dest.*p1.*subP, src.*p2);
-                            if constexpr (TFieldSubIndex+1 >= StructFieldInfo<F1>::FIELD_NAMES.size()) {
-                                copy_internal<T,U,ComplexCopy,TFieldCount,TFieldIndex+1,0,UFieldCount,UFieldIndex+1,0>(dest,src);
-                            } else {
-                                copy_internal<T,U,ComplexCopy,TFieldCount,TFieldIndex,TFieldSubIndex+1,UFieldCount,UFieldIndex+1,0>(dest,src);
-                            }
-                        }
-                    } else {
-                        if constexpr (StructFieldInfo<F2>::HasGeneratedStructFieldInfo) {
-                            using SubF = typename StructFieldTypeInfo<F2,UFieldSubIndex>::TheType;
-                            auto F2::*subP = StructFieldTypeInfo<F2,UFieldSubIndex>::fieldPointer();
-                            ComplexCopy::template copy<F1,SubF>(dest.*p1, src.*p2.*subP);
-                            if constexpr (UFieldSubIndex+1 >= StructFieldInfo<F2>::FIELD_NAMES.size()) {
-                                copy_internal<T,U,ComplexCopy,TFieldCount,TFieldIndex+1,0,UFieldCount,UFieldIndex+1,0>(dest,src);
-                            } else {
-                                copy_internal<T,U,ComplexCopy,TFieldCount,TFieldIndex+1,0,UFieldCount,UFieldIndex,UFieldSubIndex+1>(dest,src);
-                            }
-                        } else {
-                            ComplexCopy::template copy<F1,F2>(dest.*p1, src.*p2);
-                            copy_internal<T,U,ComplexCopy,TFieldCount,TFieldIndex+1,0,UFieldCount,UFieldIndex+1,0>(dest,src);
-                        }
-                    }
-                }
-            }
+        template <class A>
+        class CountTupleParameter {
         public:
-            template <class T, class U, class ComplexCopy>
-            static void copy(T &dest, U const &src) {
-                copy_internal<T,U,ComplexCopy,StructFieldInfo<T>::FIELD_NAMES.size(),0,0,StructFieldInfo<U>::FIELD_NAMES.size(),0,0>(dest, src);
-            }
+            static constexpr bool IsValid = false;
+            static constexpr std::size_t Count = std::numeric_limits<std::size_t>::max();
+        };
+        template <class... As>
+        class CountTupleParameter<std::tuple<As...>> {
+        public:
+            static constexpr bool IsValid = true;
+            static constexpr std::size_t Count = sizeof...(As);
         };
 
-        class OneLevelFlatCopyImpl {
+        template <class A>
+        class TupleCarCdr {};
+        template <>
+        class TupleCarCdr<std::tuple<>> {
         public:
-            template <class T, class U>
-            static void copy(T &dest, U const &src) {
-                if constexpr (
-                StructFieldInfo<T>::HasGeneratedStructFieldInfo
-                &&
-                StructFieldInfo<U>::HasGeneratedStructFieldInfo
-                ) {
-                    CopyOneLevelFlatStructure::copy<T,U,OneLevelFlatCopyImpl>(dest, src);
+            using Car = void;
+            using Cdr = void;
+        };
+        template <class F, class... Rs>
+        class TupleCarCdr<std::tuple<F,Rs...>> {
+        public:
+            using Car = F;
+            using Cdr = std::tuple<Rs...>;
+        };
+
+        template <class T, class U>
+        class FlatCopyImpl {
+        private:
+            using TL = typename StructFieldFlattenedInfo<T>::TheType;
+            using UL = typename StructFieldFlattenedInfo<U>::TheType;
+            template <std::size_t Count, std::size_t Index, class RemainingTL, class RemainingUL>
+            static void copy_internal(T &dest, U const &src) {
+                if constexpr (Count == 0) {
+                    return;
+                } else if constexpr (Index >= Count) {
+                    return;
                 } else {
-                    CopySimpleImpl<T,U,OneLevelFlatCopyImpl>::copy(dest, src);
+                    *(StructFieldFlattenedInfoCursorBasedAccess<
+                        T, typename TupleCarCdr<RemainingTL>::Car
+                    >::valuePointer(dest))
+                    =
+                    *(StructFieldFlattenedInfoCursorBasedAccess<
+                        U, typename TupleCarCdr<RemainingUL>::Car
+                    >::constValuePointer(src));
+                    copy_internal<Count,Index+1,typename TupleCarCdr<RemainingTL>::Cdr,typename TupleCarCdr<RemainingUL>::Cdr>(dest, src);
                 }
             }
+        public:
+            static void copy(T &dest, U const &src) {
+                static_assert(
+                    (CountTupleParameter<TL>::IsValid
+                    && CountTupleParameter<UL>::IsValid
+                    && CountTupleParameter<TL>::Count==CountTupleParameter<UL>::Count)
+                    , "For two structures to be flat-copyable, their flattened field list must have the same size"
+                );
+                copy_internal<CountTupleParameter<TL>::Count,0,TL,UL>(dest, src);
+            };
         };
-#endif
     }
 
     class StructuralCopy {
@@ -204,10 +187,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         }
     };
 
-#ifndef _MSC_VER
-    //MSVC has some issue in the recursive type determination required by
-    //this class, so disabling that for now
-    class OneLevelFlatCopy {
+    class FlatCopy {
     public:
         template <class T, class U, typename=std::enable_if_t<
             StructFieldInfo<T>::HasGeneratedStructFieldInfo
@@ -215,10 +195,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             StructFieldInfo<U>::HasGeneratedStructFieldInfo
         >>
         static void copy(T &dest, U const &src) {
-            internal::OneLevelFlatCopyImpl::template copy<T,U>(dest, src);
+            internal::FlatCopyImpl<T,U>::copy(dest, src);
         }
     };
-#endif
 
 } } } } }
  

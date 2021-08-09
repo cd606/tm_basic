@@ -29,6 +29,7 @@ tm_basic_headers = [
     , 'MultiAppRunnerUtils.hpp'
     , 'EqualityCheckHelper.hpp'
     , 'StructFieldInfoBasedCsvUtils.hpp'
+    , 'StructFieldFlattenedInfo.hpp'
     , 'StructFieldInfoBasedCopy.hpp'
     ]
   
