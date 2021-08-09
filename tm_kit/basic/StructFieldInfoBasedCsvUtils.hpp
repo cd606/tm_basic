@@ -51,6 +51,35 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static constexpr std::size_t CsvFieldCount = 0;
         };
         template <class T>
+        class StructFieldInfoCsvSupportChecker<T, false> {
+        private:
+            static constexpr bool fieldIsGood() {
+                if constexpr (is_simple_csv_field_v<T>) {
+                    return true;
+                } else if constexpr (ArrayAndOptionalChecker<T>::IsArray) {
+                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<T>::BaseType>::IsGoodForCsv;
+                } else if constexpr (ArrayAndOptionalChecker<T>::IsOptional) {
+                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<T>::BaseType>::IsGoodForCsv;
+                } else {
+                    return StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv;
+                }
+            }
+            static constexpr std::size_t fieldCount() {
+                if constexpr (is_simple_csv_field_v<T>) {
+                    return 1;
+                } else if constexpr (ArrayAndOptionalChecker<T>::IsArray) {
+                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<T>::BaseType>::CsvFieldCount*ArrayAndOptionalChecker<T>::ArrayLength;
+                } else if constexpr (ArrayAndOptionalChecker<T>::IsOptional) {
+                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<T>::BaseType>::CsvFieldCount;
+                } else {
+                    return StructFieldInfoCsvSupportChecker<T>::CsvFieldCount;
+                }
+            }
+        public:
+            static constexpr bool IsGoodForCsv = fieldIsGood();
+            static constexpr std::size_t CsvFieldCount = fieldCount();
+        };
+        template <class T>
         class StructFieldInfoCsvSupportChecker<T, true> {
         private:
             template <class F>
@@ -58,9 +87,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 if constexpr (is_simple_csv_field_v<F>) {
                     return true;
                 } else if constexpr (ArrayAndOptionalChecker<F>::IsArray) {
-                    return fieldIsGood<typename ArrayAndOptionalChecker<F>::BaseType>();
+                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<F>::BaseType>::IsGoodForCsv;
                 } else if constexpr (ArrayAndOptionalChecker<F>::IsOptional) {
-                    return fieldIsGood<typename ArrayAndOptionalChecker<F>::BaseType>();
+                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<F>::BaseType>::IsGoodForCsv;
                 } else {
                     return StructFieldInfoCsvSupportChecker<F>::IsGoodForCsv;
                 }
@@ -70,9 +99,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 if constexpr (is_simple_csv_field_v<F>) {
                     return 1;
                 } else if constexpr (ArrayAndOptionalChecker<F>::IsArray) {
-                    return fieldCount<typename ArrayAndOptionalChecker<F>::BaseType>()*ArrayAndOptionalChecker<F>::ArrayLength;
+                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<F>::BaseType>::CsvFieldCount*ArrayAndOptionalChecker<F>::ArrayLength;
                 } else if constexpr (ArrayAndOptionalChecker<F>::IsOptional) {
-                    return fieldCount<typename ArrayAndOptionalChecker<F>::BaseType>();
+                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<F>::BaseType>::CsvFieldCount;
                 } else {
                     return StructFieldInfoCsvSupportChecker<F>::CsvFieldCount;
                 }
@@ -103,49 +132,61 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static constexpr std::size_t CsvFieldCount = totalFieldCount<StructFieldInfo<T>::FIELD_NAMES.size(),0,0>();
         };
 
-        template <class T, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
         class StructFieldInfoBasedSimpleCsvOutputImpl {
         private:
-            template <int FieldCount, int FieldIndex>
+            template <class F>
+            static void collectSingleFieldName(std::string const &prefix, std::string const &thisField, std::vector<std::string> &output) {
+                if constexpr (is_simple_csv_field_v<F>) {
+                    output.push_back(prefix+thisField);
+                } else if constexpr (ArrayAndOptionalChecker<F>::IsArray) {
+                    using BT = typename ArrayAndOptionalChecker<F>::BaseType;
+                    auto arrName = prefix+thisField;
+                    if (boost::ends_with(arrName, ".")) {
+                        arrName = arrName.substr(0, arrName.length()-1);
+                    }
+                    for (std::size_t ii=0; ii<ArrayAndOptionalChecker<F>::ArrayLength; ++ii) {
+                        if constexpr (is_simple_csv_field_v<BT>) {
+                            output.push_back(arrName+"["+std::to_string(ii)+"]");
+                        } else {
+                            collectSingleFieldName<BT>(
+                                arrName+"["+std::to_string(ii)+"]."
+                                , ""
+                                , output
+                            );
+                        }
+                    }
+                } else if constexpr (ArrayAndOptionalChecker<F>::IsOptional) {
+                    using BT = typename ArrayAndOptionalChecker<F>::BaseType;
+                    auto optionName = prefix+thisField;
+                    if (boost::ends_with(optionName, ".")) {
+                        optionName = optionName.substr(0, optionName.length()-1);
+                    }
+                    if constexpr (is_simple_csv_field_v<BT>) {
+                        output.push_back(optionName);
+                    } else {
+                        collectSingleFieldName<BT>(
+                            optionName+"."
+                            , ""
+                            , output
+                        );
+                    }
+                } else {
+                    auto fieldName = prefix+thisField;
+                    if (boost::ends_with(fieldName, ".")) {
+                        fieldName = fieldName.substr(0, fieldName.length()-1);
+                    }
+                    StructFieldInfoBasedSimpleCsvOutputImpl::collectFieldNames<F>(
+                        fieldName+"."
+                        , output
+                    );
+                }
+            }
+            template <class T, int FieldCount, int FieldIndex, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
             static void collectFieldNames_internal(std::string const &prefix, std::vector<std::string> &output) {
                 if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                     using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                    if constexpr (is_simple_csv_field_v<F>) {
-                        output.push_back(prefix+std::string(StructFieldInfo<T>::FIELD_NAMES[FieldIndex]));
-                    } else if constexpr (ArrayAndOptionalChecker<F>::IsArray) {
-                        for (std::size_t ii=0; ii<ArrayAndOptionalChecker<F>::ArrayLength; ++ii) {
-                            if constexpr (is_simple_csv_field_v<typename ArrayAndOptionalChecker<F>::BaseType>) {
-                                if (boost::ends_with(prefix, ".")) {
-                                    output.push_back(prefix.substr(0,prefix.length()-1)+"["+std::to_string(ii)+"]");
-                                } else {
-                                    output.push_back(prefix+"["+std::to_string(ii)+"]");
-                                }
-                            } else {
-                                std::ostringstream prefixOss;
-                                prefixOss << prefix << StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << '[' << ii << "].";
-                                StructFieldInfoBasedSimpleCsvOutputImpl<typename ArrayAndOptionalChecker<F>::BaseType>::collectFieldNames(
-                                    prefixOss.str(), output
-                                );
-                            }
-                        }
-                    } else if constexpr (ArrayAndOptionalChecker<F>::IsOptional) {
-                        if constexpr (is_simple_csv_field_v<typename ArrayAndOptionalChecker<F>::BaseType>) {
-                            output.push_back(prefix+std::string(StructFieldInfo<T>::FIELD_NAMES[FieldIndex]));
-                        } else {
-                            std::ostringstream prefixOss;
-                            prefixOss << prefix << StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << '.';
-                            StructFieldInfoBasedSimpleCsvOutputImpl<typename ArrayAndOptionalChecker<F>::BaseType>::collectFieldNames(
-                                prefixOss.str(), output
-                            );
-                        }
-                    } else {
-                        std::ostringstream prefixOss;
-                        prefixOss << prefix << StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << '.';
-                        StructFieldInfoBasedSimpleCsvOutputImpl<F>::collectFieldNames(
-                            prefixOss.str(), output
-                        );
-                    }
-                    collectFieldNames_internal<FieldCount,FieldIndex+1>(prefix, output);
+                    collectSingleFieldName<F>(prefix, std::string(StructFieldInfo<T>::FIELD_NAMES[FieldIndex]), output);
+                    collectFieldNames_internal<T,FieldCount,FieldIndex+1>(prefix, output);
                 }
             }
             template <class ColType>
@@ -160,61 +201,66 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     os << x;
                 }
             }
-            template <int FieldCount, int FieldIndex>
+            template <class F>
+            static void writeSingleField(std::ostream &os, F const &f) {
+                if constexpr (is_simple_csv_field_v<F>) {
+                    writeSimpleField_internal<F>(os, f);
+                } else if constexpr (ArrayAndOptionalChecker<F>::IsArray) {
+                    using BT = typename ArrayAndOptionalChecker<F>::BaseType;
+                    for (std::size_t ii=0; ii<ArrayAndOptionalChecker<F>::ArrayLength; ++ii) {
+                        if (ii>0) {
+                            os << ',';
+                        }
+                        if constexpr (is_simple_csv_field_v<BT>) {
+                            writeSimpleField_internal<BT>(os, f[ii]);
+                        } else {
+                            writeSingleField<BT>(os, f[ii]);
+                        }
+                    }
+                } else if constexpr (ArrayAndOptionalChecker<F>::IsOptional) {
+                    using BT = typename ArrayAndOptionalChecker<F>::BaseType;
+                    if constexpr (is_simple_csv_field_v<BT>) {
+                        if (f) {
+                            writeSimpleField_internal<BT>(os, *f);
+                        }
+                    } else {
+                        if (f) {
+                            writeSingleField<BT>(
+                                os, *f
+                            ); 
+                        } else {
+                            for (std::size_t ii=0; ii<StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<F>::BaseType>::CsvFieldCount-1; ++ii) {
+                                os << ',';
+                            }
+                        }
+                    }
+                } else {
+                    StructFieldInfoBasedSimpleCsvOutputImpl::writeData<F>(
+                        os, f
+                    );
+                }
+            }
+            template <class T, int FieldCount, int FieldIndex, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
             static void writeData_internal(std::ostream &os, T const &t) {
                 if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                     if constexpr (FieldIndex != 0) {
                         os << ',';
                     }
                     using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                    if constexpr (is_simple_csv_field_v<F>) {
-                        writeSimpleField_internal<F>(os, (t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer())));
-                    } else if constexpr (ArrayAndOptionalChecker<F>::IsArray) {
-                        for (std::size_t ii=0; ii<ArrayAndOptionalChecker<F>::ArrayLength; ++ii) {
-                            if (ii>0) {
-                                os << ',';
-                            }
-                            if constexpr (is_simple_csv_field_v<typename ArrayAndOptionalChecker<F>::BaseType>) {
-                                writeSimpleField_internal<typename ArrayAndOptionalChecker<F>::BaseType>(os, (t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()))[ii]);
-                            } else {
-                                StructFieldInfoBasedSimpleCsvOutputImpl<typename ArrayAndOptionalChecker<F>::BaseType>::writeData(
-                                    os, (t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()))[ii]
-                                );
-                            }
-                        }
-                    } else if constexpr (ArrayAndOptionalChecker<F>::IsOptional) {
-                        if constexpr (is_simple_csv_field_v<typename ArrayAndOptionalChecker<F>::BaseType>) {
-                            auto const &f = t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer());
-                            if (f) {
-                                writeSimpleField_internal<typename ArrayAndOptionalChecker<F>::BaseType>(os, *f);
-                            }
-                        } else {
-                            auto const &f = t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer());
-                            if (f) {
-                                StructFieldInfoBasedSimpleCsvOutputImpl<typename ArrayAndOptionalChecker<F>::BaseType>::writeData(
-                                    os, *f
-                                ); 
-                            } else {
-                                for (std::size_t ii=0; ii<StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<F>::BaseType>::CsvFieldCount-1; ++ii) {
-                                    os << ',';
-                                }
-                            }
-                        }
-                    } else {
-                        StructFieldInfoBasedSimpleCsvOutputImpl<F>::writeData(
-                            os, (t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()))
-                        );
-                    }
-                    writeData_internal<FieldCount,FieldIndex+1>(os, t);
+                    auto T::*p = StructFieldTypeInfo<T,FieldIndex>::fieldPointer();
+                    writeSingleField<F>(os, t.*p);
+                    writeData_internal<T,FieldCount,FieldIndex+1>(os, t);
                 }
             }
         public:
+            template <class T, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
             static void collectFieldNames(std::string const &prefix, std::vector<std::string> &output) {
-                collectFieldNames_internal<StructFieldInfo<T>::FIELD_NAMES.size(),0>(prefix, output);
+                collectFieldNames_internal<T,StructFieldInfo<T>::FIELD_NAMES.size(),0>(prefix, output);
             }
+            template <class T, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
             static void writeHeader(std::ostream &os) {
                 std::vector<std::string> fieldNames;
-                collectFieldNames("", fieldNames);
+                collectFieldNames<T>("", fieldNames);
                 bool begin = true;
                 for (auto const &s : fieldNames) {
                     if (!begin) {
@@ -224,8 +270,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     os << s;
                 }
             }
+            template <class T, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv>>
             static void writeData(std::ostream &os, T const &t) {
-                writeData_internal<StructFieldInfo<T>::FIELD_NAMES.size(),0>(os, t);
+                writeData_internal<T,StructFieldInfo<T>::FIELD_NAMES.size(),0>(os, t);
             }
         };
     }
@@ -234,14 +281,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     class StructFieldInfoBasedSimpleCsvOutput {
     public:
         static void collectFieldNames(std::vector<std::string> &output) {
-            internal::StructFieldInfoBasedSimpleCsvOutputImpl<T>::collectFieldNames("", output);
+            internal::StructFieldInfoBasedSimpleCsvOutputImpl::collectFieldNames<T>("", output);
         }
         static void writeHeader(std::ostream &os) {
-            internal::StructFieldInfoBasedSimpleCsvOutputImpl<T>::writeHeader(os);
+            internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeHeader<T>(os);
             os << '\n';
         }
         static void writeData(std::ostream &os, T const &t) {
-            internal::StructFieldInfoBasedSimpleCsvOutputImpl<T>::writeData(os, t);
+            internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeData<T>(os, t);
             os << '\n';
         }
         template <class Iter>
