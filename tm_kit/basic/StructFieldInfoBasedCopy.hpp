@@ -111,6 +111,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             }
         };
 
+#ifndef _MSC_VER
+        //MSVC has some issue in the recursive type determination required by
+        //this class, so disabling that for now
         class CopyOneLevelFlatStructure {
         private:
             template <class T, class U, class ComplexCopy, int TFieldCount, int TFieldIndex, int TFieldSubIndex, int UFieldCount, int UFieldIndex, int UFieldSubIndex>
@@ -186,6 +189,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 }
             }
         };
+#endif
     }
 
     class StructuralCopy {
@@ -200,6 +204,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         }
     };
 
+#ifndef _MSC_VER
+    //MSVC has some issue in the recursive type determination required by
+    //this class, so disabling that for now
     class OneLevelFlatCopy {
     public:
         template <class T, class U, typename=std::enable_if_t<
@@ -211,6 +218,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             internal::OneLevelFlatCopyImpl::template copy<T,U>(dest, src);
         }
     };
+#endif
 
 } } } } }
  
