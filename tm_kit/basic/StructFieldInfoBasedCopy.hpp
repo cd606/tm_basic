@@ -111,7 +111,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             }
         };
 
-        class CopyFlatStructure {
+        class CopyOneLevelFlatStructure {
         private:
             template <class T, class U, class ComplexCopy, int TFieldCount, int TFieldIndex, int TFieldSubIndex, int UFieldCount, int UFieldIndex, int UFieldSubIndex>
             static void copy_internal(T &dest, U const &src) {
@@ -171,7 +171,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             }
         };
 
-        class FlatCopyImpl {
+        class OneLevelFlatCopyImpl {
         public:
             template <class T, class U>
             static void copy(T &dest, U const &src) {
@@ -180,9 +180,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 &&
                 StructFieldInfo<U>::HasGeneratedStructFieldInfo
                 ) {
-                    CopyFlatStructure::copy<T,U,FlatCopyImpl>(dest, src);
+                    CopyOneLevelFlatStructure::copy<T,U,OneLevelFlatCopyImpl>(dest, src);
                 } else {
-                    CopySimpleImpl<T,U,FlatCopyImpl>::copy(dest, src);
+                    CopySimpleImpl<T,U,OneLevelFlatCopyImpl>::copy(dest, src);
                 }
             }
         };
@@ -200,7 +200,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         }
     };
 
-    class FlatCopy {
+    class OneLevelFlatCopy {
     public:
         template <class T, class U, typename=std::enable_if_t<
             StructFieldInfo<T>::HasGeneratedStructFieldInfo
@@ -208,7 +208,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             StructFieldInfo<U>::HasGeneratedStructFieldInfo
         >>
         static void copy(T &dest, U const &src) {
-            internal::FlatCopyImpl::template copy<T,U>(dest, src);
+            internal::OneLevelFlatCopyImpl::template copy<T,U>(dest, src);
         }
     };
 
