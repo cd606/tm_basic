@@ -1184,6 +1184,82 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             return subDec.handle(wt, input, start);
         }
     };
+
+    template <class T>
+    class ProtoDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> final : public IProtoDecoder<T> {
+    private:
+        std::unordered_map<uint64_t, IProtoDecoderBase *> decoders_;
+
+        template <std::size_t FieldCount, std::size_t FieldIndex>
+        static constexpr void buildDecoders_impl(T *t, std::unordered_map<uint64_t, IProtoDecoderBase *> &ret, std::size_t current) {
+            if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
+                using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
+                if constexpr (IsSingleLayerWrapperWithID<T>::Value) {
+                    ret[(uint64_t) IsSingleLayerWrapperWithID<T>::ID] = new ProtoDecoder<F>(
+                        &(t->*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()))
+                    );
+                    buildDecoders_impl<FieldCount,FieldIndex+1>(t, ret, (std::size_t) IsSingleLayerWrapperWithID<T>::ID+1);
+                } else {
+                    ret[(uint64_t) current] = new ProtoDecoder<F>(
+                        &(t->*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()))
+                    );
+                    buildDecoders_impl<FieldCount,FieldIndex+1>(t, ret, current+1);
+                }
+            }
+        }
+    public:
+        ProtoDecoder(T* output) : IProtoDecoder<T>(output), decoders_() {
+            buildDecoders_impl<StructFieldInfo<T>::FIELD_NAMES.size(),0>(output, decoders_, 0);
+        }
+        virtual ~ProtoDecoder() {
+            for (auto &item : decoders_) {
+                delete item.second;
+                item.second = nullptr;
+            }
+            decoders_.clear();
+        }
+    protected:
+        std::optional<std::size_t> read(T &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            struct_field_info_utils::StructFieldInfoBasedInitializer<T>::initialize(output);
+            if (wt != internal::ProtoWireType::LengthDelimited) {
+                return std::nullopt;
+            }
+            uint64_t len;
+            auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
+            if (!lenRes) {
+                return std::nullopt;
+            }
+            if (start+*lenRes+len > input.length()) {
+                return std::nullopt;
+            }
+            std::string_view body = input.substr(start+*lenRes, len);
+            std::size_t remaining = len;
+            std::size_t idx = 0;
+            while (remaining > 0) {
+                internal::FieldHeader fh;
+                auto res = internal::FieldHeaderSupport::readHeader(fh, body, idx);
+                if (!res) {
+                    return std::nullopt;
+                }
+                idx += *res;
+                remaining -= *res;
+                auto iter = decoders_.find(fh.fieldNumber);
+                if (iter == decoders_.end()) {
+                    continue;
+                }
+                if (iter->second == nullptr) {
+                    continue;
+                }
+                res = iter->second->handle(fh.wireType, body, idx);
+                if (!res) {
+                    return std::nullopt;
+                }
+                idx += *res;
+                remaining -= *res;
+            }
+            return *lenRes+len;
+        }
+    };
     
 
 } } } } }
