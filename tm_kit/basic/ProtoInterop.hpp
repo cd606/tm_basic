@@ -100,10 +100,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 uint64_t x;
                 auto res = VarIntSupport::read<uint64_t>(x, input, start);
                 if (!res) {
+                    std::cerr << "Bad int\n";
                     return std::nullopt;
                 }
                 uint8_t wt = (uint8_t) (x & (uint64_t) 0x7);
                 if (wt > (uint8_t) ProtoWireType::Fixed32) {
+                    std::cerr << "Bad type " << (int) wt << "\n";
                     return std::nullopt;                    
                 }
                 fh.wireType = (ProtoWireType) wt;
@@ -410,7 +412,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     class ProtoEncoder<std::valarray<T>, void> {
     public:
         static void write(std::optional<uint64_t> fieldNumber, std::valarray<T> const &data, std::ostream &os) {
-            if (data.empty()) {
+            if (data.size() == 0) {
                 return;
             }
             if (fieldNumber) {
@@ -465,7 +467,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     class ProtoEncoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
     private:
         template <std::size_t FieldCount, std::size_t FieldIndex>
-        static constexpr void buildIndices_impl(std::array<uint64_t,FieldCount> &ret, std::size_t current) {
+        static void buildIndices_impl(std::array<uint64_t,FieldCount> &ret, std::size_t current) {
             if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                 using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
                 if constexpr (IsSingleLayerWrapperWithID<T>::Value) {
@@ -477,33 +479,35 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 }
             }
         }
-        static constexpr std::array<uint64_t, StructFieldInfo<T>::FIELD_NAMES.size()> buildIndices() {
+        static std::array<uint64_t, StructFieldInfo<T>::FIELD_NAMES.size()> buildIndices() {
             std::array<uint64_t, StructFieldInfo<T>::FIELD_NAMES.size()> ret;
-            buildIndices_impl<StructFieldInfo<T>::FIELD_NAMES.size(),0>(ret,0);
+            buildIndices_impl<StructFieldInfo<T>::FIELD_NAMES.size(),0>(ret,1);
             return ret;
         }
-        static constexpr std::array<uint64_t, StructFieldInfo<T>::FIELD_NAMES.size()> s_indices = buildIndices();
         template <std::size_t FieldCount, std::size_t FieldIndex>
-        static void write_impl(T const &data, std::ostream &os) {
+        static void write_impl(T const &data, std::ostream &os, std::array<uint64_t, FieldCount> const &indices) {
             if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                 using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                ProtoEncoder<T>::write(s_indices[FieldIndex], data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), os);
-                write_impl<FieldCount,FieldIndex+1>(data, os);
+                ProtoEncoder<F>::write(indices[FieldIndex], data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), os);
+                write_impl<FieldCount,FieldIndex+1>(data, os, indices);
             }
         }
     public:
         static void write(std::optional<uint64_t> fieldNumber, T const &data, std::ostream &os) {
+            static std::array<uint64_t, StructFieldInfo<T>::FIELD_NAMES.size()> indices = buildIndices();
             if (fieldNumber) {
                 internal::FieldHeaderSupport::writeHeader(
                     internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
                     , os
                 );
+                std::ostringstream ss;
+                write_impl<StructFieldInfo<T>::FIELD_NAMES.size(),0>(data, ss, indices);
+                std::string cont = ss.str();
+                internal::VarIntSupport::write<uint64_t>((uint64_t) cont.length(), os);
+                os.write(cont.data(), cont.length());
+            } else {
+                write_impl<StructFieldInfo<T>::FIELD_NAMES.size(),0>(data, os, indices);
             }
-            std::ostringstream ss;
-            write_impl<StructFieldInfo<T>::FIELD_NAMES.size(),0>(data, ss);
-            std::string cont = ss.str();
-            internal::VarIntSupport::write<uint64_t>((uint64_t) cont.length(), os);
-            os.write(cont.data(), cont.length());
         }
     };
     
@@ -1119,7 +1123,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                     if (!res) {
                         return std::nullopt;
                     }
-                    output.push_back(x);
+                    output.resize(output.size()+1);
+                    output[output.size()-1] = x;
                     idx += *res;
                     remaining -= *res;
                 }
@@ -1129,7 +1134,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 ProtoDecoder<T> subDec(&x);
                 auto res = subDec.handle(wt, input, start);
                 if (res) {
-                    output.push_back(x);
+                    output.resize(output.size()+1);
+                    output[output.size()-1] = x;
                 }
                 return res;
             } else {
@@ -1209,7 +1215,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     public:
         ProtoDecoder(T* output) : IProtoDecoder<T>(output), decoders_() {
-            buildDecoders_impl<StructFieldInfo<T>::FIELD_NAMES.size(),0>(output, decoders_, 0);
+            buildDecoders_impl<StructFieldInfo<T>::FIELD_NAMES.size(),0>(output, decoders_, 1);
         }
         virtual ~ProtoDecoder() {
             for (auto &item : decoders_) {
