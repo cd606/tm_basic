@@ -15,8 +15,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             static void write(IntType data, std::ostream &os) {
                 IntType remaining = data;
                 while (remaining >= (uint8_t) 0x80) {
-                    os << (((uint8_t) (remaining & (IntType) 0x7f)) | (uint8_t) 0x80);
-                    remaining = remaining >> 8;
+                    os << (uint8_t) (((uint8_t) (remaining & (IntType) 0x7f)) | (uint8_t) 0x80);
+                    remaining = remaining >> 7;
                 }
                 os << (uint8_t) remaining;
             }
@@ -33,7 +33,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                         return (currentPos-start+1);
                     }
                     ++currentPos;
-                    shift += 8;
+                    shift += 7;
                     if (shift >= sizeof(IntType)*8) {
                         return std::nullopt;
                     };
@@ -52,11 +52,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 return (uint32_t) ((input << 1) ^ (input >> 31));
             }
             static int32_t decode(uint32_t input) {
-                if (input & 0x1 == 0) {
-                    return (int32_t) (input >> 1);
-                } else {
-                    return (int32_t) (((~input) >> 1) | (uint32_t) 0x8FFF);
-                }
+                return (((int32_t) (input >> 1)) ^ (-((int32_t) (input & 0x1))));
             }
         };
         template <>
@@ -66,11 +62,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 return (uint64_t) ((input << 1) ^ (input >> 63));
             }
             static int64_t decode(uint64_t input) {
-                if (input & 0x1 == 0) {
-                    return (int64_t) (input >> 1);
-                } else {
-                    return (int32_t) (((~input) >> 1) | (uint32_t) 0x8FFFFFFF);
-                }
+                return (((int64_t) (input >> 1)) ^ (-((int64_t) (input & 0x1))));
             }
         };
 
@@ -81,6 +73,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             , StartGroup = 3
             , EndGroup = 4
             , Fixed32 = 5
+        };
+
+        template <class T>
+        class ProtoWireTypeForSubField {
+        public:
+            static constexpr ProtoWireType TheType = (
+                (std::is_integral_v<T> || std::is_enum_v<T>)?ProtoWireType::VarInt:ProtoWireType::LengthDelimited
+                );
+        };
+        template <>
+        class ProtoWireTypeForSubField<float> {
+        public:
+            static constexpr ProtoWireType TheType = ProtoWireType::Fixed32;
+        };
+        template <>
+        class ProtoWireTypeForSubField<double> {
+        public:
+            static constexpr ProtoWireType TheType = ProtoWireType::Fixed64;
         };
 
         struct FieldHeader {
@@ -96,21 +106,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                     , os
                 );
             }
-            static std::optional<std::size_t> readHeader(FieldHeader &fh, std::string_view const &input, std::size_t start) {
+            static std::optional<std::size_t> readHeader(FieldHeader &fh, std::string_view const &input, std::size_t start, std::size_t *contentLen) {
                 uint64_t x;
                 auto res = VarIntSupport::read<uint64_t>(x, input, start);
                 if (!res) {
-                    std::cerr << "Bad int\n";
                     return std::nullopt;
                 }
                 uint8_t wt = (uint8_t) (x & (uint64_t) 0x7);
                 if (wt > (uint8_t) ProtoWireType::Fixed32) {
-                    std::cerr << "Bad type " << (int) wt << "\n";
                     return std::nullopt;                    
                 }
                 fh.wireType = (ProtoWireType) wt;
                 fh.fieldNumber = (x >> 3);
-                return res;
+                *contentLen = 0;
+                if (fh.wireType == ProtoWireType::LengthDelimited) {
+                    auto res1 = VarIntSupport::read<uint64_t>(*contentLen, input, start+*res);
+                    if (!res1) {
+                        return std::nullopt;
+                    } else {
+                        return *res+*res1;
+                    }
+                } else {
+                    return res;
+                }
             }
         };
     }
@@ -420,14 +438,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                     internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
                     , os
                 );
+                std::ostringstream ss;
+                for (auto const &item : data) {
+                    ProtoEncoder<T>::write(std::nullopt, item, ss);
+                }
+                auto cont = ss.str();
+                internal::VarIntSupport::write<uint64_t>(cont.length(), os);
+                os.write(cont.data(), cont.length());
+            } else {
+                for (auto const &item : data) {
+                    ProtoEncoder<T>::write(std::nullopt, item, os);
+                }
             }
-            std::ostringstream ss;
-            for (auto const &item : data) {
-                ProtoEncoder<T>::write(std::nullopt, item, ss);
-            }
-            auto cont = ss.str();
-            internal::VarIntSupport::write<uint64_t>(cont.length(), os);
-            os.write(cont.data(), cont.length());
         }
     };
     template <class T>
@@ -470,9 +492,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static void buildIndices_impl(std::array<uint64_t,FieldCount> &ret, std::size_t current) {
             if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                 using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                if constexpr (IsSingleLayerWrapperWithID<T>::Value) {
-                    ret[FieldIndex] = (std::size_t) IsSingleLayerWrapperWithID<T>::ID;
-                    buildIndices_impl<FieldCount,FieldIndex+1>(ret, (std::size_t) IsSingleLayerWrapperWithID<T>::ID+1);
+                if constexpr (IsSingleLayerWrapperWithID<F>::Value) {
+                    ret[FieldIndex] = (std::size_t) IsSingleLayerWrapperWithID<F>::ID;
+                    buildIndices_impl<FieldCount,FieldIndex+1>(ret, (std::size_t) IsSingleLayerWrapperWithID<F>::ID+1);
                 } else {
                     ret[FieldIndex] = current;
                     buildIndices_impl<FieldCount,FieldIndex+1>(ret, current+1);
@@ -795,16 +817,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             if (wt != internal::ProtoWireType::LengthDelimited) {
                 return std::nullopt;
             }
-            uint64_t len;
-            auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
-            if (!lenRes) {
-                return std::nullopt;
-            }
-            if (start+*lenRes+len > input.length()) {
-                return std::nullopt;
-            }
-            output = std::string(input.substr(start+*lenRes, len));
-            return (*lenRes+len);
+            output = std::string(input.substr(start));
+            return (input.length()-start);
         }
     };
     template <>
@@ -817,16 +831,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             if (wt != internal::ProtoWireType::LengthDelimited) {
                 return std::nullopt;
             }
-            uint64_t len;
-            auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
-            if (!lenRes) {
-                return std::nullopt;
-            }
-            if (start+*lenRes+len > input.length()) {
-                return std::nullopt;
-            }
-            output = { std::string(input.substr(start+*lenRes, len)) };
-            return (*lenRes+len);
+            output.content = std::string(input.substr(start));
+            return (input.length()-start);
         }
     };
 
@@ -838,21 +844,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     protected:
         std::optional<std::size_t> read(std::vector<T> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
             if (wt == internal::ProtoWireType::LengthDelimited) {
-                uint64_t len;
-                auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
-                if (!lenRes) {
-                    return std::nullopt;
-                }
-                if (start+*lenRes+len > input.length()) {
-                    return std::nullopt;
-                }
-                std::string_view body = input.substr(start+*lenRes, len);
                 T x;
                 ProtoDecoder<T> subDec(&x);
-                std::size_t remaining = len;
-                std::size_t idx = 0;
+                std::size_t remaining = input.length()-start;
+                std::size_t idx = start;
                 while (remaining > 0) {
-                    auto res = subDec.handle(wt, body, idx);
+                    auto res = subDec.handle(internal::ProtoWireTypeForSubField<T>::TheType, input, idx);
                     if (!res) {
                         return std::nullopt;
                     }
@@ -860,7 +857,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                     idx += *res;
                     remaining -= *res;
                 }
-                return *lenRes+len;
+                return input.length()-start;
             } else if (wt == internal::ProtoWireType::VarInt) {
                 T x;
                 ProtoDecoder<T> subDec(&x);
@@ -884,21 +881,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             if (wt != internal::ProtoWireType::LengthDelimited) {
                 return std::nullopt;
             }
-            uint64_t len;
-            auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
-            if (!lenRes) {
-                return std::nullopt;
-            }
-            if (start+*lenRes+len > input.length()) {
-                return std::nullopt;
-            }
-            std::string_view body = input.substr(start+*lenRes, len);
-            std::size_t remaining = len;
-            std::size_t idx = 0;
+            std::size_t remaining = input.length()-start;
+            std::size_t idx = start;
             T x;
+            ProtoDecoder<T> subDec(&x);
             while (remaining > 0) {
-                ProtoDecoder<T> subDec(&x);
-                auto res = subDec.handle(wt, body, idx);
+                auto res = subDec.handle(internal::ProtoWireTypeForSubField<T>::TheType, input, idx);
                 if (!res) {
                     return std::nullopt;
                 }
@@ -906,7 +894,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 idx += *res;
                 remaining -= *res;
             }
-            return *lenRes+len;
+            return input.length()-start;
         }
     };
     template <class T>
@@ -928,18 +916,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 std::string_view body = input.substr(start+*lenRes, len);
                 T x;
                 ProtoDecoder<T> subDec(&x);
-                std::size_t remaining = len;
-                std::size_t idx = 0;
+                std::size_t remaining = input.length()-start;
+                std::size_t idx = start;
                 while (remaining > 0) {
-                    auto res = subDec.handle(wt, body, idx);
+                    auto res = subDec.handle(internal::ProtoWireTypeForSubField<T>::TheType, input, idx);
                     if (!res) {
                         return std::nullopt;
                     }
-                    output.push_back(x);
+                    output.push_back(std::move(x));
                     idx += *res;
                     remaining -= *res;
                 }
-                return *lenRes+len;
+                return input.length()-start;
             } else if (wt == internal::ProtoWireType::VarInt) {
                 T x;
                 ProtoDecoder<T> subDec(&x);
@@ -963,21 +951,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             if (wt != internal::ProtoWireType::LengthDelimited) {
                 return std::nullopt;
             }
-            uint64_t len;
-            auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
-            if (!lenRes) {
-                return std::nullopt;
-            }
-            if (start+*lenRes+len > input.length()) {
-                return std::nullopt;
-            }
-            std::string_view body = input.substr(start+*lenRes, len);
-            std::size_t remaining = len;
-            std::size_t idx = 0;
+            std::size_t remaining = input.length()-start;
+            std::size_t idx = start;
             T x;
+            ProtoDecoder<T> subDec(&x);
             while (remaining > 0) {
-                ProtoDecoder<T> subDec(&x);
-                auto res = subDec.handle(wt, body, idx);
+                auto res = subDec.handle(internal::ProtoWireTypeForSubField<T>::TheType, input, idx);
                 if (!res) {
                     return std::nullopt;
                 }
@@ -985,7 +964,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 idx += *res;
                 remaining -= *res;
             }
-            return *lenRes+len;
+            return (input.length()-start);
         }
     };
     template <class T, std::size_t N>
@@ -1010,21 +989,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     protected:
         std::optional<std::size_t> read(std::array<T, N> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
             if (wt == internal::ProtoWireType::LengthDelimited) {
-                uint64_t len;
-                auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
-                if (!lenRes) {
-                    return std::nullopt;
-                }
-                if (start+*lenRes+len > input.length()) {
-                    return std::nullopt;
-                }
-                std::string_view body = input.substr(start+*lenRes, len);
                 T x;
                 ProtoDecoder<T> subDec(&x);
-                std::size_t remaining = len;
-                std::size_t idx = 0;
+                std::size_t remaining = input.length()-start;
+                std::size_t idx = start;
                 while (remaining > 0) {
-                    auto res = subDec.handle(wt, body, idx);
+                    auto res = subDec.handle(internal::ProtoWireTypeForSubField<T>::TheType, input, idx);
                     if (!res) {
                         return std::nullopt;
                     }
@@ -1032,7 +1002,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                     idx += *res;
                     remaining -= *res;
                 }
-                return *lenRes+len;
+                return (input.length()-start);
             } else if (wt == internal::ProtoWireType::VarInt) {
                 T x;
                 ProtoDecoder<T> subDec(&x);
@@ -1072,21 +1042,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             if (wt != internal::ProtoWireType::LengthDelimited) {
                 return std::nullopt;
             }
-            uint64_t len;
-            auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
-            if (!lenRes) {
-                return std::nullopt;
-            }
-            if (start+*lenRes+len > input.length()) {
-                return std::nullopt;
-            }
-            std::string_view body = input.substr(start+*lenRes, len);
-            std::size_t remaining = len;
-            std::size_t idx = 0;
+            std::size_t remaining = input.length()-start;
+            std::size_t idx = start;
             T x;
+            ProtoDecoder<T> subDec(&x);
             while (remaining > 0) {
-                ProtoDecoder<T> subDec(&x);
-                auto res = subDec.handle(wt, body, idx);
+                auto res = subDec.handle(internal::ProtoWireTypeForSubField<T>::TheType, input, idx);
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1094,7 +1055,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 idx += *res;
                 remaining -= *res;
             }
-            return *lenRes+len;
+            return (input.length()-start);
         }
     };
     template <class T>
@@ -1105,37 +1066,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     protected:
         std::optional<std::size_t> read(std::valarray<T> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
             if (wt == internal::ProtoWireType::LengthDelimited) {
-                uint64_t len;
-                auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
-                if (!lenRes) {
+                std::vector<T> vec;
+                ProtoDecoder<std::vector<T>> vecDec(&vec);
+                auto res = vecDec.handle(wt, input, start);
+                if (!res) {
                     return std::nullopt;
                 }
-                if (start+*lenRes+len > input.length()) {
-                    return std::nullopt;
-                }
-                std::string_view body = input.substr(start+*lenRes, len);
-                T x;
-                ProtoDecoder<T> subDec(&x);
-                std::size_t remaining = len;
-                std::size_t idx = 0;
-                while (remaining > 0) {
-                    auto res = subDec.handle(wt, body, idx);
-                    if (!res) {
-                        return std::nullopt;
-                    }
-                    output.resize(output.size()+1);
-                    output[output.size()-1] = x;
-                    idx += *res;
-                    remaining -= *res;
-                }
-                return *lenRes+len;
+                output = std::valarray<T>(vec.data(), vec.size());
+                return res;
             } else if (wt == internal::ProtoWireType::VarInt) {
                 T x;
                 ProtoDecoder<T> subDec(&x);
                 auto res = subDec.handle(wt, input, start);
                 if (res) {
-                    output.resize(output.size()+1);
-                    output[output.size()-1] = x;
+                    std::valarray<T> newArr(output.size()+1);
+                    newArr[std::slice(0,output.size(),1)] = output;
+                    newArr[output.size()] = x;
+                    output.resize(newArr.size());
+                    output = newArr;
                 }
                 return res;
             } else {
@@ -1200,11 +1148,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr void buildDecoders_impl(T *t, std::unordered_map<uint64_t, IProtoDecoderBase *> &ret, std::size_t current) {
             if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                 using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                if constexpr (IsSingleLayerWrapperWithID<T>::Value) {
-                    ret[(uint64_t) IsSingleLayerWrapperWithID<T>::ID] = new ProtoDecoder<F>(
+                if constexpr (IsSingleLayerWrapperWithID<F>::Value) {
+                    ret[(uint64_t) IsSingleLayerWrapperWithID<F>::ID] = new ProtoDecoder<F>(
                         &(t->*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()))
                     );
-                    buildDecoders_impl<FieldCount,FieldIndex+1>(t, ret, (std::size_t) IsSingleLayerWrapperWithID<T>::ID+1);
+                    buildDecoders_impl<FieldCount,FieldIndex+1>(t, ret, (std::size_t) IsSingleLayerWrapperWithID<F>::ID+1);
                 } else {
                     ret[(uint64_t) current] = new ProtoDecoder<F>(
                         &(t->*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()))
@@ -1230,20 +1178,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             if (wt != internal::ProtoWireType::LengthDelimited) {
                 return std::nullopt;
             }
-            uint64_t len;
-            auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
-            if (!lenRes) {
-                return std::nullopt;
-            }
-            if (start+*lenRes+len > input.length()) {
-                return std::nullopt;
-            }
-            std::string_view body = input.substr(start+*lenRes, len);
-            std::size_t remaining = len;
-            std::size_t idx = 0;
+            std::size_t remaining = input.length()-start;
+            std::size_t idx = start;
             while (remaining > 0) {
                 internal::FieldHeader fh;
-                auto res = internal::FieldHeaderSupport::readHeader(fh, body, idx);
+                std::size_t fieldLen;
+                auto res = internal::FieldHeaderSupport::readHeader(fh, input, idx, &fieldLen);
                 if (!res) {
                     return std::nullopt;
                 }
@@ -1256,14 +1196,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 if (iter->second == nullptr) {
                     continue;
                 }
-                res = iter->second->handle(fh.wireType, body, idx);
+                if (fieldLen > 0) {
+                    res = iter->second->handle(fh.wireType, input.substr(idx, fieldLen), 0);
+                } else {
+                    res = iter->second->handle(fh.wireType, input, idx);
+                }
                 if (!res) {
                     return std::nullopt;
                 }
                 idx += *res;
                 remaining -= *res;
             }
-            return *lenRes+len;
+            return input.length()-start;
         }
     };
     
