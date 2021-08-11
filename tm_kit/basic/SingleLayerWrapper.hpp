@@ -31,6 +31,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     inline bool operator==(SingleLayerWrapperWithTypeMark<Mark, T> const &a, SingleLayerWrapperWithTypeMark<Mark, T> const &b) {
         return (a.value == b.value);
     }
+
+    template <class T>
+    class IsSingleLayerWrapperWithID {
+    public:
+        static constexpr bool Value = false;
+        static constexpr int32_t ID = 0;
+        using UnderlyingType = void;
+    };
+    template <int32_t TheID, class T>
+    class IsSingleLayerWrapperWithID<SingleLayerWrapperWithID<TheID,T>> {
+    public:
+        static constexpr bool Value = true;
+        static constexpr int32_t ID = TheID;
+        using UnderlyingType = T;
+    };
 } } } }
 
 namespace dev { namespace cd606 { namespace tm { namespace infra {

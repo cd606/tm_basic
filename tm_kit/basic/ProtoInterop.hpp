@@ -437,6 +437,75 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
         }
     };
+    template <>
+    class ProtoEncoder<VoidStruct, void> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, VoidStruct const &data, std::ostream &os) {
+        }
+    };
+    template <int32_t N>
+    class ProtoEncoder<ConstType<N>, void> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, ConstType<N> const &data, std::ostream &os) {
+        }
+    };
+    template <int32_t N, class T>
+    class ProtoEncoder<SingleLayerWrapperWithID<N,T>, void> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithID<N,T> const &data, std::ostream &os) {
+            std::optional<uint64_t> f = std::nullopt;
+            if (fieldNumber) {
+                f = (uint64_t) N;
+            }
+            ProtoEncoder<T>::write(f, data.value, os);
+        }
+    };
+
+    template <class T>
+    class ProtoEncoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
+    private:
+        template <std::size_t FieldCount, std::size_t FieldIndex>
+        static constexpr void buildIndices_impl(std::array<uint64_t,FieldCount> &ret, std::size_t current) {
+            if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
+                using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
+                if constexpr (IsSingleLayerWrapperWithID<T>::Value) {
+                    ret[FieldIndex] = (std::size_t) IsSingleLayerWrapperWithID<T>::ID;
+                    buildIndices_impl<FieldCount,FieldIndex+1>(ret, (std::size_t) IsSingleLayerWrapperWithID<T>::ID+1);
+                } else {
+                    ret[FieldIndex] = current;
+                    buildIndices_impl<FieldCount,FieldIndex+1>(ret, current+1);
+                }
+            }
+        }
+        static constexpr std::array<uint64_t, StructFieldInfo<T>::FIELD_NAMES.size()> buildIndices() {
+            std::array<uint64_t, StructFieldInfo<T>::FIELD_NAMES.size()> ret;
+            buildIndices_impl<StructFieldInfo<T>::FIELD_NAMES.size(),0>(ret,0);
+            return ret;
+        }
+        static constexpr std::array<uint64_t, StructFieldInfo<T>::FIELD_NAMES.size()> s_indices = buildIndices();
+        template <std::size_t FieldCount, std::size_t FieldIndex>
+        static void write_impl(T const &data, std::ostream &os) {
+            if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
+                using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
+                ProtoEncoder<T>::write(s_indices[FieldIndex], data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), os);
+                write_impl<FieldCount,FieldIndex+1>(data, os);
+            }
+        }
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, T const &data, std::ostream &os) {
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
+                    , os
+                );
+            }
+            std::ostringstream ss;
+            write_impl<StructFieldInfo<T>::FIELD_NAMES.size(),0>(data, ss);
+            std::string cont = ss.str();
+            internal::VarIntSupport::write<uint64_t>((uint64_t) cont.length(), os);
+            os.write(cont.data(), cont.length());
+        }
+    };
     
     class IProtoDecoderBase {
     public:
@@ -925,7 +994,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                     output[curIdx_++] = t;
                 } else {
                     if constexpr (N > 1) {
-                        std::memmov(&output[0], &output[1], std::sizeof(T)*(N-1));
+                        std::memmove(&output[0], &output[1], sizeof(T)*(N-1));
                     }
                     output[N-1] = t;
                 }
@@ -973,7 +1042,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
         }
     };
-    template <class T>
+    template <class T, std::size_t N>
     class ProtoDecoder<std::array<T,N>, std::enable_if_t<!(std::is_arithmetic_v<T> || std::is_enum_v<T>), void>> final : public IProtoDecoder<std::vector<T>> {
     private:
         std::size_t curIdx_;
@@ -1082,6 +1151,37 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 output = std::move(x);
             }
             return res;
+        }
+    };
+    template <>
+    class ProtoDecoder<VoidStruct, void> final : public IProtoDecoder<VoidStruct> {
+    public:
+        ProtoDecoder(VoidStruct *output) : IProtoDecoder<VoidStruct>(output) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(VoidStruct &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            return 0;
+        }
+    };
+    template <int32_t N>
+    class ProtoDecoder<ConstType<N>, void> final : public IProtoDecoder<ConstType<N>> {
+    public:
+        ProtoDecoder(ConstType<N> *output) : IProtoDecoder<ConstType<N>>(output) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(ConstType<N> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            return 0;
+        }
+    };
+    template <int32_t N, class T>
+    class ProtoDecoder<SingleLayerWrapperWithID<N,T>, void> final : public IProtoDecoder<SingleLayerWrapperWithID<N,T>> {
+    public:
+        ProtoDecoder(SingleLayerWrapperWithID<N,T> *output) : IProtoDecoder<SingleLayerWrapperWithID<N,T>>(output) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(SingleLayerWrapperWithID<N,T> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            ProtoDecoder<T> subDec(&output.value);
+            return subDec.handle(wt, input, start);
         }
     };
     
