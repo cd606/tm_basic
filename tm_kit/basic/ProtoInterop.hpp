@@ -731,7 +731,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 return std::nullopt;
             }
             output = std::string(input.substr(start+*lenRes, len));
-            return (start+*lenRes+len);
+            return (*lenRes+len);
         }
     };
     template <>
@@ -753,17 +753,61 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 return std::nullopt;
             }
             output = { std::string(input.substr(start+*lenRes, len)) };
-            return (start+*lenRes+len);
+            return (*lenRes+len);
         }
     };
-    /*
+
     template <class T>
-    class ProtoDecoder<std::vector<T>, void> final : public IProtoDecoder<std::vector<T>> {
+    class ProtoDecoder<std::vector<T>, std::enable_if_t<(std::is_arithmetic_v<T> || std::is_enum_v<T>), void>> final : public IProtoDecoder<std::vector<T>> {
     public:
-        ProtoDecoder(ByteData *output) : IProtoDecoder<ByteData>(output) {}
+        ProtoDecoder(std::vector<T> *output) : IProtoDecoder<std::vector<T>>(output) {}
         virtual ~ProtoDecoder() = default;
     protected:
-        std::optional<std::size_t> read(ByteData &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+        std::optional<std::size_t> read(std::vector<T> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            if (wt == internal::ProtoWireType::LengthDelimited) {
+                uint64_t len;
+                auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
+                if (!lenRes) {
+                    return std::nullopt;
+                }
+                if (start+*lenRes+len > input.length()) {
+                    return std::nullopt;
+                }
+                std::string_view body = input.substr(start+*lenRes, len);
+                T x;
+                ProtoDecoder<T> subDec(&x);
+                std::size_t remaining = len;
+                std::size_t idx = 0;
+                while (remaining > 0) {
+                    auto res = subDec.handle(wt, body, idx);
+                    if (!res) {
+                        return std::nullopt;
+                    }
+                    output.push_back(x);
+                    idx += *res;
+                    remaining -= *res;
+                }
+                return *lenRes+len;
+            } else if (wt == internal::ProtoWireType::VarInt) {
+                T x;
+                ProtoDecoder<T> subDec(&x);
+                auto res = subDec.handle(wt, input, start);
+                if (res) {
+                    output.push_back(x);
+                }
+                return res;
+            } else {
+                return std::nullopt;
+            }
+        }
+    };
+    template <class T>
+    class ProtoDecoder<std::vector<T>, std::enable_if_t<!(std::is_arithmetic_v<T> || std::is_enum_v<T>), void>> final : public IProtoDecoder<std::vector<T>> {
+    public:
+        ProtoDecoder(std::vector<T> *output) : IProtoDecoder<std::vector<T>>(output) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(std::vector<T> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
             if (wt != internal::ProtoWireType::LengthDelimited) {
                 return std::nullopt;
             }
@@ -775,11 +819,272 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             if (start+*lenRes+len > input.length()) {
                 return std::nullopt;
             }
-            output = { std::string(input.substr(start+*lenRes, len)) };
-            return (start+*lenRes+len);
+            std::string_view body = input.substr(start+*lenRes, len);
+            std::size_t remaining = len;
+            std::size_t idx = 0;
+            T x;
+            while (remaining > 0) {
+                ProtoDecoder<T> subDec(&x);
+                auto res = subDec.handle(wt, body, idx);
+                if (!res) {
+                    return std::nullopt;
+                }
+                output.push_back(std::move(x));
+                idx += *res;
+                remaining -= *res;
+            }
+            return *lenRes+len;
         }
     };
-    */
+    template <class T>
+    class ProtoDecoder<std::list<T>, std::enable_if_t<(std::is_arithmetic_v<T> || std::is_enum_v<T>), void>> final : public IProtoDecoder<std::list<T>> {
+    public:
+        ProtoDecoder(std::list<T> *output) : IProtoDecoder<std::list<T>>(output) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(std::list<T> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            if (wt == internal::ProtoWireType::LengthDelimited) {
+                uint64_t len;
+                auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
+                if (!lenRes) {
+                    return std::nullopt;
+                }
+                if (start+*lenRes+len > input.length()) {
+                    return std::nullopt;
+                }
+                std::string_view body = input.substr(start+*lenRes, len);
+                T x;
+                ProtoDecoder<T> subDec(&x);
+                std::size_t remaining = len;
+                std::size_t idx = 0;
+                while (remaining > 0) {
+                    auto res = subDec.handle(wt, body, idx);
+                    if (!res) {
+                        return std::nullopt;
+                    }
+                    output.push_back(x);
+                    idx += *res;
+                    remaining -= *res;
+                }
+                return *lenRes+len;
+            } else if (wt == internal::ProtoWireType::VarInt) {
+                T x;
+                ProtoDecoder<T> subDec(&x);
+                auto res = subDec.handle(wt, input, start);
+                if (res) {
+                    output.push_back(x);
+                }
+                return res;
+            } else {
+                return std::nullopt;
+            }
+        }
+    };
+    template <class T>
+    class ProtoDecoder<std::list<T>, std::enable_if_t<!(std::is_arithmetic_v<T> || std::is_enum_v<T>), void>> final : public IProtoDecoder<std::list<T>> {
+    public:
+        ProtoDecoder(std::list<T> *output) : IProtoDecoder<std::list<T>>(output) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(std::list<T> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            if (wt != internal::ProtoWireType::LengthDelimited) {
+                return std::nullopt;
+            }
+            uint64_t len;
+            auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
+            if (!lenRes) {
+                return std::nullopt;
+            }
+            if (start+*lenRes+len > input.length()) {
+                return std::nullopt;
+            }
+            std::string_view body = input.substr(start+*lenRes, len);
+            std::size_t remaining = len;
+            std::size_t idx = 0;
+            T x;
+            while (remaining > 0) {
+                ProtoDecoder<T> subDec(&x);
+                auto res = subDec.handle(wt, body, idx);
+                if (!res) {
+                    return std::nullopt;
+                }
+                output.push_back(std::move(x));
+                idx += *res;
+                remaining -= *res;
+            }
+            return *lenRes+len;
+        }
+    };
+    template <class T, std::size_t N>
+    class ProtoDecoder<std::array<T, N>, std::enable_if_t<(std::is_arithmetic_v<T> || std::is_enum_v<T>), void>> final : public IProtoDecoder<std::array<T,N>> {
+    private:
+        std::size_t curIdx_;
+        void addItem(std::array<T, N> &output, T t) {
+            if constexpr (N > 0) {
+                if (curIdx_ < N) {
+                    output[curIdx_++] = t;
+                } else {
+                    if constexpr (N > 1) {
+                        std::memmov(&output[0], &output[1], std::sizeof(T)*(N-1));
+                    }
+                    output[N-1] = t;
+                }
+            }
+        }
+    public:
+        ProtoDecoder(std::array<T, N> *output) : IProtoDecoder<std::array<T, N>>(output), curIdx_(0) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(std::array<T, N> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            if (wt == internal::ProtoWireType::LengthDelimited) {
+                uint64_t len;
+                auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
+                if (!lenRes) {
+                    return std::nullopt;
+                }
+                if (start+*lenRes+len > input.length()) {
+                    return std::nullopt;
+                }
+                std::string_view body = input.substr(start+*lenRes, len);
+                T x;
+                ProtoDecoder<T> subDec(&x);
+                std::size_t remaining = len;
+                std::size_t idx = 0;
+                while (remaining > 0) {
+                    auto res = subDec.handle(wt, body, idx);
+                    if (!res) {
+                        return std::nullopt;
+                    }
+                    addItem(output, x);
+                    idx += *res;
+                    remaining -= *res;
+                }
+                return *lenRes+len;
+            } else if (wt == internal::ProtoWireType::VarInt) {
+                T x;
+                ProtoDecoder<T> subDec(&x);
+                auto res = subDec.handle(wt, input, start);
+                if (res) {
+                    addItem(output, x);
+                }
+                return res;
+            } else {
+                return std::nullopt;
+            }
+        }
+    };
+    template <class T>
+    class ProtoDecoder<std::array<T,N>, std::enable_if_t<!(std::is_arithmetic_v<T> || std::is_enum_v<T>), void>> final : public IProtoDecoder<std::vector<T>> {
+    private:
+        std::size_t curIdx_;
+        void addItem(std::array<T, N> &output, T &&t) {
+            if constexpr (N > 0) {
+                if (curIdx_ < N) {
+                    output[curIdx_++] = std::move(t);
+                } else {
+                    if constexpr (N > 1) {
+                        for (std::size_t ii=0; ii<N-1; ++ii) {
+                            output[ii] = output[ii+1];
+                        }
+                    }
+                    output[N-1] = std::move(t);
+                }
+            }
+        }
+    public:
+        ProtoDecoder(std::array<T,N> *output) : IProtoDecoder<std::array<T,N>>(output), curIdx_(0) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(std::array<T,N> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            if (wt != internal::ProtoWireType::LengthDelimited) {
+                return std::nullopt;
+            }
+            uint64_t len;
+            auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
+            if (!lenRes) {
+                return std::nullopt;
+            }
+            if (start+*lenRes+len > input.length()) {
+                return std::nullopt;
+            }
+            std::string_view body = input.substr(start+*lenRes, len);
+            std::size_t remaining = len;
+            std::size_t idx = 0;
+            T x;
+            while (remaining > 0) {
+                ProtoDecoder<T> subDec(&x);
+                auto res = subDec.handle(wt, body, idx);
+                if (!res) {
+                    return std::nullopt;
+                }
+                addItem(output, std::move(x));
+                idx += *res;
+                remaining -= *res;
+            }
+            return *lenRes+len;
+        }
+    };
+    template <class T>
+    class ProtoDecoder<std::valarray<T>, void> final : public IProtoDecoder<std::valarray<T>> {
+    public:
+        ProtoDecoder(std::valarray<T> *output) : IProtoDecoder<std::valarray<T>>(output) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(std::valarray<T> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            if (wt == internal::ProtoWireType::LengthDelimited) {
+                uint64_t len;
+                auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
+                if (!lenRes) {
+                    return std::nullopt;
+                }
+                if (start+*lenRes+len > input.length()) {
+                    return std::nullopt;
+                }
+                std::string_view body = input.substr(start+*lenRes, len);
+                T x;
+                ProtoDecoder<T> subDec(&x);
+                std::size_t remaining = len;
+                std::size_t idx = 0;
+                while (remaining > 0) {
+                    auto res = subDec.handle(wt, body, idx);
+                    if (!res) {
+                        return std::nullopt;
+                    }
+                    output.push_back(x);
+                    idx += *res;
+                    remaining -= *res;
+                }
+                return *lenRes+len;
+            } else if (wt == internal::ProtoWireType::VarInt) {
+                T x;
+                ProtoDecoder<T> subDec(&x);
+                auto res = subDec.handle(wt, input, start);
+                if (res) {
+                    output.push_back(x);
+                }
+                return res;
+            } else {
+                return std::nullopt;
+            }
+        }
+    };
+    template <class T>
+    class ProtoDecoder<std::optional<T>, void> final : public IProtoDecoder<std::optional<T>> {
+    public:
+        ProtoDecoder(std::optional<T> *output) : IProtoDecoder<std::optional<T>>(output) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(std::optional<T> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            T x;
+            ProtoDecoder<T> subDec(&x);
+            auto res = subDec.handle(wt, input, start);
+            if (res) {
+                output = std::move(x);
+            }
+            return res;
+        }
+    };
+    
 
 } } } } }
 
