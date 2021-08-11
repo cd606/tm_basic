@@ -18,11 +18,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                     os << (((uint8_t) (remaining & (IntType) 0x7f)) | (uint8_t) 0x80);
                     remaining = remaining >> 8;
                 }
-                OS << (uint8_t) remaining;
+                os << (uint8_t) remaining;
             }
             template <class IntType, typename=std::enable_if_t<std::is_integral_v<IntType> && std::is_unsigned_v<IntType>>>
-            static std::optional<std::size_t> read(IntType &data, std::string_view const &input, std::size_t startPos) {
-                std::size_t currentPos = startPos;
+            static std::optional<std::size_t> read(IntType &data, std::string_view const &input, std::size_t start) {
+                std::size_t currentPos = start;
                 data = 0;
                 std::size_t shift = 0;
                 while (currentPos < input.length()) {
@@ -30,7 +30,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                     bool hasMore = ((b & (uint8_t) 0x80) != 0);
                     data = data | (((IntType) (b & (uint8_t) 0x7f)) << shift);
                     if (!hasMore) {
-                        return (currentPos-startPos+1);
+                        return (currentPos-start+1);
                     }
                     ++currentPos;
                     shift += 8;
@@ -55,7 +55,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 if (input & 0x1 == 0) {
                     return (int32_t) (input >> 1);
                 } else {
-                    return -((int32_t) (input >> 1));
+                    return (int32_t) (((~input) >> 1) | (uint32_t) 0x8FFF);
                 }
             }
         };
@@ -69,7 +69,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 if (input & 0x1 == 0) {
                     return (int64_t) (input >> 1);
                 } else {
-                    return -((int64_t) (input >> 1));
+                    return (int32_t) (((~input) >> 1) | (uint32_t) 0x8FFFFFFF);
                 }
             }
         };
@@ -81,7 +81,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             , StartGroup = 3
             , EndGroup = 4
             , Fixed32 = 5
-        }
+        };
 
         struct FieldHeader {
             ProtoWireType wireType;
@@ -96,9 +96,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                     , os
                 );
             }
-            static std::optional<std::size_t> readHeader(FieldHeader &fh, std::string_view const &input, std::size_t startPos) {
+            static std::optional<std::size_t> readHeader(FieldHeader &fh, std::string_view const &input, std::size_t start) {
                 uint64_t x;
-                auto res = VarIntSupport::read<uint64_t>(x, input, startPos);
+                auto res = VarIntSupport::read<uint64_t>(x, input, start);
                 if (!res) {
                     return std::nullopt;
                 }
@@ -113,98 +113,113 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         };
     }
 
-    template <class T>
+    template <class T, typename Enable=void>
     class ProtoEncoder {};
 
-    template <class IntType, typename=std::enable_if_t<std::is_integral_v<IntType> && std::is_unsigned_v<IntType>>>
-    class ProtoEncoder<IntType> {
+    template <class IntType>
+    class ProtoEncoder<IntType, std::enable_if_t<
+        (std::is_integral_v<IntType> && std::is_unsigned_v<IntType> && !std::is_same_v<IntType,bool> && !std::is_enum_v<IntType>)
+        , void
+    >> {
     public:
-        static void write(uint64_t fieldNumber, IntType data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, IntType data, std::ostream &os) {
             if (data == 0) {
                 return;
             }
-            internal::FieldHeaderSupport::writeHeader(
-                internal::FieldHeader {internal::ProtoWireType::VarInt, fieldNumber}
-                , os;
-            );
-            internal::VarIntSupport<IntType>::write(data, os);
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::VarInt, *fieldNumber}
+                    , os
+                );
+            }
+            internal::VarIntSupport::write<IntType>(data, os);
         }
     };
     template <>
-    class ProtoEncoder<bool> {
+    class ProtoEncoder<bool, void> {
     public:
-        static void write(uint64_t fieldNumber, bool data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, bool data, std::ostream &os) {
             if (!data) {
                 return;
             }
-            internal::FieldHeaderSupport::writeHeader(
-                internal::FieldHeader {internal::ProtoWireType::VarInt, fieldNumber}
-                , os;
-            );
-            internal::VarIntSupport<uint8_t>::write((uint8_t) data, os);
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::VarInt, *fieldNumber}
+                    , os
+                );
+            }
+            internal::VarIntSupport::write<uint8_t>((uint8_t) data, os);
         }
     };
     template <>
-    class ProtoEncoder<int8_t> {
+    class ProtoEncoder<int8_t, void> {
     public:
-        static void write(uint64_t fieldNumber, int8_t data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, int8_t data, std::ostream &os) {
             if (data == 0) {
                 return;
             }
-            internal::FieldHeaderSupport::writeHeader(
-                internal::FieldHeader {internal::ProtoWireType::VarInt, fieldNumber}
-                , os;
-            );
-            internal::VarIntSupport<uint8_t>::write((uint8_t) data, os);
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::VarInt, *fieldNumber}
+                    , os
+                );
+            }
+            internal::VarIntSupport::write<uint8_t>((uint8_t) data, os);
         }
     };
     template <>
-    class ProtoEncoder<int16_t> {
+    class ProtoEncoder<int16_t, void> {
     public:
-        static void write(uint64_t fieldNumber, int16_t data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, int16_t data, std::ostream &os) {
             if (data == 0) {
                 return;
             }
-            internal::FieldHeaderSupport::writeHeader(
-                internal::FieldHeader {internal::ProtoWireType::VarInt, fieldNumber}
-                , os;
-            )
-            internal::VarIntSupport<uint16_t>::write((uint16_t) data, os);
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::VarInt, *fieldNumber}
+                    , os
+                );
+            }
+            internal::VarIntSupport::write<uint16_t>((uint16_t) data, os);
         }
     };
     template <>
-    class ProtoEncoder<int32_t> {
+    class ProtoEncoder<int32_t, void> {
     public:
-        static void write(uint64_t fieldNumber, int32_t data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, int32_t data, std::ostream &os) {
             if (data == 0) {
                 return;
             }
-            internal::FieldHeaderSupport::writeHeader(
-                internal::FieldHeader {internal::ProtoWireType::VarInt, fieldNumber}
-                , os;
-            );
-            internal::VarIntSupport<uint32_t>::write(ZigZagIntSupport<int32_t>::encode(data), os);
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::VarInt, *fieldNumber}
+                    , os
+                );
+            }
+            internal::VarIntSupport::write<uint32_t>(internal::ZigZagIntSupport<int32_t>::encode(data), os);
         }
     };
     template <>
-    class ProtoEncoder<int64_t> {
+    class ProtoEncoder<int64_t, void> {
     public:
-        static void write(uint64_t fieldNumber, int64_t data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, int64_t data, std::ostream &os) {
             if (data == 0) {
                 return;
             }
-            internal::FieldHeaderSupport::writeHeader(
-                internal::FieldHeader {internal::ProtoWireType::VarInt, fieldNumber}
-                , os;
-            );
-            internal::VarIntSupport<uint64_t>::write(ZigZagIntSupport<int64_t>::encode(data), os);
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::VarInt, *fieldNumber}
+                    , os
+                );
+            }
+            internal::VarIntSupport::write<uint64_t>(internal::ZigZagIntSupport<int64_t>::encode(data), os);
         }
     };
 
-    template <class T, typename=std::enable_if_t<std::is_enum_v<T>>>
-    class ProtoEncoder<T> {
+    template <class T>
+    class ProtoEncoder<T, std::enable_if_t<std::is_enum_v<T>, void>> {
     public:
-        static void write(uint64_t fieldNumber, T data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, T data, std::ostream &os) {
             ProtoEncoder<std::underlying_type_t<T>>::write(
                 fieldNumber, static_cast<std::underlying_type_t<T>>(data), os
             );
@@ -212,34 +227,217 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     };
 
     template <>
-    class ProtoEncoder<float> {
+    class ProtoEncoder<float, void> {
     public:
-        static void write(uint64_t fieldNumber, float data, std::ostream &os) {
-            internal::FieldHeaderSupport::writeHeader(
-                internal::FieldHeader {internal::ProtoWireType::Fixed32, fieldNumber}
-                , os;
-            );
+        static void write(std::optional<uint64_t> fieldNumber, float data, std::ostream &os) {
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::Fixed32, *fieldNumber}
+                    , os
+                );
+            }
             uint32_t dBuf;
             std::memcpy(&dBuf, &data, 4);
-            boost::endian::native_to_small_inplace<uint32_t>(dBuf);
+            boost::endian::native_to_little_inplace<uint32_t>(dBuf);
             os.write(reinterpret_cast<char *>(&dBuf), 4);
         }
     };
     template <>
-    class ProtoEncoder<double> {
+    class ProtoEncoder<double, void> {
     public:
-        static void write(uint64_t fieldNumber, double data, std::ostream &os) {
-            internal::FieldHeaderSupport::writeHeader(
-                internal::FieldHeader {internal::ProtoWireType::Fixed64, fieldNumber}
-                , os;
-            );
+        static void write(std::optional<uint64_t> fieldNumber, double data, std::ostream &os) {
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::Fixed64, *fieldNumber}
+                    , os
+                );
+            }
             uint64_t dBuf;
             std::memcpy(&dBuf, &data, 8);
-            boost::endian::native_to_small_inplace<uint64_t>(dBuf);
+            boost::endian::native_to_little_inplace<uint64_t>(dBuf);
             os.write(reinterpret_cast<char *>(&dBuf), 8);
         }
     };
 
+    template <>
+    class ProtoEncoder<std::string, void> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, std::string const &data, std::ostream &os) {
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
+                    , os
+                );
+            }
+            internal::VarIntSupport::write<uint64_t>(data.length(), os);
+            os.write(data.data(), data.length());
+        }
+    };
+    template <>
+    class ProtoEncoder<std::string_view, void> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, std::string_view const &data, std::ostream &os) {
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
+                    , os
+                );
+            }
+            internal::VarIntSupport::write<uint64_t>(data.length(), os);
+            os.write(data.data(), data.length());
+        }
+    };
+    template <>
+    class ProtoEncoder<ByteData, void> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, ByteData const &data, std::ostream &os) {
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
+                    , os
+                );
+            }
+            internal::VarIntSupport::write<uint64_t>(data.content.length(), os);
+            os.write(data.content.data(), data.content.length());
+        }
+    };
+    template <>
+    class ProtoEncoder<ByteDataView, void> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, ByteDataView const &data, std::ostream &os) {
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
+                    , os
+                );
+            }
+            internal::VarIntSupport::write<uint64_t>(data.content.length(), os);
+            os.write(data.content.data(), data.content.length());
+        }
+    };
+
+    template <class T>
+    class ProtoEncoder<std::vector<T>, std::enable_if_t<(std::is_arithmetic_v<T> || std::is_enum_v<T>), void>> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, std::vector<T> const &data, std::ostream &os) {
+            if (data.empty()) {
+                return;
+            }
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
+                    , os
+                );
+            }
+            std::ostringstream ss;
+            for (auto const &item : data) {
+                ProtoEncoder<T>::write(std::nullopt, item, ss);
+            }
+            auto cont = ss.str();
+            internal::VarIntSupport::write<uint64_t>(cont.length(), os);
+            os.write(cont.data(), cont.length());
+        }
+    };
+    template <class T>
+    class ProtoEncoder<std::vector<T>, std::enable_if_t<!(std::is_arithmetic_v<T> || std::is_enum_v<T>), void>> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, std::vector<T> const &data, std::ostream &os) {
+            for (auto const &item : data) {
+                ProtoEncoder<T>::write(fieldNumber, item, os);
+            }
+        }
+    };
+    template <class T>
+    class ProtoEncoder<std::list<T>, std::enable_if_t<(std::is_arithmetic_v<T> || std::is_enum_v<T>), void>> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, std::list<T> const &data, std::ostream &os) {
+            if (data.empty()) {
+                return;
+            }
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
+                    , os
+                );
+            }
+            std::ostringstream ss;
+            for (auto const &item : data) {
+                ProtoEncoder<T>::write(std::nullopt, item, ss);
+            }
+            auto cont = ss.str();
+            internal::VarIntSupport::write<uint64_t>(cont.length(), os);
+            os.write(cont.data(), cont.length());
+        }
+    };
+    template <class T>
+    class ProtoEncoder<std::list<T>, std::enable_if_t<!(std::is_arithmetic_v<T> || std::is_enum_v<T>), void>> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, std::list<T> const &data, std::ostream &os) {
+            for (auto const &item : data) {
+                ProtoEncoder<T>::write(fieldNumber, item, os);
+            }
+        }
+    };
+    template <class T, std::size_t N>
+    class ProtoEncoder<std::array<T,N>, std::enable_if_t<(std::is_arithmetic_v<T> || std::is_enum_v<T>), void>> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, std::array<T,N> const &data, std::ostream &os) {
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
+                    , os
+                );
+            }
+            std::ostringstream ss;
+            for (auto const &item : data) {
+                ProtoEncoder<T>::write(std::nullopt, item, ss);
+            }
+            auto cont = ss.str();
+            internal::VarIntSupport::write<uint64_t>(cont.length(), os);
+            os.write(cont.data(), cont.length());
+        }
+    };
+    template <class T, std::size_t N>
+    class ProtoEncoder<std::array<T,N>, std::enable_if_t<!(std::is_arithmetic_v<T> || std::is_enum_v<T>), void>> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, std::array<T,N> const &data, std::ostream &os) {
+            for (auto const &item : data) {
+                ProtoEncoder<T>::write(fieldNumber, item, os);
+            }
+        }
+    };
+    template <class T>
+    class ProtoEncoder<std::valarray<T>, void> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, std::valarray<T> const &data, std::ostream &os) {
+            if (data.empty()) {
+                return;
+            }
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
+                    , os
+                );
+            }
+            std::ostringstream ss;
+            for (auto const &item : data) {
+                ProtoEncoder<T>::write(std::nullopt, item, ss);
+            }
+            auto cont = ss.str();
+            internal::VarIntSupport::write<uint64_t>(cont.length(), os);
+            os.write(cont.data(), cont.length());
+        }
+    };
+    template <class T>
+    class ProtoEncoder<std::optional<T>, void> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, std::optional<T> const &data, std::ostream &os) {
+            if (data) {
+                ProtoEncoder<T>::write(fieldNumber, *data, os);
+            }
+        }
+    };
+    
     class IProtoDecoderBase {
     public:
         virtual ~IProtoDecoderBase() = default;
@@ -256,44 +454,44 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         virtual std::optional<std::size_t> read(T &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) = 0;
     public:
         std::optional<std::size_t> handle(internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
-            return read(*output_, wt, input, startPos);
+            return read(*output_, wt, input, start);
         }
     };
 
-    template <class T>
+    template <class T, typename=void>
     class ProtoDecoder {};
 
-    template <class IntType, typename=std::enable_if_t<std::is_integral_v<IntType> && std::is_unsigned_v<IntType>>>
-    class ProtoDecoder<IntType> final : public IProtoDecoder<IntType> {
+    template <class IntType>
+    class ProtoDecoder<IntType, std::enable_if_t<(std::is_integral_v<IntType> && std::is_unsigned_v<IntType> && !std::is_same_v<IntType,bool> && !std::is_enum_v<IntType>), void>> final : public IProtoDecoder<IntType> {
     public:
         ProtoDecoder(IntType *output) : IProtoDecoder<IntType>(output) {}
         virtual ~ProtoDecoder() = default;
     protected:
-        std::optional<std::size_t> read(T &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+        std::optional<std::size_t> read(IntType &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
             switch (wt) {
             case internal::ProtoWireType::VarInt:
-                return VarIntSupport<IntType>::read(output, input, startPos);
+                return internal::VarIntSupport::read<IntType>(output, input, start);
                 break;
             case internal::ProtoWireType::Fixed32:
                 {
-                    if (startPos+sizeof(uint32_t) > input.length()) {
+                    if (start+sizeof(uint32_t) > input.length()) {
                         return std::nullopt;
                     }
                     uint32_t x;
-                    std::memcpy(&x. input.data()+startPos, sizeof(uint32_t));
-                    boost::endian::small_to_native_inplace<uint32_t>(x);
+                    std::memcpy(&x, input.data()+start, sizeof(uint32_t));
+                    boost::endian::little_to_native_inplace<uint32_t>(x);
                     output = (IntType) x;            
                     return sizeof(uint32_t);
                 }
                 break;
             case internal::ProtoWireType::Fixed64:
                 {
-                    if (startPos+sizeof(uint64_t) > input.length()) {
+                    if (start+sizeof(uint64_t) > input.length()) {
                         return std::nullopt;
                     }
-                    uint32_t x;
-                    std::memcpy(&x. input.data()+startPos, sizeof(uint64_t));
-                    boost::endian::small_to_native_inplace<uint64_t>(x);
+                    uint64_t x;
+                    std::memcpy(&x, input.data()+start, sizeof(uint64_t));
+                    boost::endian::little_to_native_inplace<uint64_t>(x);
                     output = (IntType) x;            
                     return sizeof(uint64_t);
                 }
@@ -306,7 +504,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <>
-    class ProtoDecoder<bool> final : public IProtoDecoder<bool> {
+    class ProtoDecoder<bool, void> final : public IProtoDecoder<bool> {
     public:
         ProtoDecoder(bool *output) : IProtoDecoder<bool>(output) {}
         virtual ~ProtoDecoder() = default;
@@ -316,7 +514,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 return std::nullopt;
             }
             uint8_t x;
-            auto res = VarIntSupport<uint8_t>::read(x, input, startPos);
+            auto res = internal::VarIntSupport::read<uint8_t>(x, input, start);
             if (res) {
                 output = (bool) x;
             }
@@ -324,7 +522,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <>
-    class ProtoDecoder<int8_t> final : public IProtoDecoder<int8_t> {
+    class ProtoDecoder<int8_t, void> final : public IProtoDecoder<int8_t> {
     public:
         ProtoDecoder(int8_t *output) : IProtoDecoder<int8_t>(output) {}
         virtual ~ProtoDecoder() = default;
@@ -334,7 +532,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 return std::nullopt;
             }
             uint8_t x;
-            auto res = VarIntSupport<uint8_t>::read(x, input, startPos);
+            auto res = internal::VarIntSupport::read<uint8_t>(x, input, start);
             if (res) {
                 output = (int8_t) x;
             }
@@ -342,7 +540,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <>
-    class ProtoDecoder<int16_t> final : public IProtoDecoder<int16_t> {
+    class ProtoDecoder<int16_t, void> final : public IProtoDecoder<int16_t> {
     public:
         ProtoDecoder(int16_t *output) : IProtoDecoder<int16_t>(output) {}
         virtual ~ProtoDecoder() = default;
@@ -352,7 +550,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 return std::nullopt;
             }
             uint16_t x;
-            auto res = VarIntSupport<uint16_t>::read(x, input, startPos);
+            auto res = internal::VarIntSupport::read<uint16_t>(x, input, start);
             if (res) {
                 output = (int16_t) x;
             }
@@ -360,7 +558,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <>
-    class ProtoDecoder<int32_t> final : public IProtoDecoder<int32_t> {
+    class ProtoDecoder<int32_t, void> final : public IProtoDecoder<int32_t> {
     public:
         ProtoDecoder(int32_t *output) : IProtoDecoder<int32_t>(output) {}
         virtual ~ProtoDecoder() = default;
@@ -370,33 +568,33 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             case internal::ProtoWireType::VarInt:
                 {
                     uint32_t x;
-                    auto res = VarIntSupport<uint32_t>::read(x, input, startPos);
+                    auto res = internal::VarIntSupport::read<uint32_t>(x, input, start);
                     if (res) {
-                        output = ZigZagIntSupport<int32_t>::decode(x);
+                        output = internal::ZigZagIntSupport<int32_t>::decode(x);
                     }
                     return res;
                 }
                 break;
             case internal::ProtoWireType::Fixed32:
                 {
-                    if (startPos+sizeof(uint32_t) > input.length()) {
+                    if (start+sizeof(uint32_t) > input.length()) {
                         return std::nullopt;
                     }
                     uint32_t x;
-                    std::memcpy(&x. input.data()+startPos, sizeof(uint32_t));
-                    boost::endian::small_to_native_inplace<uint32_t>(x);
+                    std::memcpy(&x, input.data()+start, sizeof(uint32_t));
+                    boost::endian::little_to_native_inplace<uint32_t>(x);
                     output = (int32_t) x;            
                     return sizeof(uint32_t);
                 }
                 break;
             case internal::ProtoWireType::Fixed64:
                 {
-                    if (startPos+sizeof(uint64_t) > input.length()) {
+                    if (start+sizeof(uint64_t) > input.length()) {
                         return std::nullopt;
                     }
-                    uint32_t x;
-                    std::memcpy(&x. input.data()+startPos, sizeof(uint64_t));
-                    boost::endian::small_to_native_inplace<uint64_t>(x);
+                    uint64_t x;
+                    std::memcpy(&x, input.data()+start, sizeof(uint64_t));
+                    boost::endian::little_to_native_inplace<uint64_t>(x);
                     output = (int32_t) x;            
                     return sizeof(uint64_t);
                 }
@@ -408,7 +606,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <>
-    class ProtoDecoder<int64_t> final : public IProtoDecoder<int64_t> {
+    class ProtoDecoder<int64_t, void> final : public IProtoDecoder<int64_t> {
     public:
         ProtoDecoder(int64_t *output) : IProtoDecoder<int64_t>(output) {}
         virtual ~ProtoDecoder() = default;
@@ -418,33 +616,33 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             case internal::ProtoWireType::VarInt:
                 {
                     uint64_t x;
-                    auto res = VarIntSupport<uint64_t>::read(x, input, startPos);
+                    auto res = internal::VarIntSupport::read<uint64_t>(x, input, start);
                     if (res) {
-                        output = ZigZagIntSupport<int64_t>::decode(x);
+                        output = internal::ZigZagIntSupport<int64_t>::decode(x);
                     }
                     return res;
                 }
                 break;
             case internal::ProtoWireType::Fixed32:
                 {
-                    if (startPos+sizeof(uint32_t) > input.length()) {
+                    if (start+sizeof(uint32_t) > input.length()) {
                         return std::nullopt;
                     }
                     uint32_t x;
-                    std::memcpy(&x. input.data()+startPos, sizeof(uint32_t));
-                    boost::endian::small_to_native_inplace<uint32_t>(x);
+                    std::memcpy(&x, input.data()+start, sizeof(uint32_t));
+                    boost::endian::little_to_native_inplace<uint32_t>(x);
                     output = (int64_t) x;            
                     return sizeof(uint32_t);
                 }
                 break;
             case internal::ProtoWireType::Fixed64:
                 {
-                    if (startPos+sizeof(uint64_t) > input.length()) {
+                    if (start+sizeof(uint64_t) > input.length()) {
                         return std::nullopt;
                     }
-                    uint32_t x;
-                    std::memcpy(&x. input.data()+startPos, sizeof(uint64_t));
-                    boost::endian::small_to_native_inplace<uint64_t>(x);
+                    uint64_t x;
+                    std::memcpy(&x, input.data()+start, sizeof(uint64_t));
+                    boost::endian::little_to_native_inplace<uint64_t>(x);
                     output = (int64_t) x;            
                     return sizeof(uint64_t);
                 }
@@ -454,11 +652,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 break;
             }
         }
-        }
     };
 
-    template <class T, typename=std::enable_if_t<std::is_enum_v<T>>>
-    class ProtoDecoder<T> final : public IProtoDecoder<T> {
+    template <class T>
+    class ProtoDecoder<T, std::enable_if_t<std::is_enum_v<T>, void>> final : public IProtoDecoder<T> {
     public:
         ProtoDecoder(T *output) : IProtoDecoder<T>(output) {}
         virtual ~ProtoDecoder() = default;
@@ -466,7 +663,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         std::optional<std::size_t> read(T &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
             std::underlying_type_t<T> x;
             ProtoDecoder<std::underlying_type_t<T>> dec(&x);
-            auto res = dec.handle(wt, input, startPos);
+            auto res = dec.handle(wt, input, start);
             if (res) {
                 output = (T) x;
             }
@@ -475,7 +672,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     };
 
     template <>
-    class ProtoDecoder<float> final : public IProtoDecoder<float> {
+    class ProtoDecoder<float, void> final : public IProtoDecoder<float> {
     public:
         ProtoDecoder(float *output) : IProtoDecoder<float>(output) {}
         virtual ~ProtoDecoder() = default;
@@ -484,18 +681,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             if (wt != internal::ProtoWireType::Fixed32) {
                 return std::nullopt;
             }
-            if (startPos+sizeof(uint32_t) > input.length()) {
+            if (start+sizeof(uint32_t) > input.length()) {
                 return std::nullopt;
             }
             uint32_t x;
-            std::memcpy(&x, input.data()+startPos, sizeof(uint32_t));
-            boost::endian::small_to_native_inplace<uint32_t>(x);
+            std::memcpy(&x, input.data()+start, sizeof(uint32_t));
+            boost::endian::little_to_native_inplace<uint32_t>(x);
             std::memcpy(&output, &x, sizeof(uint32_t));
             return sizeof(uint32_t);
         }
     };
     template <>
-    class ProtoDecoder<double> final : public IProtoDecoder<double> {
+    class ProtoDecoder<double, void> final : public IProtoDecoder<double> {
     public:
         ProtoDecoder(double *output) : IProtoDecoder<double>(output) {}
         virtual ~ProtoDecoder() = default;
@@ -504,16 +701,85 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             if (wt != internal::ProtoWireType::Fixed64) {
                 return std::nullopt;
             }
-            if (startPos+sizeof(uint32_t) > input.length()) {
+            if (start+sizeof(uint32_t) > input.length()) {
                 return std::nullopt;
             }
             uint64_t x;
-            std::memcpy(&x, input.data()+startPos, sizeof(uint64_t));
-            boost::endian::small_to_native_inplace<uint64_t>(x);
+            std::memcpy(&x, input.data()+start, sizeof(uint64_t));
+            boost::endian::little_to_native_inplace<uint64_t>(x);
             std::memcpy(&output, &x, sizeof(uint64_t));
             return sizeof(uint64_t);
         }
     };
+
+    template <>
+    class ProtoDecoder<std::string, void> final : public IProtoDecoder<std::string> {
+    public:
+        ProtoDecoder(std::string *output) : IProtoDecoder<std::string>(output) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(std::string &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            if (wt != internal::ProtoWireType::LengthDelimited) {
+                return std::nullopt;
+            }
+            uint64_t len;
+            auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
+            if (!lenRes) {
+                return std::nullopt;
+            }
+            if (start+*lenRes+len > input.length()) {
+                return std::nullopt;
+            }
+            output = std::string(input.substr(start+*lenRes, len));
+            return (start+*lenRes+len);
+        }
+    };
+    template <>
+    class ProtoDecoder<ByteData, void> final : public IProtoDecoder<ByteData> {
+    public:
+        ProtoDecoder(ByteData *output) : IProtoDecoder<ByteData>(output) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(ByteData &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            if (wt != internal::ProtoWireType::LengthDelimited) {
+                return std::nullopt;
+            }
+            uint64_t len;
+            auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
+            if (!lenRes) {
+                return std::nullopt;
+            }
+            if (start+*lenRes+len > input.length()) {
+                return std::nullopt;
+            }
+            output = { std::string(input.substr(start+*lenRes, len)) };
+            return (start+*lenRes+len);
+        }
+    };
+    /*
+    template <class T>
+    class ProtoDecoder<std::vector<T>, void> final : public IProtoDecoder<std::vector<T>> {
+    public:
+        ProtoDecoder(ByteData *output) : IProtoDecoder<ByteData>(output) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(ByteData &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            if (wt != internal::ProtoWireType::LengthDelimited) {
+                return std::nullopt;
+            }
+            uint64_t len;
+            auto lenRes = internal::VarIntSupport::read<uint64_t>(len, input, start);
+            if (!lenRes) {
+                return std::nullopt;
+            }
+            if (start+*lenRes+len > input.length()) {
+                return std::nullopt;
+            }
+            output = { std::string(input.substr(start+*lenRes, len)) };
+            return (start+*lenRes+len);
+        }
+    };
+    */
 
 } } } } }
 

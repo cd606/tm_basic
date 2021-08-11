@@ -31,6 +31,7 @@ tm_basic_headers = [
     , 'StructFieldInfoBasedCsvUtils.hpp'
     , 'StructFieldFlattenedInfo.hpp'
     , 'StructFieldInfoBasedCopy.hpp'
+    , 'ProtoInterop.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
