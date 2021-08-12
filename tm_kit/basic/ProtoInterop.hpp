@@ -1702,6 +1702,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         Proto &operator=(Proto &&) = default;
         ~Proto() = default;
 
+        Proto &operator=(T const &t) {
+            t_ = t;
+            return *this;
+        }
+        Proto &operator=(T &&t) {
+            t_ = std::move(t);
+            return *this;
+        }
+
         void SerializeToStream(std::ostream &os) const {
             ProtoEncoder<T>::write(std::nullopt, t_, os);
         }
@@ -1727,6 +1736,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
         T &value() {
             return t_;
+        }
+        T &operator*() {
+            return t_;
+        }
+        T const &operator*() const {
+            return t_;
+        }
+        T *operator->() {
+            return &t_;
+        }
+        T const *operator->() const {
+            return &t_;
         }
     };  
 
