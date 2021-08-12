@@ -1340,7 +1340,42 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             return input.length()-start;
         }
     };
-    
+
+    template <class T, typename=std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo>>
+    class Proto {
+    private:
+        T t_;
+    public:
+        Proto() = default;
+        Proto(T const &t) : t_(t) {}
+        Proto(T &&t) : t_(std::move(t)) {}
+        Proto(Proto const &) = default;
+        Proto(Proto &&) = default;
+        Proto &operator=(Proto const &) = default;
+        Proto &operator=(Proto &&) = default;
+        ~Proto() = default;
+
+        void SerializeToString(std::string *s) const {
+            std::ostringstream oss;
+            ProtoEncoder<T>::write(std::nullopt, t_, oss);
+            *s = oss.str();
+        }
+        bool ParseFromString(std::string const &s) {
+            static ProtoDecoder<T> dec(&t_);
+            auto res = dec.handle(internal::ProtoWireType::LengthDelimited, std::string_view(s), 0);
+            if (res) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+        T const &value() const {
+            return t_;
+        }
+        T &value() {
+            return t_;
+        }
+    };  
 
 } } } } }
 
