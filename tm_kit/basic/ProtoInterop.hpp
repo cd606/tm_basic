@@ -1611,7 +1611,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         virtual ~ProtoDecoder() = default;
     protected:
         std::optional<std::size_t> read(SingleLayerWrapperWithID<N,T> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
-            ProtoDecoder<T> subDec(&output.value);
+            static ProtoDecoder<T> subDec(&output.value);
             return subDec.handle(wt, input, start);
         }
     };

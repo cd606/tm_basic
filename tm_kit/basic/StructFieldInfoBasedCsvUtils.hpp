@@ -12,6 +12,56 @@
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace struct_field_info_utils {
     
     namespace internal {
+        
+        template <class T>
+        class CsvSingleLayerWrapperHelper {
+        public:
+            static constexpr bool Value = false;
+            using UnderlyingType = T;
+            static T &ref(T &t) {
+                return t;
+            }
+            static T const &constRef(T const &t) {
+                return t;
+            }
+        };
+        template <class X>
+        class CsvSingleLayerWrapperHelper<SingleLayerWrapper<X>> {
+        public:
+            static constexpr bool Value = true;
+            using UnderlyingType = typename CsvSingleLayerWrapperHelper<X>::UnderlyingType;
+            static auto &ref(SingleLayerWrapper<X> &t) {
+                return CsvSingleLayerWrapperHelper<X>::ref(t.value);
+            }
+            static auto &constRef(SingleLayerWrapper<X> const &t) {
+                return CsvSingleLayerWrapperHelper<X>::constRef(t.value);
+            }
+        };
+        template <int32_t N, class X>
+        class CsvSingleLayerWrapperHelper<SingleLayerWrapperWithID<N,X>> {
+        public:
+            static constexpr bool Value = true;
+            using UnderlyingType = typename CsvSingleLayerWrapperHelper<X>::UnderlyingType;
+            static auto &ref(SingleLayerWrapperWithID<N,X> &t) {
+                return CsvSingleLayerWrapperHelper<X>::ref(t.value);
+            }
+            static auto &constRef(SingleLayerWrapperWithID<N,X> const &t) {
+                return CsvSingleLayerWrapperHelper<X>::constRef(t.value);
+            }
+        };
+        template <typename M, class X>
+        class CsvSingleLayerWrapperHelper<SingleLayerWrapperWithTypeMark<M,X>> {
+        public:
+            static constexpr bool Value = true;
+            using UnderlyingType = typename CsvSingleLayerWrapperHelper<X>::UnderlyingType;
+            static auto &ref(SingleLayerWrapperWithTypeMark<M,X> &t) {
+                return CsvSingleLayerWrapperHelper<X>::ref(t.value);
+            }
+            static auto &constRef(SingleLayerWrapperWithTypeMark<M,X> const &t) {
+                return CsvSingleLayerWrapperHelper<X>::constRef(t.value);
+            }
+        };
+
         template <class F>
         constexpr bool is_simple_csv_field_v = 
             std::is_arithmetic_v<F>
@@ -44,7 +94,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             using BaseType = X;
         };
 
-        template <class T, bool IsStructWithFieldInfo=StructFieldInfo<T>::HasGeneratedStructFieldInfo>
+        template <class T, bool IsStructWithFieldInfo=StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::HasGeneratedStructFieldInfo>
         class StructFieldInfoCsvSupportChecker {
         public:
             static constexpr bool IsComposite = false;
@@ -55,25 +105,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         class StructFieldInfoCsvSupportChecker<T, false> {
         private:
             static constexpr bool fieldIsGood() {
-                if constexpr (is_simple_csv_field_v<T>) {
+                if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>) {
                     return true;
-                } else if constexpr (ArrayAndOptionalChecker<T>::IsArray) {
-                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<T>::BaseType>::IsGoodForCsv;
-                } else if constexpr (ArrayAndOptionalChecker<T>::IsOptional) {
-                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<T>::BaseType>::IsGoodForCsv;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::IsArray) {
+                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::BaseType>::IsGoodForCsv;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::IsOptional) {
+                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::BaseType>::IsGoodForCsv;
                 } else {
-                    return StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv;
+                    return StructFieldInfoCsvSupportChecker<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::IsGoodForCsv;
                 }
             }
             static constexpr std::size_t fieldCount() {
-                if constexpr (is_simple_csv_field_v<T>) {
+                if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>) {
                     return 1;
-                } else if constexpr (ArrayAndOptionalChecker<T>::IsArray) {
-                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<T>::BaseType>::CsvFieldCount*ArrayAndOptionalChecker<T>::ArrayLength;
-                } else if constexpr (ArrayAndOptionalChecker<T>::IsOptional) {
-                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<T>::BaseType>::CsvFieldCount;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::IsArray) {
+                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::BaseType>::CsvFieldCount*ArrayAndOptionalChecker<T>::ArrayLength;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::IsOptional) {
+                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::BaseType>::CsvFieldCount;
                 } else {
-                    return StructFieldInfoCsvSupportChecker<T>::CsvFieldCount;
+                    return StructFieldInfoCsvSupportChecker<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::CsvFieldCount;
                 }
             }
         public:
@@ -86,33 +136,33 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         private:
             template <class F>
             static constexpr bool fieldIsGood() {
-                if constexpr (is_simple_csv_field_v<F>) {
+                if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
                     return true;
-                } else if constexpr (ArrayAndOptionalChecker<F>::IsArray) {
-                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<F>::BaseType>::IsGoodForCsv;
-                } else if constexpr (ArrayAndOptionalChecker<F>::IsOptional) {
-                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<F>::BaseType>::IsGoodForCsv;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsArray) {
+                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType>::IsGoodForCsv;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsOptional) {
+                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType>::IsGoodForCsv;
                 } else {
-                    return StructFieldInfoCsvSupportChecker<F>::IsGoodForCsv;
+                    return StructFieldInfoCsvSupportChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsGoodForCsv;
                 }
             }
             template <class F>
             static constexpr std::size_t fieldCount() {
-                if constexpr (is_simple_csv_field_v<F>) {
+                if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
                     return 1;
-                } else if constexpr (ArrayAndOptionalChecker<F>::IsArray) {
-                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<F>::BaseType>::CsvFieldCount*ArrayAndOptionalChecker<F>::ArrayLength;
-                } else if constexpr (ArrayAndOptionalChecker<F>::IsOptional) {
-                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<F>::BaseType>::CsvFieldCount;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsArray) {
+                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType>::CsvFieldCount*ArrayAndOptionalChecker<F>::ArrayLength;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsOptional) {
+                    return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType>::CsvFieldCount;
                 } else {
-                    return StructFieldInfoCsvSupportChecker<F>::CsvFieldCount;
+                    return StructFieldInfoCsvSupportChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::CsvFieldCount;
                 }
             }
 
             template <int FieldCount, int FieldIdx>
             static constexpr bool checkGood() {
                 if constexpr (FieldIdx>=0 && FieldIdx<FieldCount) {
-                    if constexpr (!fieldIsGood<typename StructFieldTypeInfo<T,FieldIdx>::TheType>()) {
+                    if constexpr (!fieldIsGood<typename StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIdx>::TheType>()) {
                         return false;
                     } else {
                         return checkGood<FieldCount,FieldIdx+1>();
@@ -124,30 +174,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             template <int FieldCount, int FieldIdx, std::size_t SoFar>
             static constexpr std::size_t totalFieldCount() {
                 if constexpr (FieldIdx>=0 && FieldIdx<FieldCount) {
-                    return totalFieldCount<FieldCount,FieldIdx+1,SoFar+fieldCount<typename StructFieldTypeInfo<T,FieldIdx>::TheType>()>();
+                    return totalFieldCount<FieldCount,FieldIdx+1,SoFar+fieldCount<typename StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIdx>::TheType>()>();
                 } else {
                     return SoFar;
                 }
             }
         public:
             static constexpr bool IsComposite = true;
-            static constexpr bool IsGoodForCsv = checkGood<StructFieldInfo<T>::FIELD_NAMES.size(),0>();
-            static constexpr std::size_t CsvFieldCount = totalFieldCount<StructFieldInfo<T>::FIELD_NAMES.size(),0,0>();
+            static constexpr bool IsGoodForCsv = checkGood<StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0>();
+            static constexpr std::size_t CsvFieldCount = totalFieldCount<StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0,0>();
         };
 
         class StructFieldInfoBasedSimpleCsvOutputImpl {
         private:
             template <class F>
             static void collectSingleFieldName(std::string const &prefix, std::string const &thisField, std::vector<std::string> &output) {
-                if constexpr (is_simple_csv_field_v<F>) {
+                if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
                     output.push_back(prefix+thisField);
-                } else if constexpr (ArrayAndOptionalChecker<F>::IsArray) {
-                    using BT = typename ArrayAndOptionalChecker<F>::BaseType;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsArray) {
+                    using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
                     auto arrName = prefix+thisField;
                     if (boost::ends_with(arrName, ".")) {
                         arrName = arrName.substr(0, arrName.length()-1);
                     }
-                    for (std::size_t ii=0; ii<ArrayAndOptionalChecker<F>::ArrayLength; ++ii) {
+                    for (std::size_t ii=0; ii<ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength; ++ii) {
                         if constexpr (is_simple_csv_field_v<BT>) {
                             output.push_back(arrName+"["+std::to_string(ii)+"]");
                         } else {
@@ -158,8 +208,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                             );
                         }
                     }
-                } else if constexpr (ArrayAndOptionalChecker<F>::IsOptional) {
-                    using BT = typename ArrayAndOptionalChecker<F>::BaseType;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsOptional) {
+                    using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
                     auto optionName = prefix+thisField;
                     if (boost::ends_with(optionName, ".")) {
                         optionName = optionName.substr(0, optionName.length()-1);
@@ -178,7 +228,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     if (boost::ends_with(fieldName, ".")) {
                         fieldName = fieldName.substr(0, fieldName.length()-1);
                     }
-                    StructFieldInfoBasedSimpleCsvOutputImpl::collectFieldNames<F>(
+                    StructFieldInfoBasedSimpleCsvOutputImpl::collectFieldNames<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>(
                         fieldName+"."
                         , output
                     );
@@ -187,52 +237,52 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             template <class T, int FieldCount, int FieldIndex, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && StructFieldInfoCsvSupportChecker<T>::IsComposite>>
             static void collectFieldNames_internal(std::string const &prefix, std::vector<std::string> &output) {
                 if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
-                    using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                    collectSingleFieldName<F>(prefix, std::string(StructFieldInfo<T>::FIELD_NAMES[FieldIndex]), output);
-                    collectFieldNames_internal<T,FieldCount,FieldIndex+1>(prefix, output);
+                    using F = typename StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::TheType;
+                    collectSingleFieldName<F>(prefix, std::string(StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES[FieldIndex]), output);
+                    collectFieldNames_internal<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldCount,FieldIndex+1>(prefix, output);
                 }
             }
             template <class ColType>
             static void writeSimpleField_internal(std::ostream &os, ColType const &x) {
-                if constexpr (std::is_same_v<ColType,std::string>) {
-                    os << std::quoted(x);
-                } else if constexpr (std::is_same_v<ColType,std::tm>) {
-                    os << std::put_time(&x, "%Y-%m-%dT%H:%M:%S");
-                } else if constexpr (std::is_same_v<ColType,std::chrono::system_clock::time_point>) {
-                    os << infra::withtime_utils::localTimeString(x);
+                if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::string>) {
+                    os << std::quoted(CsvSingleLayerWrapperHelper<ColType>::constRef(x));
+                } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::tm>) {
+                    os << std::put_time(&CsvSingleLayerWrapperHelper<ColType>::constRef(x), "%Y-%m-%dT%H:%M:%S");
+                } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::chrono::system_clock::time_point>) {
+                    os << infra::withtime_utils::localTimeString(CsvSingleLayerWrapperHelper<ColType>::constRef(x));
                 } else {
-                    os << x;
+                    os << CsvSingleLayerWrapperHelper<ColType>::constRef(x);
                 }
             }
             template <class F>
             static void writeSingleField(std::ostream &os, F const &f) {
-                if constexpr (is_simple_csv_field_v<F>) {
+                if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
                     writeSimpleField_internal<F>(os, f);
-                } else if constexpr (ArrayAndOptionalChecker<F>::IsArray) {
-                    using BT = typename ArrayAndOptionalChecker<F>::BaseType;
-                    for (std::size_t ii=0; ii<ArrayAndOptionalChecker<F>::ArrayLength; ++ii) {
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsArray) {
+                    using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
+                    for (std::size_t ii=0; ii<ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength; ++ii) {
                         if (ii>0) {
                             os << ',';
                         }
                         if constexpr (is_simple_csv_field_v<BT>) {
-                            writeSimpleField_internal<BT>(os, f[ii]);
+                            writeSimpleField_internal<BT>(os, (CsvSingleLayerWrapperHelper<F>::constRef(f))[ii]);
                         } else {
-                            writeSingleField<BT>(os, f[ii]);
+                            writeSingleField<BT>(os, (CsvSingleLayerWrapperHelper<F>::constRef(f))[ii]);
                         }
                     }
-                } else if constexpr (ArrayAndOptionalChecker<F>::IsOptional) {
-                    using BT = typename ArrayAndOptionalChecker<F>::BaseType;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsOptional) {
+                    using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
                     if constexpr (is_simple_csv_field_v<BT>) {
                         if (f) {
-                            writeSimpleField_internal<BT>(os, *f);
+                            writeSimpleField_internal<BT>(os, *(CsvSingleLayerWrapperHelper<F>::constRef(f)));
                         }
                     } else {
                         if (f) {
                             writeSingleField<BT>(
-                                os, *f
+                                os, *(CsvSingleLayerWrapperHelper<F>::constRef(f))
                             ); 
                         } else {
-                            for (std::size_t ii=0; ii<StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<F>::BaseType>::CsvFieldCount-1; ++ii) {
+                            for (std::size_t ii=0; ii<StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType>::CsvFieldCount-1; ++ii) {
                                 os << ',';
                             }
                         }
@@ -249,10 +299,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     if constexpr (FieldIndex != 0) {
                         os << ',';
                     }
-                    using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                    auto T::*p = StructFieldTypeInfo<T,FieldIndex>::fieldPointer();
+                    using F = typename StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::TheType;
+                    auto T::*p = StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::fieldPointer();
                     writeSingleField<F>(os, t.*p);
-                    writeData_internal<T,FieldCount,FieldIndex+1>(os, t);
+                    writeData_internal<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldCount,FieldIndex+1>(os, t);
                 }
             }
         public:
@@ -275,7 +325,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             }
             template <class T, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && StructFieldInfoCsvSupportChecker<T>::IsComposite>>
             static void writeData(std::ostream &os, T const &t) {
-                writeData_internal<T,StructFieldInfo<T>::FIELD_NAMES.size(),0>(os, t);
+                writeData_internal<T,StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0>(os, t);
             }
         };
     }
