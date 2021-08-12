@@ -68,6 +68,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             || std::is_same_v<F, std::tm>
             || std::is_same_v<F, std::chrono::system_clock::time_point>
             || std::is_same_v<F, std::string>
+            || (CsvSingleLayerWrapperHelper<F>::Value && is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>)
         ;
         template <class T>
         class ArrayAndOptionalChecker {
@@ -369,50 +370,50 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 if (s == "") {
                     return false;
                 }
-                if constexpr (std::is_same_v<ColType,std::string>) {
+                if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::string>) {
 #ifdef _MSC_VER
                     boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
 #else
                     boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
 #endif
-                        >> std::quoted(x);
-                } else if constexpr (std::is_same_v<ColType,std::tm>) {
+                        >> std::quoted(CsvSingleLayerWrapperHelper<ColType>::ref(x));
+                } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::tm>) {
 #ifdef _MSC_VER
                     boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
 #else
                     boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
 #endif
-                        >> std::get_time(&x, "%Y-%m-%dT%H:%M:%S");
-                } else if constexpr (std::is_same_v<ColType,std::chrono::system_clock::time_point>) {
-                    x = infra::withtime_utils::parseLocalTime(s);
+                        >> std::get_time(&CsvSingleLayerWrapperHelper<ColType>::ref(x), "%Y-%m-%dT%H:%M:%S");
+                } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::chrono::system_clock::time_point>) {
+                    CsvSingleLayerWrapperHelper<ColType>::ref(x) = infra::withtime_utils::parseLocalTime(s);
                 } else {
 #ifdef _MSC_VER
                     boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
 #else
                     boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
 #endif
-                        >> x;
+                        >> CsvSingleLayerWrapperHelper<ColType>::ref(x);
                 }
                 return true;
             }
             template <class F>
             static std::tuple<bool,std::size_t> parseOne(std::vector<std::string_view> const &parts, F &output, std::size_t currentIdx) {
-                if constexpr (is_simple_csv_field_v<F>) {
+                if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
                     return {parseSimpleField_internal<F>(parts[currentIdx], output), 1};
-                } else if constexpr (ArrayAndOptionalChecker<F>::IsArray) {
-                    using BT = typename ArrayAndOptionalChecker<F>::BaseType;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsArray) {
+                    using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
                     bool someGood = false;
                     if constexpr (is_simple_csv_field_v<BT>) {
-                        for (std::size_t ii=0; ii<ArrayAndOptionalChecker<F>::ArrayLength; ++ii) {
-                            if (parseSimpleField_internal<BT>(parts[currentIdx+ii], output[ii])) {
+                        for (std::size_t ii=0; ii<ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength; ++ii) {
+                            if (parseSimpleField_internal<BT>(parts[currentIdx+ii], (CsvSingleLayerWrapperHelper<F>::ref(output))[ii])) {
                                 someGood = true;
                             }
                         }
-                        return {someGood, ArrayAndOptionalChecker<F>::ArrayLength};
+                        return {someGood, ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength};
                     } else {
                         std::size_t count = 0;
-                        for (std::size_t ii=0; ii<ArrayAndOptionalChecker<F>::ArrayLength; ++ii) {
-                            auto res = parseOne<BT>(parts, output[ii], currentIdx+count);
+                        for (std::size_t ii=0; ii<ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength; ++ii) {
+                            auto res = parseOne<BT>(parts, (CsvSingleLayerWrapperHelper<F>::ref(output))[ii], currentIdx+count);
                             if (std::get<0>(res)) {
                                 someGood = true;
                             }
@@ -420,23 +421,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         }
                         return {someGood, count};
                     }
-                } else if constexpr (ArrayAndOptionalChecker<F>::IsOptional) {
-                    using BT = typename ArrayAndOptionalChecker<F>::BaseType;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsOptional) {
+                    using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
                     BT v;
                     if constexpr (is_simple_csv_field_v<BT>) {
                         if (parseSimpleField_internal<BT>(parts[currentIdx], v)) {
-                            output = std::move(v);
+                            (CsvSingleLayerWrapperHelper<F>::ref(output)) = std::move(v);
                             return {true, 1};
                         } else {
-                            output = std::nullopt;
+                            (CsvSingleLayerWrapperHelper<F>::ref(output)) = std::nullopt;
                             return {false, 1};
                         }
                     } else {
                         auto res = parseOne<BT>(parts, v, currentIdx);
                         if (std::get<0>(res)) {
-                            output = std::move(v);
+                            (CsvSingleLayerWrapperHelper<F>::ref(output)) = std::move(v);
                         } else {
-                            output = std::nullopt;
+                            (CsvSingleLayerWrapperHelper<F>::ref(output)) = std::nullopt;
                         }
                         return res;
                     }
@@ -447,30 +448,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             }
             template <class F>
             static std::tuple<bool,std::size_t> parseOneWithIdxDict(std::vector<std::string_view> const &parts, F &output, std::size_t currentIdx, std::vector<std::size_t> const &idxDict) {
-                if constexpr (is_simple_csv_field_v<F>) {
+                if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
                     auto realIdx = idxDict[currentIdx];
                     if (realIdx != std::numeric_limits<std::size_t>::max()) {
                         return {parseSimpleField_internal<F>(parts[realIdx], output), 1};
                     } else {
                         return {false, 1};
                     }
-                } else if constexpr (ArrayAndOptionalChecker<F>::IsArray) {
-                    using BT = typename ArrayAndOptionalChecker<F>::BaseType;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsArray) {
+                    using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
                     bool someGood = false;
                     if constexpr (is_simple_csv_field_v<BT>) {
-                        for (std::size_t ii=0; ii<ArrayAndOptionalChecker<F>::ArrayLength; ++ii) {
+                        for (std::size_t ii=0; ii<ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength; ++ii) {
                             auto realIdx = idxDict[currentIdx+ii];
                             if (realIdx != std::numeric_limits<std::size_t>::max()) {
-                                if (parseSimpleField_internal<BT>(parts[realIdx], output[ii])) {
+                                if (parseSimpleField_internal<BT>(parts[realIdx], (CsvSingleLayerWrapperHelper<F>::ref(output))[ii])) {
                                     someGood = true;
                                 }
                             }
                         }
-                        return {someGood, ArrayAndOptionalChecker<F>::ArrayLength};
+                        return {someGood, ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength};
                     } else {
                         std::size_t count = 0;
-                        for (std::size_t ii=0; ii<ArrayAndOptionalChecker<F>::ArrayLength; ++ii) {
-                            auto res = parseOneWithIdxDict<BT>(parts, output[ii], currentIdx+count, idxDict);
+                        for (std::size_t ii=0; ii<ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength; ++ii) {
+                            auto res = parseOneWithIdxDict<BT>(parts, (CsvSingleLayerWrapperHelper<F>::ref(output))[ii], currentIdx+count, idxDict);
                             if (std::get<0>(res)) {
                                 someGood = true;
                             }
@@ -478,17 +479,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         }
                         return {someGood, count};
                     }
-                } else if constexpr (ArrayAndOptionalChecker<F>::IsOptional) {
-                    using BT = typename ArrayAndOptionalChecker<F>::BaseType;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsOptional) {
+                    using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
                     BT v;
                     if constexpr (is_simple_csv_field_v<BT>) {
                         auto realIdx = idxDict[currentIdx];
                         if (realIdx != std::numeric_limits<std::size_t>::max()) {
                             if (parseSimpleField_internal<BT>(parts[currentIdx], v)) {
-                                output = std::move(v);
+                                (CsvSingleLayerWrapperHelper<F>::ref(output)) = std::move(v);
                                 return {true, 1};
                             } else {
-                                output = std::nullopt;
+                                (CsvSingleLayerWrapperHelper<F>::ref(output)) = std::nullopt;
                                 return {false, 1};
                             }
                         } else {
@@ -497,9 +498,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     } else {
                         auto res = parseOneWithIdxDict<BT>(parts, v, currentIdx, idxDict);
                         if (std::get<0>(res)) {
-                            output = std::move(v);
+                            (CsvSingleLayerWrapperHelper<F>::ref(output)) = std::move(v);
                         } else {
-                            output = std::nullopt;
+                            (CsvSingleLayerWrapperHelper<F>::ref(output)) = std::nullopt;
                         }
                         return res;
                     }
@@ -511,8 +512,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             template <class T, int FieldCount, int FieldIndex>
             static std::tuple<bool,std::size_t> parse_internal(std::vector<std::string_view> const &parts, T &t, int currentIdx, bool hasGoodSoFar) {
                 if constexpr (FieldCount >=0 && FieldIndex < FieldCount) {
-                    using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                    auto T::*p = StructFieldTypeInfo<T,FieldIndex>::fieldPointer();
+                    using F = typename StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::TheType;
+                    auto T::*p = StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::fieldPointer();
                     auto res = parseOne<F>(parts, (t.*p), currentIdx);
                     if (std::get<0>(res)) {
                         hasGoodSoFar = true;
@@ -525,8 +526,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             template <class T, int FieldCount, int FieldIndex>
             static std::tuple<bool,std::size_t> parse_internal_with_idx_dict(std::vector<std::string_view> const &parts, T &t, int currentIdx, bool hasGoodSoFar, std::vector<std::size_t> const &idxDict) {
                 if constexpr (FieldCount >=0 && FieldIndex < FieldCount) {
-                    using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                    auto T::*p = StructFieldTypeInfo<T,FieldIndex>::fieldPointer();
+                    using F = typename StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::TheType;
+                    auto T::*p = StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::fieldPointer();
                     auto res = parseOneWithIdxDict<F>(parts, (t.*p), currentIdx, idxDict);
                     if (std::get<0>(res)) {
                         hasGoodSoFar = true;
@@ -540,11 +541,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             //the return value is whether some components have value, and how many items it consumed
             template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && StructFieldInfoCsvSupportChecker<T>::IsComposite>>
             static std::tuple<bool,std::size_t> parse(std::vector<std::string_view> const &parts, T &output, std::size_t currentIdx) {
-                return parse_internal<T,StructFieldInfo<T>::FIELD_NAMES.size(),0>(parts, output, currentIdx, false);
+                return parse_internal<T,StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0>(parts, output, currentIdx, false);
             }
             template <class T, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && StructFieldInfoCsvSupportChecker<T>::IsComposite>>
             static std::tuple<bool,std::size_t> parse_with_idx_dict(std::vector<std::string_view> const &parts, T &output, std::size_t currentIdx, std::vector<std::size_t> const &idxDict) {
-                return parse_internal_with_idx_dict<T,StructFieldInfo<T>::FIELD_NAMES.size(),0>(parts, output, currentIdx, false, idxDict);
+                return parse_internal_with_idx_dict<T,StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0>(parts, output, currentIdx, false, idxDict);
             }
         };
     }
