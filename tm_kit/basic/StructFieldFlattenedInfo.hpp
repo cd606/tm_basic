@@ -9,6 +9,39 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
 
     namespace internal {
 
+        template <class X>
+        class GetRef {
+        public:
+            using TheType = X;
+            static X &ref(X &x) {return x;}
+            static X &&moveRef(X &&x) {return std::move(x);}
+            static X const &constRef(X const &x) {return x;}
+        };
+        template <class X>
+        class GetRef<SingleLayerWrapper<X>> {
+        public:
+            using TheType = typename GetRef<X>::TheType;
+            static auto &ref(SingleLayerWrapper<X> &x) {return GetRef<X>::ref(x.value);}
+            static auto &&moveRef(SingleLayerWrapper<X> &&x) {return std::move(GetRef<X>::moveRef(x.value));}
+            static auto const &constRef(SingleLayerWrapper<X> const &x) {return GetRef<X>::constRef(x.value);}
+        };
+        template <int32_t N, class X>
+        class GetRef<SingleLayerWrapperWithID<N,X>> {
+        public:
+            using TheType = typename GetRef<X>::TheType;
+            static auto &ref(SingleLayerWrapperWithID<N,X> &x) {return GetRef<X>::ref(x.value);}
+            static auto &&moveRef(SingleLayerWrapperWithID<N,X> &&x) {return std::move(GetRef<X>::moveRef(x.value));}
+            static auto const &constRef(SingleLayerWrapperWithID<N,X> const &x) {return GetRef<X>::constRef(x.value);}
+        };
+        template <typename M, class X>
+        class GetRef<SingleLayerWrapperWithTypeMark<M,X>> {
+        public:
+            using TheType = typename GetRef<X>::TheType;
+            static auto &ref(SingleLayerWrapperWithTypeMark<M,X> &x) {return GetRef<X>::ref(x.value);}
+            static auto &&moveRef(SingleLayerWrapperWithTypeMark<M,X> &&x) {return std::move(GetRef<X>::moveRef(x.value));}
+            static auto const &constRef(SingleLayerWrapperWithTypeMark<M,X> const &x) {return GetRef<X>::constRef(x.value);}
+        };
+
         template <class SequencePrefix, class T, std::size_t FieldCount, std::size_t FieldIndex, class TypesSoFar, bool LastOne=(FieldIndex>=FieldCount)>
         class StructFieldFlattenedInfoImpl {
         };
@@ -61,7 +94,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             >::TheType;
         };
 
-        template <class SequencePrefix, class F, std::size_t FieldIndex, class TypesSoFar, bool HasSubFields=StructFieldInfo<F>::HasGeneratedStructFieldInfo>
+        template <class SequencePrefix, class F, std::size_t FieldIndex, class TypesSoFar, bool HasSubFields=StructFieldInfo<typename GetRef<F>::TheType>::HasGeneratedStructFieldInfo>
         class AppendOneStructFieldToFlattenedInfo {
         };
         template <class SequencePrefix, class F, std::size_t FieldIndex, class TypesSoFar>
@@ -70,7 +103,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             using TheType = typename AppendToTuple<
                 std::tuple<
                     typename AppendToIndexSeq<FieldIndex,SequencePrefix>::TheType
-                    , F
+                    , typename GetRef<F>::TheType
                 >
                 , TypesSoFar
             >::TheType;
@@ -81,8 +114,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             using TheType = typename AppendTupleToTuple<
                 typename StructFieldFlattenedInfoImpl<
                     typename AppendToIndexSeq<FieldIndex,SequencePrefix>::TheType 
-                    , F 
-                    , StructFieldInfo<F>::FIELD_NAMES.size() 
+                    , typename GetRef<F>::TheType 
+                    , StructFieldInfo<typename GetRef<F>::TheType>::FIELD_NAMES.size() 
                     , 0
                     , std::tuple<>
                 >::TheType
@@ -140,15 +173,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         using TheType = FieldType;
         static FieldType *valuePointer(T &data) {
             return StructFieldFlattenedInfoCursorBasedAccess<
-                typename StructFieldTypeInfo<T,FirstIndex>::TheType 
+                typename internal::GetRef<typename StructFieldTypeInfo<T,FirstIndex>::TheType>::TheType
                 , StructFieldFlattenedInfoCursor<FieldType,RemainingIndices...>
-            >::valuePointer(data.*(StructFieldTypeInfo<T,FirstIndex>::fieldPointer()));
+            >::valuePointer(
+                internal::GetRef<typename StructFieldTypeInfo<T,FirstIndex>::TheType>::ref(data.*(StructFieldTypeInfo<T,FirstIndex>::fieldPointer()))
+            );
         }
         static FieldType const *constValuePointer(T const &data) {
             return StructFieldFlattenedInfoCursorBasedAccess<
-                typename StructFieldTypeInfo<T,FirstIndex>::TheType 
+                typename internal::GetRef<typename StructFieldTypeInfo<T,FirstIndex>::TheType>::TheType
                 , StructFieldFlattenedInfoCursor<FieldType,RemainingIndices...>
-            >::constValuePointer(data.*(StructFieldTypeInfo<T,FirstIndex>::fieldPointer()));
+            >::constValuePointer(
+                internal::GetRef<typename StructFieldTypeInfo<T,FirstIndex>::TheType>::constRef(data.*(StructFieldTypeInfo<T,FirstIndex>::fieldPointer()))
+            );
         }
     };
 
