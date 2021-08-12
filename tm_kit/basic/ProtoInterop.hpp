@@ -271,7 +271,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoEncoder<SingleLayerWrapperWithTypeMark<Fixed, uint32_t>, void> {
     public:
-        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<Fixed, int32_t> const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<Fixed, uint32_t> const &data, std::ostream &os) {
             if (data.value == 0) {
                 return;
             }
@@ -307,7 +307,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoEncoder<SingleLayerWrapperWithTypeMark<Fixed, uint64_t>, void> {
     public:
-        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<Fixed, int64_t> const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<Fixed, uint64_t> const &data, std::ostream &os) {
             if (data.value == 0) {
                 return;
             }
