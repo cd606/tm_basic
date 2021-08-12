@@ -3,20 +3,50 @@
 
 #include <tm_kit/basic/StructFieldInfoUtils.hpp>
 #include <tm_kit/basic/StructFieldFlattenedInfo.hpp>
+#include <tm_kit/basic/SingleLayerWrapper.hpp>
 #include <chrono>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace struct_field_info_utils {
 
     namespace internal {
+
+        template <class X>
+        class GetRef {
+        public:
+            static X &ref(X &x) {return x;}
+            static X &&moveRef(X &&x) {return std::move(x);}
+            static X const &constRef(X const &x) {return x;}
+        };
+        template <class X>
+        class GetRef<SingleLayerWrapper<X>> {
+        public:
+            static auto &ref(SingleLayerWrapper<X> &x) {return GetRef<X>::ref(x.value);}
+            static auto &&moveRef(SingleLayerWrapper<X> &&x) {return std::move(GetRef<X>::moveRef(x.value));}
+            static auto const &constRef(SingleLayerWrapper<X> const &x) {return GetRef<X>::constRef(x.value);}
+        };
+        template <int32_t N, class X>
+        class GetRef<SingleLayerWrapperWithID<N,X>> {
+        public:
+            static auto &ref(SingleLayerWrapperWithID<N,X> &x) {return GetRef<X>::ref(x.value);}
+            static auto &&moveRef(SingleLayerWrapperWithID<N,X> &&x) {return std::move(GetRef<X>::moveRef(x.value));}
+            static auto const &constRef(SingleLayerWrapperWithID<N,X> const &x) {return GetRef<X>::constRef(x.value);}
+        };
+        template <typename M, class X>
+        class GetRef<SingleLayerWrapperWithTypeMark<M,X>> {
+        public:
+            static auto &ref(SingleLayerWrapperWithTypeMark<M,X> &x) {return GetRef<X>::ref(x.value);}
+            static auto &&moveRef(SingleLayerWrapperWithTypeMark<M,X> &&x) {return std::move(GetRef<X>::moveRef(x.value));}
+            static auto const &constRef(SingleLayerWrapperWithTypeMark<M,X> const &x) {return GetRef<X>::constRef(x.value);}
+        };
         
         template <class T, class U, class ComplexCopy>
         class CopySimpleImpl {
         public:
             static void copy(T &dest, U const &src) {
-                dest = T(src);
+                GetRef<T>::ref(dest) = T(GetRef<U>::constRef(src));
             }
             static void move(T &dest, U &&src) {
-                dest = T(std::move(src));
+                GetRef<T>::ref(dest) = T(std::move(GetRef<U>::moveRef(src)));
             }
         };
         template <class ComplexCopy>
@@ -216,13 +246,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 } else if constexpr (Index >= Count) {
                     return;
                 } else {
-                    *(StructFieldFlattenedInfoCursorBasedAccess<
+                    GetRef<typename StructFieldFlattenedInfoCursorBasedAccess<
                         T, typename TupleCarCdr<RemainingTL>::Car
-                    >::valuePointer(dest))
+                    >::TheType>::ref(*(StructFieldFlattenedInfoCursorBasedAccess<
+                        T, typename TupleCarCdr<RemainingTL>::Car
+                    >::valuePointer(dest)))
                     =
-                    *(StructFieldFlattenedInfoCursorBasedAccess<
+                    GetRef<typename StructFieldFlattenedInfoCursorBasedAccess<
                         U, typename TupleCarCdr<RemainingUL>::Car
-                    >::constValuePointer(src));
+                    >::TheType>::constRef(*(StructFieldFlattenedInfoCursorBasedAccess<
+                        U, typename TupleCarCdr<RemainingUL>::Car
+                    >::constValuePointer(src)));
                     copy_internal<Count,Index+1,typename TupleCarCdr<RemainingTL>::Cdr,typename TupleCarCdr<RemainingUL>::Cdr>(dest, src);
                 }
             }
@@ -233,13 +267,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 } else if constexpr (Index >= Count) {
                     return;
                 } else {
-                    *(StructFieldFlattenedInfoCursorBasedAccess<
+                    GetRef<typename StructFieldFlattenedInfoCursorBasedAccess<
                         T, typename TupleCarCdr<RemainingTL>::Car
-                    >::valuePointer(dest))
+                    >::TheType>::ref(*(StructFieldFlattenedInfoCursorBasedAccess<
+                        T, typename TupleCarCdr<RemainingTL>::Car
+                    >::valuePointer(dest)))
                     =
-                    std::move(*(StructFieldFlattenedInfoCursorBasedAccess<
+                    std::move(GetRef<typename StructFieldFlattenedInfoCursorBasedAccess<
                         U, typename TupleCarCdr<RemainingUL>::Car
-                    >::valuePointer(src)));
+                    >::TheType>::moveRef(*(StructFieldFlattenedInfoCursorBasedAccess<
+                        U, typename TupleCarCdr<RemainingUL>::Car
+                    >::valuePointer(src))));
                     move_internal<Count,Index+1,typename TupleCarCdr<RemainingTL>::Cdr,typename TupleCarCdr<RemainingUL>::Cdr>(dest, std::move(src));
                 }
             }

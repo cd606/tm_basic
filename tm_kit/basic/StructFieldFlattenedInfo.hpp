@@ -125,6 +125,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     template <class T>
     class StructFieldFlattenedInfoCursorBasedAccess<T, StructFieldFlattenedInfoCursor<T>> {
     public:
+        using TheType = T;
         static T *valuePointer(T &data) {
             return &data;
         }
@@ -136,6 +137,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     template <class T, class FieldType, std::size_t FirstIndex, std::size_t... RemainingIndices>
     class StructFieldFlattenedInfoCursorBasedAccess<T, StructFieldFlattenedInfoCursor<FieldType,FirstIndex,RemainingIndices...>> {
     public:
+        using TheType = FieldType;
         static FieldType *valuePointer(T &data) {
             return StructFieldFlattenedInfoCursorBasedAccess<
                 typename StructFieldTypeInfo<T,FirstIndex>::TheType 
