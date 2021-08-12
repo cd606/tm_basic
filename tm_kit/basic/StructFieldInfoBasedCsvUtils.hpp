@@ -301,9 +301,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         os << ',';
                     }
                     using F = typename StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::TheType;
-                    auto T::*p = StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::fieldPointer();
-                    writeSingleField<F>(os, t.*p);
-                    writeData_internal<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldCount,FieldIndex+1>(os, t);
+                    auto CsvSingleLayerWrapperHelper<T>::UnderlyingType::*p = StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::fieldPointer();
+                    writeSingleField<F>(os, (CsvSingleLayerWrapperHelper<T>::constRef(t)).*p);
+                    writeData_internal<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldCount,FieldIndex+1>(os, (CsvSingleLayerWrapperHelper<T>::constRef(t)));
                 }
             }
         public:
@@ -513,12 +513,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static std::tuple<bool,std::size_t> parse_internal(std::vector<std::string_view> const &parts, T &t, int currentIdx, bool hasGoodSoFar) {
                 if constexpr (FieldCount >=0 && FieldIndex < FieldCount) {
                     using F = typename StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::TheType;
-                    auto T::*p = StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::fieldPointer();
-                    auto res = parseOne<F>(parts, (t.*p), currentIdx);
+                    auto CsvSingleLayerWrapperHelper<T>::UnderlyingType::*p = StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::fieldPointer();
+                    auto res = parseOne<F>(parts, ((CsvSingleLayerWrapperHelper<T>::ref(t)).*p), currentIdx);
                     if (std::get<0>(res)) {
                         hasGoodSoFar = true;
                     }
-                    return parse_internal<T,FieldCount,FieldIndex+1>(parts, t, currentIdx+std::get<1>(res), hasGoodSoFar);
+                    return parse_internal<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldCount,FieldIndex+1>(parts, (CsvSingleLayerWrapperHelper<T>::ref(t)), currentIdx+std::get<1>(res), hasGoodSoFar);
                 } else {
                     return {hasGoodSoFar, currentIdx};
                 }
