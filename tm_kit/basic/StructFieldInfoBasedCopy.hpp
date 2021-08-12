@@ -13,6 +13,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         template <class X>
         class GetRef {
         public:
+            using TheType = X;
             static X &ref(X &x) {return x;}
             static X &&moveRef(X &&x) {return std::move(x);}
             static X const &constRef(X const &x) {return x;}
@@ -20,6 +21,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         template <class X>
         class GetRef<SingleLayerWrapper<X>> {
         public:
+            using TheType = typename GetRef<X>::TheType;
             static auto &ref(SingleLayerWrapper<X> &x) {return GetRef<X>::ref(x.value);}
             static auto &&moveRef(SingleLayerWrapper<X> &&x) {return std::move(GetRef<X>::moveRef(x.value));}
             static auto const &constRef(SingleLayerWrapper<X> const &x) {return GetRef<X>::constRef(x.value);}
@@ -27,6 +29,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         template <int32_t N, class X>
         class GetRef<SingleLayerWrapperWithID<N,X>> {
         public:
+            using TheType = typename GetRef<X>::TheType;
             static auto &ref(SingleLayerWrapperWithID<N,X> &x) {return GetRef<X>::ref(x.value);}
             static auto &&moveRef(SingleLayerWrapperWithID<N,X> &&x) {return std::move(GetRef<X>::moveRef(x.value));}
             static auto const &constRef(SingleLayerWrapperWithID<N,X> const &x) {return GetRef<X>::constRef(x.value);}
@@ -34,6 +37,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         template <typename M, class X>
         class GetRef<SingleLayerWrapperWithTypeMark<M,X>> {
         public:
+            using TheType = typename GetRef<X>::TheType;
             static auto &ref(SingleLayerWrapperWithTypeMark<M,X> &x) {return GetRef<X>::ref(x.value);}
             static auto &&moveRef(SingleLayerWrapperWithTypeMark<M,X> &&x) {return std::move(GetRef<X>::moveRef(x.value));}
             static auto const &constRef(SingleLayerWrapperWithTypeMark<M,X> const &x) {return GetRef<X>::constRef(x.value);}
@@ -183,25 +187,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             template <class T, class U>
             static void copy(T &dest, U const &src) {
                 if constexpr (
-                StructFieldInfo<T>::HasGeneratedStructFieldInfo
+                StructFieldInfo<typename GetRef<T>::TheType>::HasGeneratedStructFieldInfo
                 &&
-                StructFieldInfo<U>::HasGeneratedStructFieldInfo
+                StructFieldInfo<typename GetRef<U>::TheType>::HasGeneratedStructFieldInfo
                 ) {
-                    CopyStructure<T,U,StructuralCopyImpl>::copy(dest, src);
+                    CopyStructure<typename GetRef<T>::TheType,typename GetRef<U>::TheType,StructuralCopyImpl>::copy(GetRef<T>::ref(dest), GetRef<U>::constRef(src));
                 } else {
-                    CopySimpleImpl<T,U,StructuralCopyImpl>::copy(dest, src);
+                    CopySimpleImpl<typename GetRef<T>::TheType,typename GetRef<U>::TheType,StructuralCopyImpl>::copy(GetRef<T>::ref(dest), GetRef<U>::constRef(src));
                 }
             }
             template <class T, class U>
             static void move(T &dest, U &&src) {
                 if constexpr (
-                StructFieldInfo<T>::HasGeneratedStructFieldInfo
+                StructFieldInfo<typename GetRef<T>::TheType>::HasGeneratedStructFieldInfo
                 &&
-                StructFieldInfo<U>::HasGeneratedStructFieldInfo
+                StructFieldInfo<typename GetRef<U>::TheType>::HasGeneratedStructFieldInfo
                 ) {
-                    CopyStructure<T,U,StructuralCopyImpl>::move(dest, std::move(src));
+                    CopyStructure<typename GetRef<T>::TheType,typename GetRef<U>::TheType,StructuralCopyImpl>::move(GetRef<T>::ref(dest), std::move(GetRef<U>::moveRef(std::move(src))));
                 } else {
-                    CopySimpleImpl<T,U,StructuralCopyImpl>::move(dest, std::move(src));
+                    CopySimpleImpl<typename GetRef<T>::TheType,typename GetRef<U>::TheType,StructuralCopyImpl>::move(GetRef<T>::ref(dest), std::move(GetRef<U>::moveRef(std::move(src))));
                 }
             }
         };
