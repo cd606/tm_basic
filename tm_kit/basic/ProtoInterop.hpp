@@ -9,6 +9,7 @@
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace proto_interop {
 
     struct ZigZag {};
+    struct Fixed {};
 
     namespace internal {
         class VarIntSupport {
@@ -94,6 +95,36 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         public:
             static constexpr ProtoWireType TheType = ProtoWireType::Fixed64;
         };
+        template <>
+        class ProtoWireTypeForSubField<SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> {
+        public:
+            static constexpr ProtoWireType TheType = ProtoWireType::VarInt;
+        };
+        template <>
+        class ProtoWireTypeForSubField<SingleLayerWrapperWithTypeMark<ZigZag,int64_t>> {
+        public:
+            static constexpr ProtoWireType TheType = ProtoWireType::VarInt;
+        };
+        template <>
+        class ProtoWireTypeForSubField<SingleLayerWrapperWithTypeMark<Fixed,int32_t>> {
+        public:
+            static constexpr ProtoWireType TheType = ProtoWireType::Fixed32;
+        };
+        template <>
+        class ProtoWireTypeForSubField<SingleLayerWrapperWithTypeMark<Fixed,int64_t>> {
+        public:
+            static constexpr ProtoWireType TheType = ProtoWireType::Fixed64;
+        };
+        template <>
+        class ProtoWireTypeForSubField<SingleLayerWrapperWithTypeMark<Fixed,uint32_t>> {
+        public:
+            static constexpr ProtoWireType TheType = ProtoWireType::Fixed32;
+        };
+        template <>
+        class ProtoWireTypeForSubField<SingleLayerWrapperWithTypeMark<Fixed,uint64_t>> {
+        public:
+            static constexpr ProtoWireType TheType = ProtoWireType::Fixed64;
+        };
 
         struct FieldHeader {
             ProtoWireType wireType;
@@ -174,38 +205,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <>
-    class ProtoEncoder<int8_t, void> {
-    public:
-        static void write(std::optional<uint64_t> fieldNumber, int8_t data, std::ostream &os) {
-            if (data == 0) {
-                return;
-            }
-            if (fieldNumber) {
-                internal::FieldHeaderSupport::writeHeader(
-                    internal::FieldHeader {internal::ProtoWireType::VarInt, *fieldNumber}
-                    , os
-                );
-            }
-            internal::VarIntSupport::write<uint8_t>((uint8_t) data, os);
-        }
-    };
-    template <>
-    class ProtoEncoder<int16_t, void> {
-    public:
-        static void write(std::optional<uint64_t> fieldNumber, int16_t data, std::ostream &os) {
-            if (data == 0) {
-                return;
-            }
-            if (fieldNumber) {
-                internal::FieldHeaderSupport::writeHeader(
-                    internal::FieldHeader {internal::ProtoWireType::VarInt, *fieldNumber}
-                    , os
-                );
-            }
-            internal::VarIntSupport::write<uint16_t>((uint16_t) data, os);
-        }
-    };
-    template <>
     class ProtoEncoder<int32_t, void> {
     public:
         static void write(std::optional<uint64_t> fieldNumber, int32_t data, std::ostream &os) {
@@ -267,6 +266,78 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 );
             }
             internal::VarIntSupport::write<uint64_t>(internal::ZigZagIntSupport<int64_t>::encode(data.value), os);
+        }
+    };
+    template <>
+    class ProtoEncoder<SingleLayerWrapperWithTypeMark<Fixed, uint32_t>, void> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<Fixed, int32_t> const &data, std::ostream &os) {
+            if (data.value == 0) {
+                return;
+            }
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::Fixed32, *fieldNumber}
+                    , os
+                );
+            }
+            uint32_t x = data.value;
+            boost::endian::native_to_little_inplace<uint32_t>(x);
+            os.write(reinterpret_cast<char *>(&x), sizeof(uint32_t));
+        }
+    };
+    template <>
+    class ProtoEncoder<SingleLayerWrapperWithTypeMark<Fixed, int32_t>, void> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<Fixed, int32_t> const &data, std::ostream &os) {
+            if (data.value == 0) {
+                return;
+            }
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::Fixed32, *fieldNumber}
+                    , os
+                );
+            }
+            uint32_t x = (uint32_t) data.value;
+            boost::endian::native_to_little_inplace<uint32_t>(x);
+            os.write(reinterpret_cast<char *>(&x), sizeof(uint32_t));
+        }
+    };
+    template <>
+    class ProtoEncoder<SingleLayerWrapperWithTypeMark<Fixed, uint64_t>, void> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<Fixed, int64_t> const &data, std::ostream &os) {
+            if (data.value == 0) {
+                return;
+            }
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::Fixed64, *fieldNumber}
+                    , os
+                );
+            }
+            uint64_t x = data.value;
+            boost::endian::native_to_little_inplace<uint64_t>(x);
+            os.write(reinterpret_cast<char *>(&x), sizeof(uint64_t));
+        }
+    };
+    template <>
+    class ProtoEncoder<SingleLayerWrapperWithTypeMark<Fixed, int64_t>, void> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<Fixed, int64_t> const &data, std::ostream &os) {
+            if (data.value == 0) {
+                return;
+            }
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::Fixed64, *fieldNumber}
+                    , os
+                );
+            }
+            uint64_t x = (uint64_t) data.value;
+            boost::endian::native_to_little_inplace<uint64_t>(x);
+            os.write(reinterpret_cast<char *>(&x), sizeof(uint64_t));
         }
     };
 
@@ -371,7 +442,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     };
 
     template <class T>
-    class ProtoEncoder<std::vector<T>, std::enable_if_t<(std::is_arithmetic_v<T> || std::is_enum_v<T> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>), void>> {
+    class ProtoEncoder<std::vector<T>, std::enable_if_t<
+        (
+            std::is_arithmetic_v<T> || std::is_enum_v<T> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint64_t>>
+        )
+    , void>> {
     public:
         static void write(std::optional<uint64_t> fieldNumber, std::vector<T> const &data, std::ostream &os) {
             if (data.empty()) {
@@ -393,7 +474,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <class T>
-    class ProtoEncoder<std::vector<T>, std::enable_if_t<!(std::is_arithmetic_v<T> || std::is_enum_v<T> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>), void>> {
+    class ProtoEncoder<std::vector<T>, std::enable_if_t<
+        !(
+            std::is_arithmetic_v<T> || std::is_enum_v<T> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint64_t>>
+        )
+    , void>> {
     public:
         static void write(std::optional<uint64_t> fieldNumber, std::vector<T> const &data, std::ostream &os) {
             for (auto const &item : data) {
@@ -402,7 +493,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <class T>
-    class ProtoEncoder<std::list<T>, std::enable_if_t<(std::is_arithmetic_v<T> || std::is_enum_v<T> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>), void>> {
+    class ProtoEncoder<std::list<T>, std::enable_if_t<
+        (
+            std::is_arithmetic_v<T> || std::is_enum_v<T> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint64_t>>
+        )
+    , void>> {
     public:
         static void write(std::optional<uint64_t> fieldNumber, std::list<T> const &data, std::ostream &os) {
             if (data.empty()) {
@@ -424,7 +525,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <class T>
-    class ProtoEncoder<std::list<T>, std::enable_if_t<!(std::is_arithmetic_v<T> || std::is_enum_v<T> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>), void>> {
+    class ProtoEncoder<std::list<T>, std::enable_if_t<
+        !(
+            std::is_arithmetic_v<T> || std::is_enum_v<T> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint64_t>>
+        )
+    , void>> {
     public:
         static void write(std::optional<uint64_t> fieldNumber, std::list<T> const &data, std::ostream &os) {
             for (auto const &item : data) {
@@ -433,7 +544,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <class T, std::size_t N>
-    class ProtoEncoder<std::array<T,N>, std::enable_if_t<(std::is_arithmetic_v<T> || std::is_enum_v<T> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>), void>> {
+    class ProtoEncoder<std::array<T,N>, std::enable_if_t<
+        (
+            std::is_arithmetic_v<T> || std::is_enum_v<T> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint64_t>>
+        )
+    , void>> {
     public:
         static void write(std::optional<uint64_t> fieldNumber, std::array<T,N> const &data, std::ostream &os) {
             if (fieldNumber) {
@@ -452,7 +573,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <class T, std::size_t N>
-    class ProtoEncoder<std::array<T,N>, std::enable_if_t<!(std::is_arithmetic_v<T> || std::is_enum_v<T> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>), void>> {
+    class ProtoEncoder<std::array<T,N>, std::enable_if_t<
+        !(
+            std::is_arithmetic_v<T> || std::is_enum_v<T> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint64_t>>
+        )
+    , void>> {
     public:
         static void write(std::optional<uint64_t> fieldNumber, std::array<T,N> const &data, std::ostream &os) {
             for (auto const &item : data) {
@@ -651,42 +782,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <>
-    class ProtoDecoder<int8_t, void> final : public IProtoDecoder<int8_t> {
-    public:
-        ProtoDecoder(int8_t *output) : IProtoDecoder<int8_t>(output) {}
-        virtual ~ProtoDecoder() = default;
-    protected:
-        std::optional<std::size_t> read(int8_t &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
-            if (wt != internal::ProtoWireType::VarInt) {
-                return std::nullopt;
-            }
-            uint8_t x;
-            auto res = internal::VarIntSupport::read<uint8_t>(x, input, start);
-            if (res) {
-                output = (int8_t) x;
-            }
-            return res;
-        }
-    };
-    template <>
-    class ProtoDecoder<int16_t, void> final : public IProtoDecoder<int16_t> {
-    public:
-        ProtoDecoder(int16_t *output) : IProtoDecoder<int16_t>(output) {}
-        virtual ~ProtoDecoder() = default;
-    protected:
-        std::optional<std::size_t> read(int16_t &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
-            if (wt != internal::ProtoWireType::VarInt) {
-                return std::nullopt;
-            }
-            uint16_t x;
-            auto res = internal::VarIntSupport::read<uint16_t>(x, input, start);
-            if (res) {
-                output = (int16_t) x;
-            }
-            return res;
-        }
-    };
-    template <>
     class ProtoDecoder<int32_t, void> final : public IProtoDecoder<int32_t> {
     public:
         ProtoDecoder(int32_t *output) : IProtoDecoder<int32_t>(output) {}
@@ -878,6 +973,198 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
         }
     };
+    template <>
+    class ProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,int32_t>, void> final : public IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,int32_t>> {
+    public:
+        ProtoDecoder(SingleLayerWrapperWithTypeMark<Fixed,int32_t> *output) : IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,int32_t>>(output) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(SingleLayerWrapperWithTypeMark<Fixed,int32_t> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            switch (wt) {
+            case internal::ProtoWireType::VarInt:
+                {
+                    uint32_t x;
+                    auto res = internal::VarIntSupport::read<uint32_t>(x, input, start);
+                    if (res) {
+                        output.value = (int32_t) x;
+                    }
+                    return res;
+                }
+                break;
+            case internal::ProtoWireType::Fixed32:
+                {
+                    if (start+sizeof(uint32_t) > input.length()) {
+                        return std::nullopt;
+                    }
+                    uint32_t x;
+                    std::memcpy(&x, input.data()+start, sizeof(uint32_t));
+                    boost::endian::little_to_native_inplace<uint32_t>(x);
+                    output.value = (int32_t) x;            
+                    return sizeof(uint32_t);
+                }
+                break;
+            case internal::ProtoWireType::Fixed64:
+                {
+                    if (start+sizeof(uint64_t) > input.length()) {
+                        return std::nullopt;
+                    }
+                    uint64_t x;
+                    std::memcpy(&x, input.data()+start, sizeof(uint64_t));
+                    boost::endian::little_to_native_inplace<uint64_t>(x);
+                    output.value = (int32_t) x;            
+                    return sizeof(uint64_t);
+                }
+                break;
+            default:
+                return std::nullopt;
+                break;
+            }
+        }
+    };
+    template <>
+    class ProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,int64_t>, void> final : public IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,int64_t>> {
+    public:
+        ProtoDecoder(SingleLayerWrapperWithTypeMark<Fixed,int64_t> *output) : IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,int64_t>>(output) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(SingleLayerWrapperWithTypeMark<Fixed,int64_t> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            switch (wt) {
+            case internal::ProtoWireType::VarInt:
+                {
+                    uint64_t x;
+                    auto res = internal::VarIntSupport::read<uint64_t>(x, input, start);
+                    if (res) {
+                        output.value = (int64_t) x;
+                    }
+                    return res;
+                }
+                break;
+            case internal::ProtoWireType::Fixed32:
+                {
+                    if (start+sizeof(uint32_t) > input.length()) {
+                        return std::nullopt;
+                    }
+                    uint32_t x;
+                    std::memcpy(&x, input.data()+start, sizeof(uint32_t));
+                    boost::endian::little_to_native_inplace<uint32_t>(x);
+                    output.value = (int64_t) x;            
+                    return sizeof(uint32_t);
+                }
+                break;
+            case internal::ProtoWireType::Fixed64:
+                {
+                    if (start+sizeof(uint64_t) > input.length()) {
+                        return std::nullopt;
+                    }
+                    uint64_t x;
+                    std::memcpy(&x, input.data()+start, sizeof(uint64_t));
+                    boost::endian::little_to_native_inplace<uint64_t>(x);
+                    output.value = (int64_t) x;            
+                    return sizeof(uint64_t);
+                }
+                break;
+            default:
+                return std::nullopt;
+                break;
+            }
+        }
+    };
+    template <>
+    class ProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,uint32_t>, void> final : public IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,uint32_t>> {
+    public:
+        ProtoDecoder(SingleLayerWrapperWithTypeMark<Fixed,uint32_t> *output) : IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,uint32_t>>(output) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(SingleLayerWrapperWithTypeMark<Fixed,uint32_t> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            switch (wt) {
+            case internal::ProtoWireType::VarInt:
+                {
+                    uint32_t x;
+                    auto res = internal::VarIntSupport::read<uint32_t>(x, input, start);
+                    if (res) {
+                        output.value = x;
+                    }
+                    return res;
+                }
+                break;
+            case internal::ProtoWireType::Fixed32:
+                {
+                    if (start+sizeof(uint32_t) > input.length()) {
+                        return std::nullopt;
+                    }
+                    uint32_t x;
+                    std::memcpy(&x, input.data()+start, sizeof(uint32_t));
+                    boost::endian::little_to_native_inplace<uint32_t>(x);
+                    output.value = x;            
+                    return sizeof(uint32_t);
+                }
+                break;
+            case internal::ProtoWireType::Fixed64:
+                {
+                    if (start+sizeof(uint64_t) > input.length()) {
+                        return std::nullopt;
+                    }
+                    uint64_t x;
+                    std::memcpy(&x, input.data()+start, sizeof(uint64_t));
+                    boost::endian::little_to_native_inplace<uint64_t>(x);
+                    output.value = (uint32_t) x;            
+                    return sizeof(uint64_t);
+                }
+                break;
+            default:
+                return std::nullopt;
+                break;
+            }
+        }
+    };
+    template <>
+    class ProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,uint64_t>, void> final : public IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,uint64_t>> {
+    public:
+        ProtoDecoder(SingleLayerWrapperWithTypeMark<Fixed,uint64_t> *output) : IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,uint64_t>>(output) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(SingleLayerWrapperWithTypeMark<Fixed,uint64_t> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            switch (wt) {
+            case internal::ProtoWireType::VarInt:
+                {
+                    uint64_t x;
+                    auto res = internal::VarIntSupport::read<uint64_t>(x, input, start);
+                    if (res) {
+                        output.value = x;
+                    }
+                    return res;
+                }
+                break;
+            case internal::ProtoWireType::Fixed32:
+                {
+                    if (start+sizeof(uint32_t) > input.length()) {
+                        return std::nullopt;
+                    }
+                    uint32_t x;
+                    std::memcpy(&x, input.data()+start, sizeof(uint32_t));
+                    boost::endian::little_to_native_inplace<uint32_t>(x);
+                    output.value = (uint64_t) x;            
+                    return sizeof(uint32_t);
+                }
+                break;
+            case internal::ProtoWireType::Fixed64:
+                {
+                    if (start+sizeof(uint64_t) > input.length()) {
+                        return std::nullopt;
+                    }
+                    uint64_t x;
+                    std::memcpy(&x, input.data()+start, sizeof(uint64_t));
+                    boost::endian::little_to_native_inplace<uint64_t>(x);
+                    output.value = x;            
+                    return sizeof(uint64_t);
+                }
+                break;
+            default:
+                return std::nullopt;
+                break;
+            }
+        }
+    };
 
     template <class T>
     class ProtoDecoder<T, std::enable_if_t<std::is_enum_v<T>, void>> final : public IProtoDecoder<T> {
@@ -967,7 +1254,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     };
 
     template <class T>
-    class ProtoDecoder<std::vector<T>, std::enable_if_t<(std::is_arithmetic_v<T> || std::is_enum_v<T> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>), void>> final : public IProtoDecoder<std::vector<T>> {
+    class ProtoDecoder<std::vector<T>, std::enable_if_t<
+        (
+            std::is_arithmetic_v<T> || std::is_enum_v<T> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint64_t>>
+        )
+    , void>> : public IProtoDecoder<std::vector<T>> {
     public:
         ProtoDecoder(std::vector<T> *output) : IProtoDecoder<std::vector<T>>(output) {}
         virtual ~ProtoDecoder() = default;
@@ -1002,7 +1299,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <class T>
-    class ProtoDecoder<std::vector<T>, std::enable_if_t<!(std::is_arithmetic_v<T> || std::is_enum_v<T> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>), void>> final : public IProtoDecoder<std::vector<T>> {
+    class ProtoDecoder<std::vector<T>, std::enable_if_t<
+        !(
+            std::is_arithmetic_v<T> || std::is_enum_v<T> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint64_t>>
+        )
+    , void>> : public IProtoDecoder<std::vector<T>> {
     public:
         ProtoDecoder(std::vector<T> *output) : IProtoDecoder<std::vector<T>>(output) {}
         virtual ~ProtoDecoder() = default;
@@ -1028,7 +1335,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <class T>
-    class ProtoDecoder<std::list<T>, std::enable_if_t<(std::is_arithmetic_v<T> || std::is_enum_v<T> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>), void>> final : public IProtoDecoder<std::list<T>> {
+    class ProtoDecoder<std::list<T>, std::enable_if_t<
+        (
+            std::is_arithmetic_v<T> || std::is_enum_v<T> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint64_t>>
+        )
+    , void>> : public IProtoDecoder<std::list<T>> {
     public:
         ProtoDecoder(std::list<T> *output) : IProtoDecoder<std::list<T>>(output) {}
         virtual ~ProtoDecoder() = default;
@@ -1072,7 +1389,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <class T>
-    class ProtoDecoder<std::list<T>, std::enable_if_t<!(std::is_arithmetic_v<T> || std::is_enum_v<T> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>), void>> final : public IProtoDecoder<std::list<T>> {
+    class ProtoDecoder<std::list<T>, std::enable_if_t<
+        !(
+            std::is_arithmetic_v<T> || std::is_enum_v<T> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint64_t>>
+        )
+    , void>> : public IProtoDecoder<std::list<T>> {
     public:
         ProtoDecoder(std::list<T> *output) : IProtoDecoder<std::list<T>>(output) {}
         virtual ~ProtoDecoder() = default;
@@ -1098,7 +1425,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <class T, std::size_t N>
-    class ProtoDecoder<std::array<T, N>, std::enable_if_t<(std::is_arithmetic_v<T> || std::is_enum_v<T> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>), void>> final : public IProtoDecoder<std::array<T,N>> {
+    class ProtoDecoder<std::array<T, N>, std::enable_if_t<
+        (
+            std::is_arithmetic_v<T> || std::is_enum_v<T> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint64_t>>
+        )
+    , void>> : public IProtoDecoder<std::array<T,N>> {
     private:
         std::size_t curIdx_;
         void addItem(std::array<T, N> &output, T t) {
@@ -1147,7 +1484,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <class T, std::size_t N>
-    class ProtoDecoder<std::array<T,N>, std::enable_if_t<!(std::is_arithmetic_v<T> || std::is_enum_v<T> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>), void>> final : public IProtoDecoder<std::vector<T>> {
+    class ProtoDecoder<std::array<T,N>, std::enable_if_t<
+        !(
+            std::is_arithmetic_v<T> || std::is_enum_v<T> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag,int32_t>> 
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, int64_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint32_t>>
+        || std::is_same_v<T,SingleLayerWrapperWithTypeMark<Fixed, uint64_t>>
+        )
+    , void>> : public IProtoDecoder<std::array<T,N>> {
     private:
         std::size_t curIdx_;
         void addItem(std::array<T, N> &output, T &&t) {
