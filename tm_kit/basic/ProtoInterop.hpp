@@ -1702,19 +1702,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         Proto &operator=(Proto &&) = default;
         ~Proto() = default;
 
+        void SerializeToStream(std::ostream &os) const {
+            ProtoEncoder<T>::write(std::nullopt, t_, os);
+        }
         void SerializeToString(std::string *s) const {
             std::ostringstream oss;
             ProtoEncoder<T>::write(std::nullopt, t_, oss);
             *s = oss.str();
         }
-        bool ParseFromString(std::string const &s) {
+        bool ParseFromStringView(std::string_view const &s) {
             static ProtoDecoder<T> dec(&t_);
-            auto res = dec.handle(internal::ProtoWireType::LengthDelimited, std::string_view(s), 0);
+            auto res = dec.handle(internal::ProtoWireType::LengthDelimited, s, 0);
             if (res) {
                 return true;
             } else {
                 return false;
             }
+        }
+        bool ParseFromString(std::string const &s) {
+            return ParseFromStringView(std::string_view(s));
         }
         T const &value() const {
             return t_;
