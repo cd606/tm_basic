@@ -68,6 +68,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             || std::is_same_v<F, std::tm>
             || std::is_same_v<F, std::chrono::system_clock::time_point>
             || std::is_same_v<F, std::string>
+            || std::is_empty_v<F>
             || (CsvSingleLayerWrapperHelper<F>::Value && is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>)
         ;
         template <class T>
@@ -251,6 +252,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     os << std::put_time(&CsvSingleLayerWrapperHelper<ColType>::constRef(x), "%Y-%m-%dT%H:%M:%S");
                 } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::chrono::system_clock::time_point>) {
                     os << infra::withtime_utils::localTimeString(CsvSingleLayerWrapperHelper<ColType>::constRef(x));
+                } else if constexpr (std::is_empty_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>) {
+                    //do nothing
                 } else {
                     os << CsvSingleLayerWrapperHelper<ColType>::constRef(x);
                 }
@@ -368,7 +371,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             template <class ColType>
             static bool parseSimpleField_internal(std::string_view const &s, ColType &x) {
                 if (s == "") {
-                    return false;
+                    if constexpr (std::is_empty_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>) {
+                        return true;
+                    } else {
+                        return false;
+                    }
                 }
                 if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::string>) {
 #ifdef _MSC_VER
@@ -386,6 +393,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         >> std::get_time(&CsvSingleLayerWrapperHelper<ColType>::ref(x), "%Y-%m-%dT%H:%M:%S");
                 } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::chrono::system_clock::time_point>) {
                     CsvSingleLayerWrapperHelper<ColType>::ref(x) = infra::withtime_utils::parseLocalTime(s);
+                } else if constexpr (std::is_empty_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>) {
+                    //do nothing
                 } else {
 #ifdef _MSC_VER
                     boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
