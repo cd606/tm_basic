@@ -1617,13 +1617,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     };
     template <int32_t N, class T>
     class ProtoDecoder<SingleLayerWrapperWithID<N,T>, void> final : public IProtoDecoder<SingleLayerWrapperWithID<N,T>> {
+    private:
+        ProtoDecoder<T> subDec_;
     public:
-        ProtoDecoder(SingleLayerWrapperWithID<N,T> *output) : IProtoDecoder<SingleLayerWrapperWithID<N,T>>(output) {}
+        ProtoDecoder(SingleLayerWrapperWithID<N,T> *output) : IProtoDecoder<SingleLayerWrapperWithID<N,T>>(output), subDec_(&(output->value)) {}
+        ProtoDecoder(ProtoDecoder const &) = delete;
+        ProtoDecoder(ProtoDecoder &&) = delete;
+        ProtoDecoder &operator=(ProtoDecoder const &) = delete;
+        ProtoDecoder &operator=(ProtoDecoder &&) = delete;
         virtual ~ProtoDecoder() = default;
     protected:
         std::optional<std::size_t> read(SingleLayerWrapperWithID<N,T> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
-            static ProtoDecoder<T> subDec(&output.value);
-            return subDec.handle(wt, input, start);
+            return subDec_.handle(wt, input, start);
         }
     };
 
@@ -1703,14 +1708,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     class Proto {
     private:
         T t_;
+        ProtoDecoder<T> dec_;
     public:
-        Proto() = default;
-        Proto(T const &t) : t_(t) {}
-        Proto(T &&t) : t_(std::move(t)) {}
-        Proto(Proto const &) = default;
-        Proto(Proto &&) = default;
-        Proto &operator=(Proto const &) = default;
-        Proto &operator=(Proto &&) = default;
+        Proto() : t_(), dec_(&t_) {}
+        Proto(T const &t) : t_(t), dec_(&t_) {}
+        Proto(T &&t) : t_(std::move(t)), dec_(&t_) {}
+        Proto(Proto const &p) : t_(p.t_), dec_(&t_) {}
+        Proto(Proto &&p) : t_(p.t_), dec_(&t_) {}
+        Proto &operator=(Proto const &p) {
+            if (this != &p) {
+                t_ = p.t_;
+            }
+            return *this;
+        }
+        Proto &operator=(Proto &&p) {
+            if (this != &p) {
+                t_ = std::move(p.t_);
+            }
+            return *this;
+        }
         ~Proto() = default;
 
         Proto &operator=(T const &t) {
@@ -1731,8 +1747,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             *s = oss.str();
         }
         bool ParseFromStringView(std::string_view const &s) {
-            static ProtoDecoder<T> dec(&t_);
-            auto res = dec.handle(internal::ProtoWireType::LengthDelimited, s, 0);
+            auto res = dec_.handle(internal::ProtoWireType::LengthDelimited, s, 0);
             if (res) {
                 return true;
             } else {
@@ -1759,6 +1774,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
         T const *operator->() const {
             return &t_;
+        }
+        static void runSerialize(T const &t, std::ostream &os) {
+            ProtoEncoder<T>::write(std::nullopt, t, os);
+        }
+        static bool runDeserialize(T &t, std::string_view const &input) {
+            ProtoDecoder<T> dec(&t);
+            auto res = dec.handle(internal::ProtoWireType::LengthDelimited, input, 0);
+            if (res) {
+                return true;
+            } else {
+                return false;
+            }
         }
     };  
 
