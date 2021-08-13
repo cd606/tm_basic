@@ -747,7 +747,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 LocalI(LocalI const &) = delete;
                 LocalI &operator=(LocalI const &) = delete;
                 LocalI(LocalI &&) = default;
-                LocalI &operator=(LocalI &&) = default;
+                LocalI &operator=(LocalI &&) = delete;
                 std::tuple<bool, typename M::template Data<T>> operator()(typename M::EnvironmentType *env) {
                     if (!started_) {
                         switch (option_) {
