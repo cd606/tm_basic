@@ -11,6 +11,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     struct ZigZag {};
     struct Fixed {};
 
+    using Int32 = int32_t;
+    using Int64 = int64_t;
+    using UInt32 = uint32_t;
+    using UInt64 = uint64_t;
+    using SInt32 = SingleLayerWrapperWithTypeMark<ZigZag,int32_t>;
+    using SInt64 = SingleLayerWrapperWithTypeMark<ZigZag,int64_t>;
+    using Fixed32 = SingleLayerWrapperWithTypeMark<Fixed,uint32_t>;
+    using Fixed64 = SingleLayerWrapperWithTypeMark<Fixed,uint64_t>;
+    using SFixed32 = SingleLayerWrapperWithTypeMark<Fixed,int32_t>;
+    using SFixed64 = SingleLayerWrapperWithTypeMark<Fixed,int64_t>;
+
     namespace internal {
         class VarIntSupport {
         public:
