@@ -261,8 +261,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         }
     };
 
-    template <class T, typename=std::enable_if_t<internal::StructFieldInfoFlatPackSupportChecker<T>::IsGoodForFlatPack && internal::StructFieldInfoFlatPackSupportChecker<T>::IsComposite>>
-    class FlatPack {
+    template <class T, typename=void>
+    class FlatPack {};
+
+    template <class T>
+    class FlatPack<T, std::enable_if_t<internal::StructFieldInfoFlatPackSupportChecker<T>::IsGoodForFlatPack && internal::StructFieldInfoFlatPackSupportChecker<T>::IsComposite, void>> {
     private:
         T t_;
     public:
@@ -331,6 +334,65 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             } else {
                 return false;
             }
+        }
+    };
+    template <class T>
+    class FlatPack<T *, std::enable_if_t<internal::StructFieldInfoFlatPackSupportChecker<T>::IsGoodForFlatPack && internal::StructFieldInfoFlatPackSupportChecker<T>::IsComposite, void>> {
+    private:
+        T *t_;
+    public:
+        FlatPack() : t_(nullptr) {}
+        FlatPack(T *t) : t_(t) {}
+        FlatPack(FlatPack const &p) = default;
+        FlatPack(FlatPack &&p) = default;
+        FlatPack &operator=(FlatPack const &p) = default;
+        FlatPack &operator=(FlatPack &&p) = default;
+        ~FlatPack() = default;
+
+        void SerializeToStream(std::ostream &os) const {
+            if (t_) {
+                StructFieldInfoBasedSimpleFlatPackOutput<T>::writeData(os, *t_);
+            }
+        }
+        void SerializeToString(std::string *s) const {
+            if (t_) {
+                std::ostringstream oss;
+                StructFieldInfoBasedSimpleFlatPackOutput<T>::writeData(oss, *t_);
+                *s = oss.str();
+            }
+        }
+        bool ParseFromStringView(std::string_view const &s) {
+            if (t_) {
+                auto res = StructFieldInfoBasedSimpleFlatPackInput<T>::readOne(s, 0, *t_);
+                if (res) {
+                    return true;
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+        bool ParseFromString(std::string const &s) {
+            return ParseFromStringView(std::string_view(s));
+        }
+        T const &value() const {
+            return *t_;
+        }
+        T &value() {
+            return *t_;
+        }
+        T &operator*() {
+            return *t_;
+        }
+        T const &operator*() const {
+            return *t_;
+        }
+        T *operator->() {
+            return t_;
+        }
+        T const *operator->() const {
+            return t_;
         }
     };
 } } } } }

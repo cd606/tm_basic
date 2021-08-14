@@ -1704,8 +1704,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
 
-    template <class T, typename=std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo>>
-    class Proto {
+    template <class T, typename=void>
+    class Proto {};
+
+    template <class T>
+    class Proto<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
     private:
         T t_;
         ProtoDecoder<T> dec_;
@@ -1714,7 +1717,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         Proto(T const &t) : t_(t), dec_(&t_) {}
         Proto(T &&t) : t_(std::move(t)), dec_(&t_) {}
         Proto(Proto const &p) : t_(p.t_), dec_(&t_) {}
-        Proto(Proto &&p) : t_(p.t_), dec_(&t_) {}
+        Proto(Proto &&p) : t_(std::move(p.t_)), dec_(&t_) {}
         Proto &operator=(Proto const &p) {
             if (this != &p) {
                 t_ = p.t_;
@@ -1786,6 +1789,68 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             } else {
                 return false;
             }
+        }
+    };
+    template <class T>
+    class Proto<T *, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
+    private:
+        T *t_;
+        ProtoDecoder<T> dec_;
+    public:
+        Proto() : t_(nullptr), dec_(nullptr) {}
+        Proto(T *t) : t_(t), dec_(t_) {}
+        Proto(Proto const &p) : t_(p.t_), dec_(t_) {}
+        Proto(Proto &&p) : t_(p.t_), dec_(t_) {}
+        Proto &operator=(Proto const &p) = delete;
+        Proto &operator=(Proto &&p) = delete;
+        ~Proto() = default;
+
+        void SerializeToStream(std::ostream &os) const {
+            if (t_) {
+                ProtoEncoder<T>::write(std::nullopt, *t_, os);
+            }
+        }
+        void SerializeToString(std::string *s) const {
+            if (t_) {
+                std::ostringstream oss;
+                ProtoEncoder<T>::write(std::nullopt, *t_, oss);
+                *s = oss.str();
+            } else {
+                *s = "";
+            }
+        }
+        bool ParseFromStringView(std::string_view const &s) {
+            if (t_) {
+                auto res = dec_.handle(internal::ProtoWireType::LengthDelimited, s, 0);
+                if (res) {
+                    return true;
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+        bool ParseFromString(std::string const &s) {
+            return ParseFromStringView(std::string_view(s));
+        }
+        T const &value() const {
+            return *t_;
+        }
+        T &value() {
+            return *t_;
+        }
+        T &operator*() {
+            return *t_;
+        }
+        T const &operator*() const {
+            return *t_;
+        }
+        T *operator->() {
+            return t_;
+        }
+        T const *operator->() const {
+            return t_;
         }
     };  
 
