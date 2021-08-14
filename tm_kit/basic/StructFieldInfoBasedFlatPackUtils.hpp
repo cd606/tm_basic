@@ -170,20 +170,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 using F = typename FlatPackSingleLayerWrapperHelper<ColType>::UnderlyingType;
                 if constexpr (std::is_empty_v<F>) {
                     return 0;
+                } else {
+                    if (s.length() < start+sizeof(F)) {
+                        return std::nullopt;
+                    }
+    #ifdef _MSC_VER
+                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data()+start, s.length()-start)
+    #else
+                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin()+start, s.size()-start)
+    #endif
+                    .read(
+                        reinterpret_cast<char *>(&FlatPackSingleLayerWrapperHelper<ColType>::ref(x))
+                        , sizeof(F)
+                    );
+                    return sizeof(F);
                 }
-                if (s.length() < start+sizeof(F)) {
-                    return std::nullopt;
-                }
-#ifdef _MSC_VER
-                boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data()+start, s.length()-start)
-#else
-                boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin()+start, s.size()-start)
-#endif
-                .read(
-                    reinterpret_cast<char *>(&FlatPackSingleLayerWrapperHelper<ColType>::ref(x))
-                    , sizeof(F)
-                );
-                return sizeof(F);
             }
             template <class F>
             static std::optional<std::size_t> parseOne(std::string_view const &input, std::size_t start, F &output) {
