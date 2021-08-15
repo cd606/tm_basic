@@ -13,6 +13,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         constexpr bool is_simple_flatpack_field_v = 
             std::is_arithmetic_v<F>
             || std::is_empty_v<F>
+            || std::is_same_v<F, std::string>
+            || std::is_same_v<F, ByteData>
             || (FlatPackSingleLayerWrapperHelper<F>::Value && is_simple_flatpack_field_v<typename FlatPackSingleLayerWrapperHelper<F>::UnderlyingType>)
         ;
 
@@ -105,6 +107,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static void writeSimpleField_internal(std::ostream &os, ColType const &x) {
                 if constexpr (std::is_empty_v<typename FlatPackSingleLayerWrapperHelper<ColType>::UnderlyingType>) {
                     //do nothing
+                } else if constexpr (std::is_same_v<typename FlatPackSingleLayerWrapperHelper<ColType>::UnderlyingType, std::string>) {
+                    auto const &r = FlatPackSingleLayerWrapperHelper<ColType>::constRef(x);
+                    uint32_t l = (uint32_t) r.length();
+                    os.write(reinterpret_cast<char const *>(&l), sizeof(uint32_t));
+                    os.write(r.data(), l);
+                } else if constexpr (std::is_same_v<typename FlatPackSingleLayerWrapperHelper<ColType>::UnderlyingType, ByteData>) {
+                    auto const &r = FlatPackSingleLayerWrapperHelper<ColType>::constRef(x);
+                    uint32_t l = (uint32_t) r.content.length();
+                    os.write(reinterpret_cast<char const *>(&l), sizeof(uint32_t));
+                    os.write(r.content.data(), l);
                 } else {
                     os.write(
                         reinterpret_cast<char const *>(&(FlatPackSingleLayerWrapperHelper<ColType>::constRef(x)))
@@ -170,6 +182,40 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 using F = typename FlatPackSingleLayerWrapperHelper<ColType>::UnderlyingType;
                 if constexpr (std::is_empty_v<F>) {
                     return 0;
+                } else if constexpr (std::is_same_v<F, std::string>) {
+                    if (s.length() < start+sizeof(uint32_t)) {
+                        return std::nullopt;
+                    }
+                    uint32_t l;
+    #ifdef _MSC_VER
+                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data()+start, s.length()-start)
+    #else
+                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin()+start, s.size()-start)
+    #endif
+                    .read(reinterpret_cast<char *>(&l), sizeof(uint32_t));
+                    if (s.length() < start+sizeof(uint32_t)+l) {
+                        return std::nullopt;
+                    }
+                    FlatPackSingleLayerWrapperHelper<ColType>::ref(x) =
+                        std::string(s.data()+start+sizeof(uint32_t), l);
+                    return sizeof(uint32_t)+l;
+                } else if constexpr (std::is_same_v<F, ByteData>) {
+                    if (s.length() < start+sizeof(uint32_t)) {
+                        return std::nullopt;
+                    }
+                    uint32_t l;
+    #ifdef _MSC_VER
+                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data()+start, s.length()-start)
+    #else
+                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin()+start, s.size()-start)
+    #endif
+                    .read(reinterpret_cast<char *>(&l), sizeof(uint32_t));
+                    if (s.length() < start+sizeof(uint32_t)+l) {
+                        return std::nullopt;
+                    }
+                    FlatPackSingleLayerWrapperHelper<ColType>::ref(x).content =
+                        std::string(s.data()+start+sizeof(uint32_t), l);
+                    return sizeof(uint32_t)+l;
                 } else {
                     if (s.length() < start+sizeof(F)) {
                         return std::nullopt;
