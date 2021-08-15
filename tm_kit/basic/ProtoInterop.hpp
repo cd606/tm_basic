@@ -423,6 +423,26 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             os.write(data.data(), data.length());
         }
     };
+    template <std::size_t N>
+    class ProtoEncoder<std::array<char,N>, void> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, std::array<char,N> const &data, std::ostream &os) {
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
+                    , os
+                );
+            }
+            std::size_t ii = 0;
+            for (; ii<N; ++ii) {
+                if (data[ii] == '\0') {
+                    break;
+                }
+            }
+            internal::VarIntSupport::write<uint64_t>(ii, os);
+            os.write(data.data(), ii);
+        }
+    };
     template <>
     class ProtoEncoder<ByteData, void> {
     public:
@@ -449,6 +469,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
             internal::VarIntSupport::write<uint64_t>(data.content.length(), os);
             os.write(data.content.data(), data.content.length());
+        }
+    };
+    template <std::size_t N>
+    class ProtoEncoder<std::array<unsigned char,N>, void> {
+    public:
+        static void write(std::optional<uint64_t> fieldNumber, std::array<unsigned char,N> const &data, std::ostream &os) {
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
+                    , os
+                );
+            }
+            internal::VarIntSupport::write<uint64_t>(N, os);
+            os.write(data.data(), N);
         }
     };
 
@@ -1249,6 +1283,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             return (input.length()-start);
         }
     };
+    template <std::size_t N>
+    class ProtoDecoder<std::array<char,N>, void> final : public IProtoDecoder<std::array<char,N>> {
+    public:
+        ProtoDecoder(std::array<char,N> *output) : IProtoDecoder<std::array<char,N>>(output) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(std::array<char,N> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            if (wt != internal::ProtoWireType::LengthDelimited) {
+                return std::nullopt;
+            }
+            std::memset(output.data(), 0, N);
+            std::memcpy(output.data(), input.data()+start, std::min(input.length()-start, N));
+            return (input.length()-start);
+        }
+    };
     template <>
     class ProtoDecoder<ByteData, void> final : public IProtoDecoder<ByteData> {
     public:
@@ -1260,6 +1309,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 return std::nullopt;
             }
             output.content = std::string(input.substr(start));
+            return (input.length()-start);
+        }
+    };
+    template <std::size_t N>
+    class ProtoDecoder<std::array<unsigned char,N>, void> final : public IProtoDecoder<std::array<unsigned char,N>> {
+    public:
+        ProtoDecoder(std::array<unsigned char,N> *output) : IProtoDecoder<std::array<unsigned char,N>>(output) {}
+        virtual ~ProtoDecoder() = default;
+    protected:
+        std::optional<std::size_t> read(std::array<unsigned char,N> &output, internal::ProtoWireType wt, std::string_view const &input, std::size_t start) override final {
+            if (wt != internal::ProtoWireType::LengthDelimited) {
+                return std::nullopt;
+            }
+            std::memset(output.data(), 0, N);
+            std::memcpy(output.data(), input.data()+start, std::min(input.length()-start, N));
             return (input.length()-start);
         }
     };

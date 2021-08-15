@@ -59,6 +59,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         };
         template <std::size_t N, class ComplexCopy>
         class CopySimpleImpl<std::array<char,N>, std::string, ComplexCopy> {
+        public:
             static void copy(std::array<char,N> &dest, std::string const &src) {
                 std::memset(dest.data(), 0, N);
                 std::memcpy(dest.data(), src.data(), std::min(N,src.length()));
@@ -70,6 +71,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         };
         template <std::size_t N, class ComplexCopy>
         class CopySimpleImpl<std::string, std::array<char,N>, ComplexCopy> {
+        public:
             static void copy(std::string &dest, std::array<char,N> const &src) {
                 std::size_t ii = 0;
                 for (; ii<N; ++ii) {
@@ -91,6 +93,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         };
         template <std::size_t N, class ComplexCopy>
         class CopySimpleImpl<std::array<char,N>, ByteData, ComplexCopy> {
+        public:
             static void copy(std::array<char,N> &dest, ByteData const &src) {
                 std::memset(dest.data(), 0, N);
                 std::memcpy(dest.data(), src.content.data(), std::min(N,src.content.length()));
@@ -102,6 +105,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         };
         template <std::size_t N, class ComplexCopy>
         class CopySimpleImpl<ByteData, std::array<char,N>, ComplexCopy> {
+        public:
             static void copy(ByteData &dest, std::array<char,N> const &src) {
                 dest.content = std::string(src.data(), N);
             }
@@ -257,6 +261,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             using Cdr = std::tuple<Rs...>;
         };
 
+        class RecursiveSimpleCopy {
+        public:
+            template <class T, class U>
+            static void copy(T &dest, U const &src) {
+                CopySimpleImpl<T,U,RecursiveSimpleCopy>::copy(dest,src);
+            }
+            template <class T, class U>
+            static void move(T &dest, U &&src) {
+                CopySimpleImpl<T,U,RecursiveSimpleCopy>::move(dest,std::move(src));
+            }
+        };
         template <class T, class U>
         class FlatCopyImpl {
         private:
@@ -269,17 +284,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 } else if constexpr (Index >= Count) {
                     return;
                 } else {
-                    GetRef<typename StructFieldFlattenedInfoCursorBasedAccess<
-                        T, typename TupleCarCdr<RemainingTL>::Car
-                    >::TheType>::ref(*(StructFieldFlattenedInfoCursorBasedAccess<
-                        T, typename TupleCarCdr<RemainingTL>::Car
-                    >::valuePointer(dest)))
-                    =
-                    GetRef<typename StructFieldFlattenedInfoCursorBasedAccess<
-                        U, typename TupleCarCdr<RemainingUL>::Car
-                    >::TheType>::constRef(*(StructFieldFlattenedInfoCursorBasedAccess<
-                        U, typename TupleCarCdr<RemainingUL>::Car
-                    >::constValuePointer(src)));
+                    CopySimpleImpl<
+                        typename StructFieldFlattenedInfoCursorBasedAccess<
+                            T, typename TupleCarCdr<RemainingTL>::Car
+                        >::TheType
+                        , typename StructFieldFlattenedInfoCursorBasedAccess<
+                            U, typename TupleCarCdr<RemainingUL>::Car
+                        >::TheType
+                        , RecursiveSimpleCopy
+                    >::copy(
+                        GetRef<typename StructFieldFlattenedInfoCursorBasedAccess<
+                            T, typename TupleCarCdr<RemainingTL>::Car
+                        >::TheType>::ref(*(StructFieldFlattenedInfoCursorBasedAccess<
+                            T, typename TupleCarCdr<RemainingTL>::Car
+                        >::valuePointer(dest)))
+                        ,
+                        GetRef<typename StructFieldFlattenedInfoCursorBasedAccess<
+                            U, typename TupleCarCdr<RemainingUL>::Car
+                        >::TheType>::constRef(*(StructFieldFlattenedInfoCursorBasedAccess<
+                            U, typename TupleCarCdr<RemainingUL>::Car
+                        >::constValuePointer(src)))
+                    );
                     copy_internal<Count,Index+1,typename TupleCarCdr<RemainingTL>::Cdr,typename TupleCarCdr<RemainingUL>::Cdr>(dest, src);
                 }
             }
@@ -290,17 +315,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 } else if constexpr (Index >= Count) {
                     return;
                 } else {
-                    GetRef<typename StructFieldFlattenedInfoCursorBasedAccess<
-                        T, typename TupleCarCdr<RemainingTL>::Car
-                    >::TheType>::ref(*(StructFieldFlattenedInfoCursorBasedAccess<
-                        T, typename TupleCarCdr<RemainingTL>::Car
-                    >::valuePointer(dest)))
-                    =
-                    std::move(GetRef<typename StructFieldFlattenedInfoCursorBasedAccess<
-                        U, typename TupleCarCdr<RemainingUL>::Car
-                    >::TheType>::moveRef(*(StructFieldFlattenedInfoCursorBasedAccess<
-                        U, typename TupleCarCdr<RemainingUL>::Car
-                    >::valuePointer(src))));
+                    CopySimpleImpl<
+                        typename StructFieldFlattenedInfoCursorBasedAccess<
+                            T, typename TupleCarCdr<RemainingTL>::Car
+                        >::TheType
+                        , typename StructFieldFlattenedInfoCursorBasedAccess<
+                            U, typename TupleCarCdr<RemainingUL>::Car
+                        >::TheType
+                        , RecursiveSimpleCopy
+                    >::move(
+                        GetRef<typename StructFieldFlattenedInfoCursorBasedAccess<
+                            T, typename TupleCarCdr<RemainingTL>::Car
+                        >::TheType>::ref(*(StructFieldFlattenedInfoCursorBasedAccess<
+                            T, typename TupleCarCdr<RemainingTL>::Car
+                        >::valuePointer(dest)))
+                        ,
+                        std::move(GetRef<typename StructFieldFlattenedInfoCursorBasedAccess<
+                            U, typename TupleCarCdr<RemainingUL>::Car
+                        >::TheType>::moveRef(*(StructFieldFlattenedInfoCursorBasedAccess<
+                            U, typename TupleCarCdr<RemainingUL>::Car
+                        >::valuePointer(src))))
+                    );
                     move_internal<Count,Index+1,typename TupleCarCdr<RemainingTL>::Cdr,typename TupleCarCdr<RemainingUL>::Cdr>(dest, std::move(src));
                 }
             }

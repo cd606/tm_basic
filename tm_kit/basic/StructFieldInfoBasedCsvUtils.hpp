@@ -77,6 +77,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static constexpr bool IsArray = false;
             static constexpr bool IsOptional = false;
             static constexpr std::size_t ArrayLength = 0;
+            static constexpr bool IsCharArray = false;
             using BaseType = T;
         };
         template <class X, std::size_t N>
@@ -85,7 +86,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static constexpr bool IsArray = true;
             static constexpr bool IsOptional = false;
             static constexpr std::size_t ArrayLength = N;
+            static constexpr bool IsCharArray = false;
             using BaseType = X;
+        };
+        template <std::size_t N>
+        class ArrayAndOptionalChecker<std::array<char,N>> {
+        public:
+            static constexpr bool IsArray = true;
+            static constexpr bool IsOptional = false;
+            static constexpr std::size_t ArrayLength = N;
+            static constexpr bool IsCharArray = true;
+            using BaseType = char;
         };
         template <class X>
         class ArrayAndOptionalChecker<std::optional<X>> {
@@ -93,6 +104,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static constexpr bool IsArray = false;
             static constexpr bool IsOptional = true;
             static constexpr std::size_t ArrayLength = 0;
+            static constexpr bool IsCharArray = false;
             using BaseType = X;
         };
 
@@ -109,6 +121,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static constexpr bool fieldIsGood() {
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>) {
                     return true;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::IsCharArray) {
+                    return true;
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::IsArray) {
                     return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::BaseType>::IsGoodForCsv;
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::IsOptional) {
@@ -119,6 +133,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             }
             static constexpr std::size_t fieldCount() {
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>) {
+                    return 1;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::IsCharArray) {
                     return 1;
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::IsArray) {
                     return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::BaseType>::CsvFieldCount*ArrayAndOptionalChecker<T>::ArrayLength;
@@ -140,6 +156,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static constexpr bool fieldIsGood() {
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
                     return true;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsCharArray) {
+                    return true;
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsArray) {
                     return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType>::IsGoodForCsv;
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsOptional) {
@@ -151,6 +169,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             template <class F>
             static constexpr std::size_t fieldCount() {
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
+                    return 1;
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsCharArray) {
                     return 1;
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsArray) {
                     return StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType>::CsvFieldCount*ArrayAndOptionalChecker<F>::ArrayLength;
@@ -192,6 +212,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             template <class F>
             static void collectSingleFieldName(std::string const &prefix, std::string const &thisField, std::vector<std::string> &output) {
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
+                    output.push_back(prefix+thisField);
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsCharArray) {
                     output.push_back(prefix+thisField);
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsArray) {
                     using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
@@ -262,6 +284,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static void writeSingleField(std::ostream &os, F const &f) {
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
                     writeSimpleField_internal<F>(os, f);
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsCharArray) {
+                    os << std::quoted(std::string_view(
+                        CsvSingleLayerWrapperHelper<F>::constRef(f).data()
+                        , ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength
+                    ));
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsArray) {
                     using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
                     for (std::size_t ii=0; ii<ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength; ++ii) {
@@ -373,6 +400,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 if (s == "") {
                     if constexpr (std::is_empty_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>) {
                         return true;
+                    } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::string>) {
+                        return true;
                     } else {
                         return false;
                     }
@@ -409,6 +438,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static std::tuple<bool,std::size_t> parseOne(std::vector<std::string_view> const &parts, F &output, std::size_t currentIdx) {
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
                     return {parseSimpleField_internal<F>(parts[currentIdx], output), 1};
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsCharArray) {
+                    std::string unquoted;
+#ifdef _MSC_VER
+                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[currentIdx].data(), parts[currentIdx].length())
+#else
+                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[currentIdx].begin(), parts[currentIdx].size())
+#endif
+                        >> std::quoted(unquoted);
+                    auto &r = (CsvSingleLayerWrapperHelper<F>::ref(output));
+                    std::memset(r.data(), 0, ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength);
+                    std::memcpy(r.data(), unquoted.data(), std::min(ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength, unquoted.length()));
+                    return {true, 1};
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsArray) {
                     using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
                     bool someGood = false;
@@ -461,6 +502,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     auto realIdx = idxDict[currentIdx];
                     if (realIdx != std::numeric_limits<std::size_t>::max()) {
                         return {parseSimpleField_internal<F>(parts[realIdx], output), 1};
+                    } else {
+                        return {false, 1};
+                    }
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsCharArray) {
+                    auto realIdx = idxDict[currentIdx];
+                    if (realIdx != std::numeric_limits<std::size_t>::max()) {
+                        std::string unquoted;
+#ifdef _MSC_VER
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[currentIdx].data(), parts[currentIdx].length())
+#else
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[currentIdx].begin(), parts[currentIdx].size())
+#endif
+                            >> std::quoted(unquoted);
+                        auto &r = (CsvSingleLayerWrapperHelper<F>::ref(output));
+                        std::memset(r.data(), 0, ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength);
+                        std::memcpy(r.data(), unquoted.data(), std::min(ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength, unquoted.length()));
+                        return {true, 1};
                     } else {
                         return {false, 1};
                     }
