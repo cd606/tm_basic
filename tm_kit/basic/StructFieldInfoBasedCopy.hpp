@@ -57,6 +57,58 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 }
             }
         };
+        template <std::size_t N, class ComplexCopy>
+        class CopySimpleImpl<std::array<char,N>, std::string, ComplexCopy> {
+            static void copy(std::array<char,N> &dest, std::string const &src) {
+                std::memset(dest.data(), 0, N);
+                std::memcpy(dest.data(), src.data(), std::min(N,src.length()));
+            }
+            static void move(std::array<char,N> &dest, std::string const &src) {
+                std::memset(dest.data(), 0, N);
+                std::memcpy(dest.data(), src.data(), std::min(N,src.length()));
+            }
+        };
+        template <std::size_t N, class ComplexCopy>
+        class CopySimpleImpl<std::string, std::array<char,N>, ComplexCopy> {
+            static void copy(std::string &dest, std::array<char,N> const &src) {
+                std::size_t ii = 0;
+                for (; ii<N; ++ii) {
+                    if (src[ii] == '\0') {
+                        break;
+                    }
+                }
+                dest = std::string(src.data(), ii);
+            }
+            static void move(std::string &dest, std::array<char,N> const &src) {
+                std::size_t ii = 0;
+                for (; ii<N; ++ii) {
+                    if (src[ii] == '\0') {
+                        break;
+                    }
+                }
+                dest = std::string(src.data(), ii);
+            }
+        };
+        template <std::size_t N, class ComplexCopy>
+        class CopySimpleImpl<std::array<char,N>, ByteData, ComplexCopy> {
+            static void copy(std::array<char,N> &dest, ByteData const &src) {
+                std::memset(dest.data(), 0, N);
+                std::memcpy(dest.data(), src.content.data(), std::min(N,src.content.length()));
+            }
+            static void move(std::array<char,N> &dest, ByteData const &src) {
+                std::memset(dest.data(), 0, N);
+                std::memcpy(dest.data(), src.content.data(), std::min(N,src.content.length()));
+            }
+        };
+        template <std::size_t N, class ComplexCopy>
+        class CopySimpleImpl<ByteData, std::array<char,N>, ComplexCopy> {
+            static void copy(ByteData &dest, std::array<char,N> const &src) {
+                dest.content = std::string(src.data(), N);
+            }
+            static void move(ByteData &dest, std::array<char,N> const &src) {
+                dest.content = std::string(src.data(), N);
+            }
+        };
         template <class T, class U, class ComplexCopy>
         class CopySimpleImpl<std::optional<T>,U,ComplexCopy> {
         public:
