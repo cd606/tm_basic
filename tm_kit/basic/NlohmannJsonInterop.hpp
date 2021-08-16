@@ -227,12 +227,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class T>
-    class JsonEncoder<std::vector<std::pair<std::string,T>>, void> {
+    class JsonEncoder<std::vector<std::tuple<std::string,T>>, void> {
     public:
-        static void write(nlohmann::json &output, std::optional<std::string> const &key, std::vector<std::pair<std::string,T>> const &data) {
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, std::vector<std::tuple<std::string,T>> const &data) {
             auto &o = (key?output[*key]:output);
             for (auto const &item : data) {
-                JsonEncoder<T>::write(o, item.first, item.second);
+                JsonEncoder<T>::write(o, std::get<0>(item), std::get<1>(item));
             }
         }
     };
@@ -300,6 +300,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
 
+    using JsonFieldMapping = std::unordered_map<
+        std::type_index, std::unordered_map<std::string, std::string>
+    >; //key in the inside map is structure field name, value is JSON name
+
     template <class T, typename Enable=void>
     class JsonDecoder {};
 
@@ -309,7 +313,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         , void
     >> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, IntType &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, IntType &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             auto const &i = (key?input.at(*key):input);
             if (i.is_string()) {
                 std::string s;
@@ -323,7 +327,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <>
     class JsonDecoder<bool, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, bool &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, bool &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             auto const &i = (key?input.at(*key):input);
             if (i.is_string()) {
                 std::string s;
@@ -337,7 +341,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <class T>
     class JsonDecoder<T, std::enable_if_t<std::is_enum_v<T>, void>> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, T &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             std::underlying_type_t<T> t;
             auto const &i = (key?input.at(*key):input);
             if (i.is_string()) {
@@ -353,7 +357,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <>
     class JsonDecoder<std::string, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::string &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::string &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             if (key) {
                 input.at(*key).get_to(data);
             } else {
@@ -364,7 +368,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <std::size_t N>
     class JsonDecoder<std::array<char,N>, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::array<char,N> &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::array<char,N> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             std::memset(data.data(), 0, N);
             std::string s;
             if (key) {
@@ -378,7 +382,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <>
     class JsonDecoder<ByteData, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, ByteData &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, ByteData &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             std::vector<unsigned int> x;
             if (key) {
                 input.at(*key).get_to(x);
@@ -394,7 +398,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <std::size_t N>
     class JsonDecoder<std::array<unsigned char,N>, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::array<unsigned char,N> &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::array<unsigned char,N> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             std::memset(data, 0, N);
             std::vector<unsigned int> x;
             if (key) {
@@ -410,7 +414,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <>
     class JsonDecoder<std::tm, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::tm &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::tm &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             std::string s;
             if (key) {
                 input.at(*key).get_to(s);
@@ -424,7 +428,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <>
     class JsonDecoder<std::chrono::system_clock::time_point, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::chrono::system_clock::time_point &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::chrono::system_clock::time_point &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             std::string s;
             if (key) {
                 input.at(*key).get_to(s);
@@ -437,13 +441,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <class T>
     class JsonDecoder<std::vector<T>, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::vector<T> &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::vector<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             data.clear();
             auto const &i = (key?input.at(*key):input);
             data.resize(i.size());
             std::size_t ii = 0;
             for (auto const &item : i) {
-                JsonDecoder<T>::read(item, std::nullopt, data[ii]);
+                JsonDecoder<T>::read(item, std::nullopt, data[ii], mapping);
                 ++ii;
             }
         }
@@ -451,24 +455,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <class T>
     class JsonDecoder<std::list<T>, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::list<T> &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::list<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             data.clear();
             auto const &i = (key?input.at(*key):input);
             for (auto const &item : i) {
                 data.push_back(T {});
-                JsonDecoder<T>::read(item, std::nullopt, data.back());
+                JsonDecoder<T>::read(item, std::nullopt, data.back(), mapping);
             }
         }
     };
     template <class T>
     class JsonDecoder<std::valarray<T>, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::valarray<T> &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::valarray<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             auto const &i = (key?input.at(*key):input);
             data.resize(i.size());
             std::size_t ii = 0;
             for (auto const &item : i) {
-                JsonDecoder<T>::read(item, std::nullopt, data[ii]);
+                JsonDecoder<T>::read(item, std::nullopt, data[ii], mapping);
                 ++ii;
             }
         }
@@ -476,12 +480,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <class T, std::size_t N>
     class JsonDecoder<std::array<T,N>, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::array<T,N> &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::array<T,N> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             auto const &i = (key?input.at(*key):input);
             std::size_t ii = 0;
             for (auto const &item : i) {
                 if (ii < N) {
-                    JsonDecoder<T>::read(item, std::nullopt, data[ii]);
+                    JsonDecoder<T>::read(item, std::nullopt, data[ii], mapping);
                 } else {
                     break;
                 }
@@ -495,38 +499,38 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <class T>
     class JsonDecoder<std::map<std::string,T>, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::map<std::string,T> &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::map<std::string,T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             data.clear();
             auto const &i = (key?input.at(*key):input);
             for (auto const &item : i.items()) {
                 auto iter = data.insert({item.key(), T{}});
-                JsonDecoder<T>::read(item.value(), std::nullopt, iter->second);
+                JsonDecoder<T>::read(item.value(), std::nullopt, iter->second, mapping);
             }
         }
     };
     template <class T>
     class JsonDecoder<std::unordered_map<std::string,T>, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::unordered_map<std::string,T> &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::unordered_map<std::string,T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             data.clear();
             auto const &i = (key?input.at(*key):input);
             for (auto const &item : i.items()) {
                 auto iter = data.insert({item.key(), T{}});
-                JsonDecoder<T>::read(item.value(), std::nullopt, iter->second);
+                JsonDecoder<T>::read(item.value(), std::nullopt, iter->second, mapping);
             }
         }
     };
     template <class T>
-    class JsonDecoder<std::vector<std::pair<std::string,T>>, void> {
+    class JsonDecoder<std::vector<std::tuple<std::string,T>>, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::vector<std::pair<std::string,T>> &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::vector<std::tuple<std::string,T>> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             data.clear();
             auto const &i = (key?input.at(*key):input);
             data.resize(i.size());
             std::size_t ii = 0;
             for (auto const &item : i.items()) {
-                data[ii].first = item.key();
-                JsonDecoder<T>::read(item.value(), std::nullopt, data[ii].second);
+                std::get<0>(data[ii]) = item.key();
+                JsonDecoder<T>::read(item.value(), std::nullopt, std::get<1>(data[ii]), mapping);
                 ++ii;
             }
         }
@@ -534,18 +538,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <class T>
     class JsonDecoder<std::optional<T>, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::optional<T> &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::optional<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             if (key) {
                 if (input.contains(*key)) {
                     data = T {};
-                    JsonDecoder<T>::read(input.at(*key), std::nullopt, *data);
+                    JsonDecoder<T>::read(input.at(*key), std::nullopt, *data, mapping);
                 } else {
                     data = std::nullopt;
                 }
             } else {
                 if (!input.is_null()) {
                     data = T {};
-                    JsonDecoder<T>::read(input, std::nullopt, *data);
+                    JsonDecoder<T>::read(input, std::nullopt, *data, mapping);
                 } else {
                     data = std::nullopt;
                 }
@@ -555,34 +559,34 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <>
     class JsonDecoder<VoidStruct, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, VoidStruct &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, VoidStruct &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
         }
     };
     template <int32_t N>
     class JsonDecoder<ConstType<N>, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, ConstType<N> &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, ConstType<N> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
         }
     };
     template <class T>
     class JsonDecoder<SingleLayerWrapper<T>, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, SingleLayerWrapper<T> &data) {
-            JsonDecoder<T>::read(input, key, data.value);
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, SingleLayerWrapper<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            JsonDecoder<T>::read(input, key, data.value, mapping);
         }
     };
     template <int32_t N, class T>
     class JsonDecoder<SingleLayerWrapperWithID<N,T>, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, SingleLayerWrapperWithID<N,T> &data) {
-            JsonDecoder<T>::read(input, key, data.value);
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, SingleLayerWrapperWithID<N,T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            JsonDecoder<T>::read(input, key, data.value, mapping);
         }
     };
     template <class M, class T>
     class JsonDecoder<SingleLayerWrapperWithTypeMark<M,T>, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, SingleLayerWrapperWithTypeMark<M,T> &data) {
-            JsonDecoder<T>::read(input, key, data.value);
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, SingleLayerWrapperWithTypeMark<M,T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            JsonDecoder<T>::read(input, key, data.value, mapping);
         }
     };
 
@@ -590,20 +594,33 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     class JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
     private:
         template <std::size_t FieldCount, std::size_t FieldIndex>
-        static void read_impl(nlohmann::json const &input, T &data) {
+        static void read_impl(nlohmann::json const &input, T &data, JsonFieldMapping const &mapping, std::unordered_map<std::string, std::string> const *mappingForThisOne) {
             if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                 using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
                 std::string s {StructFieldInfo<T>::FIELD_NAMES[FieldIndex]};
-                if (input.contains(s)) {
-                    JsonDecoder<F>::read(input, s, data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()));
+                if (mappingForThisOne != nullptr) {
+                    auto iter = mappingForThisOne->find(s);
+                    if (iter != mappingForThisOne->end()) {
+                        s = iter->second;
+                    }
                 }
-                read_impl<FieldCount,FieldIndex+1>(input, data);
+                if (input.contains(s)) {
+                    JsonDecoder<F>::read(input, s, data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), mapping);
+                }
+                read_impl<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne);
             }
         }
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, T &data) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             struct_field_info_utils::StructFieldInfoBasedInitializer<T>::initialize(data);
-            read_impl<StructFieldInfo<T>::FIELD_NAMES.size(),0>((key?input.at(*key):input), data);
+            std::unordered_map<std::string, std::string> const *mappingForThisOne = nullptr;
+            if (!mapping.empty()) {
+                auto iter = mapping.find(std::type_index(typeid(T)));
+                if (iter != mapping.end()) {
+                    mappingForThisOne = &(iter->second);
+                }
+            }
+            read_impl<StructFieldInfo<T>::FIELD_NAMES.size(),0>((key?input.at(*key):input), data, mapping, mappingForThisOne);
         }
     };
     
@@ -643,7 +660,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             JsonEncoder<T>::write(output, std::nullopt, t_);
             return output.dump();
         }
-        bool ParseFromStringView(std::string_view const &s) {
+        bool ParseFromStringView(std::string_view const &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             nlohmann::json x;
 #ifdef _MSC_VER
             boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
@@ -651,16 +668,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
 #endif
             >> x;
-            JsonDecoder<T>::read(x, std::nullopt, t_);
+            JsonDecoder<T>::read(x, std::nullopt, t_, mapping);
             return true;
         }
-        bool ParseFromString(std::string const &s) {
-            return ParseFromStringView(std::string_view(s));
+        bool ParseFromString(std::string const &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            return ParseFromStringView(std::string_view(s), mapping);
         }
-        bool ParseFromStream(std::istream &s) {
+        bool ParseFromStream(std::istream &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             nlohmann::json x;
             s >> x;
-            JsonDecoder<T>::read(x, std::nullopt, t_);
+            JsonDecoder<T>::read(x, std::nullopt, t_, mapping);
             return true;
         }
         T const &value() const {
@@ -686,7 +703,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             JsonEncoder<T>::write(output, std::nullopt, t);
             os << output;
         }
-        static bool runDeserialize(T &t, std::string_view const &input) {
+        static bool runDeserialize(T &t, std::string_view const &input, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             nlohmann::json x;
 #ifdef _MSC_VER
             boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(input.data(), input.length())
@@ -694,7 +711,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(input.begin(), input.size())
 #endif
             >> x;
-            JsonDecoder<T>::read(x, std::nullopt, t);
+            JsonDecoder<T>::read(x, std::nullopt, t, mapping);
             return true;
         }
     };
@@ -725,7 +742,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 return output.dump();
             }
         }
-        bool ParseFromStringView(std::string_view const &s) {
+        bool ParseFromStringView(std::string_view const &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             if (t_) {
                 nlohmann::json x;
 #ifdef _MSC_VER
@@ -734,20 +751,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
 #endif
                 >> x;
-                JsonDecoder<T>::read(x, std::nullopt, *t_);
+                JsonDecoder<T>::read(x, std::nullopt, *t_, mapping);
                 return true;
             } else {
                 return false;
             }
         }
-        bool ParseFromString(std::string const &s) {
-            return ParseFromStringView(std::string_view(s));
+        bool ParseFromString(std::string const &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            return ParseFromStringView(std::string_view(s), mapping);
         }
-        bool ParseFromStream(std::istream &s) {
+        bool ParseFromStream(std::istream &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             if (t_) {
                 nlohmann::json x;
                 s >> x;
-                JsonDecoder<T>::read(x, std::nullopt, *t_);
+                JsonDecoder<T>::read(x, std::nullopt, *t_, mapping);
                 return true;
             } else {
                 return false;
