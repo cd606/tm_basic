@@ -27,6 +27,7 @@
 
 #include <boost/iostreams/device/array.hpp>
 #include <boost/iostreams/stream.hpp>
+#include <boost/lexical_cast.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlohmann_json_interop {
 
@@ -226,6 +227,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class T>
+    class JsonEncoder<std::vector<std::pair<std::string,T>>, void> {
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, std::vector<std::pair<std::string,T>> const &data) {
+            auto &o = (key?output[*key]:output);
+            for (auto const &item : data) {
+                JsonEncoder<T>::write(o, item.first, item.second);
+            }
+        }
+    };
+    template <class T>
     class JsonEncoder<std::optional<T>, void> {
     public:
         static void write(nlohmann::json &output, std::optional<std::string> const &key, std::optional<T> const &data) {
@@ -299,10 +310,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     >> {
     public:
         static void read(nlohmann::json const &input, std::optional<std::string> const &key, IntType &data) {
-            if (key) {
-                input.at(*key).get_to(data);
+            auto const &i = (key?input.at(*key):input);
+            if (i.is_string()) {
+                std::string s;
+                i.get_to(s);
+                data = boost::lexical_cast<IntType>(s);
             } else {
-                input.get_to(data);
+                i.get_to(data);
             }
         }
     };
@@ -310,10 +324,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     class JsonDecoder<bool, void> {
     public:
         static void read(nlohmann::json const &input, std::optional<std::string> const &key, bool &data) {
-            if (key) {
-                input.at(*key).get_to(data);
+            auto const &i = (key?input.at(*key):input);
+            if (i.is_string()) {
+                std::string s;
+                i.get_to(s);
+                data = boost::lexical_cast<bool>(s);
             } else {
-                input.get_to(data);
+                i.get_to(data);
             }
         }
     };
@@ -322,10 +339,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     public:
         static void read(nlohmann::json const &input, std::optional<std::string> const &key, T &data) {
             std::underlying_type_t<T> t;
-            if (key) {
-                input.at(*key).get_to(t);
+            auto const &i = (key?input.at(*key):input);
+            if (i.is_string()) {
+                std::string s;
+                i.get_to(s);
+                t = boost::lexical_cast<std::underlying_type_t<T>>(s);
             } else {
-                input.get_to(t);
+                i.get_to(t);
             }
             data = static_cast<T>(t);
         }
@@ -480,7 +500,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             auto const &i = (key?input.at(*key):input);
             for (auto const &item : i.items()) {
                 auto iter = data.insert({item.key(), T{}});
-                JsonDecoder<T>::read(item.value(), std::nullopt, *iter);
+                JsonDecoder<T>::read(item.value(), std::nullopt, iter->second);
             }
         }
     };
@@ -492,7 +512,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             auto const &i = (key?input.at(*key):input);
             for (auto const &item : i.items()) {
                 auto iter = data.insert({item.key(), T{}});
-                JsonDecoder<T>::read(item.value(), std::nullopt, *iter);
+                JsonDecoder<T>::read(item.value(), std::nullopt, iter->second);
+            }
+        }
+    };
+    template <class T>
+    class JsonDecoder<std::vector<std::pair<std::string,T>>, void> {
+    public:
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::vector<std::pair<std::string,T>> &data) {
+            data.clear();
+            auto const &i = (key?input.at(*key):input);
+            data.resize(i.size());
+            std::size_t ii = 0;
+            for (auto const &item : i.items()) {
+                data[ii].first = item.key();
+                JsonDecoder<T>::read(item.value(), std::nullopt, data[ii].second);
+                ++ii;
             }
         }
     };
