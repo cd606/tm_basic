@@ -5,7 +5,8 @@ thread_dep = dependency('threads')
 boost_dep = dependency('boost', modules : ['log','log_setup','system','thread','filesystem','iostreams'])
 spd_dep = dependency('spdlog')
 tm_infra_dep = dependency('tm_kit_infra')
-common_deps = [thread_dep, boost_dep, spd_dep, tm_infra_dep]
+nlohmann_json_dep = dependency('nlohmann-json')
+common_deps = [thread_dep, boost_dep, spd_dep, tm_infra_dep, nlohmann_json_dep]
 
 pkg = import('pkgconfig')
 

@@ -33,6 +33,7 @@ tm_basic_headers = [
     , 'StructFieldFlattenedInfo.hpp'
     , 'StructFieldInfoBasedCopy.hpp'
     , 'ProtoInterop.hpp'
+    , 'NlohmannJsonInterop.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
