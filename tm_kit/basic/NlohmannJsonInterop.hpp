@@ -503,7 +503,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             data.clear();
             auto const &i = (key?input.at(*key):input);
             for (auto const &item : i.items()) {
-                auto iter = data.insert({item.key(), T{}});
+                auto iter = data.insert({item.key(), T{}}).first;
                 JsonDecoder<T>::read(item.value(), std::nullopt, iter->second, mapping);
             }
         }
@@ -515,7 +515,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             data.clear();
             auto const &i = (key?input.at(*key):input);
             for (auto const &item : i.items()) {
-                auto iter = data.insert({item.key(), T{}});
+                auto iter = data.insert({item.key(), T{}}).first;
                 JsonDecoder<T>::read(item.value(), std::nullopt, iter->second, mapping);
             }
         }
