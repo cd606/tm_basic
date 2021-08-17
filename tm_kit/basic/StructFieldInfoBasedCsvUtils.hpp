@@ -468,7 +468,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         template <class T>
         static void writeData(std::ostream &os, T const &t) {
             internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeSingleField<T>(os, t);
-            std::cout << '\n';
+            os << '\n';
         }
         template <class T>
         static void writeDataNoNewLine(std::ostream &os, T const &t) {
