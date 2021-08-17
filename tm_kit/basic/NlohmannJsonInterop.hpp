@@ -422,7 +422,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 input.get_to(s);
             }
             std::stringstream ss(s);
-            ss >> std::get_time(&data, "%Y-%m-%dT%H:%M:%S");
+            ss >> std::get_time(&data
+                , ((s.length()==8)?"%Y%m%d":((s.length()==10)?"%Y-%m-%d":"%Y-%m-%dT%H:%M:%S")));
         }
     };
     template <>

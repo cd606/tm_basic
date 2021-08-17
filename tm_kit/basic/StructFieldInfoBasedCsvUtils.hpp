@@ -419,7 +419,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
 #else
                     boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
 #endif
-                        >> std::get_time(&CsvSingleLayerWrapperHelper<ColType>::ref(x), "%Y-%m-%dT%H:%M:%S");
+                        >> std::get_time(&CsvSingleLayerWrapperHelper<ColType>::ref(x)
+                            , ((s.length()==8)?"%Y%m%d":((s.length()==10)?"%Y-%m-%d":"%Y-%m-%dT%H:%M:%S")));
                 } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::chrono::system_clock::time_point>) {
                     CsvSingleLayerWrapperHelper<ColType>::ref(x) = infra::withtime_utils::parseLocalTime(s);
                 } else if constexpr (std::is_empty_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>) {
