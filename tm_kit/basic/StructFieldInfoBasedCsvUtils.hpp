@@ -149,6 +149,31 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static constexpr bool IsGoodForCsv = fieldIsGood();
             static constexpr std::size_t CsvFieldCount = fieldCount();
         };
+        template <>
+        class StructFieldInfoCsvSupportChecker<std::tuple<>, false> {
+        public:
+            static constexpr bool IsComposite = false;
+            static constexpr bool IsGoodForCsv = true;
+            static constexpr std::size_t CsvFieldCount = 0;
+        };
+        template <class T>
+        class StructFieldInfoCsvSupportChecker<std::tuple<T>, false> {
+        public:
+            static constexpr bool IsComposite = false;
+            static constexpr bool IsGoodForCsv = StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv;
+            static constexpr std::size_t CsvFieldCount = StructFieldInfoCsvSupportChecker<T>::CsvFieldCount;
+        };
+        template <class FirstT, class... RestTs>
+        class StructFieldInfoCsvSupportChecker<std::tuple<FirstT,RestTs...>, false> {
+        public:
+            static constexpr bool IsComposite = false;
+            static constexpr bool IsGoodForCsv = 
+                StructFieldInfoCsvSupportChecker<FirstT>::IsGoodForCsv
+                && StructFieldInfoCsvSupportChecker<std::tuple<RestTs...>>::IsGoodForCsv;
+            static constexpr std::size_t CsvFieldCount = 
+                StructFieldInfoCsvSupportChecker<FirstT>::CsvFieldCount
+                +StructFieldInfoCsvSupportChecker<std::tuple<RestTs...>>::CsvFieldCount;
+        };
         template <class T>
         class StructFieldInfoCsvSupportChecker<T, true> {
         private:
@@ -207,8 +232,33 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static constexpr std::size_t CsvFieldCount = totalFieldCount<StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0,0>();
         };
 
+        template <class T>
+        struct IsTuple {
+            static constexpr bool Value = false;
+        };
+        template <class... Ts>
+        struct IsTuple<std::tuple<Ts...>> {
+            static constexpr bool Value = true;
+        };
+
         class StructFieldInfoBasedSimpleCsvOutputImpl {
         private:
+            template <class T>
+            static void collectTupleFieldName(T *, std::string const &prefix, std::string const &thisField, std::vector<std::string> &output, int index) {
+            }
+            static void collectTupleFieldName(std::tuple<> *, std::string const &prefix, std::string const &thisField, std::vector<std::string> &output, int index) {
+            }
+            template <class FirstT, class... RestTs>
+            static void collectTupleFieldName(std::tuple<FirstT,RestTs...> *, std::string const &prefix, std::string const &thisField, std::vector<std::string> &output, int index) {
+                collectSingleFieldName<FirstT>(prefix, thisField+"."+std::to_string(index), output);
+                collectTupleFieldName(
+                    (std::tuple<RestTs...> *) nullptr 
+                    , prefix
+                    , thisField
+                    , output
+                    , index+1
+                );
+            }
             template <class F>
             static void collectSingleFieldName(std::string const &prefix, std::string const &thisField, std::vector<std::string> &output) {
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
@@ -247,6 +297,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                             , output
                         );
                     }
+                } else if constexpr (IsTuple<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::Value) {
+                    collectTupleFieldName(
+                        (typename CsvSingleLayerWrapperHelper<F>::UnderlyingType *) nullptr
+                        , prefix, thisField, output
+                        , 0
+                    );
                 } else {
                     auto fieldName = prefix+thisField;
                     if (boost::ends_with(fieldName, ".")) {
@@ -280,6 +336,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     os << CsvSingleLayerWrapperHelper<ColType>::constRef(x);
                 }
             }
+            template <class T, std::size_t Index>
+            static void writeTupleField(std::ostream &os, T const &f) {
+                if constexpr (Index<std::tuple_size_v<T>) {
+                    if constexpr (Index > 0) {
+                        os << ',';
+                    }
+                    writeSingleField(os, std::get<Index>(f));
+                    writeTupleField<T,Index+1>(os, f);
+                }
+            }
+        public:
             template <class F>
             static void writeSingleField(std::ostream &os, F const &f) {
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
@@ -318,12 +385,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                             }
                         }
                     }
+                } else if constexpr (IsTuple<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::Value) {
+                    writeTupleField<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType, 0>(os, CsvSingleLayerWrapperHelper<F>::constRef(f));
                 } else {
                     StructFieldInfoBasedSimpleCsvOutputImpl::writeData<F>(
                         os, f
                     );
                 }
             }
+        private:
             template <class T, int FieldCount, int FieldIndex, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && StructFieldInfoCsvSupportChecker<T>::IsComposite>>
             static void writeData_internal(std::ostream &os, T const &t) {
                 if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
@@ -371,9 +441,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeHeader<T>(os);
             os << '\n';
         }
+        static void writeHeaderNoNewLine(std::ostream &os) {
+            internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeHeader<T>(os);
+        }
         static void writeData(std::ostream &os, T const &t) {
             internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeData<T>(os, t);
             os << '\n';
+        }
+        static void writeDataNoNewLine(std::ostream &os, T const &t) {
+            internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeData<T>(os, t);
         }
         template <class Iter>
         static void writeDataCollection(std::ostream &os, Iter begin, Iter end, bool dontWriteHeader=false) {
@@ -383,6 +459,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             for (Iter iter = begin; iter != end; ++iter) {
                 writeData(os, *iter);
             }
+        }
+    };
+    //This is a helper class where we may want to output in csv format
+    //a single value (especially if that value is array or tuple)
+    class StructFieldInfoBasedSimpleCsvOutput_SingleValue {
+    public:
+        template <class T>
+        static void writeData(std::ostream &os, T const &t) {
+            internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeSingleField<T>(os, t);
+            std::cout << '\n';
+        }
+        template <class T>
+        static void writeDataNoNewLine(std::ostream &os, T const &t) {
+            internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeSingleField<T>(os, t);
         }
     };
     
@@ -434,6 +524,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         >> CsvSingleLayerWrapperHelper<ColType>::ref(x);
                 }
                 return true;
+            }
+            template <class T, std::size_t Index>
+            static std::tuple<bool,std::size_t> parseOneTuple(std::vector<std::string_view> const &parts, T &output, std::size_t currentIdx, bool cumBool, std::size_t cumIdxCount) {
+                if constexpr (Index < std::tuple_size_v<T>) {
+                    auto res = parseOne(parts, std::get<Index>(output), currentIdx);
+                    return parseOneTuple<T,Index+1>(
+                        parts, output, currentIdx+std::get<1>(res), (cumBool || std::get<0>(res)), cumIdxCount+std::get<1>(res)
+                    );
+                } else {
+                    return {cumBool, cumIdxCount};
+                }
             }
             template <class F>
             static std::tuple<bool,std::size_t> parseOne(std::vector<std::string_view> const &parts, F &output, std::size_t currentIdx) {
@@ -492,10 +593,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         }
                         return res;
                     }
+                } else if constexpr (IsTuple<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::Value) {
+                    return parseOneTuple<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType, 0>(parts, CsvSingleLayerWrapperHelper<F>::ref(output), currentIdx, false, 0);
                 } else {
                     auto res = StructFieldInfoBasedSimpleCsvInputImpl::template parse<F>(parts, output, currentIdx);
                     return {std::get<0>(res), std::get<1>(res)-currentIdx};
                 }        
+            }
+            template <class T, std::size_t Index>
+            static std::tuple<bool,std::size_t> parseOneTupleWithIdxDict(std::vector<std::string_view> const &parts, T &output, std::size_t currentIdx, std::vector<std::size_t> const &idxDict, bool cumBool, std::size_t cumIdxCount) {
+                if constexpr (Index < std::tuple_size_v<T>) {
+                    auto res = parseOneWithIdxDict(parts, std::get<Index>(output), currentIdx, idxDict);
+                    return parseOneTupleWithIdxDict<T,Index+1>(
+                        parts, output, currentIdx+std::get<1>(res), idxDict, (cumBool || std::get<0>(res)), cumIdxCount+std::get<1>(res)
+                    );
+                } else {
+                    return {cumBool, cumIdxCount};
+                }
             }
             template <class F>
             static std::tuple<bool,std::size_t> parseOneWithIdxDict(std::vector<std::string_view> const &parts, F &output, std::size_t currentIdx, std::vector<std::size_t> const &idxDict) {
@@ -572,6 +686,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         }
                         return res;
                     }
+                } else if constexpr (IsTuple<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::Value) {
+                    return parseOneTupleWithIdxDict<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType, 0>(parts, CsvSingleLayerWrapperHelper<F>::ref(output), currentIdx, idxDict, false, 0);
                 } else {
                     auto res = StructFieldInfoBasedSimpleCsvInputImpl::template parse_with_idx_dict<F>(parts, output, currentIdx, idxDict);
                     return {std::get<0>(res), std::get<1>(res)-currentIdx};
