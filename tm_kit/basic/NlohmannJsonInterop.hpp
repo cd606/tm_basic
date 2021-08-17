@@ -658,7 +658,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         void SerializeToString(std::string *s) const {
             nlohmann::json output;
             JsonEncoder<T>::write(output, std::nullopt, t_);
-            return output.dump();
+            *s = output.dump();
         }
         bool ParseFromStringView(std::string_view const &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             nlohmann::json x;
@@ -739,7 +739,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             if (t_) {
                 nlohmann::json output;
                 JsonEncoder<T>::write(output, std::nullopt, *t_);
-                return output.dump();
+                *s = output.dump();
             }
         }
         bool ParseFromStringView(std::string_view const &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
