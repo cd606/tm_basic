@@ -760,11 +760,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         }
         static void split(std::string const &input, std::vector<std::string_view> &output, char delim=',') {
             const char *p = input.data();
+            const char *end = p+input.length();
             const char *q = p;
             bool inStringField = false;
-            while (*p != '\0') {
+            while (p < end && *p != '\0') {
                 if (!inStringField) {
-                    if (*q == '\0') {
+                    if (q == end || *q == '\0') {
                         output.push_back(std::string_view(p, q-p));
                         break;
                     } else if (*q == delim) {
@@ -785,7 +786,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         q += 2;
                     } else if (*q == '"') {
                         ++q;
-                        if (*q != delim && *q != '\0') {
+                        if (q != end && *q != delim && *q != '\0') {
                             throw std::runtime_error("format error in line '"+input+"': string literal not terminating at end of field");
                         }
                         output.push_back(std::string_view(p,q-p));
