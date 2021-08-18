@@ -848,15 +848,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         }
         static std::unordered_map<std::string, std::size_t> translateHeaderDict(
             std::unordered_map<std::string, std::size_t> const &originalDict 
-            , std::unordered_map<std::string, std::string> const &fileColNameToStructFieldNameDict
+            , std::unordered_map<std::string, std::string> const &structFieldNameToFileColNameDict
         ) {
             std::unordered_map<std::string, std::size_t> ret;
-            for (auto const &item : originalDict) {
-                auto iter = fileColNameToStructFieldNameDict.find(item.first);
-                if (iter != fileColNameToStructFieldNameDict.end()) {
-                    ret[iter->second] = item.second;
-                } else {
-                    ret[item.first] = item.second;
+            for (auto const &item : structFieldNameToFileColNameDict) {
+                auto iter = originalDict.find(item.second);
+                if (iter != originalDict.end()) {
+                    ret[item.first] = iter->second;
                 }
             }
             return ret;
@@ -899,7 +897,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             return true;
         }
         template <class OutIter>
-        static void readInto(std::istream &is, OutIter iter, StructFieldInfoBasedCsvInputOption option = StructFieldInfoBasedCsvInputOption::IgnoreHeader, std::unordered_map<std::string, std::string> const &fileColNameToStructFieldNameDict=std::unordered_map<std::string,std::string>()) {
+        static void readInto(std::istream &is, OutIter iter, StructFieldInfoBasedCsvInputOption option = StructFieldInfoBasedCsvInputOption::IgnoreHeader, std::unordered_map<std::string, std::string> const &structFieldNameToFileColNameDict=std::unordered_map<std::string,std::string>()) {
             std::vector<std::size_t> idxDict;
             switch (option) {
             case StructFieldInfoBasedCsvInputOption::IgnoreHeader:
@@ -908,7 +906,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             case StructFieldInfoBasedCsvInputOption::HasNoHeader:
                 break;
             case StructFieldInfoBasedCsvInputOption::UseHeaderAsDict:
-                idxDict = headerDictToIdxDict(translateHeaderDict(readHeader(is), fileColNameToStructFieldNameDict));
+                idxDict = headerDictToIdxDict(translateHeaderDict(readHeader(is), structFieldNameToFileColNameDict));
                 break;
             default:
                 readHeader(is);
@@ -935,7 +933,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     class StructFieldInfoBasedCsvImporterFactory {
     public:
         template <class T, class TimeExtractor, typename=std::enable_if_t<internal::StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && internal::StructFieldInfoCsvSupportChecker<T>::IsComposite>>
-        static auto createImporter(std::istream &is, TimeExtractor &&timeExtractor, StructFieldInfoBasedCsvInputOption option = StructFieldInfoBasedCsvInputOption::IgnoreHeader, std::unordered_map<std::string, std::string> const &fileColNameToStructFieldNameDict=std::unordered_map<std::string,std::string>()) 
+        static auto createImporter(std::istream &is, TimeExtractor &&timeExtractor, StructFieldInfoBasedCsvInputOption option = StructFieldInfoBasedCsvInputOption::IgnoreHeader, std::unordered_map<std::string, std::string> const &structFieldNameToFileColNameDict=std::unordered_map<std::string,std::string>()) 
             -> std::shared_ptr<typename M::template Importer<T>>
         {
             class LocalI {
@@ -943,7 +941,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 std::istream *is_;
                 TimeExtractor timeExtractor_;
                 StructFieldInfoBasedCsvInputOption option_;
-                std::unordered_map<std::string,std::string> fileColNameToStructFieldNameDict_;
+                std::unordered_map<std::string,std::string> structFieldNameToFileColNameDict_;
                 std::vector<std::size_t> idxDict_;
                 using I = StructFieldInfoBasedSimpleCsvInput<T>;
                 T t_;
@@ -957,8 +955,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     }
                 }
             public:
-                LocalI(std::istream *is, TimeExtractor &&timeExtractor, StructFieldInfoBasedCsvInputOption option, std::unordered_map<std::string,std::string> const &fileColNameToStructFieldNameDict) 
-                    : is_(is), timeExtractor_(std::move(timeExtractor)), option_(option), fileColNameToStructFieldNameDict_(fileColNameToStructFieldNameDict), idxDict_(), t_(), hasData_(false), started_(false)
+                LocalI(std::istream *is, TimeExtractor &&timeExtractor, StructFieldInfoBasedCsvInputOption option, std::unordered_map<std::string,std::string> const &structFieldNameToFileColNameDict) 
+                    : is_(is), timeExtractor_(std::move(timeExtractor)), option_(option), structFieldNameToFileColNameDict_(structFieldNameToFileColNameDict), idxDict_(), t_(), hasData_(false), started_(false)
                 {}
                 LocalI(LocalI const &) = delete;
                 LocalI &operator=(LocalI const &) = delete;
@@ -973,7 +971,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         case StructFieldInfoBasedCsvInputOption::HasNoHeader:
                             break;
                         case StructFieldInfoBasedCsvInputOption::UseHeaderAsDict:
-                            idxDict_ = I::headerDictToIdxDict(I::translateHeaderDict(I::readHeader(*is_), fileColNameToStructFieldNameDict_));
+                            idxDict_ = I::headerDictToIdxDict(I::translateHeaderDict(I::readHeader(*is_), structFieldNameToFileColNameDict_));
                             break;
                         default:
                             I::readHeader(*is_);
@@ -1004,7 +1002,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     return std::move(ret);
                 }
             };
-            return M::template uniformSimpleImporter<T>(LocalI(&is, std::move(timeExtractor), option, fileColNameToStructFieldNameDict));
+            return M::template uniformSimpleImporter<T>(LocalI(&is, std::move(timeExtractor), option, structFieldNameToFileColNameDict));
         }
     };
     template <class M>
