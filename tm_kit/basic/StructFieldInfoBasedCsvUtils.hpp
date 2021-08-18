@@ -497,12 +497,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     }
                 }
                 if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::string>) {
+                    if (s.length() > 0) {
+                        if (s[0] == '"') {
 #ifdef _MSC_VER
-                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
+                            boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
 #else
-                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
+                            boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
 #endif
-                        >> std::quoted(CsvSingleLayerWrapperHelper<ColType>::ref(x));
+                                >> std::quoted(CsvSingleLayerWrapperHelper<ColType>::ref(x));
+                        } else {
+                            CsvSingleLayerWrapperHelper<ColType>::ref(x) = std::string(s);
+                        }
+                    } else {
+                        CsvSingleLayerWrapperHelper<ColType>::ref(x) = "";
+                    }
                 } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::tm>) {
 #ifdef _MSC_VER
                     boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
@@ -540,14 +548,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static std::tuple<bool,std::size_t> parseOne(std::vector<std::string_view> const &parts, F &output, std::size_t currentIdx) {
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
                     return {parseSimpleField_internal<F>(parts[currentIdx], output), 1};
-                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsCharArray) {
+                } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsCharArray) {                    
                     std::string unquoted;
+                    if (parts[currentIdx].length() > 0) {
+                        if (parts[currentIdx][0] == '"') {
 #ifdef _MSC_VER
-                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[currentIdx].data(), parts[currentIdx].length())
+                            boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[currentIdx].data(), parts[currentIdx].length())
 #else
-                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[currentIdx].begin(), parts[currentIdx].size())
+                            boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[currentIdx].begin(), parts[currentIdx].size())
 #endif
-                        >> std::quoted(unquoted);
+                            >> std::quoted(unquoted);
+                        } else {
+                            unquoted = std::string(parts[currentIdx]);
+                        }
+                    }
                     auto &r = (CsvSingleLayerWrapperHelper<F>::ref(output));
                     std::memset(r.data(), 0, ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength);
                     std::memcpy(r.data(), unquoted.data(), std::min(ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength, unquoted.length()));
@@ -624,12 +638,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     auto realIdx = idxDict[currentIdx];
                     if (realIdx != std::numeric_limits<std::size_t>::max()) {
                         std::string unquoted;
+                        if (parts[realIdx].length() > 0) {
+                            if (parts[realIdx][0] == '"') {
 #ifdef _MSC_VER
-                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[currentIdx].data(), parts[currentIdx].length())
+                                boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[realIdx].data(), parts[realIdx].length())
 #else
-                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[currentIdx].begin(), parts[currentIdx].size())
+                                boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[realIdx].begin(), parts[realIdx].size())
 #endif
-                            >> std::quoted(unquoted);
+                                    >> std::quoted(unquoted);
+                            } else {
+                                unquoted = std::string(parts[realIdx]);
+                            }
+                        }
                         auto &r = (CsvSingleLayerWrapperHelper<F>::ref(output));
                         std::memset(r.data(), 0, ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength);
                         std::memcpy(r.data(), unquoted.data(), std::min(ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength, unquoted.length()));
@@ -667,7 +687,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     if constexpr (is_simple_csv_field_v<BT>) {
                         auto realIdx = idxDict[currentIdx];
                         if (realIdx != std::numeric_limits<std::size_t>::max()) {
-                            if (parseSimpleField_internal<BT>(parts[currentIdx], v)) {
+                            if (parseSimpleField_internal<BT>(parts[realIdx], v)) {
                                 (CsvSingleLayerWrapperHelper<F>::ref(output)) = std::move(v);
                                 return {true, 1};
                             } else {
@@ -810,14 +830,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             std::unordered_map<std::string, std::size_t> res;
             for (std::size_t ii=0; ii<parts.size(); ++ii) {
                 if (parts[ii] != "") {
-                    std::string p;
+                    if (parts[ii][0] == '"') {
+                        std::string p;
 #ifdef _MSC_VER
-                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[ii].data(), parts[ii].length())
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[ii].data(), parts[ii].length())
 #else
-                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[ii].begin(), parts[ii].size())
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(parts[ii].begin(), parts[ii].size())
 #endif
-                        >> std::quoted(p);
-                    res[p] = ii;
+                            >> std::quoted(p);
+                        res[p] = ii;
+                    } else {
+                        res[std::string(parts[ii])] = ii;
+                    }
                 }
             }
             return res;
