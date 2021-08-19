@@ -524,12 +524,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 } else if constexpr (std::is_empty_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>) {
                     //do nothing
                 } else {
+                    if (s[0] == '"') {
+                        std::string unquoted;
 #ifdef _MSC_VER
-                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
 #else
-                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
 #endif
-                        >> CsvSingleLayerWrapperHelper<ColType>::ref(x);
+                            >> std::quoted(unquoted);
+                        std::istringstream iss(unquoted);
+                        iss >> CsvSingleLayerWrapperHelper<ColType>::ref(x);
+                    } else {
+#ifdef _MSC_VER
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
+#else
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
+#endif
+                            >> CsvSingleLayerWrapperHelper<ColType>::ref(x);
+                    }
                 }
                 return true;
             }
@@ -547,8 +559,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             template <class F>
             static std::tuple<bool,std::size_t> parseOne(std::vector<std::string_view> const &parts, F &output, std::size_t currentIdx) {
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
+                    if (currentIdx >= parts.size()) {
+                        return {false, 1};
+                    }
                     return {parseSimpleField_internal<F>(parts[currentIdx], output), 1};
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsCharArray) {                    
+                    if (currentIdx >= parts.size()) {
+                        return {false, 1};
+                    }
                     std::string unquoted;
                     if (parts[currentIdx].length() > 0) {
                         if (parts[currentIdx][0] == '"') {
@@ -571,6 +589,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     bool someGood = false;
                     if constexpr (is_simple_csv_field_v<BT>) {
                         for (std::size_t ii=0; ii<ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength; ++ii) {
+                            if (currentIdx+ii >= parts.size()) {
+                                break;
+                            }
                             if (parseSimpleField_internal<BT>(parts[currentIdx+ii], (CsvSingleLayerWrapperHelper<F>::ref(output))[ii])) {
                                 someGood = true;
                             }
@@ -591,6 +612,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
                     BT v;
                     if constexpr (is_simple_csv_field_v<BT>) {
+                        if (currentIdx >= parts.size()) {
+                            return {false, 1};
+                        }
                         if (parseSimpleField_internal<BT>(parts[currentIdx], v)) {
                             (CsvSingleLayerWrapperHelper<F>::ref(output)) = std::move(v);
                             return {true, 1};
@@ -629,14 +653,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static std::tuple<bool,std::size_t> parseOneWithIdxDict(std::vector<std::string_view> const &parts, F &output, std::size_t currentIdx, std::vector<std::size_t> const &idxDict) {
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
                     auto realIdx = idxDict[currentIdx];
-                    if (realIdx != std::numeric_limits<std::size_t>::max()) {
+                    if (realIdx != std::numeric_limits<std::size_t>::max() && realIdx < parts.size()) {
                         return {parseSimpleField_internal<F>(parts[realIdx], output), 1};
                     } else {
                         return {false, 1};
                     }
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsCharArray) {
                     auto realIdx = idxDict[currentIdx];
-                    if (realIdx != std::numeric_limits<std::size_t>::max()) {
+                    if (realIdx != std::numeric_limits<std::size_t>::max() && realIdx < parts.size()) {
                         std::string unquoted;
                         if (parts[realIdx].length() > 0) {
                             if (parts[realIdx][0] == '"') {
@@ -663,7 +687,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     if constexpr (is_simple_csv_field_v<BT>) {
                         for (std::size_t ii=0; ii<ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength; ++ii) {
                             auto realIdx = idxDict[currentIdx+ii];
-                            if (realIdx != std::numeric_limits<std::size_t>::max()) {
+                            if (realIdx != std::numeric_limits<std::size_t>::max() && realIdx < parts.size()) {
                                 if (parseSimpleField_internal<BT>(parts[realIdx], (CsvSingleLayerWrapperHelper<F>::ref(output))[ii])) {
                                     someGood = true;
                                 }
@@ -686,7 +710,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     BT v;
                     if constexpr (is_simple_csv_field_v<BT>) {
                         auto realIdx = idxDict[currentIdx];
-                        if (realIdx != std::numeric_limits<std::size_t>::max()) {
+                        if (realIdx != std::numeric_limits<std::size_t>::max() && realIdx < parts.size()) {
                             if (parseSimpleField_internal<BT>(parts[realIdx], v)) {
                                 (CsvSingleLayerWrapperHelper<F>::ref(output)) = std::move(v);
                                 return {true, 1};
