@@ -1533,7 +1533,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
             source(r, r.actionAsSink(getFirstUpdate));
             r.exportItem(exporter, r.actionAsSource(getFirstUpdate));
-            r.finalize();
+            if constexpr (std::is_same_v<
+                typename R::AppType 
+                , infra::SinglePassIterationApp<TheEnvironment>
+            >) {
+                r.finalize();
+            } else {
+                auto step = r.finalizeForInterleaving();
+                while (!ret) {
+                    if (!step()) {
+                        break;
+                    }
+                }
+            }
 
             return std::move(ret);
         }
