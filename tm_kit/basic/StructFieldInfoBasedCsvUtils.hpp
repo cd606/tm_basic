@@ -874,12 +874,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             std::unordered_map<std::string, std::size_t> const &originalDict 
             , std::unordered_map<std::string, std::string> const &structFieldNameToFileColNameDict
         ) {
+            std::unordered_map<std::string, std::size_t> originalCopy = originalDict;
             std::unordered_map<std::string, std::size_t> ret;
             for (auto const &item : structFieldNameToFileColNameDict) {
                 auto iter = originalDict.find(item.second);
                 if (iter != originalDict.end()) {
                     ret[item.first] = iter->second;
+                    originalCopy.erase(iter->first);
                 }
+            }
+            for (auto const &item : originalCopy) {
+                ret[item.first] = item.second;
             }
             return ret;
         }
