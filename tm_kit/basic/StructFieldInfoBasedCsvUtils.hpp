@@ -532,6 +532,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
 #endif
                             >> std::quoted(unquoted);
+                        boost::erase_all(unquoted, ",");
                         std::istringstream iss(unquoted);
                         iss >> CsvSingleLayerWrapperHelper<ColType>::ref(x);
                     } else {
