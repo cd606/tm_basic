@@ -332,6 +332,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 std::string s;
                 i.get_to(s);
                 data = boost::lexical_cast<IntType>(s);
+            } else if (i.is_null()) {
+                data = (IntType) 0;
             } else {
                 i.get_to(data);
             }
@@ -346,6 +348,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 std::string s;
                 i.get_to(s);
                 data = boost::lexical_cast<bool>(s);
+            } else if (i.is_null()) {
+                data = false;
             } else {
                 i.get_to(data);
             }
@@ -361,6 +365,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 std::string s;
                 i.get_to(s);
                 t = boost::lexical_cast<std::underlying_type_t<T>>(s);
+            } else if (i.is_null()) {
+                t = static_cast<T>(std::underlying_type_t<T> (0));
             } else {
                 i.get_to(t);
             }
@@ -371,10 +377,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     class JsonDecoder<std::string, void> {
     public:
         static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::string &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
-            if (key) {
-                input.at(*key).get_to(data);
+            auto const &i = (key?input.at(*key):input);
+            if (i.is_null()) {
+                data = "";
             } else {
-                input.get_to(data);
+                i.get_to(data);
             }
         }
     };
@@ -384,10 +391,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::array<char,N> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             std::memset(data.data(), 0, N);
             std::string s;
-            if (key) {
-                input.at(*key).get_to(s);
+            auto const &i = (key?input.at(*key):input);
+            if (i.is_null()) {
+                s = "";
             } else {
-                input.get_to(s);
+                i.get_to(s);
             }
             std::memcpy(data.data(), s.data(), std::min(s.length(), N));
         }
@@ -397,10 +405,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     public:
         static void read(nlohmann::json const &input, std::optional<std::string> const &key, ByteData &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             std::vector<unsigned int> x;
-            if (key) {
-                input.at(*key).get_to(x);
+            auto const &i = (key?input.at(*key):input);
+            if (i.is_null()) {
+                x.clear();
             } else {
-                input.get_to(x);
+                i.get_to(x);
             }
             data.content.resize(x.size());
             for (std::size_t ii=0; ii<x.size(); ++ii) {
@@ -414,10 +423,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::array<unsigned char,N> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             std::memset(data, 0, N);
             std::vector<unsigned int> x;
-            if (key) {
-                input.at(*key).get_to(x);
+            auto const &i = (key?input.at(*key):input);
+            if (i.is_null()) {
+                x.clear();
             } else {
-                input.get_to(x);
+                i.get_to(x);
             }
             for (std::size_t ii=0; ii<x.size() && ii<N; ++ii) {
                 data[ii] = (char) x[ii];
