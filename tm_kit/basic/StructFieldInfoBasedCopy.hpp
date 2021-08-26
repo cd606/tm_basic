@@ -124,6 +124,102 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 dest.day = src.tm_mday;
             }
         };
+        template <class ComplexCopy>
+        class CopySimpleImpl<uint32_t,DateHolder,ComplexCopy> {
+        public:
+            static void copy(uint32_t &dest, DateHolder const &src) {
+                dest = ((uint32_t) src.year)*1900+((uint32_t) src.month)*100+((uint32_t) src.day);
+            }
+            static void move(uint32_t &dest, DateHolder &&src) {
+                dest = ((uint32_t) src.year)*1900+((uint32_t) src.month)*100+((uint32_t) src.day);
+            }
+        };
+        template <class ComplexCopy>
+        class CopySimpleImpl<DateHolder,uint32_t,ComplexCopy> {
+        public:
+            static void copy(DateHolder &dest, uint32_t src) {
+                dest.year = src/10000;
+                dest.month = (src%10000)/100;
+                dest.day = src%100;
+            }
+            static void move(DateHolder &dest, uint32_t &&src) {
+                dest.year = src/10000;
+                dest.month = (src%10000)/100;
+                dest.day = src%100;
+            }
+        };
+        template <class ComplexCopy>
+        class CopySimpleImpl<int32_t,DateHolder,ComplexCopy> {
+        public:
+            static void copy(int32_t &dest, DateHolder const &src) {
+                dest = ((int32_t) src.year)*1900+((int32_t) src.month)*100+((int32_t) src.day);
+            }
+            static void move(int32_t &dest, DateHolder &&src) {
+                dest = ((int32_t) src.year)*1900+((int32_t) src.month)*100+((int32_t) src.day);
+            }
+        };
+        template <class ComplexCopy>
+        class CopySimpleImpl<DateHolder,int32_t,ComplexCopy> {
+        public:
+            static void copy(DateHolder &dest, int32_t src) {
+                dest.year = src/10000;
+                dest.month = (src%10000)/100;
+                dest.day = src%100;
+            }
+            static void move(DateHolder &dest, int32_t &&src) {
+                dest.year = src/10000;
+                dest.month = (src%10000)/100;
+                dest.day = src%100;
+            }
+        };
+        template <class ComplexCopy>
+        class CopySimpleImpl<uint64_t,DateHolder,ComplexCopy> {
+        public:
+            static void copy(uint64_t &dest, DateHolder const &src) {
+                dest = ((uint64_t) src.year)*1900+((uint64_t) src.month)*100+((uint64_t) src.day);
+            }
+            static void move(uint64_t &dest, DateHolder &&src) {
+                dest = ((uint64_t) src.year)*1900+((uint64_t) src.month)*100+((uint64_t) src.day);
+            }
+        };
+        template <class ComplexCopy>
+        class CopySimpleImpl<DateHolder,uint64_t,ComplexCopy> {
+        public:
+            static void copy(DateHolder &dest, uint64_t src) {
+                dest.year = src/10000;
+                dest.month = (src%10000)/100;
+                dest.day = src%100;
+            }
+            static void move(DateHolder &dest, uint64_t &&src) {
+                dest.year = src/10000;
+                dest.month = (src%10000)/100;
+                dest.day = src%100;
+            }
+        };
+        template <class ComplexCopy>
+        class CopySimpleImpl<int64_t,DateHolder,ComplexCopy> {
+        public:
+            static void copy(int64_t &dest, DateHolder const &src) {
+                dest = ((int64_t) src.year)*1900+((int64_t) src.month)*100+((int64_t) src.day);
+            }
+            static void move(int64_t &dest, DateHolder &&src) {
+                dest = ((int64_t) src.year)*1900+((int64_t) src.month)*100+((int64_t) src.day);
+            }
+        };
+        template <class ComplexCopy>
+        class CopySimpleImpl<DateHolder,int64_t,ComplexCopy> {
+        public:
+            static void copy(DateHolder &dest, int64_t src) {
+                dest.year = src/10000;
+                dest.month = (src%10000)/100;
+                dest.day = src%100;
+            }
+            static void move(DateHolder &dest, int64_t &&src) {
+                dest.year = src/10000;
+                dest.month = (src%10000)/100;
+                dest.day = src%100;
+            }
+        };
         template <class T, std::size_t N, class U, std::size_t M, class ComplexCopy>
         class CopySimpleImpl<std::array<T,N>,std::array<U,M>,ComplexCopy> {
         public:
