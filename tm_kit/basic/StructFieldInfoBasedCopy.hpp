@@ -4,6 +4,7 @@
 #include <tm_kit/basic/StructFieldInfoUtils.hpp>
 #include <tm_kit/basic/StructFieldFlattenedInfo.hpp>
 #include <tm_kit/basic/SingleLayerWrapper.hpp>
+#include <tm_kit/basic/DateHolder.hpp>
 #include <chrono>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace struct_field_info_utils {
@@ -41,6 +42,86 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             }
             static void move(std::chrono::system_clock::time_point &dest, std::tm &&src) {
                 dest = std::chrono::system_clock::from_time_t(std::mktime(&src));
+            }
+        };
+        template <class ComplexCopy>
+        class CopySimpleImpl<DateHolder,std::chrono::system_clock::time_point,ComplexCopy> {
+        public:
+            static void copy(DateHolder &dest, std::chrono::system_clock::time_point const &src) {
+                auto t = std::chrono::system_clock::to_time_t(src);
+                auto tmVal = std::localtime(&t);
+                dest.year = tmVal->tm_year+1900;
+                dest.month = tmVal->tm_mon+1;
+                dest.day = tmVal->tm_mday;
+            }
+            static void move(DateHolder &dest, std::chrono::system_clock::time_point &&src) {
+                auto t = std::chrono::system_clock::to_time_t(src);
+                auto tmVal = std::localtime(&t);
+                dest.year = tmVal->tm_year+1900;
+                dest.month = tmVal->tm_mon+1;
+                dest.day = tmVal->tm_mday;
+            }
+        };
+        template <class ComplexCopy>
+        class CopySimpleImpl<std::chrono::system_clock::time_point,DateHolder,ComplexCopy> {
+        public:
+            static void copy(std::chrono::system_clock::time_point &dest, DateHolder const &src) {
+                std::tm t;
+                t.tm_year = (src.year==0?0:(src.year-1900));
+                t.tm_mon = (src.month==0?0:(src.month-1));
+                t.tm_mday = (src.day==0?1:src.day);
+                t.tm_hour = 0;
+                t.tm_min = 0;
+                t.tm_sec = 0;
+                t.tm_isdst = -1;
+                dest = std::chrono::system_clock::from_time_t(std::mktime(&t));
+            }
+            static void move(std::chrono::system_clock::time_point &dest, DateHolder &&src) {
+                std::tm t;
+                t.tm_year = (src.year==0?0:(src.year-1900));
+                t.tm_mon = (src.month==0?0:(src.month-1));
+                t.tm_mday = (src.day==0?1:src.day);
+                t.tm_hour = 0;
+                t.tm_min = 0;
+                t.tm_sec = 0;
+                t.tm_isdst = -1;
+                dest = std::chrono::system_clock::from_time_t(std::mktime(&t));
+            }
+        };
+        template <class ComplexCopy>
+        class CopySimpleImpl<std::tm,DateHolder,ComplexCopy> {
+        public:
+            static void copy(std::tm &dest, DateHolder const &src) {
+                dest.tm_year = (src.year==0?0:(src.year-1900));
+                dest.tm_mon = (src.month==0?0:(src.month-1));
+                dest.tm_mday = (src.day==0?1:src.day);
+                dest.tm_hour = 0;
+                dest.tm_min = 0;
+                dest.tm_sec = 0;
+                dest.tm_isdst = -1;
+            }
+            static void move(std::tm &dest, DateHolder &&src) {
+                dest.tm_year = (src.year==0?0:(src.year-1900));
+                dest.tm_mon = (src.month==0?0:(src.month-1));
+                dest.tm_mday = (src.day==0?1:src.day);
+                dest.tm_hour = 0;
+                dest.tm_min = 0;
+                dest.tm_sec = 0;
+                dest.tm_isdst = -1;
+            }
+        };
+        template <class ComplexCopy>
+        class CopySimpleImpl<DateHolder,std::tm,ComplexCopy> {
+        public:
+            static void copy(DateHolder &dest, std::tm const &src) {
+                dest.year = src.tm_year+1900;
+                dest.month = src.tm_mon+1;
+                dest.day = src.tm_mday;
+            }
+            static void move(DateHolder &dest, std::tm &&src) {
+                dest.year = src.tm_year+1900;
+                dest.month = src.tm_mon+1;
+                dest.day = src.tm_mday;
             }
         };
         template <class T, std::size_t N, class U, std::size_t M, class ComplexCopy>

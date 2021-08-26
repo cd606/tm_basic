@@ -153,6 +153,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <>
+    class JsonEncoder<DateHolder, void> {
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, DateHolder const &data) {
+            std::ostringstream oss;
+            oss << data;
+            if (key) {
+                output[*key] = oss.str();
+            } else {
+                output = oss.str();
+            }
+        }
+    };
+    template <>
     class JsonEncoder<std::chrono::system_clock::time_point, void> {
     public:
         static void write(nlohmann::json &output, std::optional<std::string> const &key, std::chrono::system_clock::time_point const &data) {
@@ -424,6 +437,31 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             std::stringstream ss(s);
             ss >> std::get_time(&data
                 , ((s.length()==8)?"%Y%m%d":((s.length()==10)?"%Y-%m-%d":"%Y-%m-%dT%H:%M:%S")));
+        }
+    };
+    template <>
+    class JsonDecoder<DateHolder, void> {
+    public:
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, DateHolder &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            std::string s;
+            if (key) {
+                input.at(*key).get_to(s);
+            } else {
+                input.get_to(s);
+            }
+            if (s.length() == 8) {
+                data.year = (uint16_t) std::stoi(s.substr(0,4));
+                data.month = (uint8_t) std::stoi(s.substr(4,2));
+                data.day = (uint8_t) std::stoi(s.substr(6,2));
+            } else if (s.length() >= 10) {
+                data.year = (uint16_t) std::stoi(s.substr(0,4));
+                data.month = (uint8_t) std::stoi(s.substr(5,2));
+                data.day = (uint8_t) std::stoi(s.substr(8,2));
+            } else {
+                data.year = 0;
+                data.month = 0;
+                data.day = 0;
+            }
         }
     };
     template <>

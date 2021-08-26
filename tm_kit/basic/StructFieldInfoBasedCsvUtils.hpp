@@ -2,6 +2,7 @@
 #define TM_KIT_BASIC_STRUCT_FIELD_INFO_BASED_CSV_UTILS_HPP_
 
 #include <tm_kit/basic/StructFieldInfoUtils.hpp>
+#include <tm_kit/basic/DateHolder.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/iostreams/device/array.hpp>
@@ -66,6 +67,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         constexpr bool is_simple_csv_field_v = 
             std::is_arithmetic_v<F>
             || std::is_same_v<F, std::tm>
+            || std::is_same_v<F, DateHolder>
             || std::is_same_v<F, std::chrono::system_clock::time_point>
             || std::is_same_v<F, std::string>
             || std::is_empty_v<F>
@@ -328,6 +330,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     os << std::quoted(CsvSingleLayerWrapperHelper<ColType>::constRef(x));
                 } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::tm>) {
                     os << std::put_time(&CsvSingleLayerWrapperHelper<ColType>::constRef(x), "%Y-%m-%dT%H:%M:%S");
+                } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,DateHolder>) {
+                    os << CsvSingleLayerWrapperHelper<ColType>::constRef(x);
                 } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::chrono::system_clock::time_point>) {
                     os << infra::withtime_utils::localTimeString(CsvSingleLayerWrapperHelper<ColType>::constRef(x));
                 } else if constexpr (std::is_empty_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>) {
@@ -512,13 +516,68 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         CsvSingleLayerWrapperHelper<ColType>::ref(x) = "";
                     }
                 } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::tm>) {
+                    if (s[0] == '"') {
+                        std::string unquoted;
 #ifdef _MSC_VER
-                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
 #else
-                    boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
 #endif
-                        >> std::get_time(&CsvSingleLayerWrapperHelper<ColType>::ref(x)
-                            , ((s.length()==8)?"%Y%m%d":((s.length()==10)?"%Y-%m-%d":"%Y-%m-%dT%H:%M:%S")));
+                            >> std::quoted(unquoted);
+                        boost::erase_all(unquoted, ",");
+                        std::istringstream(unquoted)
+                            >> std::get_time(&CsvSingleLayerWrapperHelper<ColType>::ref(x)
+                                , ((s.length()==8)?"%Y%m%d":((s.length()==10)?"%Y-%m-%d":"%Y-%m-%dT%H:%M:%S")));
+                    } else {
+#ifdef _MSC_VER
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
+#else
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
+#endif
+                            >> std::get_time(&CsvSingleLayerWrapperHelper<ColType>::ref(x)
+                                , ((s.length()==8)?"%Y%m%d":((s.length()==10)?"%Y-%m-%d":"%Y-%m-%dT%H:%M:%S")));
+                    }
+                } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,DateHolder>) {
+                    if (s[0] == '"') {
+                        std::string unquoted;
+#ifdef _MSC_VER
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
+#else
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
+#endif
+                            >> std::quoted(unquoted);
+                        boost::erase_all(unquoted, ",");
+                        auto &x1 = CsvSingleLayerWrapperHelper<ColType>::ref(x);
+                        if (unquoted.length() == 8) {
+                            x1.year = (uint16_t) std::stoi(unquoted.substr(0,4));
+                            x1.month = (uint8_t) std::stoi(unquoted.substr(4,2));
+                            x1.day = (uint8_t) std::stoi(unquoted.substr(6,2));
+                        } else if (unquoted.length() >= 10) {
+                            x1.year = (uint16_t) std::stoi(unquoted.substr(0,4));
+                            x1.month = (uint8_t) std::stoi(unquoted.substr(5,2));
+                            x1.day = (uint8_t) std::stoi(unquoted.substr(8,2));
+                        } else {
+                            x1.year = 0;
+                            x1.month = 0;
+                            x1.day = 0;
+                        }
+                    } else {
+                        std::string unquoted = std::string(s);
+                        auto &x1 = CsvSingleLayerWrapperHelper<ColType>::ref(x);
+                        if (unquoted.length() == 8) {
+                            x1.year = (uint16_t) std::stoi(unquoted.substr(0,4));
+                            x1.month = (uint8_t) std::stoi(unquoted.substr(4,2));
+                            x1.day = (uint8_t) std::stoi(unquoted.substr(6,2));
+                        } else if (unquoted.length() >= 10) {
+                            x1.year = (uint16_t) std::stoi(unquoted.substr(0,4));
+                            x1.month = (uint8_t) std::stoi(unquoted.substr(5,2));
+                            x1.day = (uint8_t) std::stoi(unquoted.substr(8,2));
+                        } else {
+                            x1.year = 0;
+                            x1.month = 0;
+                            x1.day = 0;
+                        }
+                    }
                 } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::chrono::system_clock::time_point>) {
                     CsvSingleLayerWrapperHelper<ColType>::ref(x) = infra::withtime_utils::parseLocalTime(s);
                 } else if constexpr (std::is_empty_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>) {

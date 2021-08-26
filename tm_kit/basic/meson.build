@@ -34,6 +34,7 @@ tm_basic_headers = [
     , 'StructFieldInfoBasedCopy.hpp'
     , 'ProtoInterop.hpp'
     , 'NlohmannJsonInterop.hpp'
+    , 'DateHolder.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')

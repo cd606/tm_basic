@@ -22,6 +22,7 @@
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <tm_kit/basic/SingleLayerWrapper.hpp>
 #include <tm_kit/basic/ConstType.hpp>
+#include <tm_kit/basic/DateHolder.hpp>
 #include <tm_kit/infra/WithTimeData.hpp>
 #include <tm_kit/infra/ChronoUtils.hpp>
 #include <boost/endian/conversion.hpp>
@@ -2783,6 +2784,66 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     t
                     , data, start
                     , {"sec", "min", "hour", "mday", "mon", "year", "wday", "yday", "isdst"}
+                );
+            }
+        };
+        template <>
+        struct RunCBORSerializer<DateHolder> {
+            using TupleType = std::tuple<uint16_t,uint8_t,uint8_t>;
+            static std::string apply(DateHolder const &data) {
+                std::string s;
+                s.resize(calculateSize(data)); 
+                apply(data, const_cast<char *>(s.data()));
+                return s;
+            }
+            static std::size_t apply(DateHolder const &data, char *output) {
+                TupleType t {
+                    data.year, data.month, data.day
+                };
+                return RunCBORSerializerWithNameList<TupleType, 3>::apply(
+                    t
+                    , {"year","month","day"}
+                    , output
+                );
+            }
+            static std::size_t calculateSize(DateHolder const &data) {
+                TupleType t {
+                    data.year, data.month, data.day
+                };
+                return RunCBORSerializerWithNameList<TupleType, 3>::calculateSize(
+                    t
+                    , {"year", "month", "day"}
+                );
+            }
+        };
+        template <>
+        struct RunCBORDeserializer<DateHolder, void> {
+            static std::optional<std::tuple<DateHolder,size_t>> apply(std::string_view const &data, size_t start) {
+                using TupleType = std::tuple<uint16_t,uint8_t,uint8_t>;
+
+                auto x = RunCBORDeserializerWithNameList<TupleType, 3>::apply(
+                    data, start
+                    , {"year", "month", "day"}
+                );
+                if (!x) {
+                    return std::nullopt;
+                }
+                DateHolder d;
+                auto const &y = std::get<0>(*x);
+                d.year = std::get<0>(y);
+                d.month = std::get<1>(y);
+                d.day = std::get<2>(y);
+                return std::tuple<DateHolder,size_t> {std::move(d), std::get<1>(*x)};
+            }
+            static std::optional<size_t> applyInPlace(DateHolder &output, std::string_view const &data, size_t start) {
+                using TupleType = std::tuple<uint16_t *, uint8_t *, uint8_t *>;
+                TupleType t {
+                    &(output.year), &(output.month), &(output.day)
+                };
+                return RunCBORDeserializerWithNameList<TupleType, 3>::applyInPlace(
+                    t
+                    , data, start
+                    , {"year", "month", "day"}
                 );
             }
         };
