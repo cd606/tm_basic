@@ -26,7 +26,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         template <class R, int FieldCount, int FieldIndex>
         static void fillData_internal(T &data, R const &source, int startSourceIndex) {
             if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
-                if constexpr (std::is_same_v<std::decay_t<T>, DateHolder>) {
+                if constexpr (std::is_same_v<typename StructFieldTypeInfo<T,FieldIndex>::TheType, DateHolder>) {
                     auto tm = source.template get<std::tm>(FieldIndex+startSourceIndex);
                     auto &x = data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer());
                     x.year = tm.tm_year+1900;
