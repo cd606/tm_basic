@@ -40,6 +40,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
         return (d1.day < d2.day);
     }
+
+    inline bool operator>(DateHolder const &d1, DateHolder const &d2) {
+        return (d2 < d1);
+    }
+    inline bool operator<=(DateHolder const &d1, DateHolder const &d2) {
+        return !(d2 < d1);
+    }
+    inline bool operator>=(DateHolder const &d1, DateHolder const &d2) {
+        return !(d1 < d2);
+    }
+    inline bool operator!=(DateHolder const &d1, DateHolder const &d2) {
+        return !(d1 == d2);
+    }
 } } } }
 
 namespace std {
