@@ -699,6 +699,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             return *this;
         }
 
+        void toNlohmannJson(nlohmann::json &output) const {
+            JsonEncoder<T>::write(output, std::nullopt, t_);
+        }
         void SerializeToStream(std::ostream &os) const {
             nlohmann::json output;
             JsonEncoder<T>::write(output, std::nullopt, t_);
@@ -726,6 +729,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         bool ParseFromStream(std::istream &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             nlohmann::json x;
             s >> x;
+            JsonDecoder<T>::read(x, std::nullopt, t_, mapping);
+            return true;
+        }
+        bool fromNlohmannJson(nlohmann::json const &x, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             JsonDecoder<T>::read(x, std::nullopt, t_, mapping);
             return true;
         }
@@ -777,6 +784,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         Json &operator=(Json &&p) = default;
         ~Json() = default;
 
+        void toNlohmannJson(nlohmann::json &output) const {
+            if (t_) {
+                JsonEncoder<T>::write(output, std::nullopt, *t_);
+            }
+        }
         void SerializeToStream(std::ostream &os) const {
             if (t_) {
                 nlohmann::json output;
@@ -819,6 +831,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 return false;
             }
         }
+        bool fromNlohmannJson(nlohmann::json const &x, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            if (t_) {
+                JsonDecoder<T>::read(x, std::nullopt, *t_, mapping);
+                return true;
+            } else {
+                return false;
+            }
+        }
+        
         T const &value() const {
             return *t_;
         }
