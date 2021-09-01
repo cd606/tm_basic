@@ -862,4 +862,34 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
 
 } } } } }
 
+namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils {
+    template <>
+    struct RunCBORSerializer<nlohmann::json, void> {
+        static std::string apply(nlohmann::json const &data) {
+            std::vector<uint8_t> v = nlohmann::json::to_cbor(data);
+            return std::string {reinterpret_cast<char *>(v.data()), v.size()};
+        }
+        static std::size_t apply(nlohmann::json const &data, char *output) {
+            std::vector<uint8_t> v = nlohmann::json::to_cbor(data);
+            std::memcpy(output, v.data(), v.size());
+            return v.size();
+        }
+        static std::size_t calculateSize(nlohmann::json const &data) {
+            return nlohmann::json::to_cbor(data).size();
+        }
+    };
+    template <>
+    struct RunCBORDeserializer<nlohmann::json, void> {
+        static std::optional<std::tuple<nlohmann::json, size_t>> apply(std::string_view const &data, size_t start) {
+            return std::tuple<nlohmann::json,size_t> {
+                nlohmann::json::from_cbor(data.data()+start, data.length()-start), data.length()-start
+            };
+        }
+        static std::optional<size_t> applyInPlace(nlohmann::json &output, std::string_view const &data, size_t start) {
+            output = nlohmann::json::from_cbor(data.data()+start, data.length()-start);
+            return (size_t) (data.length()-start);
+        }
+    };
+} } } } }
+
 #endif
