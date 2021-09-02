@@ -764,6 +764,26 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             return {item};
         }
     };
+    template <class ChainDataType, class TimeExtractor>
+    class TrivialChainDataFetchingFolderWithTime : public FolderUsingPartialHistoryInformation {
+    private:
+        TimeExtractor timeExtractor_;
+    public:
+        using ResultType = std::optional<ChainDataType>;
+        TrivialChainDataFetchingFolderWithTime(TimeExtractor &&timeExtractor) 
+            : timeExtractor_(std::move(timeExtractor)) {}
+        TrivialChainDataFetchingFolderWithTime(TrivialChainDataFetchingFolderWithTime &&) = default;
+        TrivialChainDataFetchingFolderWithTime &operator=(TrivialChainDataFetchingFolderWithTime &&) = default;
+        static ResultType initialize(void *, void *) {
+            return std::nullopt;
+        }
+        static ResultType fold(ResultType const &, std::string_view const &, ChainDataType const &item) {
+            return {item};
+        }
+        auto extractTime(ResultType const &r) {
+            return timeExtractor_(r);
+        }
+    };
     class EmptyStateChainFolder {
     public:
         using ResultType = VoidStruct;
