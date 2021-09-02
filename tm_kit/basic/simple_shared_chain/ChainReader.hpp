@@ -764,23 +764,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             return {item};
         }
     };
-    template <class ChainDataType, class TimeExtractor>
+    template <class ChainDataType, class Env>
     class TrivialChainDataFetchingFolderWithTime : public FolderUsingPartialHistoryInformation {
     private:
-        TimeExtractor timeExtractor_;
+        std::function<typename Env::TimePointType(std::optional<ChainDataType> const &)> timeExtractor_;
     public:
         using ResultType = std::optional<ChainDataType>;
-        TrivialChainDataFetchingFolderWithTime(TimeExtractor &&timeExtractor) 
-            : timeExtractor_(std::move(timeExtractor)) {}
-        TrivialChainDataFetchingFolderWithTime(TrivialChainDataFetchingFolderWithTime &&) = default;
-        TrivialChainDataFetchingFolderWithTime &operator=(TrivialChainDataFetchingFolderWithTime &&) = default;
+        TrivialChainDataFetchingFolderWithTime(std::function<typename Env::TimePointType(std::optional<ChainDataType> const &)> const &timeExtractor) 
+            : timeExtractor_(timeExtractor) {}
         static ResultType initialize(void *, void *) {
             return std::nullopt;
         }
         static ResultType fold(ResultType const &, std::string_view const &, ChainDataType const &item) {
             return {item};
         }
-        auto extractTime(ResultType const &r) {
+        typename Env::TimePointType extractTime(ResultType const &r) {
             return timeExtractor_(r);
         }
     };
