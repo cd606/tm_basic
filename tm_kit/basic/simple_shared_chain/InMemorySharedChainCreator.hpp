@@ -6,6 +6,7 @@
 #include <tm_kit/basic/simple_shared_chain/OneShotChainWriter.hpp>
 #include <tm_kit/basic/simple_shared_chain/InMemoryWithLockChain.hpp>
 #include <tm_kit/basic/simple_shared_chain/InMemoryLockFreeChain.hpp>
+#include <tm_kit/basic/simple_shared_chain/EmptyChain.hpp>
 
 #include <unordered_map>
 #include <mutex>
@@ -20,13 +21,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         std::mutex mutex_;
         std::unordered_map<std::string, std::tuple<void *, std::function<void(void *)>>> chains_;
 
+    public:
+        enum class ChainType {
+            LockFree, HasLock, Empty
+        };
+    private:
         inline auto parseDescriptor(std::string const &s)
-            -> std::tuple<bool, std::string>
+            -> std::tuple<ChainType, std::string>
         {
-            if (boost::starts_with(s, "lock_free://") || boost::starts_with(s, "in_memory_lock_free://")) {
-                return {true, s};
+            if (boost::starts_with(s, "empty://")) {
+                return {ChainType::Empty, s};
+            } else if (boost::starts_with(s, "lock_free://") || boost::starts_with(s, "in_memory_lock_free://")) {
+                return {ChainType::LockFree, s};
             } else {
-                return {false, s};
+                return {ChainType::HasLock, s};
             }
         }
 
@@ -179,7 +187,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         template <class ChainData, class ChainItemFolder, class TriggerT=void, class ResultTransformer=void>
         auto reader(
             typename App::EnvironmentType *env
-            , bool lockFree
+            , ChainType chainType
             , std::string const &name
             , simple_shared_chain::ChainPollingPolicy const &pollingPolicy = simple_shared_chain::ChainPollingPolicy()
             , ChainItemFolder &&folder = ChainItemFolder {}
@@ -187,7 +195,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         )
             -> ImporterOrAction<ChainItemFolder, TriggerT, ResultTransformer>
         {
-            if (lockFree) {
+            if (chainType == ChainType::Empty) {
+                return chainReaderHelper<ChainItemFolder,TriggerT,ResultTransformer>(
+                    env
+                    , getChain<simple_shared_chain::EmptyChain<ChainData>>(
+                        name
+                        , []() {
+                            return new basic::simple_shared_chain::EmptyChain<ChainData>();
+                        }
+                    )
+                    , pollingPolicy
+                    , std::move(folder)
+                    , std::move(resultTransformer)
+                );
+            } else if (chainType == ChainType::LockFree) {
                 return chainReaderHelper<ChainItemFolder,TriggerT,ResultTransformer>(
                     env
                     , getChain<simple_shared_chain::InMemoryLockFreeChain<ChainData>>(
@@ -235,7 +256,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         template <class ChainData, class ChainItemFolder, class InputHandler, class IdleLogic=void>
         auto writer(
             typename App::EnvironmentType *env
-            , bool lockFree
+            , ChainType chainType
             , std::string const &name
             , simple_shared_chain::ChainPollingPolicy const &pollingPolicy = simple_shared_chain::ChainPollingPolicy()
             , ChainItemFolder &&folder = ChainItemFolder {}
@@ -256,7 +277,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 , std::shared_ptr<typename App::template OnOrderFacilityWithExternalEffects<typename InputHandler::InputType, typename InputHandler::ResponseType, typename basic::simple_shared_chain::OffChainUpdateTypeExtractor<IdleLogic>::T>> 
             >
         {
-            if (lockFree) {
+            if (chainType == ChainType::Empty) {
+                return chainWriterHelper<ChainItemFolder,InputHandler,IdleLogic>(
+                    getChain<simple_shared_chain::EmptyChain<ChainData>>(
+                        name
+                        , []() {
+                            return new basic::simple_shared_chain::EmptyChain<ChainData>();
+                        }
+                    )
+                    , pollingPolicy
+                    , std::move(folder)
+                    , std::move(inputHandler)
+                    , std::move(idleLogic)
+                );
+            } else if (chainType == ChainType::LockFree) {
                 return chainWriterHelper<ChainItemFolder,InputHandler,IdleLogic>(
                     getChain<simple_shared_chain::InMemoryLockFreeChain<ChainData>>(
                         name
@@ -397,7 +431,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         template <class ChainData, class ExtraData>
         void writeExtraData(typename App::EnvironmentType *env, std::string const &descriptor, std::string const &key, ExtraData const &extraData) {
             auto parsed = parseDescriptor(descriptor);
-            if (std::get<0>(parsed)) {
+            if (std::get<0>(parsed) == ChainType::Empty) {
+            } else if (std::get<0>(parsed) == ChainType::LockFree) {
                 writeExtraDataHelper<ExtraData>(
                     getChain<simple_shared_chain::InMemoryLockFreeChain<ChainData>>(
                         std::get<1>(parsed)
@@ -424,7 +459,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         template <class ChainData, class ExtraData>
         std::optional<ExtraData> readExtraData(typename App::EnvironmentType *, std::string const &descriptor, std::string const &key) {
             auto parsed = parseDescriptor(descriptor);
-            if (std::get<0>(parsed)) {
+            if (std::get<0>(parsed) == ChainType::Empty) {
+                return std::nullopt;
+            } else if (std::get<0>(parsed) == ChainType::LockFree) {
                 return readExtraDataHelper<ExtraData>(
                     getChain<simple_shared_chain::InMemoryLockFreeChain<ChainData>>(
                         std::get<1>(parsed)
