@@ -150,6 +150,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     os_->flush();
                 }
                 void idleWork() {}
+                void waitForStart() {}
             };
             if (separateThread) {
                 return infra::RealTimeApp<Env>::template exporter(new LocalEThreaded(os, fileMagic, recordMagic));

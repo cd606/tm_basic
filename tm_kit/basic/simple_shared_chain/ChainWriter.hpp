@@ -296,6 +296,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 }
             }
         }
+        void waitForStart() {
+            while (true) {
+                std::unique_lock<std::mutex> lock(startWaiterStruct_->mutex_);
+                startWaiterStruct_->cond_.wait_for(lock, std::chrono::milliseconds(1));
+                if (startWaiterStruct_->started_) {
+                    lock.unlock();
+                    break;
+                } else {
+                    lock.unlock();
+                }
+            }
+        }
         friend class InnerHandler1;
         class InnerHandler1 : public infra::RealTimeAppComponents<Env>::template ThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>, InnerHandler1> {
         private:
@@ -306,6 +318,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             virtual ~InnerHandler1() {}
             void idleWork() {
                 parent_->idleWork();
+            }
+            void waitForStart() {
+                parent_->waitForStart();
             }
             void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) {
                 parent_->actuallyHandle(std::move(data));
@@ -321,6 +336,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             virtual ~InnerHandler2() {}
             void idleWork() {
                 parent_->idleWork();
+            }
+            void waitForStart() {
+                parent_->waitForStart();
             }
             void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) {
                 parent_->actuallyHandle(std::move(data));
@@ -341,6 +359,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , basic::VoidStruct
             , IdleLogic
         > idleLogic_; 
+
+        struct StartWaiterStruct {
+            std::mutex mutex_;
+            std::condition_variable cond_;
+            bool started_ = false;
+        };
+        std::unique_ptr<StartWaiterStruct> startWaiterStruct_;
 
         using ParentInterface = std::conditional_t<
             std::is_same_v<IdleLogic, void>
@@ -369,6 +394,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , currentState_() 
             , env_(nullptr)
             , idleLogic_(std::move(idleLogic))
+            , startWaiterStruct_(std::make_unique<StartWaiterStruct>())
         {}
         virtual ~ChainWriter() {
             if (innerHandler1_) {
@@ -434,6 +460,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         }
                     }
                 }
+            }
+            {
+                std::lock_guard<std::mutex> _(startWaiterStruct_->mutex_);
+                startWaiterStruct_->started_ = true;
+                startWaiterStruct_->cond_.notify_one();
             }
         }
         virtual void handle(typename infra::RealTimeApp<Env>::template InnerData<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>> &&data) override final {

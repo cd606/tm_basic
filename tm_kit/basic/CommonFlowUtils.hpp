@@ -2214,6 +2214,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     }
                     virtual void setIdleWorker(std::function<void(void *)> worker) override final {
                     }
+                    virtual void setStartWaiter(std::function<void()> waiter) override final {
+                    }
                 };
                 return M::template fromAbstractAction<Input,Output>(new LocalAction(std::move(stateUpdater), std::move(outputProducer), std::move(stateResetter), std::move(state)));
             } else {
