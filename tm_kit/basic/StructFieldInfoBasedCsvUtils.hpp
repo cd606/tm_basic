@@ -904,6 +904,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             }
         }
     public:
+        static std::optional<std::vector<std::string_view>> rawReadOneLine(std::istream &is, char delim=',') {
+            auto s = readOneLine(is);
+            if (!s) {
+                return std::nullopt;
+            }
+            std::vector<std::string_view> parts;
+            split(*s, parts, delim);
+            return {std::move(parts)};
+        }
         static std::unordered_map<std::string, std::size_t> readHeader(std::istream &is, char delim=',') {
             auto s = readOneLine(is);
             if (!s) {
