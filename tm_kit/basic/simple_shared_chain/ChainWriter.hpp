@@ -8,6 +8,7 @@
 #include <tm_kit/infra/TraceNodesComponent.hpp>
 #include <tm_kit/basic/simple_shared_chain/FolderUsingPartialHistoryInformation.hpp>
 #include <tm_kit/basic/simple_shared_chain/ChainPollingPolicy.hpp>
+#include <tm_kit/basic/VoidStruct.hpp>
 #include <chrono>
 #include <thread>
 #include <mutex>
