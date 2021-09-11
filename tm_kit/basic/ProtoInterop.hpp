@@ -1360,7 +1360,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                     remaining -= *res;
                 }
                 return input.length()-start;
-            } else if (wt == internal::ProtoWireType::VarInt) {
+            } else if (wt == internal::ProtoWireType::VarInt || wt == internal::ProtoWireType::Fixed32 || wt == internal::ProtoWireType::Fixed64) {
                 T x;
                 ProtoDecoder<T> subDec(&x);
                 auto res = subDec.handle(wt, input, start);
@@ -1450,7 +1450,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                     remaining -= *res;
                 }
                 return input.length()-start;
-            } else if (wt == internal::ProtoWireType::VarInt) {
+            } else if (wt == internal::ProtoWireType::VarInt || wt == internal::ProtoWireType::Fixed32 || wt == internal::ProtoWireType::Fixed64) {
                 T x;
                 ProtoDecoder<T> subDec(&x);
                 auto res = subDec.handle(wt, input, start);
@@ -1545,7 +1545,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                     remaining -= *res;
                 }
                 return (input.length()-start);
-            } else if (wt == internal::ProtoWireType::VarInt) {
+            } else if (wt == internal::ProtoWireType::VarInt || wt == internal::ProtoWireType::Fixed32 || wt == internal::ProtoWireType::Fixed64) {
                 T x;
                 ProtoDecoder<T> subDec(&x);
                 auto res = subDec.handle(wt, input, start);
@@ -1626,7 +1626,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 }
                 output = std::valarray<T>(vec.data(), vec.size());
                 return res;
-            } else if (wt == internal::ProtoWireType::VarInt) {
+            } else if (wt == internal::ProtoWireType::VarInt || wt == internal::ProtoWireType::Fixed32 || wt == internal::ProtoWireType::Fixed64) {
                 T x;
                 ProtoDecoder<T> subDec(&x);
                 auto res = subDec.handle(wt, input, start);
