@@ -2459,6 +2459,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
 
         template <class T>
+        struct ProtobufStyleSerializableChecker {
+            static constexpr bool IsProtobufStyleSerializable() {
+                const auto checker1 = boost::hana::is_valid(
+                    [](auto *t) -> decltype((void) (t->SerializeToString((std::string *) nullptr))) {}
+                );
+                const auto checker2 = boost::hana::is_valid(
+                    [](auto *t) -> decltype((void) (t->ParseFromString(*((std::string const *) nullptr)))) {}
+                );
+                if constexpr (checker1((T *) nullptr)) {
+                    if constexpr (checker2((T *) nullptr)) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+        };
+
+        template <class T>
         struct DirectlySerializableChecker {
             static constexpr bool IsDirectlySerializable() {
                 const auto checker1 = boost::hana::is_valid(
