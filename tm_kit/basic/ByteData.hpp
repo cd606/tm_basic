@@ -878,6 +878,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return RunCBORSerializer<int32_t>::calculateSize(0);
             }
         };
+        template <>
+        struct RunCBORSerializer<std::monostate, void> {
+            static std::string apply(std::monostate const &data) {
+                return RunCBORSerializer<int32_t>::apply(0);
+            }
+            static std::size_t apply(std::monostate const &data, char *output) {
+                return RunCBORSerializer<int32_t>::apply(0, output);
+            }
+            static constexpr std::size_t calculateSize(std::monostate const &data) {
+                return RunCBORSerializer<int32_t>::calculateSize(0);
+            }
+        };
         template <class T>
         struct RunCBORSerializer<SingleLayerWrapper<T>, void> {
             static std::string apply(SingleLayerWrapper<T> const &data) {
@@ -2382,6 +2394,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return std::tuple<VoidStruct, size_t> {VoidStruct {}, std::get<1>(*r)};
             }
             static std::optional<size_t> applyInPlace(VoidStruct &output, std::string_view const &data, size_t start) {
+                auto r = RunCBORDeserializer<int32_t>::apply(data, start);
+                if (!r) {
+                    return std::nullopt;
+                }
+                if (std::get<0>(*r) != 0) {
+                    return std::nullopt;
+                }
+                return std::get<1>(*r);
+            }
+        };
+        template <>
+        struct RunCBORDeserializer<std::monostate, void> {
+            static std::optional<std::tuple<std::monostate, size_t>> apply(std::string_view const &data, size_t start) {
+                auto r = RunCBORDeserializer<int32_t>::apply(data, start);
+                if (!r) {
+                    return std::nullopt;
+                }
+                if (std::get<0>(*r) != 0) {
+                    return std::nullopt;
+                }
+                return std::tuple<std::monostate, size_t> {std::monostate {}, std::get<1>(*r)};
+            }
+            static std::optional<size_t> applyInPlace(std::monostate &output, std::string_view const &data, size_t start) {
                 auto r = RunCBORDeserializer<int32_t>::apply(data, start);
                 if (!r) {
                     return std::nullopt;

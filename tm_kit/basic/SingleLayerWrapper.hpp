@@ -8,6 +8,38 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     struct SingleLayerWrapper {
         using value_type = T;
         T value;
+        SingleLayerWrapper() = default;
+        SingleLayerWrapper(SingleLayerWrapper const &) = default;
+        SingleLayerWrapper &operator=(SingleLayerWrapper const &) = default;
+        SingleLayerWrapper(SingleLayerWrapper &&) = default;
+        SingleLayerWrapper &operator=(SingleLayerWrapper &&) = default;
+        ~SingleLayerWrapper() = default;
+
+        SingleLayerWrapper(T const &t) : value(t) {}
+        SingleLayerWrapper(T &&t) : value(std::move(t)) {}
+        SingleLayerWrapper &operator=(T const &t) {
+            value = t;
+            return *this;
+        }
+        SingleLayerWrapper &operator=(T &&t) {
+            value = std::move(t);
+            return *this;
+        }
+        operator T() const {
+            return value;
+        }
+        T &operator*() {
+            return value;
+        }
+        T const &operator*() const {
+            return value;
+        }
+        T *operator->() {
+            return &value;
+        }
+        T const *operator->() const {
+            return &value;
+        }
     };
     template <class T>
     inline bool operator==(SingleLayerWrapper<T> const &a, SingleLayerWrapper<T> const &b) {
@@ -17,6 +49,38 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     struct SingleLayerWrapperWithID {
         using value_type = T;
         T value;
+        SingleLayerWrapperWithID() = default;
+        SingleLayerWrapperWithID(SingleLayerWrapperWithID const &) = default;
+        SingleLayerWrapperWithID &operator=(SingleLayerWrapperWithID const &) = default;
+        SingleLayerWrapperWithID(SingleLayerWrapperWithID &&) = default;
+        SingleLayerWrapperWithID &operator=(SingleLayerWrapperWithID &&) = default;
+        ~SingleLayerWrapperWithID() = default;
+
+        SingleLayerWrapperWithID(T const &t) : value(t) {}
+        SingleLayerWrapperWithID(T &&t) : value(std::move(t)) {}
+        SingleLayerWrapperWithID &operator=(T const &t) {
+            value = t;
+            return *this;
+        }
+        SingleLayerWrapperWithID &operator=(T &&t) {
+            value = std::move(t);
+            return *this;
+        }
+        operator T() const {
+            return value;
+        }
+        T &operator*() {
+            return value;
+        }
+        T const &operator*() const {
+            return value;
+        }
+        T *operator->() {
+            return &value;
+        }
+        T const *operator->() const {
+            return &value;
+        }
     };
     template <int32_t N, class T>
     inline bool operator==(SingleLayerWrapperWithID<N, T> const &a, SingleLayerWrapperWithID<N, T> const &b) {
@@ -26,6 +90,38 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     struct SingleLayerWrapperWithTypeMark {
         using value_type = T;
         T value;
+        SingleLayerWrapperWithTypeMark() = default;
+        SingleLayerWrapperWithTypeMark(SingleLayerWrapperWithTypeMark const &) = default;
+        SingleLayerWrapperWithTypeMark &operator=(SingleLayerWrapperWithTypeMark const &) = default;
+        SingleLayerWrapperWithTypeMark(SingleLayerWrapperWithTypeMark &&) = default;
+        SingleLayerWrapperWithTypeMark &operator=(SingleLayerWrapperWithTypeMark &&) = default;
+        ~SingleLayerWrapperWithTypeMark() = default;
+
+        SingleLayerWrapperWithTypeMark(T const &t) : value(t) {}
+        SingleLayerWrapperWithTypeMark(T &&t) : value(std::move(t)) {}
+        SingleLayerWrapperWithTypeMark &operator=(T const &t) {
+            value = t;
+            return *this;
+        }
+        SingleLayerWrapperWithTypeMark &operator=(T &&t) {
+            value = std::move(t);
+            return *this;
+        }
+        operator T() const {
+            return value;
+        }
+        T &operator*() {
+            return value;
+        }
+        T const &operator*() const {
+            return value;
+        }
+        T *operator->() {
+            return &value;
+        }
+        T const *operator->() const {
+            return &value;
+        }
     };
     template <class Mark, class T>
     inline bool operator==(SingleLayerWrapperWithTypeMark<Mark, T> const &a, SingleLayerWrapperWithTypeMark<Mark, T> const &b) {

@@ -264,6 +264,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static void write(nlohmann::json &output, std::optional<std::string> const &key, VoidStruct const &data) {
         }
     };
+    template <>
+    class JsonEncoder<std::monostate, void> {
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, std::monostate const &data) {
+        }
+    };
     template <int32_t N>
     class JsonEncoder<ConstType<N>, void> {
     public:
@@ -611,6 +617,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static void read(nlohmann::json const &input, std::optional<std::string> const &key, VoidStruct &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
         }
     };
+    template <>
+    class JsonDecoder<std::monostate, void> {
+    public:
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::monostate &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+        }
+    };
+    
     template <int32_t N>
     class JsonDecoder<ConstType<N>, void> {
     public:

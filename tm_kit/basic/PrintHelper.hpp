@@ -143,6 +143,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             os << "VoidStruct{}";
         }
     };
+    template <>
+    class PrintHelper<std::monostate> {
+    public:
+        static void print(std::ostream &os, std::monostate const &t) {
+            os << "std::monostate{}";
+        }
+    };
     template <class T>
     class PrintHelper<CBOR<T>> {
     public:
