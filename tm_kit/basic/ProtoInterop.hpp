@@ -192,8 +192,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, IntType data, std::ostream &os) {
-            if (data == 0) {
+        static void write(std::optional<uint64_t> fieldNumber, IntType data, std::ostream &os, bool writeDefaultValue) {
+            if (!writeDefaultValue && data == 0) {
                 return;
             }
             if (fieldNumber) {
@@ -214,8 +214,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, bool data, std::ostream &os) {
-            if (!data) {
+        static void write(std::optional<uint64_t> fieldNumber, bool data, std::ostream &os, bool writeDefaultValue) {
+            if (!writeDefaultValue && !data) {
                 return;
             }
             if (fieldNumber) {
@@ -236,8 +236,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, int32_t data, std::ostream &os) {
-            if (data == 0) {
+        static void write(std::optional<uint64_t> fieldNumber, int32_t data, std::ostream &os, bool writeDefaultValue) {
+            if (!writeDefaultValue && data == 0) {
                 return;
             }
             if (fieldNumber) {
@@ -258,8 +258,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, int64_t data, std::ostream &os) {
-            if (data == 0) {
+        static void write(std::optional<uint64_t> fieldNumber, int64_t data, std::ostream &os, bool writeDefaultValue) {
+            if (!writeDefaultValue && data == 0) {
                 return;
             }
             if (fieldNumber) {
@@ -280,8 +280,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<ZigZag, int32_t> const &data, std::ostream &os) {
-            if (data.value == 0) {
+        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<ZigZag, int32_t> const &data, std::ostream &os, bool writeDefaultValue) {
+            if (!writeDefaultValue && data.value == 0) {
                 return;
             }
             if (fieldNumber) {
@@ -302,8 +302,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<ZigZag, int64_t> const &data, std::ostream &os) {
-            if (data.value == 0) {
+        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<ZigZag, int64_t> const &data, std::ostream &os, bool writeDefaultValue) {
+            if (!writeDefaultValue && data.value == 0) {
                 return;
             }
             if (fieldNumber) {
@@ -324,8 +324,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<Fixed, uint32_t> const &data, std::ostream &os) {
-            if (data.value == 0) {
+        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<Fixed, uint32_t> const &data, std::ostream &os, bool writeDefaultValue) {
+            if (!writeDefaultValue && data.value == 0) {
                 return;
             }
             if (fieldNumber) {
@@ -348,8 +348,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<Fixed, int32_t> const &data, std::ostream &os) {
-            if (data.value == 0) {
+        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<Fixed, int32_t> const &data, std::ostream &os, bool writeDefaultValue) {
+            if (!writeDefaultValue && data.value == 0) {
                 return;
             }
             if (fieldNumber) {
@@ -372,8 +372,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<Fixed, uint64_t> const &data, std::ostream &os) {
-            if (data.value == 0) {
+        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<Fixed, uint64_t> const &data, std::ostream &os, bool writeDefaultValue) {
+            if (!writeDefaultValue && data.value == 0) {
                 return;
             }
             if (fieldNumber) {
@@ -396,8 +396,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<Fixed, int64_t> const &data, std::ostream &os) {
-            if (data.value == 0) {
+        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithTypeMark<Fixed, int64_t> const &data, std::ostream &os, bool writeDefaultValue) {
+            if (!writeDefaultValue && data.value == 0) {
                 return;
             }
             if (fieldNumber) {
@@ -421,9 +421,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, T data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, T data, std::ostream &os, bool writeDefaultValue) {
             ProtoEncoder<std::underlying_type_t<T>>::write(
-                fieldNumber, static_cast<std::underlying_type_t<T>>(data), os
+                fieldNumber, static_cast<std::underlying_type_t<T>>(data), os, true
             );
         }
     };
@@ -437,7 +437,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, float data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, float data, std::ostream &os, bool writeDefaultValue) {
             if (fieldNumber) {
                 internal::FieldHeaderSupport::writeHeader(
                     internal::FieldHeader {internal::ProtoWireType::Fixed32, *fieldNumber}
@@ -459,7 +459,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, double data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, double data, std::ostream &os, bool writeDefaultValue) {
             if (fieldNumber) {
                 internal::FieldHeaderSupport::writeHeader(
                     internal::FieldHeader {internal::ProtoWireType::Fixed64, *fieldNumber}
@@ -482,7 +482,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, std::string const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, std::string const &data, std::ostream &os, bool writeDefaultValue) {
+            if (!writeDefaultValue && data.length() == 0) {
+                return;
+            }
             if (fieldNumber) {
                 internal::FieldHeaderSupport::writeHeader(
                     internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
@@ -502,7 +505,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, std::string_view const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, std::string_view const &data, std::ostream &os, bool writeDefaultValue) {
+            if (!writeDefaultValue && data.length() == 0) {
+                return;
+            }
             if (fieldNumber) {
                 internal::FieldHeaderSupport::writeHeader(
                     internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
@@ -522,18 +528,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, std::array<char,N> const &data, std::ostream &os) {
-            if (fieldNumber) {
-                internal::FieldHeaderSupport::writeHeader(
-                    internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
-                    , os
-                );
-            }
+        static void write(std::optional<uint64_t> fieldNumber, std::array<char,N> const &data, std::ostream &os, bool writeDefaultValue) {
             std::size_t ii = 0;
             for (; ii<N; ++ii) {
                 if (data[ii] == '\0') {
                     break;
                 }
+            }
+            if (!writeDefaultValue && ii == 0) {
+                return;
+            }
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
+                    , os
+                );
             }
             internal::VarIntSupport::write<uint64_t>(ii, os);
             os.write(data.data(), ii);
@@ -548,7 +557,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, ByteData const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, ByteData const &data, std::ostream &os, bool writeDefaultValue) {
+            if (!writeDefaultValue && data.content.length() == 0) {
+                return;
+            }
             if (fieldNumber) {
                 internal::FieldHeaderSupport::writeHeader(
                     internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
@@ -568,7 +580,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, ByteDataView const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, ByteDataView const &data, std::ostream &os, bool writeDefaultValue) {
+            if (!writeDefaultValue && data.content.length() == 0) {
+                return;
+            }
             if (fieldNumber) {
                 internal::FieldHeaderSupport::writeHeader(
                     internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
@@ -588,7 +603,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, std::array<unsigned char,N> const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, std::array<unsigned char,N> const &data, std::ostream &os, bool writeDefaultValue) {
             if (fieldNumber) {
                 internal::FieldHeaderSupport::writeHeader(
                     internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
@@ -619,7 +634,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, std::vector<T> const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, std::vector<T> const &data, std::ostream &os, bool writeDefaultValue) {
             if (data.empty()) {
                 return;
             }
@@ -631,7 +646,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
             std::ostringstream ss;
             for (auto const &item : data) {
-                ProtoEncoder<T>::write(std::nullopt, item, ss);
+                ProtoEncoder<T>::write(std::nullopt, item, ss, true);
             }
             auto cont = ss.str();
             internal::VarIntSupport::write<uint64_t>(cont.length(), os);
@@ -657,9 +672,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, std::vector<T> const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, std::vector<T> const &data, std::ostream &os, bool writeDefaultValue) {
             for (auto const &item : data) {
-                ProtoEncoder<T>::write(fieldNumber, item, os);
+                ProtoEncoder<T>::write(fieldNumber, item, os, true);
             }
         }
     };
@@ -682,7 +697,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, std::list<T> const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, std::list<T> const &data, std::ostream &os, bool writeDefaultValue) {
             if (data.empty()) {
                 return;
             }
@@ -694,7 +709,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
             std::ostringstream ss;
             for (auto const &item : data) {
-                ProtoEncoder<T>::write(std::nullopt, item, ss);
+                ProtoEncoder<T>::write(std::nullopt, item, ss, true);
             }
             auto cont = ss.str();
             internal::VarIntSupport::write<uint64_t>(cont.length(), os);
@@ -720,9 +735,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, std::list<T> const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, std::list<T> const &data, std::ostream &os, bool writeDefaultValue) {
             for (auto const &item : data) {
-                ProtoEncoder<T>::write(fieldNumber, item, os);
+                ProtoEncoder<T>::write(fieldNumber, item, os, true);
             }
         }
     };
@@ -745,7 +760,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, std::array<T,N> const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, std::array<T,N> const &data, std::ostream &os, bool writeDefaultValue) {
             if (fieldNumber) {
                 internal::FieldHeaderSupport::writeHeader(
                     internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
@@ -754,7 +769,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
             std::ostringstream ss;
             for (auto const &item : data) {
-                ProtoEncoder<T>::write(std::nullopt, item, ss);
+                ProtoEncoder<T>::write(std::nullopt, item, ss, true);
             }
             auto cont = ss.str();
             internal::VarIntSupport::write<uint64_t>(cont.length(), os);
@@ -780,9 +795,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, std::array<T,N> const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, std::array<T,N> const &data, std::ostream &os, bool writeDefaultValue) {
             for (auto const &item : data) {
-                ProtoEncoder<T>::write(fieldNumber, item, os);
+                ProtoEncoder<T>::write(fieldNumber, item, os, true);
             }
         }
     };
@@ -795,7 +810,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, std::valarray<T> const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, std::valarray<T> const &data, std::ostream &os, bool writeDefaultValue) {
             if (data.size() == 0) {
                 return;
             }
@@ -806,14 +821,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 );
                 std::ostringstream ss;
                 for (auto const &item : data) {
-                    ProtoEncoder<T>::write(std::nullopt, item, ss);
+                    ProtoEncoder<T>::write(std::nullopt, item, ss, true);
                 }
                 auto cont = ss.str();
                 internal::VarIntSupport::write<uint64_t>(cont.length(), os);
                 os.write(cont.data(), cont.length());
             } else {
                 for (auto const &item : data) {
-                    ProtoEncoder<T>::write(std::nullopt, item, os);
+                    ProtoEncoder<T>::write(std::nullopt, item, os, true);
                 }
             }
         }
@@ -827,9 +842,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, std::optional<T> const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, std::optional<T> const &data, std::ostream &os, bool writeDefaultValue) {
             if (data) {
-                ProtoEncoder<T>::write(fieldNumber, *data, os);
+                ProtoEncoder<T>::write(fieldNumber, *data, os, true);
             }
         }
     };
@@ -842,7 +857,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, VoidStruct const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, VoidStruct const &data, std::ostream &os, bool writeDefaultValue) {
         }
     };
     template <>
@@ -854,7 +869,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, std::monostate const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, std::monostate const &data, std::ostream &os, bool writeDefaultValue) {
         }
     };
     template <int32_t N>
@@ -866,7 +881,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return std::max((uint64_t) N+1,inputFieldNumber);
         }
-        static void write(std::optional<uint64_t> fieldNumber, ConstType<N> const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, ConstType<N> const &data, std::ostream &os, bool writeDefaultValue) {
         }
     };
     template <int32_t N, class T>
@@ -878,12 +893,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return std::max((uint64_t) N+1,inputFieldNumber);
         }
-        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithID<N,T> const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapperWithID<N,T> const &data, std::ostream &os, bool writeDefaultValue) {
             std::optional<uint64_t> f = std::nullopt;
             if (fieldNumber) {
                 f = (uint64_t) N;
             }
-            ProtoEncoder<T>::write(f, data.value, os);
+            ProtoEncoder<T>::write(f, data.value, os, writeDefaultValue);
         }
     };
 
@@ -914,6 +929,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                         fieldNumber 
                         , std::get<FieldIndex>(data)
                         , os
+                        , true
                     );
                 } else {
                     std::optional<uint64_t> nextField = std::nullopt;
@@ -933,7 +949,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return nextFieldNumber_internal<1>(inputFieldNumber);
         }
-        static void write(std::optional<uint64_t> fieldNumber, std::variant<std::monostate,MoreVariants...> const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, std::variant<std::monostate,MoreVariants...> const &data, std::ostream &os, bool writeDefaultValue) {
             write_internal<1>(fieldNumber, data, os);
         }
     };
@@ -958,7 +974,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static void write_impl(T const &data, std::ostream &os, std::array<uint64_t, FieldCount> const &indices) {
             if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                 using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                ProtoEncoder<F>::write(indices[FieldIndex], data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), os);
+                ProtoEncoder<F>::write(indices[FieldIndex], data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), os, false);
                 write_impl<FieldCount,FieldIndex+1>(data, os, indices);
             }
         }
@@ -969,7 +985,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, T const &data, std::ostream &os) {
+        static void write(std::optional<uint64_t> fieldNumber, T const &data, std::ostream &os, bool writeDefaultValue) {
             static std::array<uint64_t, StructFieldInfo<T>::FIELD_NAMES.size()> indices = buildIndices();
             if (fieldNumber) {
                 internal::FieldHeaderSupport::writeHeader(
@@ -2255,11 +2271,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
 
         void SerializeToStream(std::ostream &os) const {
-            ProtoEncoder<T>::write(std::nullopt, t_, os);
+            ProtoEncoder<T>::write(std::nullopt, t_, os, false);
         }
         void SerializeToString(std::string *s) const {
             std::ostringstream oss;
-            ProtoEncoder<T>::write(std::nullopt, t_, oss);
+            ProtoEncoder<T>::write(std::nullopt, t_, oss, false);
             *s = oss.str();
         }
         bool ParseFromStringView(std::string_view const &s) {
@@ -2291,7 +2307,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         T const *operator->() const {
             return &t_;
         }
-        static void runSerialize(T const &t, std::ostream &os) {
+        static void runSerialize(T const &t, std::ostream &os, bool writeDefaultValue) {
             ProtoEncoder<T>::write(std::nullopt, t, os);
         }
         static bool runDeserialize(T &t, std::string_view const &input) {
@@ -2320,13 +2336,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
 
         void SerializeToStream(std::ostream &os) const {
             if (t_) {
-                ProtoEncoder<T>::write(std::nullopt, *t_, os);
+                ProtoEncoder<T>::write(std::nullopt, *t_, os, false);
             }
         }
         void SerializeToString(std::string *s) const {
             if (t_) {
                 std::ostringstream oss;
-                ProtoEncoder<T>::write(std::nullopt, *t_, oss);
+                ProtoEncoder<T>::write(std::nullopt, *t_, oss, false);
                 *s = oss.str();
             } else {
                 *s = "";
