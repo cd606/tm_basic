@@ -1665,7 +1665,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 ProtoDecoder<T> subDec(&x, baseFieldNumber_);
                 std::size_t remaining = input.length()-start;
                 std::size_t idx = start;
-                while (remaining > 0) {
+                do {
                     auto res = subDec.handle({internal::ProtoWireTypeForSubField<T>::TheType, fh.fieldNumber}, input, idx);
                     if (!res) {
                         return std::nullopt;
@@ -1673,7 +1673,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                     output.push_back(x);
                     idx += *res;
                     remaining -= *res;
-                }
+                } while (remaining > 0);
                 return input.length()-start;
             } else if (fh.wireType == internal::ProtoWireType::VarInt || fh.wireType == internal::ProtoWireType::Fixed32 || fh.wireType == internal::ProtoWireType::Fixed64) {
                 T x;
@@ -1716,7 +1716,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             std::size_t idx = start;
             T x;
             ProtoDecoder<T> subDec(&x, baseFieldNumber_);
-            while (remaining > 0) {
+            do {
                 auto res = subDec.handle({internal::ProtoWireTypeForSubField<T>::TheType, fh.fieldNumber}, input, idx);
                 if (!res) {
                     return std::nullopt;
@@ -1724,7 +1724,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 output.push_back(std::move(x));
                 idx += *res;
                 remaining -= *res;
-            }
+            } while (remaining > 0);
             return input.length()-start;
         }
     };
@@ -1763,7 +1763,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 ProtoDecoder<T> subDec(&x, baseFieldNumber_);
                 std::size_t remaining = input.length()-start;
                 std::size_t idx = start;
-                while (remaining > 0) {
+                do {
                     auto res = subDec.handle({internal::ProtoWireTypeForSubField<T>::TheType, fh.fieldNumber}, input, idx);
                     if (!res) {
                         return std::nullopt;
@@ -1771,7 +1771,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                     output.push_back(std::move(x));
                     idx += *res;
                     remaining -= *res;
-                }
+                } while (remaining > 0);
                 return input.length()-start;
             } else if (fh.wireType == internal::ProtoWireType::VarInt || fh.wireType == internal::ProtoWireType::Fixed32 || fh.wireType == internal::ProtoWireType::Fixed64) {
                 T x;
@@ -1814,7 +1814,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             std::size_t idx = start;
             T x;
             ProtoDecoder<T> subDec(&x, baseFieldNumber_);
-            while (remaining > 0) {
+            do {
                 auto res = subDec.handle(internal::ProtoWireTypeForSubField<T>::TheType, input, idx);
                 if (!res) {
                     return std::nullopt;
@@ -1822,7 +1822,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 output.push_back(std::move(x));
                 idx += *res;
                 remaining -= *res;
-            }
+            } while (remaining > 0);
             return (input.length()-start);
         }
     };
@@ -1866,7 +1866,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 ProtoDecoder<T> subDec(&x, baseFieldNumber_);
                 std::size_t remaining = input.length()-start;
                 std::size_t idx = start;
-                while (remaining > 0) {
+                do {
                     auto res = subDec.handle(internal::ProtoWireTypeForSubField<T>::TheType, input, idx);
                     if (!res) {
                         return std::nullopt;
@@ -1874,7 +1874,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                     addItem(output, x);
                     idx += *res;
                     remaining -= *res;
-                }
+                } while (remaining > 0);
                 return (input.length()-start);
             } else if (fh.wireType == internal::ProtoWireType::VarInt || fh.wireType == internal::ProtoWireType::Fixed32 || fh.wireType == internal::ProtoWireType::Fixed64) {
                 T x;
@@ -1933,7 +1933,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             std::size_t idx = start;
             T x;
             ProtoDecoder<T> subDec(&x, baseFieldNumber_);
-            while (remaining > 0) {
+            do {
                 auto res = subDec.handle(internal::ProtoWireTypeForSubField<T>::TheType, input, idx);
                 if (!res) {
                     return std::nullopt;
@@ -1941,7 +1941,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 addItem(output, std::move(x));
                 idx += *res;
                 remaining -= *res;
-            }
+            } while (remaining > 0);
             return (input.length()-start);
         }
     };
@@ -2202,7 +2202,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
             std::size_t remaining = input.length()-start;
             std::size_t idx = start;
-            while (remaining > 0) {
+            do {
                 internal::FieldHeader innerFh;
                 std::size_t fieldLen;
                 auto res = internal::FieldHeaderSupport::readHeader(innerFh, input, idx, &fieldLen);
@@ -2221,14 +2221,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 if (fieldLen > 0) {
                     res = iter->second->handle(innerFh, input.substr(idx, fieldLen), 0);
                 } else {
-                    res = iter->second->handle(innerFh, input, idx);
+                    if (innerFh.wireType == internal::ProtoWireType::LengthDelimited) {
+                        res = iter->second->handle(innerFh, std::string_view {}, 0);
+                    } else {
+                        res = iter->second->handle(innerFh, input, idx);
+                    }
                 }
                 if (!res) {
                     return std::nullopt;
                 }
                 idx += *res;
                 remaining -= *res;
-            }
+            } while (remaining > 0);
             return input.length()-start;
         }
     };
