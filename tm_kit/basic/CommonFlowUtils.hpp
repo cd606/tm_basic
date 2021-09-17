@@ -199,7 +199,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                                 }
                             } else {
                                 if (!output.empty()) {
-                                    this->publish(typename M::template InnerData<std::vector<T>> {
+                                    this->publish(typename M::template InnerData<C> {
                                         env 
                                         , {
                                             env->resolveTime()
@@ -241,6 +241,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     }
                     virtual std::optional<std::thread::native_handle_type> threadHandle() override final {
                         return th_.native_handle();
+                    }
+                    virtual void setIdleWorker(std::function<void(void *)> worker) override final {
+                    }
+                    virtual void setStartWaiter(std::function<void()> waiter) override final {
                     }
                 };
                 return M::template fromAbstractAction<T, C>(new BunchAction(std::move(buncher)));
