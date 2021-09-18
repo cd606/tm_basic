@@ -1512,7 +1512,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     protected:
         std::optional<std::size_t> read(T &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
             std::underlying_type_t<T> x;
-            ProtoDecoder<std::underlying_type_t<T>> dec(&x);
+            ProtoDecoder<std::underlying_type_t<T>> dec(&x, 1);
             auto res = dec.handle(fh, input, start);
             if (res) {
                 output = (T) x;
