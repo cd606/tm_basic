@@ -2316,7 +2316,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
         static bool runDeserialize(T &t, std::string_view const &input) {
             ProtoDecoder<T> dec(&t, 1);
-            auto res = dec.handle(internal::ProtoWireType::LengthDelimited, input, 0);
+            auto res = dec.handle({internal::ProtoWireType::LengthDelimited, 0}, input, 0);
             if (res) {
                 return true;
             } else {
