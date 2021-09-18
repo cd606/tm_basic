@@ -35,6 +35,7 @@ tm_basic_headers = [
     , 'ProtoInterop.hpp'
     , 'NlohmannJsonInterop.hpp'
     , 'DateHolder.hpp'
+    , 'ConfigurationMapComponent.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
