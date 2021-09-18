@@ -2354,7 +2354,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
         bool ParseFromStringView(std::string_view const &s) {
             if (t_) {
-                auto res = dec_.handle(internal::ProtoWireType::LengthDelimited, s, 0);
+                auto res = dec_.handle({internal::ProtoWireType::LengthDelimited, 0}, s, 0);
                 if (res) {
                     return true;
                 } else {
