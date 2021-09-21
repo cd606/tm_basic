@@ -178,6 +178,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     }
 
     template <class T, typename Enable=void>
+    struct ProtoWrappable {
+        static constexpr bool value = false;
+    };
+
+    template <class T, typename Enable=void>
     class ProtoEncoder {};
 
     template <class IntType>
@@ -205,6 +210,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             internal::VarIntSupport::write<IntType>(data, os);
         }
     };
+    template <class IntType>
+    struct ProtoWrappable<IntType, std::enable_if_t<
+        (std::is_integral_v<IntType> && std::is_unsigned_v<IntType> && !std::is_same_v<IntType,bool> && !std::is_enum_v<IntType>)
+        , void
+    >> {
+        static constexpr bool value = true;
+    };
     template <>
     class ProtoEncoder<bool, void> {
     public:
@@ -226,6 +238,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
             internal::VarIntSupport::write<uint8_t>((uint8_t) data, os);
         }
+    };
+    template <>
+    struct ProtoWrappable<bool, void> {
+        static constexpr bool value = true;
     };
     template <>
     class ProtoEncoder<int32_t, void> {
@@ -250,6 +266,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <>
+    struct ProtoWrappable<int32_t, void> {
+        static constexpr bool value = true;
+    };
+    template <>
     class ProtoEncoder<int64_t, void> {
     public:
         static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
@@ -270,6 +290,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
             internal::VarIntSupport::write<uint64_t>((uint64_t) data, os);
         }
+    };
+    template <>
+    struct ProtoWrappable<int64_t, void> {
+        static constexpr bool value = true;
     };
     template <>
     class ProtoEncoder<SingleLayerWrapperWithTypeMark<ZigZag, int32_t>, void> {
@@ -294,6 +318,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <>
+    struct ProtoWrappable<SingleLayerWrapperWithTypeMark<ZigZag, int32_t>, void> {
+        static constexpr bool value = true;
+    };
+    template <>
     class ProtoEncoder<SingleLayerWrapperWithTypeMark<ZigZag, int64_t>, void> {
     public:
         static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
@@ -314,6 +342,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
             internal::VarIntSupport::write<uint64_t>(internal::ZigZagIntSupport<int64_t>::encode(data.value), os);
         }
+    };
+    template <>
+    struct ProtoWrappable<SingleLayerWrapperWithTypeMark<ZigZag, int64_t>, void> {
+        static constexpr bool value = true;
     };
     template <>
     class ProtoEncoder<SingleLayerWrapperWithTypeMark<Fixed, uint32_t>, void> {
@@ -340,6 +372,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <>
+    struct ProtoWrappable<SingleLayerWrapperWithTypeMark<Fixed, uint32_t>, void> {
+        static constexpr bool value = true;
+    };
+    template <>
     class ProtoEncoder<SingleLayerWrapperWithTypeMark<Fixed, int32_t>, void> {
     public:
         static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
@@ -362,6 +398,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             boost::endian::native_to_little_inplace<uint32_t>(x);
             os.write(reinterpret_cast<char *>(&x), sizeof(uint32_t));
         }
+    };
+    template <>
+    struct ProtoWrappable<SingleLayerWrapperWithTypeMark<Fixed, int32_t>, void> {
+        static constexpr bool value = true;
     };
     template <>
     class ProtoEncoder<SingleLayerWrapperWithTypeMark<Fixed, uint64_t>, void> {
@@ -388,6 +428,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <>
+    struct ProtoWrappable<SingleLayerWrapperWithTypeMark<Fixed, uint64_t>, void> {
+        static constexpr bool value = true;
+    };
+    template <>
     class ProtoEncoder<SingleLayerWrapperWithTypeMark<Fixed, int64_t>, void> {
     public:
         static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
@@ -411,7 +455,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             os.write(reinterpret_cast<char *>(&x), sizeof(uint64_t));
         }
     };
-
+    template <>
+    struct ProtoWrappable<SingleLayerWrapperWithTypeMark<Fixed, int64_t>, void> {
+        static constexpr bool value = true;
+    };
+    
     template <class T>
     class ProtoEncoder<T, std::enable_if_t<std::is_enum_v<T>, void>> {
     public:
@@ -426,6 +474,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 fieldNumber, static_cast<std::underlying_type_t<T>>(data), os, true
             );
         }
+    };
+    template <class T>
+    struct ProtoWrappable<T, std::enable_if_t<std::is_enum_v<T>, void>> {
+        static constexpr bool value = true;
     };
 
     template <>
@@ -451,6 +503,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <>
+    struct ProtoWrappable<float, void> {
+        static constexpr bool value = true;
+    };
+    template <>
     class ProtoEncoder<double, void> {
     public:
         static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
@@ -472,7 +528,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             os.write(reinterpret_cast<char *>(&dBuf), 8);
         }
     };
-
+    template <>
+    struct ProtoWrappable<double, void> {
+        static constexpr bool value = true;
+    };
+    
     template <>
     class ProtoEncoder<std::string, void> {
     public:
@@ -497,6 +557,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <>
+    struct ProtoWrappable<std::string, void> {
+        static constexpr bool value = true;
+    };
+    
+    //string_view is not considered proto wrappable because we cannot decode it
+    template <>
     class ProtoEncoder<std::string_view, void> {
     public:
         static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
@@ -519,6 +585,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             os.write(data.data(), data.length());
         }
     };
+    
     template <std::size_t N>
     class ProtoEncoder<std::array<char,N>, void> {
     public:
@@ -548,6 +615,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             os.write(data.data(), ii);
         }
     };
+    template <std::size_t N>
+    struct ProtoWrappable<std::array<char,N>, void> {
+        static constexpr bool value = true;
+    };
     template <>
     class ProtoEncoder<ByteData, void> {
     public:
@@ -571,6 +642,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             os.write(data.content.data(), data.content.length());
         }
     };
+    template <>
+    struct ProtoWrappable<ByteData, void> {
+        static constexpr bool value = true;
+    };
+    
+    //ByteDataView is not considered proto wrappable because we cannot decode it
     template <>
     class ProtoEncoder<ByteDataView, void> {
     public:
@@ -614,6 +691,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             os.write(data.data(), N);
         }
     };
+    template <std::size_t N>
+    struct ProtoWrappable<std::array<unsigned char,N>, void> {
+        static constexpr bool value = true;
+    };
 
     template <class T>
     class ProtoEncoder<std::vector<T>, std::enable_if_t<
@@ -679,6 +760,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <class T>
+    struct ProtoWrappable<std::vector<T>, void> {
+        static constexpr bool value = ProtoWrappable<T>::value;
+    };
+    template <class T>
     class ProtoEncoder<std::list<T>, std::enable_if_t<
         (
             std::is_arithmetic_v<T> || std::is_enum_v<T> 
@@ -741,6 +826,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
         }
     };
+    template <class T>
+    struct ProtoWrappable<std::list<T>, void> {
+        static constexpr bool value = ProtoWrappable<T>::value;
+    };
     template <class T, std::size_t N>
     class ProtoEncoder<std::array<T,N>, std::enable_if_t<
         (
@@ -801,6 +890,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
         }
     };
+    template <class T, std::size_t N>
+    struct ProtoWrappable<std::array<T,N>, void> {
+        static constexpr bool value = ProtoWrappable<T>::value;
+    };
+    
     template <class T>
     class ProtoEncoder<std::valarray<T>, void> {
     public:
@@ -834,6 +928,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <class T>
+    struct ProtoWrappable<std::valarray<T>, void> {
+        static constexpr bool value = ProtoWrappable<T>::value;
+    };
+    
+    template <class T>
     class ProtoEncoder<std::optional<T>, void> {
     public:
         static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
@@ -848,6 +947,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
         }
     };
+    template <class T>
+    struct ProtoWrappable<std::optional<T>, void> {
+        static constexpr bool value = ProtoWrappable<T>::value;
+    };
+    
     template <>
     class ProtoEncoder<VoidStruct, void> {
     public:
@@ -861,6 +965,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <>
+    struct ProtoWrappable<VoidStruct, void> {
+        static constexpr bool value = true;
+    };
+    
+    template <>
     class ProtoEncoder<std::monostate, void> {
     public:
         static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
@@ -872,6 +981,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static void write(std::optional<uint64_t> fieldNumber, std::monostate const &data, std::ostream &os, bool writeDefaultValue) {
         }
     };
+    template <>
+    struct ProtoWrappable<std::monostate, void> {
+        static constexpr bool value = true;
+    };
+    
     template <int32_t N>
     class ProtoEncoder<ConstType<N>, void> {
     public:
@@ -884,6 +998,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static void write(std::optional<uint64_t> fieldNumber, ConstType<N> const &data, std::ostream &os, bool writeDefaultValue) {
         }
     };
+    template <int32_t N>
+    struct ProtoWrappable<ConstType<N>, void> {
+        static constexpr bool value = true;
+    };
+
     template <int32_t N, class T>
     class ProtoEncoder<SingleLayerWrapperWithID<N,T>, void> {
     public:
@@ -900,6 +1019,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
             ProtoEncoder<T>::write(f, data.value, os, writeDefaultValue);
         }
+    };
+    template <int32_t N, class T>
+    struct ProtoWrappable<SingleLayerWrapperWithID<N,T>, void> {
+        static constexpr bool value = ProtoWrappable<T>::value;
     };
 
     template <class... MoreVariants>
@@ -953,6 +1076,26 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             write_internal<1>(fieldNumber, data, os);
         }
     };
+    template <class... MoreVariants>
+    struct ProtoWrappable<std::variant<std::monostate,MoreVariants...>, void> {
+    private:
+        using TheVariant = std::variant<std::monostate,MoreVariants...>;
+        static constexpr std::size_t FieldCount = sizeof...(MoreVariants)+1;
+        template <std::size_t FieldIndex>
+        static constexpr bool value_internal() {
+            if constexpr (FieldIndex < FieldCount) {
+                if (!ProtoWrappable<std::variant_alternative_t<FieldIndex, TheVariant>>::value) {
+                    return false;
+                } else {
+                    return value_internal<FieldIndex+1>();
+                }
+            } else {
+                return true;
+            }
+        }
+    public:
+        static constexpr bool value = value_internal<1>();
+    };
 
     template <class T>
     class ProtoEncoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
@@ -1001,6 +1144,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 write_impl<StructFieldInfo<T>::FIELD_NAMES.size(),0>(data, os, indices);
             }
         }
+    };
+    template <class T>
+    struct ProtoWrappable<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
+    private:
+        template <std::size_t FieldCount, std::size_t FieldIndex>
+        static constexpr bool value_internal() {
+            if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
+                using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
+                if (!ProtoWrappable<F>::value) {
+                    return false;
+                } else {
+                    return value_internal<FieldCount,FieldIndex+1>();
+                }
+            } else {
+                return true;
+            }
+        }
+    public:
+        static constexpr bool value = value_internal<StructFieldInfo<T>::FIELD_NAMES.size(),0>();
     };
     
     class IProtoDecoderBase {
@@ -2305,14 +2467,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         T const &operator*() const {
             return t_;
         }
+        T &&moveValue() && {
+            return std::move(t_);
+        }
         T *operator->() {
             return &t_;
         }
         T const *operator->() const {
             return &t_;
         }
-        static void runSerialize(T const &t, std::ostream &os, bool writeDefaultValue) {
-            ProtoEncoder<T>::write(std::nullopt, t, os);
+        static void runSerialize(T const &t, std::ostream &os) {
+            ProtoEncoder<T>::write(std::nullopt, t, os, false);
         }
         static bool runDeserialize(T &t, std::string_view const &input) {
             ProtoDecoder<T> dec(&t, 1);
@@ -2322,6 +2487,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             } else {
                 return false;
             }
+        }
+        static std::string runSerializeIntoValue(T const &t) {
+            std::ostringstream oss;
+            runSerialize(t, oss);
+            return oss.str();
         }
     };
     template <class T>

@@ -365,6 +365,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         T const &operator*() const {
             return t_;
         }
+        T &&moveValue() && {
+            return std::move(t_);
+        }
         T *operator->() {
             return &t_;
         }
