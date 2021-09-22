@@ -2467,8 +2467,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <class T>
     class Proto<T, std::enable_if_t<
         (
-            StructFieldInfo<T>::HasGeneratedStructFieldInfo
-            &&
             ProtoWrappable<T>::value
         ), void
     >> {
@@ -2565,8 +2563,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <class T>
     class Proto<T *, std::enable_if_t<
         (
-            StructFieldInfo<T>::HasGeneratedStructFieldInfo
-            &&
             ProtoWrappable<T>::value
         ), void
     >> {
