@@ -815,7 +815,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     class Json {};
 
     template <class T>
-    class Json<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
+    class Json<T, std::enable_if_t<JsonWrappable<T>::value, void>> {
     private:
         T t_;
     public:
@@ -840,17 +840,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         void toNlohmannJson(nlohmann::json &output) const {
             JsonEncoder<T>::write(output, std::nullopt, t_);
         }
-        void SerializeToStream(std::ostream &os) const {
+        //The method names are deliberately made different from
+        //proto method names
+        void writeToStream(std::ostream &os) const {
             nlohmann::json output;
             JsonEncoder<T>::write(output, std::nullopt, t_);
             os << output;
         }
-        void SerializeToString(std::string *s) const {
+        void writeToString(std::string *s) const {
             nlohmann::json output;
             JsonEncoder<T>::write(output, std::nullopt, t_);
             *s = output.dump();
         }
-        bool ParseFromStringView(std::string_view const &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+        bool fromStringView(std::string_view const &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             nlohmann::json x;
 #ifdef _MSC_VER
             boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
@@ -861,10 +863,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             JsonDecoder<T>::read(x, std::nullopt, t_, mapping);
             return true;
         }
-        bool ParseFromString(std::string const &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
-            return ParseFromStringView(std::string_view(s), mapping);
+        bool fromString(std::string const &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            return fromStringView(std::string_view(s), mapping);
         }
-        bool ParseFromStream(std::istream &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+        bool fromStream(std::istream &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             nlohmann::json x;
             s >> x;
             JsonDecoder<T>::read(x, std::nullopt, t_, mapping);
@@ -913,7 +915,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class T>
-    class Json<T *, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
+    class Json<T *, std::enable_if_t<JsonWrappable<T>::value, void>> {
     private:
         T *t_;
     public:
@@ -930,21 +932,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 JsonEncoder<T>::write(output, std::nullopt, *t_);
             }
         }
-        void SerializeToStream(std::ostream &os) const {
+        void writeToStream(std::ostream &os) const {
             if (t_) {
                 nlohmann::json output;
                 JsonEncoder<T>::write(output, std::nullopt, *t_);
                 os << output;
             }
         }
-        void SerializeToString(std::string *s) const {
+        void writeToString(std::string *s) const {
             if (t_) {
                 nlohmann::json output;
                 JsonEncoder<T>::write(output, std::nullopt, *t_);
                 *s = output.dump();
             }
         }
-        bool ParseFromStringView(std::string_view const &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+        bool fromStringView(std::string_view const &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             if (t_) {
                 nlohmann::json x;
 #ifdef _MSC_VER
@@ -959,10 +961,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 return false;
             }
         }
-        bool ParseFromString(std::string const &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
-            return ParseFromStringView(std::string_view(s), mapping);
+        bool fromString(std::string const &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            return fromStringView(std::string_view(s), mapping);
         }
-        bool ParseFromStream(std::istream &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+        bool fromStream(std::istream &s, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             if (t_) {
                 nlohmann::json x;
                 s >> x;
@@ -1001,9 +1003,78 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
 
+    template <>
+    class JsonEncoder<nlohmann::json, void> {
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, nlohmann::json const &data) {
+            (key?output[*key]:output) = data;
+        }
+    };
+    template <>
+    struct JsonWrappable<nlohmann::json, void> {
+        static constexpr bool value = true;
+    };
+    template <>
+    class JsonDecoder<nlohmann::json, void> {
+    public:
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, nlohmann::json &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            data = (key?input[*key]:input);
+        }
+    };
+    template <class T>
+    class JsonEncoder<Json<T>, void> {
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, Json<T> const &data) {
+            data.toNlohmannJson(key?output[*key]:output);
+        }
+    };
+    template <class T>
+    struct JsonWrappable<Json<T>, void> {
+        static constexpr bool value = true;
+    };
+    template <class T>
+    class JsonDecoder<Json<T>, void> {
+    public:
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, Json<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            data.fromNlohmannJson((key?input[*key]:input), mapping);
+        }
+    };
+
 } } } } }
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils {
+    //allow JSON wrapper to be used for encode/decode
+    //without exposing proto-style methods
+    template <class T>
+    struct RunSerializer<nlohmann_json_interop::Json<T>, void> {
+        static std::string apply(nlohmann_json_interop::Json<T> const &data) {
+            std::ostringstream oss;
+            nlohmann_json_interop::Json<T>::runSerialize(*data, oss);
+            return oss.str();
+        }
+    };
+    template <class T>
+    struct RunDeserializer<nlohmann_json_interop::Json<T>, void> {
+        static std::optional<nlohmann_json_interop::Json<T>> apply(std::string_view const &data) {
+            T t;
+            if (nlohmann_json_interop::Json<T>::runDeserialize(t, data)) {
+                return nlohmann_json_interop::Json<T> {t};
+            } else {
+                return std::nullopt;
+            }
+        }
+        static std::optional<nlohmann_json_interop::Json<T>> apply(std::string const &data) {
+            return apply(std::string_view {data});
+        }
+        static bool applyInPlace(nlohmann_json_interop::Json<T> &output, std::string_view const &data) {
+            return output.fromStringView(data);
+        }
+        static bool applyInPlace(nlohmann_json_interop::Json<T> &output, std::string const &data) {
+            return output.fromString(data);
+        }
+    };
+
+    //allow nlohmann::json to be used in CBOR<> structure
     template <>
     struct RunCBORSerializer<nlohmann::json, void> {
         static std::string apply(nlohmann::json const &data) {
