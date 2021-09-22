@@ -34,6 +34,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <class T, typename Enable=void>
     class JsonEncoder {};
 
+    template <class T, typename Enable=void>
+    struct JsonWrappable {
+        static constexpr bool value = false;
+    };
+
     template <class IntType>
     class JsonEncoder<IntType, std::enable_if_t<
         (std::is_arithmetic_v<IntType> && !std::is_same_v<IntType,bool> && !std::is_enum_v<IntType>)
@@ -48,6 +53,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
         }
     };
+    template <class IntType>
+    struct JsonWrappable<IntType, std::enable_if_t<
+        (std::is_arithmetic_v<IntType> && !std::is_same_v<IntType,bool> && !std::is_enum_v<IntType>)
+        , void
+    >> {
+        static constexpr bool value = true;
+    };
     template <>
     class JsonEncoder<bool, void> {
     public:
@@ -58,6 +70,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 output = data;
             }
         }
+    };
+    template <>
+    struct JsonWrappable<bool, void> {
+        static constexpr bool value = true;
     };
     template <class T>
     class JsonEncoder<T, std::enable_if_t<std::is_enum_v<T>, void>> {
@@ -70,6 +86,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
         }
     };
+    template <class T>
+    struct JsonWrappable<T, std::enable_if_t<std::is_enum_v<T>, void>> {
+        static constexpr bool value = true;
+    };
     template <>
     class JsonEncoder<std::string, void> {
     public:
@@ -81,6 +101,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
         }
     };
+    template <>
+    struct JsonWrappable<std::string, void> {
+        static constexpr bool value = true;
+    };
+    //For same reason as in proto_interop, string_view and ByteDataView are not
+    //marked as Json wrappable
     template <>
     class JsonEncoder<std::string_view, void> {
     public:
@@ -109,6 +135,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
         }
     };
+    template <std::size_t N>
+    struct JsonWrappable<std::array<char,N>, void> {
+        static constexpr bool value = true;
+    };
     template <>
     class JsonEncoder<ByteData, void> {
     public:
@@ -118,6 +148,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 o.push_back((unsigned int) c);
             }
         }
+    };
+    template <>
+    struct JsonWrappable<ByteData, void> {
+        static constexpr bool value = true;
     };
     template <>
     class JsonEncoder<ByteDataView, void> {
@@ -139,6 +173,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
         }
     };
+    template <std::size_t N>
+    struct JsonWrappable<std::array<unsigned char,N>, void> {
+        static constexpr bool value = true;
+    };
     template <>
     class JsonEncoder<std::tm, void> {
     public:
@@ -151,6 +189,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 output = oss.str();
             }
         }
+    };
+    template <>
+    struct JsonWrappable<std::tm, void> {
+        static constexpr bool value = true;
     };
     template <>
     class JsonEncoder<DateHolder, void> {
@@ -166,6 +208,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <>
+    struct JsonWrappable<DateHolder, void> {
+        static constexpr bool value = true;
+    };
+    template <>
     class JsonEncoder<std::chrono::system_clock::time_point, void> {
     public:
         static void write(nlohmann::json &output, std::optional<std::string> const &key, std::chrono::system_clock::time_point const &data) {
@@ -175,6 +221,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 output = infra::withtime_utils::localTimeString(data);
             }
         }
+    };
+    template <>
+    struct JsonWrappable<std::chrono::system_clock::time_point, void> {
+        static constexpr bool value = true;
     };
     template <class T>
     class JsonEncoder<std::vector<T>, void> {
@@ -188,6 +238,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class T>
+    struct JsonWrappable<std::vector<T>, void> {
+        static constexpr bool value = JsonWrappable<T>::value;
+    };
+    template <class T>
     class JsonEncoder<std::list<T>, void> {
     public:
         static void write(nlohmann::json &output, std::optional<std::string> const &key, std::list<T> const &data) {
@@ -199,6 +253,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class T>
+    struct JsonWrappable<std::list<T>, void> {
+        static constexpr bool value = JsonWrappable<T>::value;
+    };
+    template <class T>
     class JsonEncoder<std::valarray<T>, void> {
     public:
         static void write(nlohmann::json &output, std::optional<std::string> const &key, std::valarray<T> const &data) {
@@ -207,6 +265,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 o.push_back(item);
             }
         }
+    };
+    template <class T>
+    struct JsonWrappable<std::valarray<T>, void> {
+        static constexpr bool value = JsonWrappable<T>::value;
     };
     template <class T, std::size_t N>
     class JsonEncoder<std::array<T,N>, void> {
@@ -219,6 +281,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
         }
     };
+    template <class T, std::size_t N>
+    struct JsonWrappable<std::array<T,N>, void> {
+        static constexpr bool value = JsonWrappable<T>::value;
+    };
     template <class T>
     class JsonEncoder<std::map<std::string,T>, void> {
     public:
@@ -228,6 +294,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 JsonEncoder<T>::write(o, item.first, item.second);
             }
         }
+    };
+    template <class T>
+    struct JsonWrappable<std::map<std::string,T>, void> {
+        static constexpr bool value = JsonWrappable<T>::value;
     };
     template <class T>
     class JsonEncoder<std::unordered_map<std::string,T>, void> {
@@ -240,6 +310,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class T>
+    struct JsonWrappable<std::unordered_map<std::string,T>, void> {
+        static constexpr bool value = JsonWrappable<T>::value;
+    };
+    template <class T>
     class JsonEncoder<std::vector<std::tuple<std::string,T>>, void> {
     public:
         static void write(nlohmann::json &output, std::optional<std::string> const &key, std::vector<std::tuple<std::string,T>> const &data) {
@@ -250,6 +324,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class T>
+    struct JsonWrappable<std::vector<std::tuple<std::string,T>>, void> {
+        static constexpr bool value = JsonWrappable<T>::value;
+    };
+    template <class T>
     class JsonEncoder<std::optional<T>, void> {
     public:
         static void write(nlohmann::json &output, std::optional<std::string> const &key, std::optional<T> const &data) {
@@ -258,6 +336,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
         }
     };
+    template <class T>
+    struct JsonWrappable<std::optional<T>, void> {
+        static constexpr bool value = JsonWrappable<T>::value;
+    };
     template <>
     class JsonEncoder<VoidStruct, void> {
     public:
@@ -265,16 +347,28 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <>
+    struct JsonWrappable<VoidStruct, void> {
+        static constexpr bool value = true;
+    };
+    template <>
     class JsonEncoder<std::monostate, void> {
     public:
         static void write(nlohmann::json &output, std::optional<std::string> const &key, std::monostate const &data) {
         }
+    };
+    template <>
+    struct JsonWrappable<std::monostate, void> {
+        static constexpr bool value = true;
     };
     template <int32_t N>
     class JsonEncoder<ConstType<N>, void> {
     public:
         static void write(nlohmann::json &output, std::optional<std::string> const &key, ConstType<N> const &data) {
         }
+    };
+    template <int32_t N>
+    struct JsonWrappable<ConstType<N>, void> {
+        static constexpr bool value = true;
     };
     template <class T>
     class JsonEncoder<SingleLayerWrapper<T>, void> {
@@ -283,12 +377,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             JsonEncoder<T>::write(output, key, data.value);
         }
     };
+    template <class T>
+    struct JsonWrappable<SingleLayerWrapper<T>, void> {
+        static constexpr bool value = JsonWrappable<T>::value;
+    };
     template <int32_t N, class T>
     class JsonEncoder<SingleLayerWrapperWithID<N,T>, void> {
     public:
         static void write(nlohmann::json &output, std::optional<std::string> const &key, SingleLayerWrapperWithID<N,T> const &data) {
             JsonEncoder<T>::write(output, key, data.value);
         }
+    };
+    template <int32_t N, class T>
+    struct JsonWrappable<SingleLayerWrapperWithID<N,T>, void> {
+        static constexpr bool value = JsonWrappable<T>::value;
     };
     template <class M, class T>
     class JsonEncoder<SingleLayerWrapperWithTypeMark<M,T>, void> {
@@ -297,7 +399,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             JsonEncoder<T>::write(output, key, data.value);
         }
     };
-
+    template <class M, class T>
+    struct JsonWrappable<SingleLayerWrapperWithTypeMark<M,T>, void> {
+        static constexpr bool value = JsonWrappable<T>::value;
+    };
+    
     template <class T>
     class JsonEncoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
     private:
@@ -317,6 +423,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static void write(nlohmann::json &output, std::optional<std::string> const &key, T const &data) {
             write_impl<StructFieldInfo<T>::FIELD_NAMES.size(),0>((key?output[*key]:output), data);
         }
+    };
+    template <class T>
+    struct JsonWrappable<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
+    private:
+        template <std::size_t FieldCount, std::size_t FieldIndex>
+        static constexpr bool value_internal() {
+            if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
+                using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
+                if constexpr (!JsonWrappable<F>::value) {
+                    return false;
+                } else {
+                    return value_internal<FieldCount,FieldIndex+1>();
+                }
+            } else {
+                return true;
+            }
+        }
+    public:
+        static constexpr bool value = value_internal<StructFieldInfo<T>::FIELD_NAMES.size(),0>();
     };
 
     using JsonFieldMapping = std::unordered_map<

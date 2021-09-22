@@ -1164,6 +1164,42 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     public:
         static constexpr bool value = value_internal<StructFieldInfo<T>::FIELD_NAMES.size(),0>();
     };
+    template <class T>
+    class ProtoEncoder<T, std::enable_if_t<
+        bytedata_utils::ProtobufStyleSerializableChecker<T>::IsProtobufStyleSerializable()
+        , void
+    >> {
+    public:
+        static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
+            return inputFieldNumber;
+        }
+        static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
+            return inputFieldNumber+1;
+        }
+        static void write(std::optional<uint64_t> fieldNumber, T const &data, std::ostream &os, bool writeDefaultValue) {
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
+                    , os
+                );
+                std::string s;
+                data.SerializeToString(&s);
+                internal::VarIntSupport::write<uint64_t>((uint64_t) s.length(), os);
+                os.write(s.data(), s.length());
+            } else {
+                std::string s;
+                data.SerializeToString(&s);
+                os.write(s.data(), s.length());
+            }
+        }
+    };
+    template <class T>
+    struct ProtoWrappable<T, std::enable_if_t<
+        bytedata_utils::ProtobufStyleSerializableChecker<T>::IsProtobufStyleSerializable()
+        , void
+    >> {
+        static constexpr bool value = true;
+    };
     
     class IProtoDecoderBase {
     public:
@@ -2398,12 +2434,44 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             return input.length()-start;
         }
     };
+    template <class T>
+    class ProtoDecoder<T, std::enable_if_t<
+        bytedata_utils::ProtobufStyleSerializableChecker<T>::IsProtobufStyleSerializable()
+        , void
+    >> final : public IProtoDecoder<T> {
+    public:
+        ProtoDecoder(T* output, uint64_t baseFieldNumber) : IProtoDecoder<T>(output) {
+        }
+        virtual ~ProtoDecoder() {
+        }
+        static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
+            return {baseFieldNumber};
+        }
+    protected:
+        std::optional<std::size_t> read(T &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
+            if (fh.wireType != internal::ProtoWireType::LengthDelimited) {
+                return std::nullopt;
+            }
+            std::string s(input.substr(start));
+            if (output.ParseFromString(s)) {
+                return s.length();
+            } else {
+                return std::nullopt;
+            }
+        }
+    };
 
     template <class T, typename=void>
     class Proto {};
 
     template <class T>
-    class Proto<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
+    class Proto<T, std::enable_if_t<
+        (
+            StructFieldInfo<T>::HasGeneratedStructFieldInfo
+            &&
+            ProtoWrappable<T>::value
+        ), void
+    >> {
     private:
         T t_;
         ProtoDecoder<T> dec_;
@@ -2495,7 +2563,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <class T>
-    class Proto<T *, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
+    class Proto<T *, std::enable_if_t<
+        (
+            StructFieldInfo<T>::HasGeneratedStructFieldInfo
+            &&
+            ProtoWrappable<T>::value
+        ), void
+    >> {
     private:
         T *t_;
         ProtoDecoder<T> dec_;
