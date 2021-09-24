@@ -403,6 +403,75 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     struct JsonWrappable<SingleLayerWrapperWithTypeMark<M,T>, void> {
         static constexpr bool value = JsonWrappable<T>::value;
     };
+
+    template <class... Ts>
+    struct JsonWrappable<std::variant<Ts...>, void> {
+    private:
+        template <std::size_t Index>
+        static constexpr bool value_internal() {
+            if constexpr (Index < sizeof...(Ts)) {
+                if constexpr (!JsonWrappable<std::variant_alternative_t<Index,std::variant<Ts...>>>::value) {
+                    return false;
+                } else {
+                    return value_internal<Index+1>();
+                }
+            } else {
+                return true;
+            }
+        }
+    public:
+        static constexpr bool value = value_internal<0>();
+    };
+    template <class... Ts>
+    class JsonEncoder<std::variant<Ts...>, std::enable_if_t<JsonWrappable<std::variant<Ts...>>::value, void>> {
+    private:
+        template <std::size_t Index>
+        static void write_impl(nlohmann::json &output, std::variant<Ts...> const &data) {
+            if constexpr (Index >= 0 && Index < sizeof...(Ts)) {
+                if (Index == data.index()) {
+                    using F = std::variant_alternative_t<Index,std::variant<Ts...>>;
+                    output["index"] = Index;
+                    JsonEncoder<F>::write(
+                        output
+                        , "content"
+                        , std::get<Index>(data)
+                    );
+                } else {
+                    write_impl<Index+1>(output, data);
+                }
+            }
+        }
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, std::variant<Ts...> const &data) {
+            if constexpr (sizeof...(Ts) >= 0) {
+                write_impl<0>((key?output[*key]:output), data);
+            }
+        }
+    };
+    template <class... Ts>
+    struct JsonWrappable<std::tuple<Ts...>, void> {
+    public:
+        static constexpr bool value = JsonWrappable<std::variant<Ts...>,void>::value;
+    };
+    template <class... Ts>
+    class JsonEncoder<std::tuple<Ts...>, std::enable_if_t<JsonWrappable<std::tuple<Ts...>>::value, void>> {
+    private:
+        template <std::size_t Index>
+        static void write_impl(nlohmann::json &output, std::tuple<Ts...> const &data) {
+            if constexpr (Index >= 0 && Index < sizeof...(Ts)) {
+                using F = std::tuple_element_t<Index, std::tuple<Ts...>>;
+                output.push_back(nlohmann::json());
+                JsonEncoder<F>::write(output.back(), std::nullopt, std::get<Index>(data));
+                write_impl<Index+1>(output, data);
+            }
+        }
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, std::tuple<Ts...> const &data) {
+            if constexpr (sizeof...(Ts) >= 0) {
+                write_impl<0>((key?output[*key]:output), data);
+            }
+        }
+    };
     
     template <class T>
     class JsonEncoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
@@ -774,6 +843,48 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     public:
         static void read(nlohmann::json const &input, std::optional<std::string> const &key, SingleLayerWrapperWithTypeMark<M,T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             JsonDecoder<T>::read(input, key, data.value, mapping);
+        }
+    };
+
+    template <class... Ts>
+    class JsonDecoder<std::variant<Ts...>, std::enable_if_t<JsonWrappable<std::variant<Ts...>>::value, void>> {
+    private:
+        template <std::size_t Index>
+        static void read_impl(nlohmann::json const &input, int index, std::variant<Ts...> &data, JsonFieldMapping const &mapping) {
+            if constexpr (Index < sizeof...(Ts)) {
+                if (Index == index) {
+                    using F = std::variant_alternative_t<Index, std::variant<Ts...>>;
+                    data.template emplace<Index>();
+                    JsonDecoder<F>::read(input, std::nullopt, std::get<Index>(data), mapping);
+                } else {
+                    read_impl<Index+1>(input, index, data, mapping);
+                }
+            }
+        }
+    public:
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::variant<Ts...> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            auto const &i = (key?input.at(*key):input);
+            if (i.contains("index") && i.contains("content")) {
+                std::size_t index;
+                JsonDecoder<std::size_t>::read(i, "index", index, mapping);
+                read_impl<0>(i.at("content"), index, data, mapping);
+            }
+        }
+    };
+    template <class... Ts>
+    class JsonDecoder<std::tuple<Ts...>, std::enable_if_t<JsonWrappable<std::tuple<Ts...>>::value, void>> {
+    private:
+        template <std::size_t Index>
+        static void read_impl(nlohmann::json const &input, std::tuple<Ts...> &data, JsonFieldMapping const &mapping) {
+            if constexpr (Index < sizeof...(Ts)) {
+                using F = std::tuple_element_t<Index, std::tuple<Ts...>>;
+                JsonDecoder<F>::read(input[Index], std::nullopt, std::get<Index>(data), mapping);
+                read_impl<Index+1>(input, data, mapping);
+            }
+        }
+    public:
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::tuple<Ts...> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            read_impl<0>((key?input.at(*key):input), data, mapping);
         }
     };
 
