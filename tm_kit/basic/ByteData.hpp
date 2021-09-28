@@ -349,7 +349,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return RunCBORSerializer<int64_t>::apply(infra::withtime_utils::sinceEpoch<std::chrono::microseconds>(data));
             }
             static std::size_t apply(std::chrono::system_clock::time_point const &data, char *output) {
-                return RunCBORSerializer<int8_t>::apply(infra::withtime_utils::sinceEpoch<std::chrono::microseconds>(data), output);
+                return RunCBORSerializer<int64_t>::apply(infra::withtime_utils::sinceEpoch<std::chrono::microseconds>(data), output);
             }
             static constexpr std::size_t calculateSize(std::chrono::system_clock::time_point const &data) {
                 return RunCBORSerializer<int64_t>::calculateSize(infra::withtime_utils::sinceEpoch<std::chrono::microseconds>(data));
