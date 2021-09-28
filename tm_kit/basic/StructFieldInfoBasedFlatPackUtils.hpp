@@ -2,6 +2,7 @@
 #define TM_KIT_BASIC_STRUCT_FIELD_INFO_BASED_FLAT_PACK_UTILS_HPP_
 
 #include <tm_kit/basic/StructFieldInfoBasedCsvUtils.hpp>
+#include <tm_kit/basic/TriviallySerializable.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace struct_field_info_utils {
 
@@ -334,15 +335,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             return *this;
         }
 
-        void SerializeToStream(std::ostream &os) const {
+        void writeToStream(std::ostream &os) const {
             StructFieldInfoBasedSimpleFlatPackOutput<T>::writeData(os, t_);
         }
-        void SerializeToString(std::string *s) const {
+        void writeToString(std::string *s) const {
             std::ostringstream oss;
             StructFieldInfoBasedSimpleFlatPackOutput<T>::writeData(oss, t_);
             *s = oss.str();
         }
-        bool ParseFromStringView(std::string_view const &s) {
+        bool fromStringView(std::string_view const &s) {
             auto res = StructFieldInfoBasedSimpleFlatPackInput<T>::readOne(s, 0, t_);
             if (res) {
                 return true;
@@ -350,8 +351,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 return false;
             }
         }
-        bool ParseFromString(std::string const &s) {
-            return ParseFromStringView(std::string_view(s));
+        bool fromString(std::string const &s) {
+            return fromStringView(std::string_view(s));
         }
         T const &value() const {
             return t_;
@@ -476,6 +477,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         }
         static bool applyInPlace(struct_field_info_utils::FlatPack<T> &output, std::string const &data) {
             return output.fromStringView(std::string_view {data});
+        }
+    };
+    template <class T>
+    struct DirectlySerializableChecker<struct_field_info_utils::FlatPack<T>> {
+        static constexpr bool IsDirectlySerializable() {
+            return true;
         }
     };
 } } } } }

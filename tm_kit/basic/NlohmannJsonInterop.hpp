@@ -1184,6 +1184,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             return output.fromString(data);
         }
     };
+    template <class T>
+    struct DirectlySerializableChecker<nlohmann_json_interop::Json<T>> {
+        static constexpr bool IsDirectlySerializable() {
+            return true;
+        }
+    };
 
     //allow nlohmann::json to be used in CBOR<> structure
     template <>
