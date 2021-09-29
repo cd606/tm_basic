@@ -2395,6 +2395,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     protected:
         std::optional<std::size_t> read(T &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
             struct_field_info_utils::StructFieldInfoBasedInitializer<T>::initialize(output);
+            //generated proto C++ code may actually send empty message for a struct, 
+            //so this corner case must be considered
+            if (input.length() == start) {
+                return 0;
+            }
             if (fh.wireType != internal::ProtoWireType::LengthDelimited) {
                 return std::nullopt;
             }

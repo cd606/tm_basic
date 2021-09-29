@@ -85,6 +85,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
         template <template<class... Xs> class Wrapper, class T>
         using WrappedType = typename WrappedTypeInternal<Wrapper,T>::TheType;
+
+        template <class T>
+        struct UnwrappedTypeInternal {
+            using TheType = T;
+        };
+        template <class T>
+        struct UnwrappedTypeInternal<CBOR<T>> {
+            using TheType = typename UnwrappedTypeInternal<T>::TheType;
+        };
+        template <class T>
+        struct UnwrappedTypeInternal<proto_interop::Proto<T>> {
+            using TheType = typename UnwrappedTypeInternal<T>::TheType;
+        };
+        template <class T>
+        struct UnwrappedTypeInternal<nlohmann_json_interop::Json<T>> {
+            using TheType = typename UnwrappedTypeInternal<T>::TheType;
+        };
+        template <class T>
+        struct UnwrappedTypeInternal<struct_field_info_utils::FlatPack<T>> {
+            using TheType = typename UnwrappedTypeInternal<T>::TheType;
+        };
+
+        template <class T>
+        using UnwrappedType = typename UnwrappedTypeInternal<T>::TheType;
     }
 
     template <class R>
@@ -344,7 +368,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     )
                     , infra::KleisliUtils<typename R::AppType>::template liftPure<std::tuple<Extra,A>>(
                         [](std::tuple<Extra,A> &&x) -> std::tuple<Extra,WrapFacilitioidConnectorForSerializationHelpers::WrappedType<Wrapper,A>> {
-                            return {std::move(std::get<0>(x), WrapFacilitioidConnectorForSerializationHelpers::WrapperUtils<Wrapper>::template enclose<A>(std::move(std::get<1>(x))))};
+                            return {std::move(std::get<0>(x)), WrapFacilitioidConnectorForSerializationHelpers::WrapperUtils<Wrapper>::template enclose<A>(std::move(std::get<1>(x)))};
                         }
                     )
                     , infra::KleisliUtils<typename R::AppType>::template liftPure<B>(
