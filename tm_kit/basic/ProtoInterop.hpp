@@ -1002,6 +1002,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     struct ProtoWrappable<ConstType<N>, void> {
         static constexpr bool value = true;
     };
+    template <class T>
+    class ProtoEncoder<SingleLayerWrapper<T>, void> {
+    public:
+        static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
+            return ProtoEncoder<T>::thisFieldNumber(inputFieldNumber);
+        }
+        static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
+            return ProtoEncoder<T>::nextFieldNumber(inputFieldNumber);
+        }
+        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapper<T> const &data, std::ostream &os, bool writeDefaultValue) {
+            ProtoEncoder<T>::write(fieldNumber, data.value, os, writeDefaultValue);
+        }
+    };
+    template <class T>
+    struct ProtoWrappable<SingleLayerWrapper<T>, void> {
+        static constexpr bool value = ProtoWrappable<T>::value;
+    };
 
     template <int32_t N, class T>
     class ProtoEncoder<SingleLayerWrapperWithID<N,T>, void> {
@@ -1095,6 +1112,77 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     public:
         static constexpr bool value = value_internal<1>();
+    };
+    template <class FirstVariant, class... MoreVariants>
+    class ProtoEncoder<std::variant<FirstVariant,MoreVariants...>, std::enable_if_t<!std::is_same_v<FirstVariant,std::monostate>, void>> {
+    private:
+        using TheVariant = std::variant<FirstVariant,MoreVariants...>;
+        static constexpr std::size_t FieldCount = sizeof...(MoreVariants)+1;
+        template <std::size_t FieldIndex>
+        static constexpr uint64_t nextFieldNumber_internal(uint64_t inputFieldNumber) {
+            if constexpr (FieldIndex < FieldCount) {
+                return nextFieldNumber_internal<FieldIndex+1>(
+                    ProtoEncoder<
+                        std::variant_alternative_t<FieldIndex, TheVariant>
+                    >::nextFieldNumber(inputFieldNumber)
+                );
+            } else {
+                return inputFieldNumber;
+            }
+        }
+        template <std::size_t FieldIndex>
+        static void write_internal(std::optional<uint64_t> fieldNumber, TheVariant const &data, std::ostream &os) {
+            if constexpr (FieldIndex < FieldCount) {
+                if (data.index() == FieldIndex) {
+                    ProtoEncoder<
+                        std::variant_alternative_t<FieldIndex, TheVariant>
+                    >::write(
+                        fieldNumber 
+                        , std::get<FieldIndex>(data)
+                        , os
+                        , true
+                    );
+                } else {
+                    std::optional<uint64_t> nextField = std::nullopt;
+                    if (fieldNumber) {
+                        nextField = ProtoEncoder<
+                            std::variant_alternative_t<FieldIndex, TheVariant>
+                        >::nextFieldNumber(*fieldNumber);
+                    }
+                    write_internal<FieldIndex+1>(nextField, data, os);
+                }
+            }
+        }
+    public:
+        static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
+            return inputFieldNumber;
+        }
+        static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
+            return nextFieldNumber_internal<0>(inputFieldNumber);
+        }
+        static void write(std::optional<uint64_t> fieldNumber, std::variant<FirstVariant,MoreVariants...> const &data, std::ostream &os, bool writeDefaultValue) {
+            write_internal<0>(fieldNumber, data, os);
+        }
+    };
+    template <class FirstVariant, class... MoreVariants>
+    struct ProtoWrappable<std::variant<FirstVariant,MoreVariants...>, std::enable_if_t<!std::is_same_v<FirstVariant,std::monostate>, void>> {
+    private:
+        using TheVariant = std::variant<FirstVariant,MoreVariants...>;
+        static constexpr std::size_t FieldCount = sizeof...(MoreVariants)+1;
+        template <std::size_t FieldIndex>
+        static constexpr bool value_internal() {
+            if constexpr (FieldIndex < FieldCount) {
+                if (!ProtoWrappable<std::variant_alternative_t<FieldIndex, TheVariant>>::value) {
+                    return false;
+                } else {
+                    return value_internal<FieldIndex+1>();
+                }
+            } else {
+                return true;
+            }
+        }
+    public:
+        static constexpr bool value = value_internal<0>();
     };
 
     template <class T>
@@ -1205,6 +1293,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     public:
         virtual ~IProtoDecoderBase() = default;
         virtual std::optional<std::size_t> handle(internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) = 0;
+        std::optional<std::size_t> handleWithOuterHeader(std::string_view const &input, std::size_t start) {
+            if (input.length() == start) {
+                return 0;
+            }
+            internal::FieldHeader fh;
+            std::size_t fieldLen;
+            auto res = internal::FieldHeaderSupport::readHeader(fh, input, start, &fieldLen);
+            if (!res) {
+                return std::nullopt;
+            }
+            return handle(fh, input, start+(*res));
+        }
     };
     template <class T>
     class IProtoDecoder : public IProtoDecoderBase {
@@ -2243,6 +2343,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
         }
     };
+    template <class T>
+    class ProtoDecoder<SingleLayerWrapper<T>, void> final : public IProtoDecoder<SingleLayerWrapper<T>> {
+    private:
+        ProtoDecoder<T> subDec_;
+    public:
+        ProtoDecoder(SingleLayerWrapper<T> *output, uint64_t baseFieldNumber) : IProtoDecoder<SingleLayerWrapper<T>>(output), subDec_(&(output->value), baseFieldNumber) {}
+        virtual ~ProtoDecoder() = default;
+        static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
+            return ProtoDecoder<T>::responsibleForFieldNumbers(baseFieldNumber);
+        }
+    protected:
+        std::optional<std::size_t> read(SingleLayerWrapper<T> &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
+            return subDec_.handle(fh, input, start);
+        }
+    };
     template <int32_t N, class T>
     class ProtoDecoder<SingleLayerWrapperWithID<N,T>, void> final : public IProtoDecoder<SingleLayerWrapperWithID<N,T>> {
     private:
@@ -2337,6 +2452,92 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     protected:
         std::optional<std::size_t> read(std::variant<std::monostate,MoreVariants...> &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
+            auto iter = decoders_.find(fh.fieldNumber);
+            if (iter == decoders_.end()) {
+                return std::nullopt;
+            }
+            auto *p = std::get<0>(iter->second);
+            if (!p) {
+                return std::nullopt;
+            }
+            auto res = p->handle(fh, input, start);
+            if (!res) {
+                return std::nullopt;
+            }
+            (std::get<1>(iter->second))(output);
+            return res;
+        }
+    };
+    template <class FirstVariant, class... MoreVariants>
+    class ProtoDecoder<std::variant<FirstVariant,MoreVariants...>, std::enable_if_t<!std::is_same_v<FirstVariant,std::monostate>,void>> final : public IProtoDecoder<std::variant<FirstVariant,MoreVariants...>> {
+    private:
+        using TheVariant = std::variant<FirstVariant,MoreVariants...>;
+        static constexpr std::size_t FieldCount = sizeof...(MoreVariants)+1;
+
+        std::tuple<FirstVariant,MoreVariants...> storage_;
+        std::unordered_map<uint64_t, std::tuple<IProtoDecoderBase *, std::function<void(TheVariant &)>>> decoders_;
+
+        template <std::size_t FieldIndex>
+        static void addResponsibleFields_internal(uint64_t current, std::vector<uint64_t> &output) {
+            if constexpr (FieldIndex < FieldCount) {
+                auto v = ProtoDecoder<
+                    std::variant_alternative_t<FieldIndex, TheVariant>
+                >::responsibleForFieldNumbers(
+                    ProtoEncoder<
+                        std::variant_alternative_t<FieldIndex, TheVariant>
+                    >::thisFieldNumber(current)
+                );
+                std::copy(v.begin(), v.end(), std::back_inserter(output));
+                addResponsibleFields_internal<FieldIndex+1>(
+                    ProtoEncoder<
+                        std::variant_alternative_t<FieldIndex, TheVariant>
+                    >::nextFieldNumber(current)
+                    , output
+                );
+            }
+        }
+        template <std::size_t FieldIndex>
+        void buildDecoders_internal(uint64_t current) {
+            if constexpr (FieldIndex < FieldCount) {
+                using F = std::variant_alternative_t<FieldIndex, TheVariant>;
+                for (auto n : ProtoDecoder<F>::responsibleForFieldNumbers(
+                    ProtoEncoder<F>::thisFieldNumber(current)
+                )) {
+                    decoders_[n] = {
+                        new ProtoDecoder<F>(
+                            &(std::get<FieldIndex>(storage_))
+                            , ProtoEncoder<F>::thisFieldNumber(current)
+                        )
+                        , [this](TheVariant &output) {
+                            output.template emplace<FieldIndex>(
+                                std::move(std::get<FieldIndex>(storage_))
+                            );
+                        }
+                    };
+                }
+                buildDecoders_internal<FieldIndex+1>(
+                    ProtoEncoder<F>::nextFieldNumber(current)
+                );
+            }
+        }
+    public:
+        ProtoDecoder(std::variant<FirstVariant,MoreVariants...> *output, uint64_t baseFieldNumber) : IProtoDecoder<std::variant<FirstVariant,MoreVariants...>>(output), storage_(), decoders_() {
+            buildDecoders_internal<0>(baseFieldNumber);
+        }
+        virtual ~ProtoDecoder() {
+            for (auto &item : decoders_) {
+                delete std::get<0>(item.second);
+                std::get<0>(item.second) = nullptr;
+            }
+            decoders_.clear();
+        }
+        static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
+            std::vector<uint64_t> ret;
+            addResponsibleFields_internal<0>(baseFieldNumber, ret);
+            return ret;
+        }
+    protected:
+        std::optional<std::size_t> read(std::variant<FirstVariant,MoreVariants...> &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
             auto iter = decoders_.find(fh.fieldNumber);
             if (iter == decoders_.end()) {
                 return std::nullopt;
@@ -2508,15 +2709,28 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
 
         void SerializeToStream(std::ostream &os) const {
-            ProtoEncoder<T>::write(std::nullopt, t_, os, false);
+            if constexpr (StructFieldInfo<T>::HasGeneratedStructFieldInfo) {
+                ProtoEncoder<T>::write(std::nullopt, t_, os, false);
+            } else {
+                ProtoEncoder<T>::write(1, t_, os, false);
+            }
         }
         void SerializeToString(std::string *s) const {
             std::ostringstream oss;
-            ProtoEncoder<T>::write(std::nullopt, t_, oss, false);
+            if constexpr (StructFieldInfo<T>::HasGeneratedStructFieldInfo) {
+                ProtoEncoder<T>::write(std::nullopt, t_, oss, false);
+            } else {
+                ProtoEncoder<T>::write(1, t_, oss, false);
+            }
             *s = oss.str();
         }
         bool ParseFromStringView(std::string_view const &s) {
-            auto res = dec_.handle({internal::ProtoWireType::LengthDelimited, 0}, s, 0);
+            std::optional<std::size_t> res;
+            if constexpr (StructFieldInfo<T>::HasGeneratedStructFieldInfo) {
+                res = dec_.handle({internal::ProtoWireType::LengthDelimited, 0}, s, 0);
+            } else {
+                res = dec_.handleWithOuterHeader(s, 0);
+            }
             if (res) {
                 return true;
             } else {
@@ -2548,11 +2762,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             return &t_;
         }
         static void runSerialize(T const &t, std::ostream &os) {
-            ProtoEncoder<T>::write(std::nullopt, t, os, false);
+            if constexpr (StructFieldInfo<T>::HasGeneratedStructFieldInfo) {
+                ProtoEncoder<T>::write(std::nullopt, t, os, false);
+            } else {
+                ProtoEncoder<T>::write(1, t, os, false);
+            }
         }
         static bool runDeserialize(T &t, std::string_view const &input) {
             ProtoDecoder<T> dec(&t, 1);
-            auto res = dec.handle({internal::ProtoWireType::LengthDelimited, 0}, input, 0);
+            std::optional<std::size_t> res;
+            if constexpr (StructFieldInfo<T>::HasGeneratedStructFieldInfo) {
+                res = dec.handle({internal::ProtoWireType::LengthDelimited, 0}, input, 0);
+            } else {
+                res = dec.handleWithOuterHeader(input, 0);
+            }
             if (res) {
                 return true;
             } else {
@@ -2585,13 +2808,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
 
         void SerializeToStream(std::ostream &os) const {
             if (t_) {
-                ProtoEncoder<T>::write(std::nullopt, *t_, os, false);
+                if constexpr (StructFieldInfo<T>::HasGeneratedStructFieldInfo) {
+                    ProtoEncoder<T>::write(std::nullopt, *t_, os, false);
+                } else {
+                    ProtoEncoder<T>::write(1, *t_, os, false);
+                }
             }
         }
         void SerializeToString(std::string *s) const {
             if (t_) {
                 std::ostringstream oss;
-                ProtoEncoder<T>::write(std::nullopt, *t_, oss, false);
+                if constexpr (StructFieldInfo<T>::HasGeneratedStructFieldInfo) {
+                    ProtoEncoder<T>::write(std::nullopt, *t_, oss, false);
+                } else {
+                    ProtoEncoder<T>::write(1, *t_, oss, false);
+                }
                 *s = oss.str();
             } else {
                 *s = "";
@@ -2599,7 +2830,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
         bool ParseFromStringView(std::string_view const &s) {
             if (t_) {
-                auto res = dec_.handle({internal::ProtoWireType::LengthDelimited, 0}, s, 0);
+                std::optional<std::size_t> res;
+                if constexpr (StructFieldInfo<T>::HasGeneratedStructFieldInfo) {
+                    res = dec_.handle({internal::ProtoWireType::LengthDelimited, 0}, s, 0);
+                } else {
+                    res = dec_.handleWithOuterHeader(s, 0);
+                }
                 if (res) {
                     return true;
                 } else {
