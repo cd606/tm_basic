@@ -22,6 +22,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return std::move(x);
             }
             template <class T>
+            static T extractConst(T const &x) {
+                return x;
+            }
+            template <class T>
             static T enclose(T &&x) {
                 return std::move(x);
             }
@@ -32,6 +36,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             template <class T>
             static T extract(CBOR<T> &&x) {
                 return std::move(x.value);
+            }
+            template <class T>
+            static T extractConst(CBOR<T> const &x) {
+                return x.value;
             }
             template <class T>
             static CBOR<T> enclose(T &&x) {
@@ -46,6 +54,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return std::move(x).moveValue();
             }
             template <class T>
+            static T extractConst(proto_interop::Proto<T> const &x) {
+                return *x;
+            }
+            template <class T>
             static proto_interop::Proto<T> enclose(T &&x) {
                 return proto_interop::Proto<T> {std::move(x)};
             }
@@ -58,6 +70,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return std::move(x).moveValue();
             }
             template <class T>
+            static T extractConst(nlohmann_json_interop::Json<T> const &x) {
+                return *x;
+            }
+            template <class T>
             static nlohmann_json_interop::Json<T> enclose(T &&x) {
                 return nlohmann_json_interop::Json<T> {std::move(x)};
             }
@@ -68,6 +84,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             template <class T>
             static T extract(struct_field_info_utils::FlatPack<T> &&x) {
                 return std::move(x).moveValue();
+            }
+            template <class T>
+            static T extractConst(struct_field_info_utils::FlatPack<T> const &x) {
+                return *x;
             }
             template <class T>
             static struct_field_info_utils::FlatPack<T> enclose(T &&x) {
