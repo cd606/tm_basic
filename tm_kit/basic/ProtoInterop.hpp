@@ -931,6 +931,79 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     struct ProtoWrappable<std::valarray<T>, void> {
         static constexpr bool value = ProtoWrappable<T>::value;
     };
+
+    template <class K, class D, class Cmp>
+    class ProtoEncoder<std::map<K,D,Cmp>, void> {
+    public:
+        static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
+            return inputFieldNumber;
+        }
+        static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
+            return inputFieldNumber+1;
+        }
+        static void write(std::optional<uint64_t> fieldNumber, std::map<K,D,Cmp> const &data, std::ostream &os, bool writeDefaultValue) {
+            if (data.size() == 0) {
+                return;
+            }
+            for (auto const &item : data) {
+                if (fieldNumber) {
+                    internal::FieldHeaderSupport::writeHeader(
+                        internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
+                        , os
+                    );
+                    std::ostringstream ss;
+                    ProtoEncoder<K>::write(1, item.first, ss, false);
+                    ProtoEncoder<D>::write(2, item.second, ss, false);
+                    std::string cont = ss.str();
+                    internal::VarIntSupport::write<uint64_t>((uint64_t) cont.length(), os);
+                    os.write(cont.data(), cont.length());
+                } else {
+                    ProtoEncoder<K>::write(1, item.first, os, false);
+                    ProtoEncoder<D>::write(2, item.second, os, false);
+                }
+            }
+        }
+    };
+    template <class K, class D, class Cmp>
+    struct ProtoWrappable<std::map<K,D,Cmp>, void> {
+        static constexpr bool value = ProtoWrappable<K>::value && ProtoWrappable<D>::value;
+    };
+    template <class K, class D, class Hash>
+    class ProtoEncoder<std::unordered_map<K,D,Hash>, void> {
+    public:
+        static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
+            return inputFieldNumber;
+        }
+        static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
+            return inputFieldNumber+1;
+        }
+        static void write(std::optional<uint64_t> fieldNumber, std::unordered_map<K,D,Hash> const &data, std::ostream &os, bool writeDefaultValue) {
+            if (data.size() == 0) {
+                return;
+            }
+            for (auto const &item : data) {
+                if (fieldNumber) {
+                    internal::FieldHeaderSupport::writeHeader(
+                        internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
+                        , os
+                    );
+                    std::ostringstream ss;
+                    ProtoEncoder<K>::write(1, item.first, ss, false);
+                    ProtoEncoder<D>::write(2, item.second, ss, false);
+                    std::string cont = ss.str();
+                    internal::VarIntSupport::write<uint64_t>((uint64_t) cont.length(), os);
+                    os.write(cont.data(), cont.length());
+                } else {
+                    ProtoEncoder<K>::write(1, item.first, os, false);
+                    ProtoEncoder<D>::write(2, item.second, os, false);
+                }
+            }
+        }
+    };
+    template <class K, class D, class Hash>
+    struct ProtoWrappable<std::unordered_map<K,D,Hash>, void> {
+        static constexpr bool value = ProtoWrappable<K>::value && ProtoWrappable<D>::value;
+    };
     
     template <class T>
     class ProtoEncoder<std::optional<T>, void> {
@@ -2165,7 +2238,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 std::size_t remaining = input.length()-start;
                 std::size_t idx = start;
                 do {
-                    auto res = subDec.handle(internal::ProtoWireTypeForSubField<T>::TheType, input, idx);
+                    auto res = subDec.handle({internal::ProtoWireTypeForSubField<T>::TheType, fh.fieldNumber}, input, idx);
                     if (!res) {
                         return std::nullopt;
                     }
@@ -2232,7 +2305,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             T x;
             ProtoDecoder<T> subDec(&x, baseFieldNumber_);
             do {
-                auto res = subDec.handle(internal::ProtoWireTypeForSubField<T>::TheType, input, idx);
+                auto res = subDec.handle({internal::ProtoWireTypeForSubField<T>::TheType, fh.fieldNumber}, input, idx);
                 if (!res) {
                     return std::nullopt;
                 }
@@ -2257,7 +2330,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             if (fh.wireType == internal::ProtoWireType::LengthDelimited) {
                 std::vector<T> vec;
                 ProtoDecoder<std::vector<T>> vecDec(&vec);
-                auto res = vecDec.handle(fh.wireType, input, start);
+                auto res = vecDec.handle(fh, input, start);
                 if (!res) {
                     return std::nullopt;
                 }
@@ -2278,6 +2351,154 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             } else {
                 return std::nullopt;
             }
+        }
+    };
+    template <class K, class D, class Cmp>
+    class ProtoDecoder<std::map<K,D,Cmp>,void> : public IProtoDecoder<std::map<K,D,Cmp>> {
+    public:
+        ProtoDecoder(std::map<K,D,Cmp> *output, uint64_t baseFieldNumber) : IProtoDecoder<std::map<K,D,Cmp>>(output), baseFieldNumber_(baseFieldNumber) {}
+        virtual ~ProtoDecoder() = default;
+        static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
+            return {baseFieldNumber};
+        }
+    protected:
+        uint64_t baseFieldNumber_;
+        std::optional<std::size_t> read(std::map<K,D,Cmp> &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
+            if (fh.wireType != internal::ProtoWireType::LengthDelimited) {
+                return std::nullopt;
+            }
+            std::size_t remaining = input.length()-start;
+            std::size_t idx = start;
+
+            K k;
+            D d;
+            struct_field_info_utils::StructFieldInfoBasedInitializer<K>::initialize(k);
+            struct_field_info_utils::StructFieldInfoBasedInitializer<D>::initialize(d);
+
+            if (remaining == 0) {
+                //since we are reading until here, but got an empty input
+                //that can only mean that the key and data are both optimized out
+                output[k] = std::move(d);
+                return 0;
+            }
+            
+            ProtoDecoder<K> subDecK(&k, 1);
+            ProtoDecoder<D> subDecD(&d, 2);
+            do {
+                internal::FieldHeader innerFh;
+                std::size_t fieldLen;
+                auto res = internal::FieldHeaderSupport::readHeader(innerFh, input, idx, &fieldLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                idx += *res;
+                remaining -= *res;
+                if (innerFh.fieldNumber == 1) {
+                    if (fieldLen > 0) {
+                        res = subDecK.handle(innerFh, input.substr(idx, fieldLen), 0);
+                    } else {
+                        if (innerFh.wireType == internal::ProtoWireType::LengthDelimited) {
+                            res = subDecK.handle(innerFh, std::string_view {}, 0);
+                        } else {
+                            res = subDecK.handle(innerFh, input, idx);
+                        }
+                    }
+                    if (!res) {
+                        return std::nullopt;
+                    }
+                } else if (innerFh.fieldNumber == 2) {
+                    if (fieldLen > 0) {
+                        res = subDecD.handle(innerFh, input.substr(idx, fieldLen), 0);
+                    } else {
+                        if (innerFh.wireType == internal::ProtoWireType::LengthDelimited) {
+                            res = subDecD.handle(innerFh, std::string_view {}, 0);
+                        } else {
+                            res = subDecD.handle(innerFh, input, idx);
+                        }
+                    }
+                    if (!res) {
+                        return std::nullopt;
+                    }
+                }
+                idx += *res;
+                remaining -= *res;
+            } while (remaining > 0);
+            output[k] = std::move(d);
+            return (input.length()-start);
+        }
+    };
+    template <class K, class D, class Hash>
+    class ProtoDecoder<std::unordered_map<K,D,Hash>,void> : public IProtoDecoder<std::unordered_map<K,D,Hash>> {
+    public:
+        ProtoDecoder(std::unordered_map<K,D,Hash> *output, uint64_t baseFieldNumber) : IProtoDecoder<std::unordered_map<K,D,Hash>>(output), baseFieldNumber_(baseFieldNumber) {}
+        virtual ~ProtoDecoder() = default;
+        static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
+            return {baseFieldNumber};
+        }
+    protected:
+        uint64_t baseFieldNumber_;
+        std::optional<std::size_t> read(std::unordered_map<K,D,Hash> &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
+            if (fh.wireType != internal::ProtoWireType::LengthDelimited) {
+                return std::nullopt;
+            }
+            std::size_t remaining = input.length()-start;
+            std::size_t idx = start;
+
+            K k;
+            D d;
+            struct_field_info_utils::StructFieldInfoBasedInitializer<K>::initialize(k);
+            struct_field_info_utils::StructFieldInfoBasedInitializer<D>::initialize(d);
+
+            if (remaining == 0) {
+                //since we are reading until here, but got an empty input
+                //that can only mean that the key and data are both optimized out
+                output[k] = std::move(d);
+                return 0;
+            }
+            
+            ProtoDecoder<K> subDecK(&k, 1);
+            ProtoDecoder<D> subDecD(&d, 2);
+            do {
+                internal::FieldHeader innerFh;
+                std::size_t fieldLen;
+                auto res = internal::FieldHeaderSupport::readHeader(innerFh, input, idx, &fieldLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                idx += *res;
+                remaining -= *res;
+                if (innerFh.fieldNumber == 1) {
+                    if (fieldLen > 0) {
+                        res = subDecK.handle(innerFh, input.substr(idx, fieldLen), 0);
+                    } else {
+                        if (innerFh.wireType == internal::ProtoWireType::LengthDelimited) {
+                            res = subDecK.handle(innerFh, std::string_view {}, 0);
+                        } else {
+                            res = subDecK.handle(innerFh, input, idx);
+                        }
+                    }
+                    if (!res) {
+                        return std::nullopt;
+                    }
+                } else if (innerFh.fieldNumber == 2) {
+                    if (fieldLen > 0) {
+                        res = subDecD.handle(innerFh, input.substr(idx, fieldLen), 0);
+                    } else {
+                        if (innerFh.wireType == internal::ProtoWireType::LengthDelimited) {
+                            res = subDecD.handle(innerFh, std::string_view {}, 0);
+                        } else {
+                            res = subDecD.handle(innerFh, input, idx);
+                        }
+                    }
+                    if (!res) {
+                        return std::nullopt;
+                    }
+                }
+                idx += *res;
+                remaining -= *res;
+            } while (remaining > 0);
+            output[k] = std::move(d);
+            return (input.length()-start);
         }
     };
     template <class T>
