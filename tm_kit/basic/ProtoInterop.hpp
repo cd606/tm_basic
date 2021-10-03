@@ -218,6 +218,58 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr bool value = true;
     };
     template <>
+    class ProtoEncoder<int8_t, void> {
+    public:
+        static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
+            return inputFieldNumber;
+        }
+        static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
+            return inputFieldNumber+1;
+        }
+        static void write(std::optional<uint64_t> fieldNumber, int8_t data, std::ostream &os, bool writeDefaultValue) {
+            if (!writeDefaultValue && data == 0) {
+                return;
+            }
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::VarInt, *fieldNumber}
+                    , os
+                );
+            }
+            internal::VarIntSupport::write<uint8_t>((uint8_t) data, os);
+        }
+    };
+    template <>
+    struct ProtoWrappable<int8_t, void> {
+        static constexpr bool value = true;
+    };
+    template <>
+    class ProtoEncoder<int16_t, void> {
+    public:
+        static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
+            return inputFieldNumber;
+        }
+        static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
+            return inputFieldNumber+1;
+        }
+        static void write(std::optional<uint64_t> fieldNumber, int16_t data, std::ostream &os, bool writeDefaultValue) {
+            if (!writeDefaultValue && data == 0) {
+                return;
+            }
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::VarInt, *fieldNumber}
+                    , os
+                );
+            }
+            internal::VarIntSupport::write<uint16_t>((uint16_t) data, os);
+        }
+    };
+    template <>
+    struct ProtoWrappable<int16_t, void> {
+        static constexpr bool value = true;
+    };
+    template <>
     class ProtoEncoder<bool, void> {
     public:
         static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
@@ -1258,6 +1310,64 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr bool value = value_internal<0>();
     };
 
+    template <class FirstItem, class... MoreItems>
+    class ProtoEncoder<std::tuple<FirstItem,MoreItems...>, void> {
+    private:
+        using TheTuple = std::tuple<FirstItem,MoreItems...>;
+        static constexpr std::size_t FieldCount = sizeof...(MoreItems)+1;
+        template <std::size_t FieldIndex>
+        static void write_impl(TheTuple const &data, std::ostream &os) {
+            if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
+                using F = std::tuple_element_t<FieldIndex,TheTuple>;
+                ProtoEncoder<F>::write(FieldIndex+1, std::get<FieldIndex>(data), os, false);
+                write_impl<FieldIndex+1>(data, os);
+            }
+        }
+    public:
+        static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
+            return inputFieldNumber;
+        }
+        static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
+            return inputFieldNumber+1;
+        }
+        static void write(std::optional<uint64_t> fieldNumber, TheTuple const &data, std::ostream &os, bool writeDefaultValue) {
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
+                    , os
+                );
+                std::ostringstream ss;
+                write_impl<0>(data, ss);
+                std::string cont = ss.str();
+                internal::VarIntSupport::write<uint64_t>((uint64_t) cont.length(), os);
+                os.write(cont.data(), cont.length());
+            } else {
+                write_impl<0>(data, os);
+            }
+        }
+    };
+    template <class FirstItem, class... MoreItems>
+    struct ProtoWrappable<std::tuple<FirstItem,MoreItems...>, void> {
+    private:
+        using TheTuple = std::tuple<FirstItem,MoreItems...>;
+        static constexpr std::size_t FieldCount = sizeof...(MoreItems)+1;
+        template <std::size_t FieldIndex>
+        static constexpr bool value_internal() {
+            if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
+                using F = std::tuple_element_t<FieldIndex,TheTuple>;
+                if (!ProtoWrappable<F>::value) {
+                    return false;
+                } else {
+                    return value_internal<FieldIndex+1>();
+                }
+            } else {
+                return true;
+            }
+        }
+    public:
+        static constexpr bool value = value_internal<0>();
+    };
+
     template <class T>
     class ProtoEncoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
     private:
@@ -1440,6 +1550,108 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 break;
             }
             
+        }
+    };
+    template <>
+    class ProtoDecoder<int8_t, void> final : public IProtoDecoder<int8_t> {
+    public:
+        ProtoDecoder(int8_t *output, uint64_t baseFieldNumber) : IProtoDecoder<int8_t>(output) {}
+        virtual ~ProtoDecoder() = default;
+        static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
+            return {baseFieldNumber};
+        }
+    protected:
+        std::optional<std::size_t> read(int8_t &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
+            switch (fh.wireType) {
+            case internal::ProtoWireType::VarInt:
+                {
+                    uint32_t x;
+                    auto res = internal::VarIntSupport::read<uint32_t>(x, input, start);
+                    if (res) {
+                        output = (int8_t) x;
+                    }
+                    return res;
+                }
+                break;
+            case internal::ProtoWireType::Fixed32:
+                {
+                    if (start+sizeof(uint32_t) > input.length()) {
+                        return std::nullopt;
+                    }
+                    uint32_t x;
+                    std::memcpy(&x, input.data()+start, sizeof(uint32_t));
+                    boost::endian::little_to_native_inplace<uint32_t>(x);
+                    output = (int8_t) x;            
+                    return sizeof(uint32_t);
+                }
+                break;
+            case internal::ProtoWireType::Fixed64:
+                {
+                    if (start+sizeof(uint64_t) > input.length()) {
+                        return std::nullopt;
+                    }
+                    uint64_t x;
+                    std::memcpy(&x, input.data()+start, sizeof(uint64_t));
+                    boost::endian::little_to_native_inplace<uint64_t>(x);
+                    output = (int8_t) x;            
+                    return sizeof(uint64_t);
+                }
+                break;
+            default:
+                return std::nullopt;
+                break;
+            }
+        }
+    };
+    template <>
+    class ProtoDecoder<int16_t, void> final : public IProtoDecoder<int16_t> {
+    public:
+        ProtoDecoder(int16_t *output, uint64_t baseFieldNumber) : IProtoDecoder<int16_t>(output) {}
+        virtual ~ProtoDecoder() = default;
+        static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
+            return {baseFieldNumber};
+        }
+    protected:
+        std::optional<std::size_t> read(int16_t &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
+            switch (fh.wireType) {
+            case internal::ProtoWireType::VarInt:
+                {
+                    uint32_t x;
+                    auto res = internal::VarIntSupport::read<uint32_t>(x, input, start);
+                    if (res) {
+                        output = (int16_t) x;
+                    }
+                    return res;
+                }
+                break;
+            case internal::ProtoWireType::Fixed32:
+                {
+                    if (start+sizeof(uint32_t) > input.length()) {
+                        return std::nullopt;
+                    }
+                    uint32_t x;
+                    std::memcpy(&x, input.data()+start, sizeof(uint32_t));
+                    boost::endian::little_to_native_inplace<uint32_t>(x);
+                    output = (int16_t) x;            
+                    return sizeof(uint32_t);
+                }
+                break;
+            case internal::ProtoWireType::Fixed64:
+                {
+                    if (start+sizeof(uint64_t) > input.length()) {
+                        return std::nullopt;
+                    }
+                    uint64_t x;
+                    std::memcpy(&x, input.data()+start, sizeof(uint64_t));
+                    boost::endian::little_to_native_inplace<uint64_t>(x);
+                    output = (int16_t) x;            
+                    return sizeof(uint64_t);
+                }
+                break;
+            default:
+                return std::nullopt;
+                break;
+            }
         }
     };
     template <>
@@ -2773,6 +2985,89 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
             (std::get<1>(iter->second))(output);
             return res;
+        }
+    };
+    template <class FirstItem, class... MoreItems>
+    class ProtoDecoder<std::tuple<FirstItem,MoreItems...>, void> : public IProtoDecoder<std::tuple<FirstItem,MoreItems...>> {
+    private:
+        using TheTuple = std::tuple<FirstItem,MoreItems...>;
+        static constexpr std::size_t FieldCount = sizeof...(MoreItems)+1;
+
+        std::array<IProtoDecoderBase *, FieldCount> decoders_;
+
+        template <std::size_t FieldIndex>
+        static constexpr void buildDecoders_impl(TheTuple *t, std::array<IProtoDecoderBase *, FieldCount> &ret) {
+            if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
+                using F = std::tuple_element_t<FieldIndex,TheTuple>;
+                ret[FieldIndex] = new ProtoDecoder<F>(
+                    &(std::get<FieldIndex>(*t))
+                    , FieldIndex+1
+                );
+                buildDecoders_impl<FieldIndex+1>(t, ret);
+            }
+        }
+        template <std::size_t FieldIndex>
+        static void clearData(TheTuple &output) {
+            if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
+                using F = std::tuple_element_t<FieldIndex,TheTuple>;
+                struct_field_info_utils::StructFieldInfoBasedInitializer<F>::initialize(std::get<FieldIndex>(output));
+                clearData<FieldIndex+1>(output);
+            }
+        }
+    public:
+        ProtoDecoder(TheTuple* output, uint64_t baseFieldNumber) : IProtoDecoder<TheTuple>(output), decoders_() {
+            buildDecoders_impl<0>(output, decoders_);
+        }
+        virtual ~ProtoDecoder() {
+            for (auto &item : decoders_) {
+                delete item;
+            }
+        }
+        static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
+            return {baseFieldNumber};
+        }
+    protected:
+        std::optional<std::size_t> read(TheTuple &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
+            clearData<0>(output);
+            //generated proto C++ code may actually send empty message for a struct, 
+            //so this corner case must be considered
+            if (input.length() == start) {
+                return 0;
+            }
+            if (fh.wireType != internal::ProtoWireType::LengthDelimited) {
+                return std::nullopt;
+            }
+            std::size_t remaining = input.length()-start;
+            std::size_t idx = start;
+            do {
+                internal::FieldHeader innerFh;
+                std::size_t fieldLen;
+                auto res = internal::FieldHeaderSupport::readHeader(innerFh, input, idx, &fieldLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                idx += *res;
+                remaining -= *res;
+                if (idx < 1 || idx > FieldCount) {
+                    continue;
+                }
+                auto decoder = decoders_[idx-1];
+                if (fieldLen > 0) {
+                    res = decoder->handle(innerFh, input.substr(idx, fieldLen), 0);
+                } else {
+                    if (innerFh.wireType == internal::ProtoWireType::LengthDelimited) {
+                        res = decoder->handle(innerFh, std::string_view {}, 0);
+                    } else {
+                        res = decoder->handle(innerFh, input, idx);
+                    }
+                }
+                if (!res) {
+                    return std::nullopt;
+                }
+                idx += *res;
+                remaining -= *res;
+            } while (remaining > 0);
+            return input.length()-start;
         }
     };
 
