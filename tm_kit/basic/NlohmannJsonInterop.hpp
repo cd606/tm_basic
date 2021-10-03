@@ -313,10 +313,51 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     struct JsonWrappable<std::unordered_map<std::string,T>, void> {
         static constexpr bool value = JsonWrappable<T>::value;
     };
-    template <class T>
-    class JsonEncoder<std::vector<std::tuple<std::string,T>>, void> {
+    template <class K, class D, class Cmp>
+    class JsonEncoder<std::map<K,D,Cmp>, std::enable_if_t<!std::is_same_v<K,std::string>,void>> {
     public:
-        static void write(nlohmann::json &output, std::optional<std::string> const &key, std::vector<std::tuple<std::string,T>> const &data) {
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, std::map<K,D,Cmp> const &data) {
+            auto &o = (key?output[*key]:output);
+            for (auto const &item : data) {
+                nlohmann::json x;
+                x.push_back(nlohmann::json());
+                JsonEncoder<K>::write(x.back(), std::nullopt, item.first);
+                x.push_back(nlohmann::json());
+                JsonEncoder<D>::write(x.back(), std::nullopt, item.second);
+                o.push_back(std::move(x));
+            }
+        }
+    };
+    template <class K, class D, class Cmp>
+    struct JsonWrappable<std::map<K,D,Cmp>, std::enable_if_t<!std::is_same_v<K,std::string>,void>> {
+        static constexpr bool value = JsonWrappable<K>::value && JsonWrappable<D>::value;
+    };
+    template <class K, class D, class Hash>
+    class JsonEncoder<std::unordered_map<K,D,Hash>, std::enable_if_t<!std::is_same_v<K,std::string>,void>> {
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, std::unordered_map<K,D,Hash> const &data) {
+            auto &o = (key?output[*key]:output);
+            for (auto const &item : data) {
+                nlohmann::json x;
+                x.push_back(nlohmann::json());
+                JsonEncoder<K>::write(x.back(), std::nullopt, item.first);
+                x.push_back(nlohmann::json());
+                JsonEncoder<D>::write(x.back(), std::nullopt, item.second);
+                o.push_back(std::move(x));
+            }
+        }
+    };
+    template <class K, class D, class Hash>
+    struct JsonWrappable<std::unordered_map<K,D,Hash>, std::enable_if_t<!std::is_same_v<K,std::string>,void>> {
+        static constexpr bool value = JsonWrappable<K>::value && JsonWrappable<D>::value;
+    };
+    //This is a special case, to represent a vector as JSON map
+    //If really a vector like this is needed, std::vector<std::tuple>
+    //can be used instead.
+    template <class T>
+    class JsonEncoder<std::vector<std::pair<std::string,T>>, void> {
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, std::vector<std::pair<std::string,T>> const &data) {
             auto &o = (key?output[*key]:output);
             for (auto const &item : data) {
                 JsonEncoder<T>::write(o, std::get<0>(item), std::get<1>(item));
@@ -324,7 +365,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class T>
-    struct JsonWrappable<std::vector<std::tuple<std::string,T>>, void> {
+    struct JsonWrappable<std::vector<std::pair<std::string,T>>, void> {
         static constexpr bool value = JsonWrappable<T>::value;
     };
     template <class T>
@@ -769,10 +810,54 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
         }
     };
-    template <class T>
-    class JsonDecoder<std::vector<std::tuple<std::string,T>>, void> {
+    template <class K, class D, class Cmp>
+    class JsonDecoder<std::map<K,D,Cmp>, std::enable_if_t<!std::is_same_v<K,std::string>,void>> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::vector<std::tuple<std::string,T>> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::map<K,D,Cmp> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            data.clear();
+            auto const &i = (key?input.at(*key):input);
+            K k;
+            D d;
+            int idx = 0;
+            for (auto const &item : i) {
+                if (idx == 0) {
+                    JsonDecoder<K>::read(item, std::nullopt, k, mapping);
+                } else if (idx == 1) {
+                    JsonDecoder<D>::read(item, std::nullopt, d, mapping);
+                } else {
+                    break;
+                }
+                ++idx;
+            }
+            data[k] = d;
+        }
+    };
+    template <class K, class D, class Hash>
+    class JsonDecoder<std::unordered_map<K,D,Hash>, std::enable_if_t<!std::is_same_v<K,std::string>,void>> {
+    public:
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::unordered_map<K,D,Hash> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            data.clear();
+            auto const &i = (key?input.at(*key):input);
+            K k;
+            D d;
+            int idx = 0;
+            for (auto const &item : i) {
+                if (idx == 0) {
+                    JsonDecoder<K>::read(item, std::nullopt, k, mapping);
+                } else if (idx == 1) {
+                    JsonDecoder<D>::read(item, std::nullopt, d, mapping);
+                } else {
+                    break;
+                }
+                ++idx;
+            }
+            data[k] = d;
+        }
+    };
+    template <class T>
+    class JsonDecoder<std::vector<std::pair<std::string,T>>, void> {
+    public:
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::vector<std::pair<std::string,T>> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             data.clear();
             auto const &i = (key?input.at(*key):input);
             data.resize(i.size());
