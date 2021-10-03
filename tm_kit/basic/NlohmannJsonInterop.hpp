@@ -351,13 +351,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     struct JsonWrappable<std::unordered_map<K,D,Hash>, std::enable_if_t<!std::is_same_v<K,std::string>,void>> {
         static constexpr bool value = JsonWrappable<K>::value && JsonWrappable<D>::value;
     };
-    //This is a special case, to represent a vector as JSON map
-    //If really a vector like this is needed, std::vector<std::tuple>
-    //can be used instead.
+
     template <class T>
-    class JsonEncoder<std::vector<std::pair<std::string,T>>, void> {
+    class JsonEncoder<std::vector<std::tuple<std::string,T>>, void> {
     public:
-        static void write(nlohmann::json &output, std::optional<std::string> const &key, std::vector<std::pair<std::string,T>> const &data) {
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, std::vector<std::tuple<std::string,T>> const &data) {
             auto &o = (key?output[*key]:output);
             for (auto const &item : data) {
                 JsonEncoder<T>::write(o, std::get<0>(item), std::get<1>(item));
@@ -365,7 +363,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class T>
-    struct JsonWrappable<std::vector<std::pair<std::string,T>>, void> {
+    struct JsonWrappable<std::vector<std::tuple<std::string,T>>, void> {
         static constexpr bool value = JsonWrappable<T>::value;
     };
     template <class T>
@@ -855,9 +853,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class T>
-    class JsonDecoder<std::vector<std::pair<std::string,T>>, void> {
+    class JsonDecoder<std::vector<std::tuple<std::string,T>>, void> {
     public:
-        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::vector<std::pair<std::string,T>> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, std::vector<std::tuple<std::string,T>> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             data.clear();
             auto const &i = (key?input.at(*key):input);
             data.resize(i.size());
