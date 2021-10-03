@@ -1115,10 +1115,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     class ProtoEncoder<ConstType<N>, void> {
     public:
         static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
-            return (uint64_t) N;
+            return inputFieldNumber;
         }
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
-            return std::max((uint64_t) N+1,inputFieldNumber);
+            return inputFieldNumber+1;
         }
         static void write(std::optional<uint64_t> fieldNumber, ConstType<N> const &data, std::ostream &os, bool writeDefaultValue) {
         }
@@ -1127,17 +1127,41 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     struct ProtoWrappable<ConstType<N>, void> {
         static constexpr bool value = true;
     };
+
+    //single layer wrapper and single layer wrapper with ID are treated differently
+    //for protobuf purposes.
+    //single layer wrapper is treated as if a single tuple, i.e. wrapping a layer
+    //of message outside the given type.
+    //The use of wrapping is important for e.g. std::vector<std::variant>, since
+    //proto does NOT support repeated oneof, therefore std::vector<std::variant>
+    //will NOT encode correctly, so we would need a std::vector<SingleLayerWrapper<std::variant>>
+
+    //single layer wrapper with ID is used to assign a different proto field number
+    //to the field WITHOUT wrapping another message.
+
     template <class T>
     class ProtoEncoder<SingleLayerWrapper<T>, void> {
     public:
         static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
-            return ProtoEncoder<T>::thisFieldNumber(inputFieldNumber);
+            return inputFieldNumber;
         }
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
-            return ProtoEncoder<T>::nextFieldNumber(inputFieldNumber);
+            return inputFieldNumber+1;
         }
         static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapper<T> const &data, std::ostream &os, bool writeDefaultValue) {
-            ProtoEncoder<T>::write(fieldNumber, data.value, os, writeDefaultValue);
+            if (fieldNumber) {
+                internal::FieldHeaderSupport::writeHeader(
+                    internal::FieldHeader {internal::ProtoWireType::LengthDelimited, *fieldNumber}
+                    , os
+                );
+                std::ostringstream ss;
+                ProtoEncoder<T>::write(1, data.value, ss, false);
+                std::string cont = ss.str();
+                internal::VarIntSupport::write<uint64_t>((uint64_t) cont.length(), os);
+                os.write(cont.data(), cont.length());
+            } else {
+                ProtoEncoder<T>::write(1, data.value, os, false);
+            }
         }
     };
     template <class T>
@@ -2765,15 +2789,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         ProtoDecoder(ConstType<N> *output, uint64_t baseFieldNumber) : IProtoDecoder<ConstType<N>>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
-            return {(uint64_t) N};
+            return {baseFieldNumber};
         }
     protected:
         std::optional<std::size_t> read(ConstType<N> &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
-            if (fh.fieldNumber != N) {
-                return std::nullopt;
-            } else {
-                return 0;
-            }
+            return 0;
         }
     };
     template <class T>
@@ -2784,11 +2804,44 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         ProtoDecoder(SingleLayerWrapper<T> *output, uint64_t baseFieldNumber) : IProtoDecoder<SingleLayerWrapper<T>>(output), subDec_(&(output->value), baseFieldNumber) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
-            return ProtoDecoder<T>::responsibleForFieldNumbers(baseFieldNumber);
+            return {baseFieldNumber};
         }
     protected:
         std::optional<std::size_t> read(SingleLayerWrapper<T> &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
-            return subDec_.handle(fh, input, start);
+            struct_field_info_utils::StructFieldInfoBasedInitializer<T>::initialize(output.value);
+            if (input.length() == start) {
+                return 0;
+            }
+            if (fh.wireType != internal::ProtoWireType::LengthDelimited) {
+                return std::nullopt;
+            }
+            std::size_t remaining = input.length()-start;
+            std::size_t idx = start;
+            do {
+                internal::FieldHeader innerFh;
+                std::size_t fieldLen;
+                auto res = internal::FieldHeaderSupport::readHeader(innerFh, input, idx, &fieldLen);
+                if (!res) {
+                    return std::nullopt;
+                }
+                idx += *res;
+                remaining -= *res;
+                if (fieldLen > 0) {
+                    res = subDec_.handle(innerFh, input.substr(idx, fieldLen), 0);
+                } else {
+                    if (innerFh.wireType == internal::ProtoWireType::LengthDelimited) {
+                        res = subDec_.handle(innerFh, std::string_view {}, 0);
+                    } else {
+                        res = subDec_.handle(innerFh, input, idx);
+                    }
+                }
+                if (!res) {
+                    return std::nullopt;
+                }
+                idx += *res;
+                remaining -= *res;
+            } while (remaining > 0);
+            return input.length()-start;
         }
     };
     template <int32_t N, class T>

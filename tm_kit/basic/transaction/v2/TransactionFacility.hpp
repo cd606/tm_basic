@@ -125,7 +125,7 @@ namespace transaction { namespace v2 {
             }
             //The busy wait is important, since it makes sure that our data store
             //is actually up to date
-            dataStore_->waitForGlobalVersion(response.value.globalVersion);
+            dataStore_->waitForGlobalVersion(response.globalVersion);
         }
 
         struct ComponentLock {
@@ -272,10 +272,10 @@ namespace transaction { namespace v2 {
                                 env
                                 , typename M::template Key<typename TI::TransactionResponse> {
                                     requester
-                                    , typename TI::TransactionResponse { {
+                                    , typename TI::TransactionResponse {
                                         typename TI::GlobalVersion {}
                                         , RequestDecision::FailurePermission
-                                    } }
+                                    }
                                 }
                                 , true
                             );
@@ -291,10 +291,10 @@ namespace transaction { namespace v2 {
                                 env
                                 , typename M::template Key<typename TI::TransactionResponse> {
                                     requester
-                                    , typename TI::TransactionResponse { {
+                                    , typename TI::TransactionResponse {
                                         typename TI::GlobalVersion {}
                                         , RequestDecision::FailurePermission
-                                    } }
+                                    }
                                 }
                                 , true
                             );
@@ -310,10 +310,10 @@ namespace transaction { namespace v2 {
                                 env
                                 , typename M::template Key<typename TI::TransactionResponse> {
                                     requester
-                                    , typename TI::TransactionResponse { {
+                                    , typename TI::TransactionResponse {
                                         typename TI::GlobalVersion {}
                                         , RequestDecision::FailurePermission
-                                    } }
+                                    }
                                 }
                                 , true
                             );

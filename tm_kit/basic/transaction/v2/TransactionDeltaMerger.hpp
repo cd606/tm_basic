@@ -108,7 +108,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
                             }
                             handleDeltaUpdate(std::move(u));
                         }
-                    }, std::move(item));
+                    }, std::move(item.value));
                 }
             }
             if constexpr (NeedOutput) {

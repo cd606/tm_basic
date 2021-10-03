@@ -64,10 +64,10 @@ namespace transaction { namespace v2 {
 
         using SnapshotRequest = transaction::v2::SnapshotRequest<Key>;
 
-        using Input = CBOR<
+        using Input = SingleLayerWrapper<
             std::variant<Subscription, Unsubscription, ListSubscriptions, UnsubscribeAll, SnapshotRequest>
         >;
-        using Output = CBOR<
+        using Output = SingleLayerWrapper<
             std::variant<Subscription, Unsubscription, SubscriptionUpdate, SubscriptionInfo, UnsubscribeAll>
         >;
         using InputWithAccountInfo = std::tuple<std::string, Input>;
@@ -374,7 +374,7 @@ namespace transaction { namespace v2 {
                     if (iter != subscriptionMap_.end()) {
                         affected = &(iter->second);
                     }
-                }, item);
+                }, item.value);
                 if (affected == nullptr || affected->empty()) {
                     continue;
                 } else if (affected->size() == 1) {

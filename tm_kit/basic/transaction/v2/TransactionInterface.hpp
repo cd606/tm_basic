@@ -118,8 +118,8 @@ namespace transaction { namespace v2 {
         using UpdateAction = transaction::v2::UpdateAction<KeyType,VersionSliceType,DataSummaryType,DataDeltaType>;
         using DeleteAction = transaction::v2::DeleteAction<KeyType,VersionType,DataSummaryType>;
 
-        using Transaction = CBOR<std::variant<InsertAction,UpdateAction,DeleteAction>>;
-        using TransactionResponse = CBOR<transaction::v2::TransactionResponse<GlobalVersionType>>;
+        using Transaction = SingleLayerWrapper<std::variant<InsertAction,UpdateAction,DeleteAction>>;
+        using TransactionResponse = transaction::v2::TransactionResponse<GlobalVersionType>;
 
         using Account = std::string;
         using TransactionWithAccountInfo = std::tuple<Account,Transaction>;

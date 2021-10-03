@@ -44,17 +44,17 @@ namespace transaction { namespace v2 {
             for (auto const &key : keys) {
                 auto iter = dataMap_.find(key);
                 if (iter == dataMap_.end()) {
-                    updates.push_back(typename DI::OneFullUpdateItem {
+                    updates.push_back({typename DI::OneFullUpdateItem {
                         infra::withtime_utils::makeValueCopy(key)
                         , typename DI::Version {}
                         , std::nullopt
-                    });
+                    }});
                 } else {
-                    updates.push_back(typename DI::OneFullUpdateItem {
+                    updates.push_back({typename DI::OneFullUpdateItem {
                         infra::withtime_utils::makeValueCopy(key)
                         , infra::withtime_utils::makeValueCopy(iter->second.version)
                         , infra::withtime_utils::makeValueCopy(iter->second.data)
-                    });
+                    }});
                 }
             }
             return typename DI::Update {

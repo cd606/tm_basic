@@ -72,10 +72,10 @@ namespace transaction { namespace v2 {
             , VersionDelta
             , DataDelta
         >;
-        using OneUpdateItem = std::variant<
+        using OneUpdateItem = SingleLayerWrapper<std::variant<
             OneFullUpdateItem
             , OneDeltaUpdateItem
-        >;
+        >>;
         using Update = infra::VersionedData<
             GlobalVersion
             , std::vector<OneUpdateItem>
@@ -95,7 +95,7 @@ namespace transaction { namespace v2 {
                     if constexpr (std::is_same_v<T, OneFullUpdateItem>) {
                         v.push_back(std::move(x));
                     }
-                }, std::move(item));
+                }, std::move(item.value));
             }
             if (v.empty()) {
                 return std::nullopt;

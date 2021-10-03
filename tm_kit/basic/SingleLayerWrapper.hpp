@@ -8,38 +8,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     struct SingleLayerWrapper {
         using value_type = T;
         T value;
-        SingleLayerWrapper() = default;
-        SingleLayerWrapper(SingleLayerWrapper const &) = default;
-        SingleLayerWrapper &operator=(SingleLayerWrapper const &) = default;
-        SingleLayerWrapper(SingleLayerWrapper &&) = default;
-        SingleLayerWrapper &operator=(SingleLayerWrapper &&) = default;
-        ~SingleLayerWrapper() = default;
-
-        SingleLayerWrapper(T const &t) : value(t) {}
-        SingleLayerWrapper(T &&t) : value(std::move(t)) {}
-        SingleLayerWrapper &operator=(T const &t) {
-            value = t;
-            return *this;
-        }
-        SingleLayerWrapper &operator=(T &&t) {
-            value = std::move(t);
-            return *this;
-        }
-        operator T() const {
-            return value;
-        }
-        T &operator*() {
-            return value;
-        }
-        T const &operator*() const {
-            return value;
-        }
-        T *operator->() {
-            return &value;
-        }
-        T const *operator->() const {
-            return &value;
-        }
     };
     template <class T>
     inline bool operator==(SingleLayerWrapper<T> const &a, SingleLayerWrapper<T> const &b) {

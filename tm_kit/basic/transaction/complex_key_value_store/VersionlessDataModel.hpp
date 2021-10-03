@@ -229,10 +229,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace tra
     }
 
     template <class ItemData>
-    using KeyBasedQueryResult = basic::CBOR<std::optional<ItemData>>;
+    using KeyBasedQueryResult = std::optional<ItemData>;
 
     template <class ItemKey, class ItemData>
-    using FullDataResult = basic::CBOR<as_collection::Collection<ItemKey,ItemData>>;
+    using FullDataResult = as_collection::Collection<ItemKey,ItemData>;
 
 } } } } } }
 
