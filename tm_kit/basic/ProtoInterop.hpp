@@ -54,6 +54,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 }
                 return std::nullopt;
             }
+            static std::optional<std::size_t> actualLength(std::string_view const &input, std::size_t start) {
+                uint64_t x;
+                return read<uint64_t>(x, input, start);
+            }
         };
 
         template <class IntType>
@@ -172,6 +176,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                     }
                 } else {
                     return res;
+                }
+            }
+            static std::optional<std::size_t> fieldActualLength(FieldHeader const &fh, std::size_t fieldLen, std::string_view const &input, std::size_t start) {
+                switch (fh.wireType) {
+                case ProtoWireType::Fixed64:
+                    return 8;
+                case ProtoWireType::Fixed32:
+                    return 4;
+                case ProtoWireType::LengthDelimited:
+                    return fieldLen;
+                case ProtoWireType::VarInt:
+                    return VarIntSupport::actualLength(input, start);
+                default:
+                    return 0;
                 }
             }
         };
@@ -1127,6 +1145,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             return inputFieldNumber+1;
         }
         static void write(std::optional<uint64_t> fieldNumber, ConstType<N> const &data, std::ostream &os, bool writeDefaultValue) {
+            ProtoEncoder<int32_t>::write(fieldNumber, N, os, writeDefaultValue);
         }
     };
     template <int32_t N>
@@ -1136,17 +1155,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
 
     //single layer wrapper and single layer wrapper with ID are treated differently
     //for protobuf purposes.
-    //single layer wrapper is treated as if a single tuple, i.e. wrapping a layer
-    //of message outside the given type.
+    //single layer wrapper of a variant is treated as if a single tuple, i.e. 
+    //wrapping a layer of message outside the given type.
     //The use of wrapping is important for e.g. std::vector<std::variant>, since
     //proto does NOT support repeated oneof, therefore std::vector<std::variant>
     //will NOT encode correctly, so we would need a std::vector<SingleLayerWrapper<std::variant>>
+    //however, single layer wrapper of a non-variant is discarded for protobuf purposes
+    //, as if the underlying value is directly encoded/decoded
 
     //single layer wrapper with ID is used to assign a different proto field number
     //to the field WITHOUT wrapping another message.
 
     template <class T>
-    class ProtoEncoder<SingleLayerWrapper<T>, void> {
+    class ProtoEncoder<SingleLayerWrapper<T>, std::enable_if_t<
+        internal::is_variant_check<T>::value, void
+    >> {
     public:
         static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber;
@@ -1168,6 +1191,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             } else {
                 ProtoEncoder<T>::write(1, data.value, os, false);
             }
+        }
+    };
+    template <class T>
+    class ProtoEncoder<SingleLayerWrapper<T>, std::enable_if_t<
+        !internal::is_variant_check<T>::value, void
+    >> {
+    public:
+        static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
+            return ProtoEncoder<T>::thisFieldNumber(inputFieldNumber);
+        }
+        static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
+            return ProtoEncoder<T>::nextFieldNumber(inputFieldNumber);
+        }
+        static void write(std::optional<uint64_t> fieldNumber, SingleLayerWrapper<T> const &data, std::ostream &os, bool writeDefaultValue) {
+            ProtoEncoder<T>::write(fieldNumber, data.value, os, writeDefaultValue);
         }
     };
     template <class T>
@@ -2801,11 +2839,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     protected:
         std::optional<std::size_t> read(ConstType<N> &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
-            return 0;
+            int32_t v = 0;
+            ProtoDecoder<int32_t> subDec(&v, fh.fieldNumber);
+            auto res = subDec.handle(fh, input, start);
+            if (v != N) {
+                return std::nullopt;
+            }
+            return res;
         }
     };
     template <class T>
-    class ProtoDecoder<SingleLayerWrapper<T>, void> final : public IProtoDecoder<SingleLayerWrapper<T>> {
+    class ProtoDecoder<SingleLayerWrapper<T>, std::enable_if_t<
+        internal::is_variant_check<T>::value, void
+    >> final : public IProtoDecoder<SingleLayerWrapper<T>> {
     private:
         ProtoDecoder<T> subDec_;
     public:
@@ -2850,6 +2896,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 remaining -= *res;
             } while (remaining > 0);
             return input.length()-start;
+        }
+    };
+    template <class T>
+    class ProtoDecoder<SingleLayerWrapper<T>, std::enable_if_t<
+        !internal::is_variant_check<T>::value, void
+    >> final : public IProtoDecoder<SingleLayerWrapper<T>> {
+    private:
+        ProtoDecoder<T> subDec_;
+    public:
+        ProtoDecoder(SingleLayerWrapper<T> *output, uint64_t baseFieldNumber) : IProtoDecoder<SingleLayerWrapper<T>>(output), subDec_(&(output->value), baseFieldNumber) {}
+        virtual ~ProtoDecoder() = default;
+        static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
+            return ProtoDecoder<T>::responsibleForFieldNumbers(baseFieldNumber);
+        }
+    protected:
+        std::optional<std::size_t> read(SingleLayerWrapper<T> &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
+            return subDec_.handle(fh, input, start);
         }
     };
     template <int32_t N, class T>
@@ -2948,11 +3011,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         std::optional<std::size_t> read(std::variant<std::monostate,MoreVariants...> &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
             auto iter = decoders_.find(fh.fieldNumber);
             if (iter == decoders_.end()) {
-                return std::nullopt;
+                return internal::FieldHeaderSupport::fieldActualLength(fh, input.length()-start, input, start);
             }
             auto *p = std::get<0>(iter->second);
             if (!p) {
-                return std::nullopt;
+                return internal::FieldHeaderSupport::fieldActualLength(fh, input.length()-start, input, start);
             }
             auto res = p->handle(fh, input, start);
             if (!res) {
@@ -3034,11 +3097,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         std::optional<std::size_t> read(std::variant<FirstVariant,MoreVariants...> &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
             auto iter = decoders_.find(fh.fieldNumber);
             if (iter == decoders_.end()) {
-                return std::nullopt;
+                return internal::FieldHeaderSupport::fieldActualLength(fh, input.length()-start, input, start);
             }
             auto *p = std::get<0>(iter->second);
             if (!p) {
-                return std::nullopt;
+                return internal::FieldHeaderSupport::fieldActualLength(fh, input.length()-start, input, start);
             }
             auto res = p->handle(fh, input, start);
             if (!res) {
@@ -3110,6 +3173,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 idx += *res;
                 remaining -= *res;
                 if (innerFh.fieldNumber < 1 || innerFh.fieldNumber > FieldCount) {
+                    auto jumpLen = internal::FieldHeaderSupport::fieldActualLength(innerFh, fieldLen, input, idx);
+                    if (!jumpLen) {
+                        return std::nullopt;
+                    }
+                    idx += *jumpLen;
+                    remaining -= *jumpLen;
                     continue;
                 }
                 auto decoder = decoders_[innerFh.fieldNumber-1];
@@ -3194,9 +3263,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 remaining -= *res;
                 auto iter = decoders_.find(innerFh.fieldNumber);
                 if (iter == decoders_.end()) {
+                    auto jumpLen = internal::FieldHeaderSupport::fieldActualLength(innerFh, fieldLen, input, idx);
+                    if (!jumpLen) {
+                        return std::nullopt;
+                    }
+                    idx += *jumpLen;
+                    remaining -= *jumpLen;
                     continue;
                 }
                 if (iter->second == nullptr) {
+                    auto jumpLen = internal::FieldHeaderSupport::fieldActualLength(innerFh, fieldLen, input, idx);
+                    if (!jumpLen) {
+                        return std::nullopt;
+                    }
+                    idx += *jumpLen;
+                    remaining -= *jumpLen;
                     continue;
                 }
                 if (fieldLen > 0) {
