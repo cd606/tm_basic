@@ -175,6 +175,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 }
             }
         };
+
+        template <class T>
+        struct is_variant_check : public std::false_type {};
+
+        template <class... Xs>
+        struct is_variant_check<std::variant<Xs...>> : public std::true_type {};
     }
 
     template <class T, typename Enable=void>
@@ -1379,7 +1385,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr bool value_internal() {
             if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                 using F = std::tuple_element_t<FieldIndex,TheTuple>;
-                if (!ProtoWrappable<F>::value) {
+                if constexpr (!ProtoWrappable<F>::value) {
+                    return false;
+                } else if constexpr (internal::is_variant_check<F>::value) {
                     return false;
                 } else {
                     return value_internal<FieldIndex+1>();
@@ -3101,10 +3109,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 }
                 idx += *res;
                 remaining -= *res;
-                if (idx < 1 || idx > FieldCount) {
+                if (innerFh.fieldNumber < 1 || innerFh.fieldNumber > FieldCount) {
                     continue;
                 }
-                auto decoder = decoders_[idx-1];
+                auto decoder = decoders_[innerFh.fieldNumber-1];
                 if (fieldLen > 0) {
                     res = decoder->handle(innerFh, input.substr(idx, fieldLen), 0);
                 } else {
