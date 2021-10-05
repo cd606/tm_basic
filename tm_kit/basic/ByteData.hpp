@@ -3117,7 +3117,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             if (t) {
                 auto x = RunDeserializer<T>::applyInPlace(output, std::get<0>(*t).content);
                 if (x) {
-                    return std::move(x);
+                    return std::get<1>(*t);
                 } else {
                     return std::nullopt;
                 }     
