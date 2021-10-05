@@ -2855,7 +2855,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     private:
         ProtoDecoder<T> subDec_;
     public:
-        ProtoDecoder(SingleLayerWrapper<T> *output, uint64_t baseFieldNumber) : IProtoDecoder<SingleLayerWrapper<T>>(output), subDec_(&(output->value), baseFieldNumber) {}
+        ProtoDecoder(SingleLayerWrapper<T> *output, uint64_t baseFieldNumber) : IProtoDecoder<SingleLayerWrapper<T>>(output), subDec_(&(output->value), 1) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
