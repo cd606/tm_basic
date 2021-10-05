@@ -403,6 +403,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     class JsonEncoder<ConstType<N>, void> {
     public:
         static void write(nlohmann::json &output, std::optional<std::string> const &key, ConstType<N> const &data) {
+            if (key) {
+                output[*key] = N;
+            } else {
+                output = N;
+            }
         }
     };
     template <int32_t N>
@@ -550,6 +555,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     public:
         static constexpr bool value = value_internal<StructFieldInfo<T>::FIELD_NAMES.size(),0>();
+    };
+
+    template <class T>
+    class JsonEncoder<T, std::enable_if_t<bytedata_utils::ProtobufStyleSerializableChecker<T>::IsProtobufStyleSerializable(), void>> {
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, T const &data) {
+            ByteData b;
+            data.SerializeToString(&(b.content));
+            JsonEncoder<ByteData>::write(output, key, b);
+        }
+    };
+    template <class T>
+    struct JsonWrappable<T, std::enable_if_t<bytedata_utils::ProtobufStyleSerializableChecker<T>::IsProtobufStyleSerializable(), void>> {
+    public:
+        static constexpr bool value = true;
     };
 
     using JsonFieldMapping = std::unordered_map<
@@ -905,6 +925,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     class JsonDecoder<ConstType<N>, void> {
     public:
         static void read(nlohmann::json const &input, std::optional<std::string> const &key, ConstType<N> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            //since json reader does not throw any error, const type simply ignores the input
         }
     };
     template <class T>
@@ -1002,6 +1023,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 }
             }
             read_impl<StructFieldInfo<T>::FIELD_NAMES.size(),0>((key?input.at(*key):input), data, mapping, mappingForThisOne);
+        }
+    };
+    template <class T>
+    class JsonDecoder<T, std::enable_if_t<bytedata_utils::ProtobufStyleSerializableChecker<T>::IsProtobufStyleSerializable(), void>> {
+    public:
+        static void read(nlohmann::json const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            ByteData b;
+            JsonDecoder<ByteData>::read(input, key, b, mapping);
+            data.ParseFromString(b.content);
         }
     };
     
