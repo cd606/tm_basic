@@ -1065,6 +1065,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 } else {
                     return read_impl<Index+1>(input, index, data, mapping);
                 }
+            } else {
+                return false;
             }
         }
     public:
