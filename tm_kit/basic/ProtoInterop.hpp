@@ -168,10 +168,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 fh.fieldNumber = (x >> 3);
                 *contentLen = 0;
                 if (fh.wireType == ProtoWireType::LengthDelimited) {
-                    auto res1 = VarIntSupport::read<uint64_t>(*contentLen, input, start+*res);
+                    uint64_t contentLenBig;
+                    auto res1 = VarIntSupport::read<uint64_t>(contentLenBig, input, start+*res);
                     if (!res1) {
                         return std::nullopt;
                     } else {
+                        *contentLen = (std::size_t) contentLenBig;
                         return *res+*res1;
                     }
                 } else {
