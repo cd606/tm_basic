@@ -136,9 +136,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
             t1 += d;
         }
         if (t1 <= t2) {
-            impl_->scheduleVariableDurationRecurringCallback(t1,t2,[this,periodCalc](ClockComponent::TimePointType const &tp) {
-                return periodCalc(tp);
-            },callback);
+            impl_->scheduleVariableDurationRecurringCallback(t1,t2,periodCalc,callback);
         }
     }
 

@@ -644,11 +644,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     t = boost::lexical_cast<std::underlying_type_t<T>>(s);
                     ret = true;
                 } catch (boost::bad_lexical_cast const &) {
-                    t = static_cast<T>(std::underlying_type_t<T> (0));
+                    t = std::underlying_type_t<T> (0);
                     ret = false;
                 }
             } else if (i.is_null()) {
-                t = static_cast<T>(std::underlying_type_t<T> (0));
+                t = std::underlying_type_t<T> (0);
                 ret = false;
             } else {
                 i.get_to(t);
