@@ -835,11 +835,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             auto const &i = (key?input.at(*key):input);
             data.resize(i.size());
             std::size_t ii = 0;
+            bool ret = true;
             for (auto const &item : i) {
-                JsonDecoder<T>::read(item, std::nullopt, data[ii], mapping);
+                if (!JsonDecoder<T>::read(item, std::nullopt, data[ii], mapping)) {
+                    ret = false;
+                }
                 ++ii;
             }
-            return true;
+            return ret;
         }
     };
     template <class T>
@@ -848,11 +851,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, std::list<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             data.clear();
             auto const &i = (key?input.at(*key):input);
+            bool ret = true;
             for (auto const &item : i) {
                 data.push_back(T {});
-                JsonDecoder<T>::read(item, std::nullopt, data.back(), mapping);
+                if (!JsonDecoder<T>::read(item, std::nullopt, data.back(), mapping)) {
+                    ret = false;
+                }
             }
-            return true;
+            return ret;
         }
     };
     template <class T>
@@ -861,12 +867,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, std::valarray<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             auto const &i = (key?input.at(*key):input);
             data.resize(i.size());
+            bool ret = true;
             std::size_t ii = 0;
             for (auto const &item : i) {
-                JsonDecoder<T>::read(item, std::nullopt, data[ii], mapping);
+                if (!JsonDecoder<T>::read(item, std::nullopt, data[ii], mapping)) {
+                    ret = false;
+                }
                 ++ii;
             }
-            return true;
+            return ret;
         }
     };
     template <class T, std::size_t N>
@@ -875,15 +884,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, std::array<T,N> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             auto const &i = (key?input.at(*key):input);
             std::size_t ii = 0;
+            bool ret = true;
             for (auto const &item : i) {
                 if (ii < N) {
-                    JsonDecoder<T>::read(item, std::nullopt, data[ii], mapping);
+                    if (!JsonDecoder<T>::read(item, std::nullopt, data[ii], mapping)) {
+                        ret = false;
+                    }
                 } else {
                     break;
                 }
                 ++ii;
             }
-            bool ret = (ii < N);
+            if (ii < N) {
+                ret = false;
+            }
             for (; ii<N; ++ii) {
                 struct_field_info_utils::StructFieldInfoBasedInitializer<T>::initialize(data[ii]);
             }
@@ -895,12 +909,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     public:
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, std::map<std::string,T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             data.clear();
+            bool ret = true;
             auto const &i = (key?input.at(*key):input);
             for (auto const &item : i.items()) {
                 auto iter = data.insert({item.key(), T{}}).first;
-                JsonDecoder<T>::read(item.value(), std::nullopt, iter->second, mapping);
+                if (!JsonDecoder<T>::read(item.value(), std::nullopt, iter->second, mapping)) {
+                    ret = false;
+                }
             }
-            return true;
+            return ret;
         }
     };
     template <class T>
@@ -908,12 +925,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     public:
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, std::unordered_map<std::string,T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             data.clear();
+            bool ret = true;
             auto const &i = (key?input.at(*key):input);
             for (auto const &item : i.items()) {
                 auto iter = data.insert({item.key(), T{}}).first;
-                JsonDecoder<T>::read(item.value(), std::nullopt, iter->second, mapping);
+                if (!JsonDecoder<T>::read(item.value(), std::nullopt, iter->second, mapping)) {
+                    ret = false;
+                }
             }
-            return true;
+            return ret;
         }
     };
     template <class K, class D, class Cmp>
@@ -922,21 +942,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, std::map<K,D,Cmp> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             data.clear();
             auto const &i = (key?input.at(*key):input);
-            K k;
-            D d;
-            int idx = 0;
+            bool ret = true;
             for (auto const &item : i) {
-                if (idx == 0) {
-                    JsonDecoder<K>::read(item, std::nullopt, k, mapping);
-                } else if (idx == 1) {
-                    JsonDecoder<D>::read(item, std::nullopt, d, mapping);
-                } else {
-                    break;
+                K k;
+                D d;
+                if (!JsonDecoder<K>::read(item[0], std::nullopt, k, mapping)) {
+                    ret = false;
+                }
+                if (!JsonDecoder<D>::read(item[1], std::nullopt, d, mapping)) {
+                    ret = false;
                 }
                 data[k] = d;
-                ++idx;
             }
-            return true;
+            return ret;
         }
     };
     template <class K, class D, class Hash>
@@ -945,21 +963,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, std::unordered_map<K,D,Hash> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             data.clear();
             auto const &i = (key?input.at(*key):input);
-            K k;
-            D d;
-            int idx = 0;
+            bool ret = true;
             for (auto const &item : i) {
-                if (idx == 0) {
-                    JsonDecoder<K>::read(item, std::nullopt, k, mapping);
-                } else if (idx == 1) {
-                    JsonDecoder<D>::read(item, std::nullopt, d, mapping);
-                } else {
-                    break;
+                K k;
+                D d;
+                if (!JsonDecoder<K>::read(item[0], std::nullopt, k, mapping)) {
+                    ret = false;
+                }
+                if (!JsonDecoder<D>::read(item[1], std::nullopt, d, mapping)) {
+                    ret = false;
                 }
                 data[k] = d;
-                ++idx;
             }
-            return true;
+            return ret;
         }
     };
     template <class T>
@@ -967,15 +983,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     public:
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, std::vector<std::tuple<std::string,T>> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             data.clear();
+            bool ret = true;
             auto const &i = (key?input.at(*key):input);
             data.resize(i.size());
             std::size_t ii = 0;
             for (auto const &item : i.items()) {
                 std::get<0>(data[ii]) = item.key();
-                JsonDecoder<T>::read(item.value(), std::nullopt, std::get<1>(data[ii]), mapping);
+                if (!JsonDecoder<T>::read(item.value(), std::nullopt, std::get<1>(data[ii]), mapping)) {
+                    ret = false;
+                }
                 ++ii;
             }
-            return true;
+            return ret;
         }
     };
     template <class T>
@@ -985,14 +1004,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             if (key) {
                 if (input.contains(*key)) {
                     data = T {};
-                    JsonDecoder<T>::read(input.at(*key), std::nullopt, *data, mapping);
+                    if (!JsonDecoder<T>::read(input.at(*key), std::nullopt, *data, mapping)) {
+                        data = std::nullopt;
+                    }
                 } else {
                     data = std::nullopt;
                 }
             } else {
                 if (!input.is_null()) {
                     data = T {};
-                    JsonDecoder<T>::read(input, std::nullopt, *data, mapping);
+                    if (!JsonDecoder<T>::read(input, std::nullopt, *data, mapping)) {
+                        data = std::nullopt;
+                    }
                 } else {
                     data = std::nullopt;
                 }
@@ -1117,12 +1140,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         s = iter->second;
                     }
                 }
-                bool ret = false;
-                if (input.contains(s)) {
-                    ret = JsonDecoder<F>::read(input, s, data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), mapping);
-                } else {
-                    ret = false;
-                }
+                bool ret = JsonDecoder<F>::read(input, s, data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), mapping);
                 return read_impl<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, (retSoFar && ret));
             } else {
                 return retSoFar;
