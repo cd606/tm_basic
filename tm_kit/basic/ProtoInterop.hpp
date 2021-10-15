@@ -2470,7 +2470,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             T x;
             ProtoDecoder<T> subDec(&x, baseFieldNumber_);
             do {
-                auto res = subDec.handle(internal::ProtoWireTypeForSubField<T>::TheType, input, idx);
+                auto res = subDec.handle({internal::ProtoWireTypeForSubField<T>::TheType, fh.fieldNumber}, input, idx);
                 if (!res) {
                     return std::nullopt;
                 }
