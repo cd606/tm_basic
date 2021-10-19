@@ -16,9 +16,12 @@
 #include <tm_kit/infra/ChronoUtils.hpp>
 #include <tm_kit/infra/PidUtil.hpp>
 
+#include <tm_kit/basic/LoggingComponentBase.hpp>
+
 namespace dev { namespace cd606 { namespace tm { namespace basic {
 
-    struct TrivialBoostLoggingComponent {
+    struct TrivialBoostLoggingComponent : public virtual LoggingComponentBase {
+        virtual ~TrivialBoostLoggingComponent() {}
         static void log(infra::LogLevel l, std::string const &s) {
             switch (l) {
                 case infra::LogLevel::Trace:
@@ -43,10 +46,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     break;
             }
         }
+        void logThroughLoggingComponentBase(infra::LogLevel l, std::string const &s) override final {
+            TrivialBoostLoggingComponent::log(l, s);
+        }
     };
 
     template <class TimeComponent, bool LogThreadID=true, bool ForceActualTimeLogging=false>
-    class TimeComponentEnhancedWithBoostTrivialLogging : public TimeComponent {
+    class TimeComponentEnhancedWithBoostTrivialLogging : public TimeComponent, public virtual LoggingComponentBase {
     private:
         std::conditional_t<(TimeComponent::CanBeActualTimeClock&&!ForceActualTimeLogging),std::atomic<bool>,bool> firstTime_;
         std::conditional_t<(TimeComponent::CanBeActualTimeClock&&!ForceActualTimeLogging),std::mutex,bool> firstTimeMutex_;
@@ -142,6 +148,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         TimeComponentEnhancedWithBoostTrivialLogging() : TimeComponent(), firstTime_(true), firstTimeMutex_(), isActualClock_(false), logFilePrefix_(std::nullopt), logFilePrefixContainTimePart_(false), originalSink_(), prefixSet_(false) {
             initialSetup();
         }
+        virtual ~TimeComponentEnhancedWithBoostTrivialLogging() {}
         void setLogFilePrefix(std::string const &prefix, bool containTimePart=false) {
             if constexpr (ForceActualTimeLogging) {
                 doSetLogFilePrefix(prefix, containTimePart);
@@ -216,6 +223,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         break;
                 }
             }
+        }
+        void logThroughLoggingComponentBase(infra::LogLevel l, std::string const &s) override final {
+            log(l, s);
         }
     };
 
