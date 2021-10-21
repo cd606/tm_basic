@@ -389,10 +389,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 Writer writer_;
             public:
             #ifdef _MSC_VER
-                LocalEThreaded(std::ostream &os, Writer &&writer) : os_(&os), writer_(std::move(writer)) {}
+                LocalEThreaded(std::ostream &os, Writer &&writer) : os_(&os), writer_(std::move(writer)) {
             #else
-                LocalEThreaded(std::ostream &os, Writer &&writer) : infra::RealTimeAppComponents<Env>::template ThreadedHandler<T>(), os_(&os), writer_(std::move(writer)) {}
+                LocalEThreaded(std::ostream &os, Writer &&writer) : infra::RealTimeAppComponents<Env>::template ThreadedHandler<T>(), os_(&os), writer_(std::move(writer)) {
             #endif
+                    this->startThread();
+                }
                 virtual void start(Env *env) override final {
                     writer_.start(env, *os_);
                 }

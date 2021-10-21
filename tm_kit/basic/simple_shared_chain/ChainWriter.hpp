@@ -315,6 +315,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             ChainWriter *parent_;
         public:
             InnerHandler1(ChainWriter *parent) : infra::RealTimeAppComponents<Env>::template ThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>, InnerHandler1>(), parent_(parent) {
+                this->startThread();
             }
             virtual ~InnerHandler1() {}
             void idleWork() {
@@ -333,6 +334,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             ChainWriter *parent_;
         public:
             InnerHandler2(ChainWriter *parent) : infra::RealTimeAppComponents<Env>::template BusyLoopThreadedHandler<typename infra::RealTimeApp<Env>::template Key<typename InputHandler::InputType>, InnerHandler2>(parent->noYield_), parent_(parent) {
+                this->startThread();
             }
             virtual ~InnerHandler2() {}
             void idleWork() {

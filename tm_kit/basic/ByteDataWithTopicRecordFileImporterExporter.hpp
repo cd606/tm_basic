@@ -136,10 +136,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 ByteDataWithTopicRecordFileWriter<Format> writer_;
             public:
             #ifdef _MSC_VER
-                LocalEThreaded(std::ostream &os, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic) : os_(&os), writer_(fileMagic, recordMagic) {}
+                LocalEThreaded(std::ostream &os, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic) : os_(&os), writer_(fileMagic, recordMagic) {
             #else
-                LocalEThreaded(std::ostream &os, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic) : infra::RealTimeAppComponents<Env>::template ThreadedHandler<ByteDataWithTopic,LocalEThreaded>(), os_(&os), writer_(fileMagic, recordMagic) {}
+                LocalEThreaded(std::ostream &os, std::vector<std::byte> const &fileMagic, std::vector<std::byte> const &recordMagic) : infra::RealTimeAppComponents<Env>::template ThreadedHandler<ByteDataWithTopic,LocalEThreaded>(), os_(&os), writer_(fileMagic, recordMagic) {
             #endif
+                    this->startThread();
+                }
                 virtual void start(Env *) override final {
                     writer_.startWritingByteDataWithTopicRecordFile(*os_);
                 }
