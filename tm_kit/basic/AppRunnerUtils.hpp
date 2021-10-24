@@ -1712,6 +1712,53 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             };
         }
+
+        template <class A>
+        static std::future<void> getNofiticationFutureForFirstPieceOfInput(
+            R &r
+            , typename R::template Sourceoid<A> const &source 
+            , std::string const &prefix
+        ) {
+            auto promise = std::make_shared<std::promise<void>>();
+            auto action = M::template liftPure<A>(
+                [promise](A &&) -> basic::VoidStruct {
+                    try {
+                        promise->set_value();
+                    } catch (...) {}
+                    return basic::VoidStruct {};
+                }
+                , infra::LiftParameters<typename M::TimePoint>().FireOnceOnly(true)
+            );
+            r.registerAction(prefix+"/set_future", action);
+            source(r, r.actionAsSink(action));
+            auto discard = M::template trivialExporter<basic::VoidStruct>();
+            r.registerExporter(prefix+"/discard_set_future_output", discard);
+            r.exportItem(discard, r.actionAsSource(action));
+            return promise->get_future();
+        }
+        template <class A>
+        static std::future<A> getTypedFutureForFirstPieceOfInput(
+            R &r
+            , typename R::template Sourceoid<A> const &source 
+            , std::string const &prefix
+        ) {
+            auto promise = std::make_shared<std::promise<A>>();
+            auto action = M::template liftPure<A>(
+                [promise](A &&a) -> basic::VoidStruct {
+                    try {
+                        promise->set_value(std::move(a));
+                    } catch (...) {}
+                    return basic::VoidStruct {};
+                }
+                , infra::LiftParameters<typename M::TimePoint>().FireOnceOnly(true)
+            );
+            r.registerAction(prefix+"/set_future", action);
+            source(r, r.actionAsSink(action));
+            auto discard = M::template trivialExporter<basic::VoidStruct>();
+            r.registerExporter(prefix+"/discard_set_future_output", discard);
+            r.exportItem(discard, r.actionAsSource(action));
+            return promise->get_future();
+        }
     };
 
 } } } }
