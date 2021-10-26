@@ -2605,6 +2605,36 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         };
         template <>
+        struct RunSerializer<VoidStruct, void> {
+            static std::string apply(VoidStruct const &data) {
+                return "";
+            }
+        };
+        template <int32_t N>
+        struct RunSerializer<SingleLayerWrapperWithID<N,std::string>, void> {
+            static std::string apply(SingleLayerWrapperWithID<N,std::string> const &data) {
+                return data.value;
+            }
+        };
+        template <int32_t N>
+        struct RunSerializer<SingleLayerWrapperWithID<N,ByteData>, void> {
+            static std::string apply(SingleLayerWrapperWithID<N,ByteData> const &data) {
+                return data.value.content;
+            }
+        };
+        template <typename Mark>
+        struct RunSerializer<SingleLayerWrapperWithTypeMark<Mark,std::string>, void> {
+            static std::string apply(SingleLayerWrapperWithTypeMark<Mark,std::string> const &data) {
+                return data.value;
+            }
+        };
+        template <typename Mark>
+        struct RunSerializer<SingleLayerWrapperWithTypeMark<Mark,ByteData>, void> {
+            static std::string apply(SingleLayerWrapperWithTypeMark<Mark,ByteData> const &data) {
+                return data.value.content;
+            }
+        };
+        template <>
         struct RunSerializer<std::string_view, void> {
             static std::string apply(std::string_view const &data) {
                 return std::string {data};
@@ -2735,6 +2765,97 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
             static bool applyInPlace(ByteData &output, std::string const &data) {
                 output.content = data;
+                return true;
+            }
+        };
+        template <>
+        struct RunDeserializer<VoidStruct, void> {
+            static std::optional<VoidStruct> apply(std::string_view const &data) {
+                if (data.length() == 0) {
+                    return VoidStruct {};
+                } else {
+                    return std::nullopt;
+                }
+            }
+            static std::optional<VoidStruct> apply(std::string const &data) {
+                if (data.length() == 0) {
+                    return VoidStruct {};
+                } else {
+                    return std::nullopt;
+                }
+            }
+            static bool applyInPlace(VoidStruct &output, std::string_view const &data) {
+                return (data.length() == 0);
+            }
+            static bool applyInPlace(VoidStruct &output, std::string const &data) {
+                return (data.length() == 0);
+            }
+        };
+        template <int32_t N>
+        struct RunDeserializer<SingleLayerWrapperWithID<N,std::string>, void> {
+            static std::optional<SingleLayerWrapperWithID<N,std::string>> apply(std::string_view const &data) {
+                return {{std::string {data}}};
+            }
+            static std::optional<SingleLayerWrapperWithID<N,std::string>> apply(std::string const &data) {
+                return {{data}};
+            }
+            static bool applyInPlace(SingleLayerWrapperWithID<N,std::string> &output, std::string_view const &data) {
+                output.value = std::string {data};
+                return true;
+            }
+            static bool applyInPlace(SingleLayerWrapperWithID<N,std::string> &output, std::string const &data) {
+                output.value = data;
+                return true;
+            }
+        };
+        template <int32_t N>
+        struct RunDeserializer<SingleLayerWrapperWithID<N,ByteData>, void> {
+            static std::optional<SingleLayerWrapperWithID<N,ByteData>> apply(std::string_view const &data) {
+                return {{ByteData {std::string {data}}}};
+            }
+            static std::optional<SingleLayerWrapperWithID<N,ByteData>> apply(std::string const &data) {
+                return {{ByteData {data}}};
+            }
+            static bool applyInPlace(SingleLayerWrapperWithID<N,ByteData> &output, std::string_view const &data) {
+                output.value.content = std::string {data};
+                return true;
+            }
+            static bool applyInPlace(SingleLayerWrapperWithID<N,ByteData> &output, std::string const &data) {
+                output.value.content = data;
+                return true;
+            }
+        };
+        template <typename Mark>
+        struct RunDeserializer<SingleLayerWrapperWithTypeMark<Mark,std::string>, void> {
+            static std::optional<SingleLayerWrapperWithTypeMark<Mark,std::string>> apply(std::string_view const &data) {
+                return {{std::string {data}}};
+            }
+            static std::optional<SingleLayerWrapperWithTypeMark<Mark,std::string>> apply(std::string const &data) {
+                return {{data}};
+            }
+            static bool applyInPlace(SingleLayerWrapperWithTypeMark<Mark,std::string> &output, std::string_view const &data) {
+                output.value = std::string {data};
+                return true;
+            }
+            static bool applyInPlace(SingleLayerWrapperWithTypeMark<Mark,std::string> &output, std::string const &data) {
+                output.value = data;
+                return true;
+            }
+        };
+        template <typename Mark>
+        struct RunDeserializer<SingleLayerWrapperWithTypeMark<Mark,ByteData>, void> {
+            static std::optional<SingleLayerWrapperWithTypeMark<Mark,ByteData>> apply(std::string_view const &data) {
+                return {{ByteData {std::string {data}}}};
+            }
+            static std::optional<SingleLayerWrapperWithTypeMark<Mark,ByteData>> apply(std::string const &data) {
+                return {{ByteData {data}}};
+            }
+            static bool applyInPlace(SingleLayerWrapperWithTypeMark<Mark,ByteData> &output, std::string_view const &data) {
+                output.value.content = std::string {data};
+                return true;
+            }
+            static bool applyInPlace(SingleLayerWrapperWithTypeMark<Mark,ByteData> &output, std::string const &data) {
+                output.value.content = data;
                 return true;
             }
         };
