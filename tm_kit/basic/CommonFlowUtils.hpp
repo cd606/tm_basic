@@ -12,6 +12,8 @@
 #include <tm_kit/infra/SinglePassIterationApp.hpp>
 #include <tm_kit/infra/TopDownSinglePassIterationApp.hpp>
 #include <tm_kit/infra/WithTimeData.hpp>
+#include <tm_kit/infra/GenericLift.hpp>
+#include <tm_kit/infra/AppClassifier.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <tm_kit/basic/NotConstructibleStruct.hpp>
 #include <tm_kit/basic/SingleLayerWrapper.hpp>
@@ -2304,6 +2306,43 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             };
             return M::fromAbstractOnOrderFacility(new LocalF());
         }
+
+        //to use this, taskBody has to be truly parallel and no thread protection should be needed in taskBody
+        template <class A, class B, class F>
+        static auto simpleTaskSpawningFacility(
+            F &&taskBody
+        ) -> std::shared_ptr<typename M::template OnOrderFacility<A,B>>
+        {
+            if constexpr (infra::app_classification_v<M> == infra::AppClassification::RealTime) {
+                auto liftedK = infra::GenericLift<M>::liftKU(std::move(taskBody));
+                using LF = std::decay_t<decltype(liftedK)>;
+
+                class Facility : public M::template AbstractOnOrderFacility<A,B> {
+                private:
+                    LF liftedK_;
+                public:
+                    Facility(LF &&liftedK) : liftedK_(std::move(liftedK)) {}
+                    virtual void handle(typename M::template InnerData<typename M::template Key<A>> &&data) {
+                        std::thread th([this,data=std::move(data)]() mutable {
+                            auto id = data.timedData.value.id();
+                            auto res = liftedK_(std::move(data).mapMove([](typename M::template Key<A> &&k) -> A {
+                                return k.key();
+                            }, true));
+                            if (res) {
+                                this->publish(std::move(*res).mapMove([id=std::move(id)](B &&b) -> typename M::template Key<B> {
+                                    return {id, std::move(b)};
+                                }, true));
+                            }
+                        });
+                        th.detach();
+                    }
+                };
+                return M::fromAbstractOnOrderFacility(new Facility(std::move(liftedK)));
+            } else {
+                return infra::GenericLift<M>::liftFacility(std::move(taskBody));
+            }
+        }
+        
     };
 
 } } } }
