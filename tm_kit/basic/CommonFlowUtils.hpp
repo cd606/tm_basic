@@ -2350,6 +2350,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             , class ValueExtractorF
             , class TriggerData
             , class KeyHash
+            , bool NeedMutex
         >
         class KeyedUpdateGeneratorImpl {
         private:
@@ -2363,7 +2364,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             using ValueList = std::list<std::tuple<typename M::TimePoint, std::unique_ptr<Key>, std::unique_ptr<Value>>>;
             ValueList valueList_;
             std::unordered_map<Key, typename ValueList::iterator, KeyHash> data_;
-            std::mutex mutex_;
+            infra::AppSpecificMutex<M> mutex_;
 
             void addResends_locked(
                 typename M::TimePoint t
@@ -2402,8 +2403,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     }
                 };
 
-                std::lock_guard<std::mutex> _(mutex_);
-                addResends_locked(t, ret);
+                if constexpr (NeedMutex) {
+                    infra::AppSpecificLockGuard<M> _(mutex_);
+                    addResends_locked(t, ret);
+                } else {
+                    addResends_locked(t, ret);
+                }
+
                 ret.timedData.timePoint = env->resolveTime(t);
 
                 return {std::move(ret)};
@@ -2425,31 +2431,58 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
                 auto key = keyExtractorF_(input);
 
-                std::lock_guard<std::mutex> _(mutex_);
-                auto iter = data_.find(key);
-                typename ValueList::iterator listIter;
-                if (iter == data_.end()) {
-                    valueList_.emplace_back(
-                        t
-                        , std::make_unique<Key>(key)
-                        , std::make_unique<Value>(valueExtractorF_(std::move(input)))
-                    );
-                    listIter = valueList_.end();
-                    --listIter;
-                    data_.insert({key, listIter});
+                if constexpr (NeedMutex) {
+                    infra::AppSpecificLockGuard<M> _(mutex_);
+                    auto iter = data_.find(key);
+                    typename ValueList::iterator listIter;
+                    if (iter == data_.end()) {
+                        valueList_.emplace_back(
+                            t
+                            , std::make_unique<Key>(key)
+                            , std::make_unique<Value>(valueExtractorF_(std::move(input)))
+                        );
+                        listIter = valueList_.end();
+                        --listIter;
+                        data_.insert({key, listIter});
+                    } else {
+                        listIter = iter->second;
+                        std::get<0>(*listIter) = t;
+                        *(std::get<2>(*listIter)) = valueExtractorF_(std::move(input));
+                        auto x = std::move(*listIter);
+                        valueList_.erase(listIter);
+                        valueList_.emplace_back(std::move(x));
+                        listIter = valueList_.end();
+                        --listIter;
+                        iter->second = listIter;
+                    }
+                    ret.timedData.value.push_back({infra::withtime_utils::makeValueCopy(key), infra::withtime_utils::makeValueCopy(*(std::get<2>(*listIter)))});
+                    addResends_locked(t, ret);
                 } else {
-                    listIter = iter->second;
-                    std::get<0>(*listIter) = t;
-                    *(std::get<2>(*listIter)) = valueExtractorF_(std::move(input));
-                    auto x = std::move(*listIter);
-                    valueList_.erase(listIter);
-                    valueList_.emplace_back(std::move(x));
-                    listIter = valueList_.end();
-                    --listIter;
-                    iter->second = listIter;
+                    auto iter = data_.find(key);
+                    typename ValueList::iterator listIter;
+                    if (iter == data_.end()) {
+                        valueList_.emplace_back(
+                            t
+                            , std::make_unique<Key>(key)
+                            , std::make_unique<Value>(valueExtractorF_(std::move(input)))
+                        );
+                        listIter = valueList_.end();
+                        --listIter;
+                        data_.insert({key, listIter});
+                    } else {
+                        listIter = iter->second;
+                        std::get<0>(*listIter) = t;
+                        *(std::get<2>(*listIter)) = valueExtractorF_(std::move(input));
+                        auto x = std::move(*listIter);
+                        valueList_.erase(listIter);
+                        valueList_.emplace_back(std::move(x));
+                        listIter = valueList_.end();
+                        --listIter;
+                        iter->second = listIter;
+                    }
+                    ret.timedData.value.push_back({infra::withtime_utils::makeValueCopy(key), infra::withtime_utils::makeValueCopy(*(std::get<2>(*listIter)))});
+                    addResends_locked(t, ret);
                 }
-                ret.timedData.value.push_back({infra::withtime_utils::makeValueCopy(key), infra::withtime_utils::makeValueCopy(*(std::get<2>(*listIter)))});
-                addResends_locked(t, ret);
                 ret.timedData.timePoint = env->resolveTime(t);
 
                 return {std::move(ret)};
@@ -2524,8 +2557,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 , infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint> {}
             ) {
                 using KeyHash = KeyHashTemplate<decltype(keyExtractorF(std::move(*((InputData *) nullptr))))>;
-                return KeyedUpdateGeneratorImpl<InputData,KeyExtractorF,ValueExtractorF,TriggerData,KeyHash>
-                ::createAction(std::move(keyExtractorF), std::move(valueExtractorF), resendDuration, liftParam);
+                if (liftParam.suggestThreaded) {
+                    return KeyedUpdateGeneratorImpl<InputData,KeyExtractorF,ValueExtractorF,TriggerData,KeyHash,false>
+                    ::createAction(std::move(keyExtractorF), std::move(valueExtractorF), resendDuration, liftParam);
+                } else {
+                    return KeyedUpdateGeneratorImpl<InputData,KeyExtractorF,ValueExtractorF,TriggerData,KeyHash,true>
+                    ::createAction(std::move(keyExtractorF), std::move(valueExtractorF), resendDuration, liftParam);
+                }
             }
         };
     };
