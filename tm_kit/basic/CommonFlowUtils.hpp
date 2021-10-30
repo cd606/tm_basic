@@ -2342,7 +2342,192 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return infra::GenericLift<M>::liftFacility(std::move(taskBody));
             }
         }
-        
+
+    private:
+        template <
+            class InputData
+            , class KeyExtractorF
+            , class ValueExtractorF
+            , class TriggerData
+            , class KeyHash
+        >
+        class KeyedUpdateGeneratorImpl {
+        private:
+            KeyExtractorF keyExtractorF_;
+            ValueExtractorF valueExtractorF_;
+            typename M::Duration resendDuration_;
+
+            using Key = decltype(keyExtractorF_(*((InputData const *) nullptr)));
+            using Value = decltype(valueExtractorF_(std::move(*((InputData *) nullptr))));
+
+            using ValueList = std::list<std::tuple<typename M::TimePoint, std::unique_ptr<Key>, std::unique_ptr<Value>>>;
+            ValueList valueList_;
+            std::unordered_map<Key, typename ValueList::iterator, KeyHash> data_;
+            std::mutex mutex_;
+
+            void addResends_locked(
+                typename M::TimePoint t
+                , typename M::template InnerData<std::vector<std::tuple<Key,Value>>> &ret
+            ) {
+                while (!valueList_.empty()) {
+                    auto &v = valueList_.front();
+                    if (std::get<0>(v)+resendDuration_ >= t) {
+                        break;
+                    }
+                    ret.timedData.value.push_back({
+                        infra::withtime_utils::makeValueCopy(*std::get<1>(v))
+                        , infra::withtime_utils::makeValueCopy(*std::get<2>(v))
+                    });
+                    std::get<0>(v) = t;
+                    auto x = std::move(v);
+                    valueList_.pop_front();
+                    valueList_.emplace_back(std::move(x));
+                    auto iter = valueList_.end();
+                    --iter;
+                    data_[*(std::get<1>(*iter))] = iter;
+                }
+            }
+
+            typename M::template Data<std::vector<std::tuple<Key,Value>>> handleTrigger(
+                TheEnvironment *env
+                , typename M::TimePoint const &t
+                , bool finalFlag
+            ) {
+                typename M::template InnerData<std::vector<std::tuple<Key,Value>>> ret {
+                    env 
+                    , {
+                        {}
+                        , {}
+                        , finalFlag
+                    }
+                };
+
+                std::lock_guard<std::mutex> _(mutex_);
+                addResends_locked(t, ret);
+                ret.timedData.timePoint = env->resolveTime(t);
+
+                return {std::move(ret)};
+            }
+            typename M::template Data<std::vector<std::tuple<Key,Value>>> handleInput(
+                TheEnvironment *env
+                , typename M::TimePoint const &t
+                , bool finalFlag
+                , InputData &&input
+            ) {
+                typename M::template InnerData<std::vector<std::tuple<Key,Value>>> ret {
+                    env 
+                    , {
+                        {}
+                        , {}
+                        , finalFlag
+                    }
+                };
+
+                auto key = keyExtractorF_(input);
+
+                std::lock_guard<std::mutex> _(mutex_);
+                auto iter = data_.find(key);
+                typename ValueList::iterator listIter;
+                if (iter == data_.end()) {
+                    valueList_.emplace_back(
+                        t
+                        , std::make_unique<Key>(key)
+                        , std::make_unique<Value>(valueExtractorF_(std::move(input)))
+                    );
+                    listIter = valueList_.end();
+                    --listIter;
+                    data_.insert({key, listIter});
+                } else {
+                    listIter = iter->second;
+                    std::get<0>(*listIter) = t;
+                    *(std::get<2>(*listIter)) = valueExtractorF_(std::move(input));
+                    auto x = std::move(*listIter);
+                    valueList_.erase(listIter);
+                    valueList_.emplace_back(std::move(x));
+                    listIter = valueList_.end();
+                    --listIter;
+                    iter->second = listIter;
+                }
+                ret.timedData.value.push_back({infra::withtime_utils::makeValueCopy(key), infra::withtime_utils::makeValueCopy(*(std::get<2>(*listIter)))});
+                addResends_locked(t, ret);
+                ret.timedData.timePoint = env->resolveTime(t);
+
+                return {std::move(ret)};
+            }
+        public:
+            KeyedUpdateGeneratorImpl(KeyExtractorF &&keyExtractorF, ValueExtractorF &&valueExtractorF, typename M::Duration const &resendDuration)
+                : keyExtractorF_(std::move(keyExtractorF))
+                , valueExtractorF_(std::move(valueExtractorF))
+                , resendDuration_(resendDuration)
+                , valueList_()
+                , data_()
+                , mutex_()
+            {}
+            KeyedUpdateGeneratorImpl(KeyedUpdateGeneratorImpl &&x) 
+                : keyExtractorF_(std::move(x.keyExtractorF_))
+                , valueExtractorF_(std::move(x.valueExtractorF_))
+                , resendDuration_(x.resendDuration_)
+                , valueList_()
+                , data_()
+                , mutex_()
+            {}
+            ~KeyedUpdateGeneratorImpl() = default;
+
+            typename M::template Data<std::vector<std::tuple<Key,Value>>> operator()(
+                typename M::template InnerData<std::variant<InputData, TriggerData>> &&data
+            ) {
+                auto *env = data.environment;
+                auto t = data.timedData.timePoint;
+                auto finalFlag = data.timedData.finalFlag;
+                
+                return std::visit([this,env,t,finalFlag](auto &&x) -> typename M::template Data<std::vector<std::tuple<Key,Value>>> {
+                    using T = std::decay_t<decltype(x)>;
+                    if constexpr (std::is_same_v<T, InputData>) {
+                        return handleInput(env, t, finalFlag, std::move(x));
+                    } else {
+                        return handleTrigger(env, t, finalFlag);
+                    }
+                }, std::move(data.timedData.value));
+            }
+
+            static std::shared_ptr<typename M::template Action<
+                std::variant<InputData,TriggerData>
+                , std::vector<std::tuple<Key,Value>>
+            >> createAction(
+                KeyExtractorF &&keyExtractorF
+                , ValueExtractorF &&valueExtractorF
+                , typename M::Duration const &resendDuration
+                , infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint> {}
+            ) {
+                return M::template kleisli2<InputData,TriggerData>(
+                    KeyedUpdateGeneratorImpl(std::move(keyExtractorF), std::move(valueExtractorF), resendDuration)
+                    , liftParam
+                );
+            }
+        };
+    public:
+        template <
+            class InputData
+            , class TriggerData = basic::VoidStruct
+            , template <class X> class KeyHashTemplate = std::hash
+        >
+        class KeyedUpdateGenerator {
+        public:
+            template <
+                class KeyExtractorF
+                , class ValueExtractorF
+            >
+            static auto keyedUpdateGenerator(
+                KeyExtractorF &&keyExtractorF
+                , ValueExtractorF &&valueExtractorF
+                , typename M::Duration const &resendDuration
+                , infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint> {}
+            ) {
+                using KeyHash = KeyHashTemplate<decltype(keyExtractorF(std::move(*((InputData *) nullptr))))>;
+                return KeyedUpdateGeneratorImpl<InputData,KeyExtractorF,ValueExtractorF,TriggerData,KeyHash>
+                ::createAction(std::move(keyExtractorF), std::move(valueExtractorF), resendDuration, liftParam);
+            }
+        };
     };
 
 } } } }
