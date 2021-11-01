@@ -2566,6 +2566,109 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         };
+    private:
+        template <
+            class InputData
+            , class KeyExtractorF
+            , class ValueExtractorF
+            , class KeyHash
+            , class ValueEqCheck
+            , bool NeedMutex
+        >
+        class RemoveDuplicatesImpl {
+        private:
+            KeyExtractorF keyExtractorF_;
+            ValueExtractorF valueExtractorF_;
+
+            using Key = decltype(keyExtractorF_(*((InputData const *) nullptr)));
+            using Value = decltype(valueExtractorF_(std::move(*((InputData *) nullptr))));
+
+            std::unordered_map<Key, Value, KeyHash> data_;
+            infra::AppSpecificMutex<M> mutex_;
+        public:
+            RemoveDuplicatesImpl(KeyExtractorF &&keyExtractorF, ValueExtractorF &&valueExtractorF)
+                : keyExtractorF_(std::move(keyExtractorF)), valueExtractorF_(std::move(valueExtractorF))
+                , data_(), mutex_()
+            {}
+            RemoveDuplicatesImpl(RemoveDuplicatesImpl &&r)
+                : keyExtractorF_(std::move(r.keyExtractorF_)), valueExtractorF_(std::move(r.valueExtractorF_))
+                , data_(), mutex_()
+            {}
+            ~RemoveDuplicatesImpl() = default;
+            std::optional<std::tuple<Key, Value>> operator()(InputData &&x) {
+                auto k = keyExtractorF_(x);
+                auto v = valueExtractorF_(std::move(x));
+                if constexpr (NeedMutex) {
+                    infra::AppSpecificLockGuard<M> _(mutex_);
+                    auto iter = data_.find(k);
+                    if (iter == data_.end()) {
+                        data_.insert({infra::withtime_utils::makeValueCopy(k), infra::withtime_utils::makeValueCopy(v)});
+                        return std::tuple<Key, Value> {std::move(k), std::move(v)};
+                    } else {
+                        if (!ValueEqCheck()(iter->second, v)) {
+                            iter->second = infra::withtime_utils::makeValueCopy(v);
+                            return std::tuple<Key, Value> {std::move(k), std::move(v)};
+                        } else {
+                            return std::nullopt;
+                        }
+                    }
+                } else {
+                    auto iter = data_.find(k);
+                    if (iter == data_.end()) {
+                        data_.insert({infra::withtime_utils::makeValueCopy(k), infra::withtime_utils::makeValueCopy(v)});
+                        return std::tuple<Key, Value> {std::move(k), std::move(v)};
+                    } else {
+                        if (!ValueEqCheck()(iter->second, v)) {
+                            iter->second = infra::withtime_utils::makeValueCopy(v);
+                            return std::tuple<Key, Value> {std::move(k), std::move(v)};
+                        } else {
+                            return std::nullopt;
+                        }
+                    }
+                }
+            }
+            static std::shared_ptr<typename M::template Action<
+                InputData
+                , std::tuple<Key,Value>
+            >> createAction(
+                KeyExtractorF &&keyExtractorF
+                , ValueExtractorF &&valueExtractorF
+                , infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint> {}
+            ) {
+                return M::template liftMaybe<InputData>(
+                    RemoveDuplicatesImpl(std::move(keyExtractorF), std::move(valueExtractorF))
+                    , liftParam
+                );
+            }
+        };
+    public:
+        template <
+            class InputData
+            , template <class X> class KeyHashTemplate = std::hash
+            , template <class X> class EqCheckTemplate = std::equal_to
+        >
+        class RemoveDuplicates {
+        public:
+            template <
+                class KeyExtractorF
+                , class ValueExtractorF
+            >
+            static auto removeDuplicates(
+                KeyExtractorF &&keyExtractorF
+                , ValueExtractorF &&valueExtractorF
+                , infra::LiftParameters<typename M::TimePoint> const &liftParam = infra::LiftParameters<typename M::TimePoint> {}
+            ) {
+                using KeyHash = KeyHashTemplate<decltype(keyExtractorF(std::move(*((InputData *) nullptr))))>;
+                using EqCheck = EqCheckTemplate<decltype(valueExtractorF(std::move(*((InputData *) nullptr))))>;
+                if (liftParam.suggestThreaded) {
+                    return RemoveDuplicatesImpl<InputData,KeyExtractorF,ValueExtractorF,KeyHash,EqCheck,false>
+                    ::createAction(std::move(keyExtractorF), std::move(valueExtractorF), liftParam);
+                } else {
+                    return RemoveDuplicatesImpl<InputData,KeyExtractorF,ValueExtractorF,KeyHash,EqCheck,true>
+                    ::createAction(std::move(keyExtractorF), std::move(valueExtractorF), liftParam);
+                }
+            }
+        };
     };
 
 } } } }
