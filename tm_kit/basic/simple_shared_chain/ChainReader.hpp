@@ -208,6 +208,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             static const auto filterUpdateChecker = boost::hana::is_valid(
                 [](auto *f, auto const *id, auto const *data) -> decltype((void) (f->filterUpdate(*id, *data))) {}
             );
+            static const auto waitFuncChecker = boost::hana::is_valid(
+                [](auto *c, auto const *duration) -> decltype((void) (c->waitForUpdate(*duration))) {}
+            );
             static constexpr bool UsesPartialHistory = 
                 std::is_convertible_v<
                     ChainItemFolder *, FolderUsingPartialHistoryInformation *
@@ -298,7 +301,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         std::this_thread::yield();
                     }
                 } else {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    if constexpr (waitFuncChecker(
+                        (Chain *) nullptr 
+                        , (std::chrono::system_clock::duration const *) nullptr
+                    )) {
+                        chain_->waitForUpdate(std::chrono::milliseconds(1));
+                    } else {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    }
                 }
             }
         }
