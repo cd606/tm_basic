@@ -21,6 +21,7 @@
 
 #include <tm_kit/basic/ByteData.hpp>
 #include <tm_kit/basic/StructFieldInfoUtils.hpp>
+#include <tm_kit/basic/ConvertibleWithString.hpp>
 
 #include <nlohmann/json.hpp>
 #include <iomanip>
@@ -103,6 +104,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     };
     template <>
     struct JsonWrappable<std::string, void> {
+        static constexpr bool value = true;
+    };
+    template <class T>
+    class JsonEncoder<T, std::enable_if_t<ConvertibleWithString<T>::value, void>> {
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, T const &data) {
+            if (key) {
+                output[*key] = ConvertibleWithString<T>::toString(data);
+            } else {
+                output = ConvertibleWithString<T>::toString(data);
+            }
+        }
+    };
+    template <class T>
+    struct JsonWrappable<T, std::enable_if_t<ConvertibleWithString<T>::value, void>> {
         static constexpr bool value = true;
     };
     //For same reason as in proto_interop, string_view and ByteDataView are not
@@ -668,6 +684,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 return false;
             } else {
                 i.get_to(data);
+                return true;
+            }
+        }
+    };
+    template <class T>
+    class JsonDecoder<T, std::enable_if_t<ConvertibleWithString<T>::value, void>> {
+    public:
+        static bool read(nlohmann::json const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            auto const &i = (key?input.at(*key):input);
+            if (i.is_null()) {
+                data = ConvertibleWithString<T>::fromString("");
+                return false;
+            } else {
+                std::string s;
+                i.get_to(s);
+                data = ConvertibleWithString<T>::fromString(s);
                 return true;
             }
         }

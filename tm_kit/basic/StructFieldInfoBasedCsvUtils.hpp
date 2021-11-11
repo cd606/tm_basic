@@ -3,6 +3,7 @@
 
 #include <tm_kit/basic/StructFieldInfoUtils.hpp>
 #include <tm_kit/basic/DateHolder.hpp>
+#include <tm_kit/basic/ConvertibleWithString.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/iostreams/device/array.hpp>
@@ -71,6 +72,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             || std::is_same_v<F, std::chrono::system_clock::time_point>
             || std::is_same_v<F, std::string>
             || std::is_empty_v<F>
+            || ConvertibleWithString<F>::value
             || (CsvSingleLayerWrapperHelper<F>::Value && is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>)
         ;
         template <class T>
@@ -340,6 +342,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     os << infra::withtime_utils::localTimeString(CsvSingleLayerWrapperHelper<ColType>::constRef(x));
                 } else if constexpr (std::is_empty_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>) {
                     //do nothing
+                } else if constexpr (ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
+                    os << std::quoted(ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::toString(CsvSingleLayerWrapperHelper<ColType>::constRef(x)));
                 } else {
                     os << CsvSingleLayerWrapperHelper<ColType>::constRef(x);
                 }
@@ -348,6 +352,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static void outputSimpleFieldToReceiver_internal(std::string const &name, ColType const &x, std::function<void(std::string const &, std::string const &)> const &receiver) {
                 if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::string>) {
                     receiver(name, CsvSingleLayerWrapperHelper<ColType>::constRef(x));
+                } else if constexpr (ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
+                    receiver(name, ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::toString(CsvSingleLayerWrapperHelper<ColType>::constRef(x)));
                 } else if constexpr (std::is_empty_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>) {
                     //do nothing
                 } else {
@@ -585,6 +591,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         return true;
                     } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::string>) {
                         return true;
+                    } else if constexpr (ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
+                        CsvSingleLayerWrapperHelper<ColType>::ref(x) = ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::fromString("");
+                        return true;
                     } else {
                         return false;
                     }
@@ -671,6 +680,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     CsvSingleLayerWrapperHelper<ColType>::ref(x) = infra::withtime_utils::parseLocalTime(s);
                 } else if constexpr (std::is_empty_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>) {
                     //do nothing
+                } else if constexpr (ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
+                    if (s.length() > 0) {
+                        if (s[0] == '"') {
+                            std::string unquoted;
+#ifdef _MSC_VER
+                            boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
+#else
+                            boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
+#endif
+                                >> std::quoted(unquoted);
+                            CsvSingleLayerWrapperHelper<ColType>::ref(x) = ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::fromString(unquoted);
+                        } else {
+                            CsvSingleLayerWrapperHelper<ColType>::ref(x) = ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::fromString(s);
+                        }
+                    } else {
+                        CsvSingleLayerWrapperHelper<ColType>::ref(x) = ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::fromString("");
+                    }
                 } else {
                     if (s[0] == '"') {
                         std::string unquoted;

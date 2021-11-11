@@ -37,6 +37,7 @@ tm_basic_headers = [
     , 'DateHolder.hpp'
     , 'ConfigurationMapComponent.hpp'
     , 'LoggingComponentBase.hpp'
+    , 'ConvertibleWithString.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')

@@ -193,6 +193,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         const bool callbackPerUpdate_;
         const bool busyLoop_;
         const bool noYield_;
+        const std::chrono::system_clock::duration pollingWaitDuration_;
         Chain *chain_;
         typename Chain::ItemType currentItem_;
         ChainItemFolder folder_;
@@ -305,9 +306,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         (Chain *) nullptr 
                         , (std::chrono::system_clock::duration const *) nullptr
                     )) {
-                        chain_->waitForUpdate(std::chrono::milliseconds(1));
+                        chain_->waitForUpdate(pollingWaitDuration_);
                     } else {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                        std::this_thread::sleep_for(pollingWaitDuration_);
                     }
                 }
             }
@@ -317,6 +318,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             callbackPerUpdate_(pollingPolicy.callbackPerUpdate)
             , busyLoop_(pollingPolicy.busyLoop)
             , noYield_(pollingPolicy.noYield)
+            , pollingWaitDuration_(pollingPolicy.readerPollingWaitDuration)
             , chain_(chain)
             , currentItem_()
             , folder_(std::move(folder))

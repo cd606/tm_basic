@@ -41,8 +41,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         std::unordered_map<std::string, std::string> extraData_;
         std::mutex mutex_;
         std::mutex chainActionMutex_;
+
+        std::condition_variable notificationCond_;
     public:
-        InMemoryWithLockChain() : updateTriggerFunc_(), theMap_({{"", MapData {}}}), extraData_(), mutex_(), chainActionMutex_() {
+        InMemoryWithLockChain() : updateTriggerFunc_(), theMap_({{"", MapData {}}}), extraData_(), mutex_(), chainActionMutex_(), notificationCond_() {
         }
         void setUpdateTriggerFunc(std::function<void()> f) {
             if (updateTriggerFunc_) {
@@ -99,6 +101,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             if (updateTriggerFunc_) {
                 updateTriggerFunc_();
             }
+            notificationCond_.notify_all();
             return true;
         }
         bool appendAfter(ItemType const &current, std::vector<ItemType> &&toBeWritten) {
@@ -128,6 +131,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             if (updateTriggerFunc_) {
                 updateTriggerFunc_();
             }
+            notificationCond_.notify_all();
             return true;
         }
         template <class ExtraData>
@@ -194,6 +198,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
         void releaseLock() {
             chainActionMutex_.unlock();
+        }
+        void waitForUpdate(std::chrono::system_clock::duration const &d) {
+            std::mutex mut;
+            std::unique_lock<std::mutex> lock(mut);
+            notificationCond_.wait_for(lock, d);
+            lock.unlock();
         }
     };
 

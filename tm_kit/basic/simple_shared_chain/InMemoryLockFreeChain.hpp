@@ -33,12 +33,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         InMemoryLockFreeChainStorageItem<T> head_;
         std::mutex mutex_; //for extra data only
         std::unordered_map<std::string, void *> extraData_;
+
+        std::condition_variable notificationCond_;
     public:
         using StorageIDType = std::string;
         using DataType = T;
         using ItemType = InMemoryLockFreeChainItem<T>;
         static constexpr bool SupportsExtraData = true;
-        InMemoryLockFreeChain() : head_(), mutex_(), extraData_() {
+        InMemoryLockFreeChain() : head_(), mutex_(), extraData_(), notificationCond_() {
         }
         ItemType head(void *) {
             return &head_;
@@ -70,6 +72,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             if (!ret) {
                 delete toBeWritten;
             }
+            notificationCond_.notify_all();
             return ret;
         }
         bool appendAfter(ItemType const &current, std::vector<ItemType> &&toBeWritten) {
@@ -97,6 +100,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                     delete p;
                 }
             }
+            notificationCond_.notify_all();
             return ret;
         }
         template <class Env>
@@ -148,6 +152,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 return std::nullopt;
             }
             return ExtraData(*((ExtraData *) (iter->second)));
+        }
+        void waitForUpdate(std::chrono::system_clock::duration const &d) {
+            std::mutex mut;
+            std::unique_lock<std::mutex> lock(mut);
+            notificationCond_.wait_for(lock, d);
+            lock.unlock();
         }
     };
 
