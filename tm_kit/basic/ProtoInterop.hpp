@@ -55,8 +55,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 return std::nullopt;
             }
             static std::optional<std::size_t> actualLength(std::string_view const &input, std::size_t start) {
-                uint64_t x;
-                return read<uint64_t>(x, input, start);
+                uintmax_t x;
+                return read<uintmax_t>(x, input, start);
             }
         };
 
@@ -371,6 +371,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     };
     template <>
     struct ProtoWrappable<int64_t, void> {
+        static constexpr bool value = true;
+    };
+    template <>
+    class ProtoEncoder<long long, std::enable_if_t<
+        ((!std::is_same_v<long long, int64_t>) && (sizeof(long long)==8))
+        , void
+    >> {
+    public:
+        static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
+            return inputFieldNumber;
+        }
+        static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
+            return inputFieldNumber+1;
+        }
+        static void write(std::optional<uint64_t> fieldNumber, long long data, std::ostream &os, bool writeDefaultValue) {
+            ProtoEncoder<int64_t>::write(fieldNumber, (int64_t) data, os, writeDefaultValue);
+        }
+    };
+    template <>
+    struct ProtoWrappable<long long, std::enable_if_t<
+        ((!std::is_same_v<long long, int64_t>) && (sizeof(long long)==8))
+        , void
+    >> {
         static constexpr bool value = true;
     };
     template <>
@@ -1847,6 +1870,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                 return std::nullopt;
                 break;
             }
+        }
+    };
+    template <>
+    class ProtoDecoder<long long, std::enable_if_t<
+        ((!std::is_same_v<long long, int64_t>) && (sizeof(long long)==8))
+        , void
+    >> final : public IProtoDecoder<long long> {
+    public:
+        ProtoDecoder(long long *output, uint64_t baseFieldNumber) : IProtoDecoder<long long>(output) {}
+        virtual ~ProtoDecoder() = default;
+        static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
+            return {baseFieldNumber};
+        }
+    protected:
+        std::optional<std::size_t> read(long long &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
+            int64_t x;
+            ProtoDecoder<int64_t> dec(&x, 0);
+            auto s = dec.handle(fh, input, start);
+            if (!s) {
+                return std::nullopt;
+            }
+            output = (long long) x;
+            return s;
         }
     };
     template <>

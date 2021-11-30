@@ -287,6 +287,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         };
+        template <>
+        struct RunCBORSerializer<unsigned long long, std::enable_if_t<
+            ((!std::is_same_v<unsigned long long, uint64_t>) && (sizeof(unsigned long long)==8))
+            , void
+        >> {
+            [[deprecated("use apply(T const &data, char *output) instead")]]
+            static std::string apply(unsigned long long const &data) {
+                return RunCBORSerializer<uint64_t>::apply((uint64_t) data);
+            }
+            static std::size_t apply(uint64_t const &data, char *output) {
+                return RunCBORSerializer<uint64_t>::apply((uint64_t) data, output);
+            }
+            static constexpr std::size_t calculateSize(uint64_t const &data) {
+                return RunCBORSerializer<uint64_t>::calculateSize((uint64_t) data);
+            }
+        };
         template <class T>
         struct RunCBORSerializer<T, std::enable_if_t<
             std::is_integral_v<T> && std::is_signed_v<T>
@@ -1240,6 +1256,28 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 return parseCBORUnsignedIntInPlace<uint64_t>(output, data, start);
+            }
+        };
+        template <>
+        struct RunCBORDeserializer<unsigned long long, std::enable_if_t<
+            ((!std::is_same_v<unsigned long long, uint64_t>) && (sizeof(unsigned long long)==8))
+            , void
+        >> {
+            static std::optional<std::tuple<unsigned long long, size_t>> apply(std::string_view const &data, size_t start) {
+                auto x = RunCBORDeserializer<uint64_t>::apply(data, start);
+                if (!x) {
+                    return x;
+                }
+                return std::tuple<unsigned long long, size_t> {(unsigned long long) std::get<0>(*x), std::get<1>(*x)};
+            }
+            static std::optional<size_t> applyInPlace(unsigned long long &output, std::string_view const &data, size_t start) {
+                uint64_t u;
+                auto x = RunCBORDeserializer<uint64_t>::applyInPlace(u, data, start);
+                if (!x) {
+                    return x;
+                }
+                output = (unsigned long long) u;
+                return x;
             }
         };
         template <class T>
