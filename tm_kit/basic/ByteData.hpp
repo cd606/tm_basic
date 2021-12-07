@@ -288,9 +288,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         };
         template <>
-        struct RunCBORSerializer<unsigned long long, std::enable_if_t<
+        struct RunCBORSerializer<unsigned long long, std::conditional_t<
             ((!std::is_same_v<unsigned long long, uint64_t>) && (sizeof(unsigned long long)==8))
             , void
+            , std::monostate
         >> {
             [[deprecated("use apply(T const &data, char *output) instead")]]
             static std::string apply(unsigned long long const &data) {
@@ -1259,9 +1260,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         };
         template <>
-        struct RunCBORDeserializer<unsigned long long, std::enable_if_t<
+        struct RunCBORDeserializer<unsigned long long, std::conditional_t<
             ((!std::is_same_v<unsigned long long, uint64_t>) && (sizeof(unsigned long long)==8))
             , void
+            , std::monostate
         >> {
             static std::optional<std::tuple<unsigned long long, size_t>> apply(std::string_view const &data, size_t start) {
                 auto x = RunCBORDeserializer<uint64_t>::apply(data, start);

@@ -374,9 +374,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr bool value = true;
     };
     template <>
-    class ProtoEncoder<long long, std::enable_if_t<
+    class ProtoEncoder<long long, std::conditional_t<
         ((!std::is_same_v<long long, int64_t>) && (sizeof(long long)==8))
         , void
+        , std::monostate
     >> {
     public:
         static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
@@ -390,9 +391,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <>
-    struct ProtoWrappable<long long, std::enable_if_t<
+    struct ProtoWrappable<long long, std::conditional_t<
         ((!std::is_same_v<long long, int64_t>) && (sizeof(long long)==8))
         , void
+        , std::monostate
     >> {
         static constexpr bool value = true;
     };
@@ -1873,9 +1875,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <>
-    class ProtoDecoder<long long, std::enable_if_t<
+    class ProtoDecoder<long long, std::conditional_t<
         ((!std::is_same_v<long long, int64_t>) && (sizeof(long long)==8))
         , void
+        , std::monostate
     >> final : public IProtoDecoder<long long> {
     public:
         ProtoDecoder(long long *output, uint64_t baseFieldNumber) : IProtoDecoder<long long>(output) {}
