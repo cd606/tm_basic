@@ -3277,7 +3277,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
         }
     public:
-        ProtoDecoder(T* output, uint64_t baseFieldNumber) : IProtoDecoder<T>(output), decoders_() {
+        ProtoDecoder(T* output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<T>(output), decoders_() {
             buildDecoders_impl<StructFieldInfo<T>::FIELD_NAMES.size(),0>(output, decoders_, 1);
         }
         virtual ~ProtoDecoder() {
