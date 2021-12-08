@@ -139,14 +139,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <>
     class PrintHelper<VoidStruct> {
     public:
-        static void print(std::ostream &os, VoidStruct const &t) {
+        static void print(std::ostream &os, VoidStruct const &/*t*/) {
             os << "VoidStruct{}";
         }
     };
     template <>
     class PrintHelper<std::monostate> {
     public:
-        static void print(std::ostream &os, std::monostate const &t) {
+        static void print(std::ostream &os, std::monostate const &/*t*/) {
             os << "std::monostate{}";
         }
     };

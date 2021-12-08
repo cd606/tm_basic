@@ -142,11 +142,11 @@ struct RunCBORSerializer<std::tuple<>> {
         apply(data, const_cast<char *>(s.data()));
         return s;
     }
-    static std::size_t apply(std::tuple<> const &data, char *output) {
+    static std::size_t apply(std::tuple<> const &/*data*/, char *output) {
         *output = static_cast<char>(0x80);
         return 1;
     }
-    static std::size_t calculateSize(std::tuple<> const &data) {
+    static std::size_t calculateSize(std::tuple<> const &/*data*/) {
         return 1;
     }
 };
@@ -158,11 +158,11 @@ struct RunCBORSerializerWithNameList<std::tuple<>, 0> {
         apply(data, nameList, const_cast<char *>(s.data()));
         return s;
     }
-    static std::size_t apply(std::tuple<> const &data, std::array<std::string, 0> const &nameList, char *output) {
+    static std::size_t apply(std::tuple<> const &/*data*/, std::array<std::string, 0> const &/*nameList*/, char *output) {
         *output = static_cast<char>(0xA0);
         return 1;
     }
-    static std::size_t calculateSize(std::tuple<> const &data, std::array<std::string, 0> const &nameList) {
+    static std::size_t calculateSize(std::tuple<> const &/*data*/, std::array<std::string, 0> const &/*nameList*/) {
         return 1;
     }
 };
@@ -182,7 +182,7 @@ struct RunCBORDeserializer<std::tuple<>> {
             }
         };
     }
-    static std::optional<size_t> applyInPlace(std::tuple<> &output, std::string_view const &data, size_t start) {
+    static std::optional<size_t> applyInPlace(std::tuple<> &/*output*/, std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -194,7 +194,7 @@ struct RunCBORDeserializer<std::tuple<>> {
 };
 template <>
 struct RunCBORDeserializerWithNameList<std::tuple<>, 0> {
-    static std::optional<std::tuple<std::tuple<>,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string, 0> const &nameList) {
+    static std::optional<std::tuple<std::tuple<>,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string, 0> const &/*nameList*/) {
         if (data.length() < start+1) {
             return std::nullopt;
         }
@@ -208,7 +208,7 @@ struct RunCBORDeserializerWithNameList<std::tuple<>, 0> {
             }
         };
     }
-    static std::optional<size_t> applyInPlace(std::tuple<> &output, std::string_view const &data, size_t start, std::array<std::string, 0> const &nameList) {
+    static std::optional<size_t> applyInPlace(std::tuple<> &/*output*/, std::string_view const &data, size_t start, std::array<std::string, 0> const &/*nameList*/) {
         if (data.length() < start+1) {
             return std::nullopt;
         }

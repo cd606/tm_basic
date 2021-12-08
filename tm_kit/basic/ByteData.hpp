@@ -166,7 +166,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 *output = static_cast<char>(data?0xf5:0xf4);
                 return 1;
             }
-            static constexpr std::size_t calculateSize(bool const &data) {
+            static constexpr std::size_t calculateSize(bool const &/*data*/) {
                 return 1;
             }
         };
@@ -400,7 +400,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::memcpy(&output[1], &dBuf, 4);
                 return 5;
             }
-            static constexpr std::size_t calculateSize(float const &data) {
+            static constexpr std::size_t calculateSize(float const &/*data*/) {
                 return 5;
             }
         };
@@ -420,7 +420,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::memcpy(&output[1], &dBuf, 8);
                 return 9;
             }
-            static constexpr std::size_t calculateSize(double const &data) {
+            static constexpr std::size_t calculateSize(double const &/*data*/) {
                 return 9;
             }
         };
@@ -885,25 +885,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <>
         struct RunCBORSerializer<VoidStruct, void> {
-            static std::string apply(VoidStruct const &data) {
+            static std::string apply(VoidStruct const &/*data*/) {
                 return RunCBORSerializer<int32_t>::apply(0);
             }
-            static std::size_t apply(VoidStruct const &data, char *output) {
+            static std::size_t apply(VoidStruct const &/*data*/, char *output) {
                 return RunCBORSerializer<int32_t>::apply(0, output);
             }
-            static constexpr std::size_t calculateSize(VoidStruct const &data) {
+            static constexpr std::size_t calculateSize(VoidStruct const &/*data*/) {
                 return RunCBORSerializer<int32_t>::calculateSize(0);
             }
         };
         template <>
         struct RunCBORSerializer<std::monostate, void> {
-            static std::string apply(std::monostate const &data) {
+            static std::string apply(std::monostate const &/*data*/) {
                 return RunCBORSerializer<int32_t>::apply(0);
             }
-            static std::size_t apply(std::monostate const &data, char *output) {
+            static std::size_t apply(std::monostate const &/*data*/, char *output) {
                 return RunCBORSerializer<int32_t>::apply(0, output);
             }
-            static constexpr std::size_t calculateSize(std::monostate const &data) {
+            static constexpr std::size_t calculateSize(std::monostate const &/*data*/) {
                 return RunCBORSerializer<int32_t>::calculateSize(0);
             }
         };
@@ -2433,7 +2433,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return std::tuple<VoidStruct, size_t> {VoidStruct {}, std::get<1>(*r)};
             }
-            static std::optional<size_t> applyInPlace(VoidStruct &output, std::string_view const &data, size_t start) {
+            static std::optional<size_t> applyInPlace(VoidStruct &/*output*/, std::string_view const &data, size_t start) {
                 auto r = RunCBORDeserializer<int32_t>::apply(data, start);
                 if (!r) {
                     return std::nullopt;
@@ -2456,7 +2456,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return std::tuple<std::monostate, size_t> {std::monostate {}, std::get<1>(*r)};
             }
-            static std::optional<size_t> applyInPlace(std::monostate &output, std::string_view const &data, size_t start) {
+            static std::optional<size_t> applyInPlace(std::monostate &/*output*/, std::string_view const &data, size_t start) {
                 auto r = RunCBORDeserializer<int32_t>::apply(data, start);
                 if (!r) {
                     return std::nullopt;
@@ -2646,7 +2646,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <>
         struct RunSerializer<VoidStruct, void> {
-            static std::string apply(VoidStruct const &data) {
+            static std::string apply(VoidStruct const &/*data*/) {
                 return "";
             }
         };
@@ -2824,10 +2824,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
             }
-            static bool applyInPlace(VoidStruct &output, std::string_view const &data) {
+            static bool applyInPlace(VoidStruct &/*output*/, std::string_view const &data) {
                 return (data.length() == 0);
             }
-            static bool applyInPlace(VoidStruct &output, std::string const &data) {
+            static bool applyInPlace(VoidStruct &/*output*/, std::string const &data) {
                 return (data.length() == 0);
             }
         };

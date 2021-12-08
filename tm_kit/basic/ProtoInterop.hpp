@@ -592,7 +592,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, float data, std::ostream &os, bool writeDefaultValue) {
+        static void write(std::optional<uint64_t> fieldNumber, float data, std::ostream &os, bool /*writeDefaultValue*/) {
             if (fieldNumber) {
                 internal::FieldHeaderSupport::writeHeader(
                     internal::FieldHeader {internal::ProtoWireType::Fixed32, *fieldNumber}
@@ -618,7 +618,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, double data, std::ostream &os, bool writeDefaultValue) {
+        static void write(std::optional<uint64_t> fieldNumber, double data, std::ostream &os, bool /*writeDefaultValue*/) {
             if (fieldNumber) {
                 internal::FieldHeaderSupport::writeHeader(
                     internal::FieldHeader {internal::ProtoWireType::Fixed64, *fieldNumber}
@@ -1137,7 +1137,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, VoidStruct const &data, std::ostream &os, bool writeDefaultValue) {
+        static void write(std::optional<uint64_t> /*fieldNumber*/, VoidStruct const &/*data*/, std::ostream &/*os*/, bool /*writeDefaultValue*/) {
         }
     };
     template <>
@@ -1154,7 +1154,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, std::monostate const &data, std::ostream &os, bool writeDefaultValue) {
+        static void write(std::optional<uint64_t> /*fieldNumber*/, std::monostate const &/*data*/, std::ostream &/*os*/, bool /*writeDefaultValue*/) {
         }
     };
     template <>
@@ -1652,7 +1652,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoDecoder<int8_t, void> final : public IProtoDecoder<int8_t> {
     public:
-        ProtoDecoder(int8_t *output, uint64_t baseFieldNumber) : IProtoDecoder<int8_t>(output) {}
+        ProtoDecoder(int8_t *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<int8_t>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
@@ -1703,7 +1703,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoDecoder<int16_t, void> final : public IProtoDecoder<int16_t> {
     public:
-        ProtoDecoder(int16_t *output, uint64_t baseFieldNumber) : IProtoDecoder<int16_t>(output) {}
+        ProtoDecoder(int16_t *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<int16_t>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
@@ -1754,7 +1754,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoDecoder<bool, void> final : public IProtoDecoder<bool> {
     public:
-        ProtoDecoder(bool *output, uint64_t baseFieldNumber) : IProtoDecoder<bool>(output) {}
+        ProtoDecoder(bool *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<bool>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
@@ -1775,7 +1775,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoDecoder<int32_t, void> final : public IProtoDecoder<int32_t> {
     public:
-        ProtoDecoder(int32_t *output, uint64_t baseFieldNumber) : IProtoDecoder<int32_t>(output) {}
+        ProtoDecoder(int32_t *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<int32_t>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
@@ -1826,7 +1826,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoDecoder<int64_t, void> final : public IProtoDecoder<int64_t> {
     public:
-        ProtoDecoder(int64_t *output, uint64_t baseFieldNumber) : IProtoDecoder<int64_t>(output) {}
+        ProtoDecoder(int64_t *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<int64_t>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
@@ -1881,7 +1881,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         , std::monostate
     >> final : public IProtoDecoder<long long> {
     public:
-        ProtoDecoder(long long *output, uint64_t baseFieldNumber) : IProtoDecoder<long long>(output) {}
+        ProtoDecoder(long long *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<long long>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
@@ -1901,7 +1901,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoDecoder<SingleLayerWrapperWithTypeMark<ZigZag, int32_t>, void> final : public IProtoDecoder<SingleLayerWrapperWithTypeMark<ZigZag, int32_t>> {
     public:
-        ProtoDecoder(SingleLayerWrapperWithTypeMark<ZigZag, int32_t> *output, uint64_t baseFieldNumber) : IProtoDecoder<SingleLayerWrapperWithTypeMark<ZigZag, int32_t>>(output) {}
+        ProtoDecoder(SingleLayerWrapperWithTypeMark<ZigZag, int32_t> *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<SingleLayerWrapperWithTypeMark<ZigZag, int32_t>>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
@@ -1952,7 +1952,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoDecoder<SingleLayerWrapperWithTypeMark<ZigZag, int64_t>, void> final : public IProtoDecoder<SingleLayerWrapperWithTypeMark<ZigZag, int64_t>> {
     public:
-        ProtoDecoder(SingleLayerWrapperWithTypeMark<ZigZag, int64_t> *output, uint64_t baseFieldNumber) : IProtoDecoder<SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>(output) {}
+        ProtoDecoder(SingleLayerWrapperWithTypeMark<ZigZag, int64_t> *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<SingleLayerWrapperWithTypeMark<ZigZag, int64_t>>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
@@ -2003,7 +2003,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,int32_t>, void> final : public IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,int32_t>> {
     public:
-        ProtoDecoder(SingleLayerWrapperWithTypeMark<Fixed,int32_t> *output, uint64_t baseFieldNumber) : IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,int32_t>>(output) {}
+        ProtoDecoder(SingleLayerWrapperWithTypeMark<Fixed,int32_t> *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,int32_t>>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
@@ -2054,7 +2054,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,int64_t>, void> final : public IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,int64_t>> {
     public:
-        ProtoDecoder(SingleLayerWrapperWithTypeMark<Fixed,int64_t> *output, uint64_t baseFieldNumber) : IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,int64_t>>(output) {}
+        ProtoDecoder(SingleLayerWrapperWithTypeMark<Fixed,int64_t> *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,int64_t>>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
@@ -2105,7 +2105,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,uint32_t>, void> final : public IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,uint32_t>> {
     public:
-        ProtoDecoder(SingleLayerWrapperWithTypeMark<Fixed,uint32_t> *output, uint64_t baseFieldNumber) : IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,uint32_t>>(output) {}
+        ProtoDecoder(SingleLayerWrapperWithTypeMark<Fixed,uint32_t> *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,uint32_t>>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
@@ -2156,7 +2156,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,uint64_t>, void> final : public IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,uint64_t>> {
     public:
-        ProtoDecoder(SingleLayerWrapperWithTypeMark<Fixed,uint64_t> *output, uint64_t baseFieldNumber) : IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,uint64_t>>(output) {}
+        ProtoDecoder(SingleLayerWrapperWithTypeMark<Fixed,uint64_t> *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<SingleLayerWrapperWithTypeMark<Fixed,uint64_t>>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
@@ -2228,7 +2228,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoDecoder<float, void> final : public IProtoDecoder<float> {
     public:
-        ProtoDecoder(float *output, uint64_t baseFieldNumber) : IProtoDecoder<float>(output) {}
+        ProtoDecoder(float *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<float>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
@@ -2251,7 +2251,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoDecoder<double, void> final : public IProtoDecoder<double> {
     public:
-        ProtoDecoder(double *output, uint64_t baseFieldNumber) : IProtoDecoder<double>(output) {}
+        ProtoDecoder(double *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<double>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
@@ -2275,7 +2275,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoDecoder<std::string, void> final : public IProtoDecoder<std::string> {
     public:
-        ProtoDecoder(std::string *output, uint64_t baseFieldNumber) : IProtoDecoder<std::string>(output) {}
+        ProtoDecoder(std::string *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<std::string>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
@@ -2310,7 +2310,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoDecoder<ByteData, void> final : public IProtoDecoder<ByteData> {
     public:
-        ProtoDecoder(ByteData *output, uint64_t baseFieldNumber) : IProtoDecoder<ByteData>(output) {}
+        ProtoDecoder(ByteData *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<ByteData>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
@@ -2857,26 +2857,26 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     template <>
     class ProtoDecoder<VoidStruct, void> final : public IProtoDecoder<VoidStruct> {
     public:
-        ProtoDecoder(VoidStruct *output, uint64_t baseFieldNumber) : IProtoDecoder<VoidStruct>(output) {}
+        ProtoDecoder(VoidStruct *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<VoidStruct>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
         }
     protected:
-        std::optional<std::size_t> read(VoidStruct &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
+        std::optional<std::size_t> read(VoidStruct &/*output*/, internal::FieldHeader const &/*fh*/, std::string_view const &/*input*/, std::size_t /*start*/) override final {
             return 0;
         }
     };
     template <>
     class ProtoDecoder<std::monostate, void> final : public IProtoDecoder<std::monostate> {
     public:
-        ProtoDecoder(std::monostate *output, uint64_t baseFieldNumber) : IProtoDecoder<std::monostate>(output) {}
+        ProtoDecoder(std::monostate *output, uint64_t /*baseFieldNumber*/) : IProtoDecoder<std::monostate>(output) {}
         virtual ~ProtoDecoder() = default;
         static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
             return {baseFieldNumber};
         }
     protected:
-        std::optional<std::size_t> read(std::monostate &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
+        std::optional<std::size_t> read(std::monostate &/*output*/, internal::FieldHeader const &/*fh*/, std::string_view const &/*input*/, std::size_t /*start*/) override final {
             return 0;
         }
     };

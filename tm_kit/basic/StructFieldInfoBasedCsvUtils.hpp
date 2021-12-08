@@ -252,9 +252,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         class StructFieldInfoBasedSimpleCsvOutputImpl {
         private:
             template <class T>
-            static void collectTupleFieldName(T *, std::string const &prefix, std::string const &thisField, std::vector<std::string> &output, int index) {
+            static void collectTupleFieldName(T *, std::string const &/*prefix*/, std::string const &/*thisField*/, std::vector<std::string> &/*output*/, int /*index*/) {
             }
-            static void collectTupleFieldName(std::tuple<> *, std::string const &prefix, std::string const &thisField, std::vector<std::string> &output, int index) {
+            static void collectTupleFieldName(std::tuple<> *, std::string const &/*prefix*/, std::string const &/*thisField*/, std::vector<std::string> &/*output*/, int /*index*/) {
             }
             template <class FirstT, class... RestTs>
             static void collectTupleFieldName(std::tuple<FirstT,RestTs...> *, std::string const &prefix, std::string const &thisField, std::vector<std::string> &output, int index) {
