@@ -26,7 +26,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
         TimePointType resolveTime() {
             return Clock::now();
         }
-        TimePointType resolveTime(TimePointType const &_triggeringInputTime) {
+        TimePointType resolveTime(TimePointType const &/*_triggeringInputTime*/) {
             return Clock::now();
         }
         void createOneShotTimer(TimePointType const &fireAtTime, std::function<void()> callback);
