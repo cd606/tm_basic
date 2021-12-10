@@ -43,7 +43,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     break;
             }
         }
-        void logThroughLoggingComponentBase(infra::LogLevel l, std::string const &s) override final {
+        virtual void logThroughLoggingComponentBase(infra::LogLevel l, std::string const &s) override {
             SpdLoggingComponent::log(l, s);
         }
     };
@@ -175,7 +175,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         }
-        void logThroughLoggingComponentBase(infra::LogLevel l, std::string const &s) override final {
+        virtual void logThroughLoggingComponentBase(infra::LogLevel l, std::string const &s) override {
             log(l, s);
         }
     };
