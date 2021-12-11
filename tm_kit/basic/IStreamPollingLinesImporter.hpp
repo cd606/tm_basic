@@ -24,8 +24,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     static std::unique_ptr<char[]> buf = std::make_unique<char[]>(bufSize);
                     static std::size_t bufEnd = 0;
                     static std::streampos pos = 0;
+                    static bool lastReadWasFull = false;
                     
-                    std::this_thread::sleep_for(realPollingInterval);
+                    std::this_thread::sleep_for(lastReadWasFull?std::chrono::milliseconds(1):realPollingInterval);
 
                     if (stream->bad()) {
                         buf.reset();
@@ -33,6 +34,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     }
                     stream->clear();
                     stream->seekg(pos);
+                    lastReadWasFull = false;
                     while (true) {
                         stream->read(buf.get()+bufEnd, bufSize-bufEnd);
                         auto actualSize = stream->gcount();
@@ -40,6 +42,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         if (actualSize == 0) {
                             return {true, std::nullopt};
                         }
+                        lastReadWasFull = (actualSize == bufSize-bufEnd);
                         std::size_t idx = actualSize-1;
                         while (idx > bufEnd) {
                             if (buf[idx] == '\n') {
@@ -48,7 +51,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                             --idx;
                         }
                         if (buf[idx] != '\n') {
-                            if (actualSize == bufSize-bufEnd) {
+                            if (lastReadWasFull) {
                                 auto oldBufSize = bufSize;
                                 if (bufSize < 65536) {
                                     bufSize *= 2;
