@@ -1496,7 +1496,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
             return inputFieldNumber+1;
         }
-        static void write(std::optional<uint64_t> fieldNumber, T const &data, std::ostream &os, bool writeDefaultValue) {
+        static void write(std::optional<uint64_t> fieldNumber, T const &data, std::ostream &os, bool /*writeDefaultValue*/) {
             static std::array<uint64_t, StructFieldInfo<T>::FIELD_NAMES.size()> indices = buildIndices();
             if (fieldNumber) {
                 internal::FieldHeaderSupport::writeHeader(
