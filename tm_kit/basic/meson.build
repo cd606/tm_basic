@@ -39,6 +39,7 @@ tm_basic_headers = [
     , 'LoggingComponentBase.hpp'
     , 'ConvertibleWithString.hpp'
     , 'IStreamPollingLinesImporter.hpp'
+    , 'StructFieldInfoWithMaskingFilter.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
