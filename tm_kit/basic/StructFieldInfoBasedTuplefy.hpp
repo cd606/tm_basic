@@ -7,7 +7,7 @@
 #include <type_traits>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { 
-    namespace struct_field_info_based_tuplefy {
+    namespace struct_field_info_utils {
         template <class T, typename=std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo>>
         class StructFieldInfoBasedTuplefy {
         private:
@@ -16,7 +16,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             template <int K>
             using OneFieldType = typename StructFieldTypeInfo<T,K>::TheType;
             template <int K>
-            using OnePtrFieldType = typename StructFieldTypeInfo<T,K>::TheType const *;
+            using OnePtrFieldType = typename StructFieldTypeInfo<T,K>::TheType *;
+            template <int K>
+            using OneConstPtrFieldType = typename StructFieldTypeInfo<T,K>::TheType const *;
             template <class X>
             class TupleTypeInternal {};
             template <int... Ints>
@@ -24,6 +26,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             public:
                 using TheType = std::tuple<OneFieldType<Ints>...>;
                 using ThePtrType = std::tuple<OnePtrFieldType<Ints>...>;
+                using TheConstPtrType = std::tuple<OneConstPtrFieldType<Ints>...>;
             };
             template <int K>
             static constexpr OneFieldType<K> fetchOneField(T const &t) {
@@ -31,6 +34,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
             template <int K>
             static constexpr OnePtrFieldType<K> fetchOneFieldPointer(T const &t) {
+                return &(t.*(StructFieldTypeInfo<T,K>::fieldPointer()));
+            }
+            template <int K>
+            static constexpr OneConstPtrFieldType<K> fetchOneFieldConstPointer(T const &t) {
                 return &(t.*(StructFieldTypeInfo<T,K>::fieldPointer()));
             }
             template <int K>
@@ -43,16 +50,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         public:
             using TupleType = typename TupleTypeInternal<IndexSeq>::TheType;
-            using ConstPtrTupleType = typename TupleTypeInternal<IndexSeq>::ThePtrType;
-
+            using PtrTupleType = typename TupleTypeInternal<IndexSeq>::ThePtrType;
+            using ConstPtrTupleType = typename TupleTypeInternal<IndexSeq>::TheConstPtrType;
         private:
             template <int... Ints>
             static constexpr TupleType fetchTuple(std::integer_sequence<int, Ints...> const *seq, T const &t) {
                 return TupleType {fetchOneField<Ints>(t)...};
             }
             template <int... Ints>
-            static constexpr ConstPtrTupleType fetchConstPtrTuple(std::integer_sequence<int, Ints...> const *seq, T const &t) {
+            static constexpr PtrTupleType fetchPtrTuple(std::integer_sequence<int, Ints...> const *seq, T const &t) {
                 return ConstPtrTupleType {fetchOneFieldPointer<Ints>(t)...};
+            }
+            template <int... Ints>
+            static constexpr ConstPtrTupleType fetchConstPtrTuple(std::integer_sequence<int, Ints...> const *seq, T const &t) {
+                return ConstPtrTupleType {fetchOneFieldConstPointer<Ints>(t)...};
             }
             template <int K>
             static constexpr void copyFromTuple_internal(T &t, TupleType const &tu) {
@@ -72,6 +83,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             static constexpr TupleType toTuple(T const &t) {
                 return fetchTuple((IndexSeq const *) nullptr, t);
             }
+            static constexpr PtrTupleType toPtrTuple(T &t) {
+                return fetchPtrTuple((IndexSeq const *) nullptr, t);
+            }
             static constexpr ConstPtrTupleType toConstPtrTuple(T const &t) {
                 return fetchConstPtrTuple((IndexSeq const *) nullptr, t);
             }
@@ -80,6 +94,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
             static void moveFromTuple(T &t, TupleType &&tu) {
                 moveFromTuple_internal<0>(t, std::move(tu));
+            }
+            static constexpr T fromTuple(TupleType const &tu) {
+                T t;
+                copyFromTuple(t, tu);
+                return t;
+            }
+            static T fromTupleByMove(TupleType &&tu) {
+                T t;
+                moveFromTuple(t, std::move(tu));
+                return t;
             }
         };
     }

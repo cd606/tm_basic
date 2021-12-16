@@ -2,6 +2,8 @@
 #define TM_KIT_BASIC_STRUCT_FIELD_INFO_WITH_MASKING_FILTER_HPP_
 
 #include <tm_kit/basic/StructFieldInfoHelper.hpp>
+#include <tm_kit/basic/StructFieldInfoBasedTuplefy.hpp>
+#include <tm_kit/basic/ByteData.hpp>
 #include <string_view>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { 
@@ -114,6 +116,118 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             >::fieldPointer();
         }
     };
+
+    namespace bytedata_utils {
+        template <
+            class T
+            , bool (*maskF)(std::string_view const &)
+        >
+        struct RunCBORSerializer<struct_field_info_masking::MaskedStruct<T,maskF>, void> {
+            static std::string apply(struct_field_info_masking::MaskedStruct<T,maskF> const &x) {
+                std::string s;
+                s.resize(calculateSize(x));
+                apply(x, const_cast<char *>(s.data()));
+                return s;
+            }
+            static std::size_t apply(struct_field_info_masking::MaskedStruct<T,maskF> const &x, char *output) {
+                return RunCBORSerializer<
+                    typename struct_field_info_utils::StructFieldInfoBasedTuplefy<
+                        struct_field_info_masking::MaskedStruct<T,maskF>
+                    >::ConstPtrTupleType
+                >::apply(
+                    struct_field_info_utils::StructFieldInfoBasedTuplefy<
+                        struct_field_info_masking::MaskedStruct<T,maskF>
+                    >::toConstPtrTuple(x)
+                    , output
+                );
+            }
+            static std::size_t calculateSize(struct_field_info_masking::MaskedStruct<T,maskF> const &x) { \
+                return RunCBORSerializer<
+                    typename struct_field_info_utils::StructFieldInfoBasedTuplefy<
+                        struct_field_info_masking::MaskedStruct<T,maskF>
+                    >::ConstPtrTupleType
+                >::calculateSize(
+                    struct_field_info_utils::StructFieldInfoBasedTuplefy<
+                        struct_field_info_masking::MaskedStruct<T,maskF>
+                    >::toConstPtrTuple(x)
+                );
+            }
+        };
+        template <
+            class T
+            , bool (*maskF)(std::string_view const &)
+        >
+        struct RunSerializer<struct_field_info_masking::MaskedStruct<T,maskF>, void> {
+            static std::string apply(struct_field_info_masking::MaskedStruct<T,maskF> const &x) {
+                return RunCBORSerializer<struct_field_info_masking::MaskedStruct<T,maskF>, void>::apply(x);
+            }
+        };
+
+        template <
+            class T
+            , bool (*maskF)(std::string_view const &)
+        >
+        struct RunCBORDeserializer<struct_field_info_masking::MaskedStruct<T,maskF>, void> {
+            static std::optional<std::tuple<struct_field_info_masking::MaskedStruct<T,maskF>, size_t>> apply(std::string_view const &s, size_t start) {
+                auto t = RunCBORDeserializer<
+                    typename struct_field_info_utils::StructFieldInfoBasedTuplefy<
+                        struct_field_info_masking::MaskedStruct<T,maskF>
+                    >::TupleType
+                >::apply(s, start);
+                if (!t) {
+                    return std::nullopt; 
+                }
+                return std::tuple<struct_field_info_masking::MaskedStruct<T,maskF>, size_t> {
+                    struct_field_info_utils::StructFieldInfoBasedTuplefy<
+                        struct_field_info_masking::MaskedStruct<T,maskF>
+                    >::fromTupleByMove(std::move(std::get<0>(*t)))
+                    , std::get<1>(*t)
+                };
+            }
+            static std::optional<size_t> applyInPlace(struct_field_info_masking::MaskedStruct<T,maskF> &x, std::string_view const &s, size_t start) {
+                return RunCBORDeserializer<
+                    typename struct_field_info_utils::StructFieldInfoBasedTuplefy<
+                        struct_field_info_masking::MaskedStruct<T,maskF>
+                    >::PtrTupleType
+                >::applyInPlace(
+                    struct_field_info_utils::StructFieldInfoBasedTuplefy<
+                        struct_field_info_masking::MaskedStruct<T,maskF>
+                    >::toPtrTuple(x)
+                    , s
+                    , start
+                );
+            }
+        };
+        template <
+            class T
+            , bool (*maskF)(std::string_view const &)
+        >
+        struct RunDeserializer<struct_field_info_masking::MaskedStruct<T,maskF>, void> {
+            static std::optional<struct_field_info_masking::MaskedStruct<T,maskF>> apply(std::string_view const &s) {
+                auto t = RunDeserializer<CBOR<struct_field_info_masking::MaskedStruct<T,maskF>>, void>::apply(s);
+                if (!t) {
+                    return std::nullopt;
+                }
+                return std::move(t->value);
+            }
+            static std::optional<struct_field_info_masking::MaskedStruct<T,maskF>> apply(std::string const &s) {
+                return apply(std::string_view {s});
+            }
+            static bool applyInPlace(struct_field_info_masking::MaskedStruct<T,maskF> &output, std::string_view const &s) {
+                auto t = RunCBORDeserializer<struct_field_info_masking::MaskedStruct<T,maskF>, void>::applyInPlace(output, s, 0);
+                if (!t) {
+                    return false;
+                }
+                if (*t != s.length()) {
+                    return false;
+                }
+                return true;
+            }
+            static bool applyInPlace(struct_field_info_masking::MaskedStruct<T,maskF> &output, std::string const &s) {
+                return applyInPlace(output, std::string_view {s});
+            }
+        };
+    }
     
 } } } }
 
