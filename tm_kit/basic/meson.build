@@ -40,6 +40,7 @@ tm_basic_headers = [
     , 'ConvertibleWithString.hpp'
     , 'IStreamPollingLinesImporter.hpp'
     , 'StructFieldInfoWithMaskingFilter.hpp'
+    , 'StructFieldInfoBasedTuplefy.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
