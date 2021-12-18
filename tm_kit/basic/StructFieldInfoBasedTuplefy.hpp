@@ -33,7 +33,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return t.*(StructFieldTypeInfo<T,K>::fieldPointer());
             }
             template <int K>
-            static constexpr OnePtrFieldType<K> fetchOneFieldPointer(T const &t) {
+            static constexpr OnePtrFieldType<K> fetchOneFieldPointer(T &t) {
                 return &(t.*(StructFieldTypeInfo<T,K>::fieldPointer()));
             }
             template <int K>
@@ -58,8 +58,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return TupleType {fetchOneField<Ints>(t)...};
             }
             template <int... Ints>
-            static constexpr PtrTupleType fetchPtrTuple(std::integer_sequence<int, Ints...> const *seq, T const &t) {
-                return ConstPtrTupleType {fetchOneFieldPointer<Ints>(t)...};
+            static constexpr PtrTupleType fetchPtrTuple(std::integer_sequence<int, Ints...> const *seq, T &t) {
+                return PtrTupleType {fetchOneFieldPointer<Ints>(t)...};
             }
             template <int... Ints>
             static constexpr ConstPtrTupleType fetchConstPtrTuple(std::integer_sequence<int, Ints...> const *seq, T const &t) {
