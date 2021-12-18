@@ -413,6 +413,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
                 return *this;
             }
+            template <bool (*maskF1)(std::string_view const &)>
+            MaskedStructView &operator=(MaskedStruct<T,maskF1> const &other) {
+                T const *t = static_cast<T const *>(&other);
+                using MSI = MaskedStructInfo<T, maskF>;
+                using MSI1 = MaskedStructInfo<T, maskF1>;
+
+                auto destTup = struct_field_info_utils::StructFieldInfoBasedTuplefy<T>::toPtrTuple(*ptr());
+                auto srcTup = struct_field_info_utils::StructFieldInfoBasedTuplefy<T>::toConstPtrTuple(*t);
+
+                internal::MaskedStructViewHelpers<T>::template makeCopy<MSI,0,MSI1>(destTup, srcTup);
+
+                return *this;
+            }
             MaskedStructView &operator=(T const &other) {
                 using MSI = MaskedStructInfo<T, maskF>;
                 using MSI1 = MaskedStructInfo<T, nullptr>;
@@ -446,6 +459,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
                 auto destTup = struct_field_info_utils::StructFieldInfoBasedTuplefy<T>::toPtrTuple(*ptr());
                 auto srcTup = struct_field_info_utils::StructFieldInfoBasedTuplefy<T>::toPtrTuple(*(other.ptr()));
+
+                internal::MaskedStructViewHelpers<T>::template makeMove<MSI,0,MSI1>(destTup, srcTup);
+
+                return *this;
+            }
+            template <bool (*maskF1)(std::string_view const &)>
+            MaskedStructView &operator=(MaskedStruct<T,maskF1> &&other) {
+                T *t = static_cast<T *>(&other);
+                using MSI = MaskedStructInfo<T, maskF>;
+                using MSI1 = MaskedStructInfo<T, maskF1>;
+
+                auto destTup = struct_field_info_utils::StructFieldInfoBasedTuplefy<T>::toPtrTuple(*ptr());
+                auto srcTup = struct_field_info_utils::StructFieldInfoBasedTuplefy<T>::toPtrTuple(*t);
 
                 internal::MaskedStructViewHelpers<T>::template makeMove<MSI,0,MSI1>(destTup, srcTup);
 

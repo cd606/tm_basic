@@ -67,6 +67,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         template <class F>
         constexpr bool is_simple_csv_field_v = 
             std::is_arithmetic_v<F>
+            || std::is_same_v<F, bool>
             || std::is_same_v<F, std::tm>
             || std::is_same_v<F, DateHolder>
             || std::is_same_v<F, std::chrono::system_clock::time_point>
@@ -334,6 +335,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static void writeSimpleField_internal(std::ostream &os, ColType const &x) {
                 if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::string>) {
                     os << std::quoted(CsvSingleLayerWrapperHelper<ColType>::constRef(x));
+                } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,bool>) {
+                    os << (CsvSingleLayerWrapperHelper<ColType>::constRef(x)?"true":"false");
                 } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::tm>) {
                     os << std::put_time(&CsvSingleLayerWrapperHelper<ColType>::constRef(x), "%Y-%m-%dT%H:%M:%S");
                 } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,DateHolder>) {
@@ -612,6 +615,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         }
                     } else {
                         CsvSingleLayerWrapperHelper<ColType>::ref(x) = "";
+                    }
+                } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,bool>) {
+                    if (s[0] == '"') {
+                        std::string unquoted;
+#ifdef _MSC_VER
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
+#else
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
+#endif
+                            >> std::quoted(unquoted);
+                        boost::to_lower(unquoted);
+                        if (unquoted == "true" || unquoted == "yes") {
+                            CsvSingleLayerWrapperHelper<ColType>::ref(x) = true;
+                        } else {
+                            CsvSingleLayerWrapperHelper<ColType>::ref(x) = false;
+                        }
+                    } else {
+                        std::string ss = std::string(s);
+                        boost::to_lower(ss);
+                        if (ss == "true" || ss == "yes") {
+                            CsvSingleLayerWrapperHelper<ColType>::ref(x) = true;
+                        } else {
+                            CsvSingleLayerWrapperHelper<ColType>::ref(x) = false;
+                        }
                     }
                 } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::tm>) {
                     if (s[0] == '"') {
