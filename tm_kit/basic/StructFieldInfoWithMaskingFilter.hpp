@@ -166,7 +166,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     , output
                 );
             }
-            static std::size_t calculateSize(struct_field_info_masking::MaskedStruct<T,maskF> const &x) { \
+            static std::size_t calculateSize(struct_field_info_masking::MaskedStruct<T,maskF> const &x) {
                 return RunCBORSerializer<
                     typename struct_field_info_utils::StructFieldInfoBasedTuplefy<
                         struct_field_info_masking::MaskedStruct<T,maskF>
