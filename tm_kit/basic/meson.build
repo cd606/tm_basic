@@ -42,6 +42,7 @@ tm_basic_headers = [
     , 'StructFieldInfoWithMaskingFilter.hpp'
     , 'StructFieldInfoBasedTuplefy.hpp'
     , 'ConcatStructFieldInfo.hpp'
+    , 'StructFieldInfoBasedDynamicView.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
