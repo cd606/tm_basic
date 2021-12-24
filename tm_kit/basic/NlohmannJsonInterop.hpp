@@ -696,9 +696,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             if (i.is_null()) {
                 data = ConvertibleWithString<T>::fromString("");
                 return false;
-            } else {
+            } else if (i.is_string()) {
                 std::string s;
                 i.get_to(s);
+                data = ConvertibleWithString<T>::fromString(s);
+                return true;
+            } else {
+                std::string s = i.dump();
                 data = ConvertibleWithString<T>::fromString(s);
                 return true;
             }
