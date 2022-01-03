@@ -7,6 +7,7 @@
 #include <string_view>
 #include <any>
 #include <typeinfo>
+#include <boost/hana/type.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace struct_field_info_utils {
     namespace internal {
@@ -29,6 +30,76 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     copyValuesToImpl<T,OutIter,K+1,N>(t, outIter);
                 }
             }
+            template <class T, class F, std::size_t K, std::size_t N>
+            static void forAllImpl(T const &t, F &&f) {
+                static const auto checker1 = boost::hana::is_valid(
+                    [](auto *f, auto const *data) -> decltype((void) ((*f)(*data))) {}
+                );
+                static const auto checker2 = boost::hana::is_valid(
+                    [](auto *f, std::string_view const *nm, auto const *data) -> decltype((void) ((*f)(*nm, *data))) {}
+                );
+                static const auto checker3 = boost::hana::is_valid(
+                    [](auto *f, std::size_t const *idx, std::string_view const *nm, auto const *data) -> decltype((void) ((*f)(*idx, *nm, *data))) {}
+                );
+                if constexpr (K < N) {
+                    if constexpr (checker1((F *) nullptr, (std::any const *) nullptr)) {
+                        f(std::any {t.*(StructFieldTypeInfo<T,K>::fieldPointer())});
+                    } else if constexpr (checker2((F *) nullptr, (std::string_view const *) nullptr, (std::any const *) nullptr)) {
+                        f(StructFieldInfo<T>::FIELD_NAMES[K], std::any {t.*(StructFieldTypeInfo<T,K>::fieldPointer())});
+                    } else if constexpr (checker3((F *) nullptr, (std::size_t const *) nullptr, (std::string_view const *) nullptr, (std::any const *) nullptr)) {
+                        f(K, StructFieldInfo<T>::FIELD_NAMES[K], std::any {t.*(StructFieldTypeInfo<T,K>::fieldPointer())});
+                    }
+                    forAllImpl<T,F,K+1,N>(t, std::forward<F>(f));
+                }
+            }
+            template <class T, class X, class F, std::size_t K, std::size_t N>
+            static void forAllByTypeImpl(T const &t, F &&f) {
+                static const auto checker1 = boost::hana::is_valid(
+                    [](auto *f, X const *data) -> decltype((void) ((*f)(*data))) {}
+                );
+                static const auto checker2 = boost::hana::is_valid(
+                    [](auto *f, std::string_view const *nm, X const *data) -> decltype((void) ((*f)(*nm, *data))) {}
+                );
+                static const auto checker3 = boost::hana::is_valid(
+                    [](auto *f, std::size_t const *idx, std::string_view const *nm, X const *data) -> decltype((void) ((*f)(*idx, *nm, *data))) {}
+                );
+                if constexpr (K < N) {
+                    if constexpr (std::is_same_v<X, typename StructFieldTypeInfo<T,K>::TheType>) {
+                        if constexpr (checker1((F *) nullptr, (X const *) nullptr)) {
+                            f(t.*(StructFieldTypeInfo<T,K>::fieldPointer()));
+                        } else if constexpr (checker2((F *) nullptr, (std::string_view const *) nullptr, (X const *) nullptr)) {
+                            f(StructFieldInfo<T>::FIELD_NAMES[K], t.*(StructFieldTypeInfo<T,K>::fieldPointer()));
+                        } else if constexpr (checker3((F *) nullptr, (std::size_t const *) nullptr, (std::string_view const *) nullptr, (X const *) nullptr)) {
+                            f(K, StructFieldInfo<T>::FIELD_NAMES[K], t.*(StructFieldTypeInfo<T,K>::fieldPointer()));
+                        }
+                    }
+                    forAllByTypeImpl<T,X,F,K+1,N>(t, std::forward<F>(f));
+                }
+            }
+            template <class T, class X, class F, std::size_t K, std::size_t N>
+            static void updateAllByTypeImpl(T &t, F &&f) {
+                static const auto checker1 = boost::hana::is_valid(
+                    [](auto *f, X *data) -> decltype((void) ((*f)(*data))) {}
+                );
+                static const auto checker2 = boost::hana::is_valid(
+                    [](auto *f, std::string_view const *nm, X *data) -> decltype((void) ((*f)(*nm, *data))) {}
+                );
+                static const auto checker3 = boost::hana::is_valid(
+                    [](auto *f, std::size_t const *idx, std::string_view const *nm, X *data) -> decltype((void) ((*f)(*idx, *nm, *data))) {}
+                );
+                if constexpr (K < N) {
+                    if constexpr (std::is_same_v<X, typename StructFieldTypeInfo<T,K>::TheType>) {
+                        if constexpr (checker1((F *) nullptr, (X *) nullptr)) {
+                            f(t.*(StructFieldTypeInfo<T,K>::fieldPointer()));
+                        } else if constexpr (checker2((F *) nullptr, (std::string_view const *) nullptr, (X *) nullptr)) {
+                            f(StructFieldInfo<T>::FIELD_NAMES[K], t.*(StructFieldTypeInfo<T,K>::fieldPointer()));
+                        } else if constexpr (checker3((F *) nullptr, (std::size_t const *) nullptr, (std::string_view const *) nullptr, (X *) nullptr)) {
+                            f(K, StructFieldInfo<T>::FIELD_NAMES[K], t.*(StructFieldTypeInfo<T,K>::fieldPointer()));
+                        }
+                    }
+                    updateAllByTypeImpl<T,X,F,K+1,N>(t, std::forward<F>(f));
+                }
+            }
         public:
             template <class T, class OutIter, typename=std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo>>
             static void copyNamesAndValuesTo(T const &t, OutIter outIter) {
@@ -41,6 +112,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 copyValuesToImpl<
                     T, OutIter, 0, StructFieldInfo<T>::FIELD_NAMES.size() 
                 >(t, outIter);
+            }
+            template <class T, class F>
+            static void forAll(T const &t, F &&f) {
+                forAllImpl<T,F,0,StructFieldInfo<T>::FIELD_NAMES.size()>(t, std::forward<F>(f));
+            }
+            template <class T, class X, class F>
+            static void forAllByType(T const &t, F &&f) {
+                forAllByTypeImpl<T,X,F,0,StructFieldInfo<T>::FIELD_NAMES.size()>(t, std::forward<F>(f));
+            }
+            template <class T, class X, class F>
+            static void updateAllByType(T &t, F &&f) {
+                updateAllByTypeImpl<T,X,F,0,StructFieldInfo<T>::FIELD_NAMES.size()>(t, std::forward<F>(f));
             }
         };
 
@@ -318,6 +401,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         bool set(std::size_t idx, X const &x) {
             return internal::FieldOperationThroughAny<T>::template setTyped<X>(*t_, idx, x);
         }
+        template <class F>
+        void forAll(F &&f) const {
+            internal::AnyIter::forAll<T,F>(*t_, std::forward<F>(f));
+        }
+        template <class X, class F>
+        void forAllByType(F &&f) const {
+            internal::AnyIter::forAllByType<T,X,F>(*t_, std::forward<F>(f));
+        }
+        template <class X, class F>
+        void updateAllByType(F &&f) {
+            internal::AnyIter::updateAllByType<T,X,F>(*t_, std::forward<F>(f));
+        }
     };
 
     template <class T, typename=std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo>>
@@ -347,6 +442,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         template <class X>
         std::optional<X> get(std::size_t idx) const {
             return internal::FieldOperationThroughAny<T>::template getTyped<X>(*t_, idx);
+        }
+        template <class F>
+        void forAll(F &&f) const {
+            internal::AnyIter::forAll<T,F>(*t_, std::forward<F>(f));
+        }
+        template <class X, class F>
+        void forAllByType(F &&f) const {
+            internal::AnyIter::forAllByType<T,X,F>(*t_, std::forward<F>(f));
         }
     };
 
