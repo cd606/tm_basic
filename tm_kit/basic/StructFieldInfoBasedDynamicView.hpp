@@ -6,6 +6,7 @@
 #include <tuple>
 #include <string_view>
 #include <any>
+#include <typeinfo>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace struct_field_info_utils {
     namespace internal {
@@ -82,24 +83,43 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static std::function<void(T &, std::any const &)> getAnyAssignFunc(std::size_t ii) {
                 return getAnyAssignFuncImpl<0,StructFieldInfo<T>::FIELD_NAMES.size()>(ii);
             }
+            template <std::size_t K, std::size_t N>
+            static std::type_index *getTypeInfoImpl(std::size_t ii) {
+                if constexpr (K<N) {
+                    if (K==ii) {
+                        return new std::type_index(typeid(typename StructFieldTypeInfo<T,K>::TheType));
+                    } else {
+                        return getTypeInfoImpl<K+1,N>(ii);
+                    }
+                } else {
+                    return nullptr;
+                }
+            }
+            static std::type_index *getTypeInfo(std::size_t ii) {
+                return getTypeInfoImpl<0,StructFieldInfo<T>::FIELD_NAMES.size()>(ii);
+            }
             static auto createFuncArray() -> 
                 std::array<std::tuple<
                     std::function<std::any(T const &)>
                     , std::function<void(T &, std::any const &)>
+                    , std::type_index *
                 >, StructFieldInfo<T>::FIELD_NAMES.size()> 
             {
                 static constexpr std::size_t N = StructFieldInfo<T>::FIELD_NAMES.size();
                 std::array<std::tuple<
                     std::function<std::any(T const &)>
                     , std::function<void(T &, std::any const &)>
+                    , std::type_index *
                 >, StructFieldInfo<T>::FIELD_NAMES.size()> ret;
                 for (std::size_t ii=0; ii<N; ++ii) {
                     ret[ii] = std::tuple<
                         std::function<std::any(T const &)>
                         , std::function<void(T &, std::any const &)>
+                        , std::type_index *
                     >{
                         getAnyAccessFunc(ii)
                         , getAnyAssignFunc(ii)
+                        , getTypeInfo(ii)
                     };
                 };
                 return ret;
@@ -117,6 +137,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static inline std::array<std::tuple<
                 std::function<std::any(T const &)>
                 , std::function<void(T &, std::any const &)>
+                , std::type_index *
             >, StructFieldInfo<T>::FIELD_NAMES.size()> s_funcArray = createFuncArray();
         public:
             static std::optional<std::any> get(T const &t, std::string_view const &fieldName) {
@@ -145,6 +166,54 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 }
                 (std::get<1>(s_funcArray[fieldIdx]))(t, input);
             }
+            template <class X>
+            static std::optional<X> getTyped(T const &t, std::string_view const &fieldName) {
+                auto iter = s_fieldMap.find(fieldName);
+                if (iter == s_fieldMap.end()) {
+                    return std::nullopt;
+                }
+                auto ti = std::get<2>(s_funcArray[iter->second]);
+                if (!(ti && (*ti == std::type_index(typeid(X))))) {
+                    return std::nullopt;
+                }
+                return std::any_cast<X>((std::get<0>(s_funcArray[iter->second]))(t));
+            }
+            template <class X>
+            static std::optional<X> getTyped(T const &t, std::size_t fieldIdx) {
+                if (fieldIdx >= s_funcArray.size()) {
+                    return std::nullopt;
+                }
+                auto ti = std::get<2>(s_funcArray[fieldIdx]);
+                if (!(ti && (*ti == std::type_index(typeid(X))))) {
+                    return std::nullopt;
+                }
+                return std::any_cast<X>((std::get<0>(s_funcArray[fieldIdx]))(t));
+            }
+            template <class X>
+            static bool setTyped(T &t, std::string_view const &fieldName, X const &x) {
+                auto iter = s_fieldMap.find(fieldName);
+                if (iter == s_fieldMap.end()) {
+                    return false;
+                }
+                auto ti = std::get<2>(s_funcArray[iter->second]);
+                if (!(ti && (*ti == std::type_index(typeid(X))))) {
+                    return false;
+                }
+                (std::get<1>(s_funcArray[iter->second]))(t, std::any {x});
+                return true;
+            }
+            template <class X>
+            static bool setTyped(T &t, std::size_t fieldIdx, X const &x) {
+                if (fieldIdx >= s_funcArray.size()) {
+                    return false;
+                }
+                auto ti = std::get<2>(s_funcArray[fieldIdx]);
+                if (!(ti && (*ti == std::type_index(typeid(X))))) {
+                    return false;
+                }
+                (std::get<1>(s_funcArray[fieldIdx]))(t, std::any {x});
+                return true;
+            }
         };
 
         template <class T>
@@ -169,6 +238,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             std::any operator*() const {
                 return *(FieldOperationThroughAny<T>::get(*t_, f_));
             }
+            operator bool() const {
+                return (bool) (FieldOperationThroughAny<T>::get(*t_, f_));
+            }
         };
         template <class T>
         class AssignableFromAnyByIdx {
@@ -190,6 +262,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             }
             std::any operator*() const {
                 return *(FieldOperationThroughAny<T>::get(*t_, f_));
+            }
+            operator bool() const {
+                return (bool) (FieldOperationThroughAny<T>::get(*t_, f_));
             }
         };
     }
@@ -227,6 +302,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 internal::FieldOperationThroughAny<T>::set(*t_, idx, *iter);
             }
         }
+        template <class X>
+        std::optional<X> get(std::string_view const &s) const {
+            return internal::FieldOperationThroughAny<T>::template getTyped<X>(*t_, s);
+        }
+        template <class X>
+        std::optional<X> get(std::size_t idx) const {
+            return internal::FieldOperationThroughAny<T>::template getTyped<X>(*t_, idx);
+        }
+        template <class X>
+        bool set(std::string_view const &s, X const &x) {
+            return internal::FieldOperationThroughAny<T>::template setTyped<X>(*t_, s, x);
+        }
+        template <class X>
+        bool set(std::size_t idx, X const &x) {
+            return internal::FieldOperationThroughAny<T>::template setTyped<X>(*t_, idx, x);
+        }
     };
 
     template <class T, typename=std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo>>
@@ -248,6 +339,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         template <class OutIter>
         void copyValuesTo(OutIter iter) const {
             internal::AnyIter::copyValuesTo(*t_, iter);
+        }
+        template <class X>
+        std::optional<X> get(std::string_view const &s) const {
+            return internal::FieldOperationThroughAny<T>::template getTyped<X>(*t_, s);
+        }
+        template <class X>
+        std::optional<X> get(std::size_t idx) const {
+            return internal::FieldOperationThroughAny<T>::template getTyped<X>(*t_, idx);
         }
     };
 
