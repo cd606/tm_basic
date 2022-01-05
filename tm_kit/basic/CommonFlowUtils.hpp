@@ -1511,13 +1511,81 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             decltype(typename M::TimePoint {}-typename M::TimePoint {}) duration
         ) {
             if constexpr (std::is_same_v<M, infra::RealTimeApp<TheEnvironment>>) {
-                return M::template kleisli<T>(
-                    [duration](typename M::template InnerData<T> &&t) -> typename M::template Data<T> {
-                        t.environment->sleepFor(duration);
-                        return std::move(t);
+                class Delayer : public M::template AbstractAction<T,T> {
+                private:
+                    using DurationType = decltype(typename M::TimePoint {}-typename M::TimePoint {});
+                    DurationType duration_;
+
+                    std::deque<typename M::template InnerData<T>> data_;
+                    std::deque<typename M::template InnerData<T>> toSend_;
+                    std::mutex mutex_;
+                    std::thread th_;
+                    std::atomic<bool> running_;
+
+                    void run() {
+                        while (running_) {
+                            std::this_thread::sleep_for(std::chrono::microseconds(100));
+                            if (!running_) {
+                                break;
+                            }
+                            {
+                                std::lock_guard<std::mutex> _(mutex_);
+                                if (!data_.empty()) {
+                                    auto *env = data_.front().environment;
+                                    auto now = env->now();
+                                    while (!data_.empty()) {
+                                        auto diff = now-data_.front().timedData.timePoint;
+                                        if (diff >= duration_) {
+                                            toSend_.push_back(typename M::template InnerData<T> {
+                                                env 
+                                                , {
+                                                    now 
+                                                    , std::move(data_.front().timedData.value)
+                                                    , data_.front().timedData.finalFlag
+                                                }
+                                            });
+                                            data_.pop_front();
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            while (!toSend_.empty()) {
+                                this->publish(std::move(toSend_.front()));
+                                toSend_.pop_front();
+                            }
+                        }
                     }
-                    , infra::LiftParameters<typename M::TimePoint>().SuggestThreaded(true)
-                );
+                public:
+                    Delayer(DurationType duration) : duration_(duration), data_(), toSend_(), mutex_(), th_(), running_(true) {
+                        th_ = std::thread([this]() {
+                            run();
+                        });
+                        th_.detach();
+                    }
+                    virtual ~Delayer() {
+                        running_ = false;
+                        try {
+                            if (th_.joinable()) {
+                                th_.join();
+                            }
+                        } catch (std::exception const &) {}
+                    }
+                    virtual bool isThreaded() const override final {
+                        return true;
+                    }
+                    virtual bool isOneTimeOnly() const override final {
+                        return false;
+                    }
+                    virtual void setIdleWorker(std::function<void(void *)> worker) override final {}
+                    virtual void setStartWaiter(std::function<void()> waiter) override final {}
+                    virtual void handle(typename M::template InnerData<T> &&data) override {
+                        std::lock_guard<std::mutex> _(mutex_);
+                        data_.push_back(std::move(data));
+                    }
+                };
+                return M::template fromAbstractAction<T,T>(new Delayer(duration));
             } else {
                 return M::template kleisli<T>(
                     idFunc<T>()
