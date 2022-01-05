@@ -1521,21 +1521,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     std::mutex mutex_;
                     std::thread th_;
                     std::atomic<bool> running_;
+                    typename M::EnvironmentType *env_;
 
                     void run() {
                         while (running_) {
-                            std::this_thread::sleep_for(std::chrono::microseconds(100));
-                            if (!running_) {
-                                break;
-                            }
+                            std::optional<typename M::TimePoint> nextTp = std::nullopt;
+                            typename M::EnvironmentType *env = nullptr;
                             {
                                 std::lock_guard<std::mutex> _(mutex_);
+                                env = env_;
                                 if (!data_.empty()) {
-                                    auto *env = data_.front().environment;
-                                    auto now = env->now();
+                                    auto now = env_->now();
                                     while (!data_.empty()) {
-                                        auto diff = now-data_.front().timedData.timePoint;
-                                        if (diff >= duration_) {
+                                        auto tp = data_.front().timedData.timePoint;
+                                        if (now >= tp+duration_) {
                                             toSend_.push_back(typename M::template InnerData<T> {
                                                 env 
                                                 , {
@@ -1546,6 +1545,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                                             });
                                             data_.pop_front();
                                         } else {
+                                            nextTp = tp+duration_;
                                             break;
                                         }
                                     }
@@ -1555,10 +1555,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                                 this->publish(std::move(toSend_.front()));
                                 toSend_.pop_front();
                             }
+                            if (!env) {
+                                std::this_thread::sleep_for(std::chrono::microseconds(100));
+                            } else {
+                                auto n = env->now();
+                                if (nextTp && *nextTp > n) {
+                                    env->sleepFor(*nextTp-n);
+                                } else {
+                                    env->sleepFor(duration_);
+                                }
+                            }
                         }
                     }
                 public:
-                    Delayer(DurationType duration) : duration_(duration), data_(), toSend_(), mutex_(), th_(), running_(true) {
+                    Delayer(DurationType duration) : duration_(duration), data_(), toSend_(), mutex_(), th_(), running_(true), env_(nullptr) {
                         th_ = std::thread([this]() {
                             run();
                         });
@@ -1582,6 +1592,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     virtual void setStartWaiter(std::function<void()> waiter) override final {}
                     virtual void handle(typename M::template InnerData<T> &&data) override {
                         std::lock_guard<std::mutex> _(mutex_);
+                        env_ = data.environment;
                         data_.push_back(std::move(data));
                     }
                 };
@@ -1601,9 +1612,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             decltype(typename M::TimePoint {}-typename M::TimePoint {}) duration
         ) {
             if constexpr (std::is_same_v<M, infra::RealTimeApp<TheEnvironment>>) {
-                return M::template kleisli<T>(
-                    idFunc<T>()
-                );
+                return M::template passThroughAction<T>();
             } else {
                 return CommonFlowUtilComponents<M>::template delayer<T>(-duration);
             }
