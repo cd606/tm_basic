@@ -383,7 +383,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     os_->flush();
                 }
             };
-            class LocalEThreaded final : public infra::RealTimeApp<Env>::template AbstractExporter<T>, public infra::RealTimeAppComponents<Env>::template ThreadedHandler<ByteDataWithTopic> {
+            class LocalEThreaded final : public infra::RealTimeApp<Env>::template AbstractExporter<T>, public infra::RealTimeAppComponents<Env>::template ThreadedHandler<ByteDataWithTopic,LocalEThreaded> {
             private:
                 std::ostream *os_;
                 Writer writer_;
@@ -391,7 +391,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             #ifdef _MSC_VER
                 LocalEThreaded(std::ostream &os, Writer &&writer) : os_(&os), writer_(std::move(writer)) {
             #else
-                LocalEThreaded(std::ostream &os, Writer &&writer) : infra::RealTimeAppComponents<Env>::template ThreadedHandler<T>(), os_(&os), writer_(std::move(writer)) {
+                LocalEThreaded(std::ostream &os, Writer &&writer) : infra::RealTimeAppComponents<Env>::template ThreadedHandler<T, LocalEThreaded>(), os_(&os), writer_(std::move(writer)) {
             #endif
                     this->startThread();
                 }
@@ -404,6 +404,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     writer_.writeOne(d.environment, *os_, std::move(d.timedData));
                     os_->flush();
                 }
+                void idleWork() {}
+                void waitForStart() {}
             };
             if (separateThread) {
                 return infra::RealTimeApp<Env>::template exporter(new LocalEThreaded(os, std::move(writer)));
