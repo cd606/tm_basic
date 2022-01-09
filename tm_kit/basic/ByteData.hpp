@@ -3239,6 +3239,58 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         };
 
+        template <class K, class Env>
+        struct RunCBORSerializer<infra::Key<K,Env>> {
+            static std::string apply(infra::Key<K,Env> const &data) {
+                std::string s;
+                s.resize(calculateSize(data)); 
+                apply(data, const_cast<char *>(s.data()));
+                return s;
+            }
+            static std::size_t apply(infra::Key<K,Env> const &data, char *output) {
+                std::tuple<typename Env::IDType, K> t {
+                    data.id(), data.key()
+                };
+                return RunCBORSerializerWithNameList<std::tuple<typename Env::IDType, K>, 2>::apply(
+                    t
+                    , {"id", "key"}
+                    , output
+                );
+            }
+            static std::size_t calculateSize(infra::Key<K,Env> const &data) {
+                std::tuple<typename Env::IDType, K> t {
+                    data.id(), data.key()
+                };
+                return RunCBORSerializerWithNameList<std::tuple<typename Env::IDType, K>, 2>::calculateSize(
+                    t
+                    , {"id", "key"}
+                );
+            }
+        };
+        template <class K, class Env>
+        struct RunCBORDeserializer<infra::Key<K,Env>, void> {
+            static std::optional<std::tuple<infra::Key<K,Env>,size_t>> apply(std::string_view const &data, size_t start) {
+                auto x = RunCBORDeserializerWithNameList<std::tuple<typename Env::IDType, K>, 2>::apply(
+                    data, start
+                    , {"id", "key"}
+                );
+                if (!x) {
+                    return std::nullopt;
+                }
+                return std::tuple<infra::Key<K,Env>,size_t> {infra::Key<K,Env> {
+                    std::move(std::get<0>(std::get<0>(*x))), std::move(std::get<1>(std::get<0>(*x)))
+                }, std::get<1>(*x)};
+            }
+            static std::optional<size_t> applyInPlace(infra::Key<K,Env> &output, std::string_view const &data, size_t start) {
+                auto x = apply(data, start);
+                if (!x) {
+                    return std::nullopt;
+                }
+                output = std::get<0>(*x);
+                return std::get<1>(*x);
+            }
+        };
+
         template <class T, typename Enable>
         std::string RunCBORSerializer<T,Enable>::apply(T const &data) {
             std::string s = RunSerializer<T>::apply(data);

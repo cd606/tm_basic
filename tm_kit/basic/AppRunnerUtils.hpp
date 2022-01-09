@@ -1759,6 +1759,104 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             r.exportItem(discard, r.actionAsSource(action));
             return promise->get_future();
         }
+
+        template <class A, class B>
+        static auto syntheticRemoteFacility(
+            std::string const &prefix
+            , typename R::template Sinkoid<typename M::template Key<A>> const &outgoingPoint 
+            , typename R::template Sourceoid<typename M::template Key<B>> const &incomingPoint
+            , bool multiCallback = false
+        ) -> typename R::template FacilitioidConnector<A,B>
+        {
+            static_assert(infra::app_classification_v<M> == infra::AppClassification::RealTime, "syntheticRemoteFacility is only supported in RealTime app");
+            return [prefix,outgoingPoint,incomingPoint,multiCallback](
+                R &r 
+                , typename R::template Source<typename M::template Key<A>> &&source 
+                , std::optional<typename R::template Sink<typename M::template KeyedData<A,B>>> const &sink
+            ) {
+                if (sink) {                        
+                    auto theMap = std::make_shared<std::unordered_map<
+                        typename TheEnvironment::IDType 
+                        , A 
+                        , typename TheEnvironment::IDHash 
+                    >>();
+                    auto theMapMutex = std::make_shared<std::mutex>();
+                    r.preservePointer(theMap);
+                    r.preservePointer(theMapMutex);
+
+                    auto outgoingConverter = M::template liftPure<typename M::template Key<A>>(
+                        [theMap,theMapMutex](typename M::template Key<A> &&x) -> typename M::template Key<A> {
+                            {
+                                std::lock_guard<std::mutex> _(*theMapMutex);
+                                (*theMap)[x.id()] = infra::withtime_utils::makeValueCopy<A>(x.key());
+                            }
+                            return std::move(x);
+                        }
+                    );
+                    r.registerAction(prefix+"/outgoingConverter", outgoingConverter);
+                    
+                    auto incomingConverterStep1 = M::template liftPure<typename M::template Key<B>>(
+                        [](typename M::template Key<B> &&x) -> typename M::template KeyedData<std::monostate, B> {
+                            return {
+                                {std::move(x.id()), std::monostate {}}
+                                , std::move(x.key())
+                            };
+                        }
+                    );
+                    auto incomingConverterStep2 = M::template kleisli<typename M::template KeyedData<std::monostate, B>>(
+                        [theMap,theMapMutex,multiCallback](typename M::template InnerData<typename M::template KeyedData<std::monostate, B>> &&x) -> typename M::template Data<typename M::template KeyedData<A, B>> {
+                            std::lock_guard<std::mutex> _(*theMapMutex);
+                            auto id = std::move(x.timedData.value.key.id());
+                            auto iter = theMap->find(id);
+                            if (iter == theMap->end()) {
+                                return std::nullopt;
+                            }
+                            if (!multiCallback || x.timedData.finalFlag) {
+                                typename M::template KeyedData<A, B> ret {
+                                    {std::move(id), std::move(iter->second)}
+                                    , std::move(x.timedData.value.data)
+                                };
+                                theMap->erase(iter);
+                                return typename M::template InnerData<typename M::template KeyedData<A, B>> {
+                                    x.environment 
+                                    , {
+                                        x.environment->resolveTime()
+                                        , std::move(ret)
+                                        , true
+                                    }
+                                };
+                            } else {
+                                typename M::template KeyedData<A, B> ret {
+                                    {std::move(id), infra::withtime_utils::makeValueCopy<A>(iter->second)}
+                                    , std::move(x.timedData.value.data)
+                                };
+                                return typename M::template InnerData<typename M::template KeyedData<A, B>> {
+                                    x.environment 
+                                    , {
+                                        x.environment->resolveTime()
+                                        , std::move(ret)
+                                        , true
+                                    }
+                                };
+                            }
+                        }
+                    );
+                    r.registerAction(prefix+"/incomingConverterStep1", incomingConverterStep1);
+                    r.registerAction(prefix+"/incomingConverterStep2", incomingConverterStep2);
+
+                    outgoingPoint(r, r.execute(outgoingConverter, std::move(source)));
+                    incomingPoint(r, r.actionAsSink(incomingConverterStep1));
+                    auto s = r.execute(incomingConverterStep2, r.actionAsSource(incomingConverterStep1));
+
+                    r.connect(s.clone(), *sink);
+                } else {
+                    auto discard = M::template trivialExporter<typename M::template Key<B>>();
+                    r.registerExporter(prefix+"/discard", discard);
+                    outgoingPoint(r, std::move(source));
+                    incomingPoint(r, r.exporterAsSink(discard));
+                }
+            };
+        }
     };
 
 } } } }
