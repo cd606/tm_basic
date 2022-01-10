@@ -3,6 +3,7 @@
 
 #include <tm_kit/basic/ByteData.hpp>
 #include <tm_kit/basic/StructFieldInfoUtils.hpp>
+#include <tm_kit/basic/EncodableThroughProxy.hpp>
 
 #include <iostream>
 
@@ -3576,6 +3577,47 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             return t_;
         }
     };  
+
+    template <class T>
+    struct ProtoWrappable<T, std::enable_if_t<EncodableThroughProxy<T>::value && ProtoWrappable<typename EncodableThroughProxy<T>::EncodeProxyType>::value && ProtoWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value, void>> {
+        static constexpr bool value = true;
+    };
+    template <class T>
+    class ProtoEncoder<T, std::enable_if_t<EncodableThroughProxy<T>::value && ProtoWrappable<typename EncodableThroughProxy<T>::EncodeProxyType>::value, void>> {
+    public:
+        static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
+            return ProtoEncoder<typename EncodableThroughProxy<T>::EncodeProxyType>::thisFieldNumber(inputFieldNumber);
+        }
+        static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
+            return ProtoEncoder<typename EncodableThroughProxy<T>::EncodeProxyType>::nextFieldNumber(inputFieldNumber);
+        }
+        static void write(std::optional<uint64_t> fieldNumber, T const &data, std::ostream &os, bool writeDefaultValue) {
+            ProtoEncoder<typename EncodableThroughProxy<T>::EncodeProxyType>::write(fieldNumber, EncodableThroughProxy<T>::toProxy(data), os, writeDefaultValue);
+        }
+    };
+    template <class T>
+    class ProtoDecoder<T, std::enable_if_t<EncodableThroughProxy<T>::value && ProtoWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value, void>> final : public IProtoDecoder<T> {
+    private:
+        typename EncodableThroughProxy<T>::DecodeProxyType proxy_;
+        ProtoDecoder<typename EncodableThroughProxy<T>::DecodeProxyType> subDec_;
+    public:
+        ProtoDecoder(T* output, uint64_t baseFieldNumber) : IProtoDecoder<T>(output), proxy_(), subDec_(&proxy_, baseFieldNumber) {
+        }
+        virtual ~ProtoDecoder() {
+        }
+        static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
+            return ProtoDecoder<typename EncodableThroughProxy<T>::DecodeProxyType>::responsibleForFieldNumbers(baseFieldNumber);
+        }
+    protected:
+        std::optional<std::size_t> read(T &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
+            auto ret =  subDec_.handle(fh, input, start);
+            if (!ret) {
+                return std::nullopt;
+            }
+            output = EncodableThroughProxy<T>::fromProxy(proxy_);
+            return ret;
+        }
+    };
 
 } } } } }
 

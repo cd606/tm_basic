@@ -22,6 +22,7 @@
 #include <tm_kit/basic/ByteData.hpp>
 #include <tm_kit/basic/StructFieldInfoUtils.hpp>
 #include <tm_kit/basic/ConvertibleWithString.hpp>
+#include <tm_kit/basic/EncodableThroughProxy.hpp>
 
 #include <nlohmann/json.hpp>
 #include <iomanip>
@@ -1429,6 +1430,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     public:
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, Json<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             return data.fromNlohmannJson((key?input[*key]:input), mapping);
+        }
+    };
+
+    template <class T>
+    class JsonEncoder<T, std::enable_if_t<EncodableThroughProxy<T>::value && JsonWrappable<typename EncodableThroughProxy<T>::EncodeProxyType>::value, void>> {
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, T const &data) {
+            JsonEncoder<typename EncodableThroughProxy<T>::EncodeProxyType>::write(output, key, EncodableThroughProxy<T>::toProxy(data));
+        }
+    };
+    template <class T>
+    struct JsonWrappable<T, std::enable_if_t<EncodableThroughProxy<T>::value && JsonWrappable<typename EncodableThroughProxy<T>::EncodeProxyType>::value && JsonWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value, void>> {
+        static constexpr bool value = true;
+    };
+    template <class T>
+    class JsonDecoder<T, std::enable_if_t<EncodableThroughProxy<T>::value && JsonWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value, void>> {
+    public:
+        static bool read(nlohmann::json const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            typename EncodableThroughProxy<T>::DecodeProxyType p;
+            if (!JsonDecoder<typename EncodableThroughProxy<T>::DecodeProxyType>::read(input, key, p, mapping)) {
+                return false;
+            }
+            data = EncodableThroughProxy<T>::fromProxy(p);
+            return true;
         }
     };
 

@@ -43,6 +43,8 @@ tm_basic_headers = [
     , 'StructFieldInfoBasedTuplefy.hpp'
     , 'ConcatStructFieldInfo.hpp'
     , 'StructFieldInfoBasedDynamicView.hpp'
+    , 'EncodableThroughProxy.hpp'
+    , 'EncodeKeyThroughProxy.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
