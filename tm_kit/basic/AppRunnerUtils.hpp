@@ -1760,16 +1760,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             return promise->get_future();
         }
 
-        template <class A, class B>
+        template <class A, class B, bool MultiCallback=false>
         static auto syntheticRemoteFacility(
             std::string const &prefix
             , typename R::template Sinkoid<typename M::template Key<A>> const &outgoingPoint 
-            , typename R::template Sourceoid<typename M::template Key<B>> const &incomingPoint
-            , bool multiCallback = false
+            , typename R::template Sourceoid<typename M::template Key<
+                std::conditional_t<
+                    MultiCallback, std::tuple<B, bool>, B
+                >
+            >> const &incomingPoint
         ) -> typename R::template FacilitioidConnector<A,B>
         {
             static_assert(infra::app_classification_v<M> == infra::AppClassification::RealTime, "syntheticRemoteFacility is only supported in RealTime app");
-            return [prefix,outgoingPoint,incomingPoint,multiCallback](
+            return [prefix,outgoingPoint,incomingPoint](
                 R &r 
                 , typename R::template Source<typename M::template Key<A>> &&source 
                 , std::optional<typename R::template Sink<typename M::template KeyedData<A,B>>> const &sink
@@ -1795,23 +1798,78 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     );
                     r.registerAction(prefix+"/outgoingConverter", outgoingConverter);
                     
-                    auto incomingConverterStep1 = M::template liftPure<typename M::template Key<B>>(
-                        [](typename M::template Key<B> &&x) -> typename M::template KeyedData<std::monostate, B> {
-                            return {
-                                {std::move(x.id()), std::monostate {}}
-                                , std::move(x.key())
-                            };
-                        }
-                    );
-                    auto incomingConverterStep2 = M::template kleisli<typename M::template KeyedData<std::monostate, B>>(
-                        [theMap,theMapMutex,multiCallback](typename M::template InnerData<typename M::template KeyedData<std::monostate, B>> &&x) -> typename M::template Data<typename M::template KeyedData<A, B>> {
-                            std::lock_guard<std::mutex> _(*theMapMutex);
-                            auto id = std::move(x.timedData.value.key.id());
-                            auto iter = theMap->find(id);
-                            if (iter == theMap->end()) {
-                                return std::nullopt;
+                    if constexpr (MultiCallback) {
+                        auto incomingConverterStep1 = M::template liftPure<typename M::template Key<std::tuple<B,bool>>>(
+                            [](typename M::template Key<std::tuple<B,bool>> &&x) -> typename M::template KeyedData<std::monostate, std::tuple<B,bool>> {
+                                return {
+                                    {std::move(x.id()), std::monostate {}}
+                                    , std::move(x.key())
+                                };
                             }
-                            if (!multiCallback || x.timedData.finalFlag) {
+                        );
+                        auto incomingConverterStep2 = M::template kleisli<typename M::template KeyedData<std::monostate, std::tuple<B,bool>>>(
+                            [theMap,theMapMutex](typename M::template InnerData<typename M::template KeyedData<std::monostate, std::tuple<B,bool>>> &&x) -> typename M::template Data<typename M::template KeyedData<A, B>> {
+                                std::lock_guard<std::mutex> _(*theMapMutex);
+                                auto id = std::move(x.timedData.value.key.id());
+                                auto iter = theMap->find(id);
+                                if (iter == theMap->end()) {
+                                    return std::nullopt;
+                                }
+                                if (x.timedData.finalFlag || std::get<1>(x.timedData.value.data)) {
+                                    typename M::template KeyedData<A, B> ret {
+                                        {std::move(id), std::move(iter->second)}
+                                        , std::move(std::get<0>(x.timedData.value.data))
+                                    };
+                                    theMap->erase(iter);
+                                    return typename M::template InnerData<typename M::template KeyedData<A, B>> {
+                                        x.environment 
+                                        , {
+                                            x.environment->resolveTime()
+                                            , std::move(ret)
+                                            , true
+                                        }
+                                    };
+                                } else {
+                                    typename M::template KeyedData<A, B> ret {
+                                        {std::move(id), infra::withtime_utils::makeValueCopy<A>(iter->second)}
+                                        , std::move(std::get<0>(x.timedData.value.data))
+                                    };
+                                    return typename M::template InnerData<typename M::template KeyedData<A, B>> {
+                                        x.environment 
+                                        , {
+                                            x.environment->resolveTime()
+                                            , std::move(ret)
+                                            , false
+                                        }
+                                    };
+                                }
+                            }
+                        );
+                        r.registerAction(prefix+"/incomingConverterStep1", incomingConverterStep1);
+                        r.registerAction(prefix+"/incomingConverterStep2", incomingConverterStep2);
+
+                        outgoingPoint(r, r.execute(outgoingConverter, std::move(source)));
+                        incomingPoint(r, r.actionAsSink(incomingConverterStep1));
+                        auto s = r.execute(incomingConverterStep2, r.actionAsSource(incomingConverterStep1));
+
+                        r.connect(s.clone(), *sink);
+                    } else {
+                        auto incomingConverterStep1 = M::template liftPure<typename M::template Key<B>>(
+                            [](typename M::template Key<B> &&x) -> typename M::template KeyedData<std::monostate, B> {
+                                return {
+                                    {std::move(x.id()), std::monostate {}}
+                                    , std::move(x.key())
+                                };
+                            }
+                        );
+                        auto incomingConverterStep2 = M::template kleisli<typename M::template KeyedData<std::monostate, B>>(
+                            [theMap,theMapMutex](typename M::template InnerData<typename M::template KeyedData<std::monostate, B>> &&x) -> typename M::template Data<typename M::template KeyedData<A, B>> {
+                                std::lock_guard<std::mutex> _(*theMapMutex);
+                                auto id = std::move(x.timedData.value.key.id());
+                                auto iter = theMap->find(id);
+                                if (iter == theMap->end()) {
+                                    return std::nullopt;
+                                }
                                 typename M::template KeyedData<A, B> ret {
                                     {std::move(id), std::move(iter->second)}
                                     , std::move(x.timedData.value.data)
@@ -1825,32 +1883,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                                         , true
                                     }
                                 };
-                            } else {
-                                typename M::template KeyedData<A, B> ret {
-                                    {std::move(id), infra::withtime_utils::makeValueCopy<A>(iter->second)}
-                                    , std::move(x.timedData.value.data)
-                                };
-                                return typename M::template InnerData<typename M::template KeyedData<A, B>> {
-                                    x.environment 
-                                    , {
-                                        x.environment->resolveTime()
-                                        , std::move(ret)
-                                        , true
-                                    }
-                                };
                             }
-                        }
-                    );
-                    r.registerAction(prefix+"/incomingConverterStep1", incomingConverterStep1);
-                    r.registerAction(prefix+"/incomingConverterStep2", incomingConverterStep2);
+                        );
+                        r.registerAction(prefix+"/incomingConverterStep1", incomingConverterStep1);
+                        r.registerAction(prefix+"/incomingConverterStep2", incomingConverterStep2);
 
-                    outgoingPoint(r, r.execute(outgoingConverter, std::move(source)));
-                    incomingPoint(r, r.actionAsSink(incomingConverterStep1));
-                    auto s = r.execute(incomingConverterStep2, r.actionAsSource(incomingConverterStep1));
+                        outgoingPoint(r, r.execute(outgoingConverter, std::move(source)));
+                        incomingPoint(r, r.actionAsSink(incomingConverterStep1));
+                        auto s = r.execute(incomingConverterStep2, r.actionAsSource(incomingConverterStep1));
 
-                    r.connect(s.clone(), *sink);
+                        r.connect(s.clone(), *sink);
+                    }
                 } else {
-                    auto discard = M::template trivialExporter<typename M::template Key<B>>();
+                    auto discard = M::template trivialExporter<typename M::template Key<
+                        std::conditional_t<MultiCallback, std::tuple<B, bool>, B>
+                    >>();
                     r.registerExporter(prefix+"/discard", discard);
                     outgoingPoint(r, std::move(source));
                     incomingPoint(r, r.exporterAsSink(discard));
