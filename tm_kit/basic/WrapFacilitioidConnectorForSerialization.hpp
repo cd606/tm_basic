@@ -29,6 +29,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             static T enclose(T &&x) {
                 return std::move(x);
             }
+            template <class T>
+            static ByteData encodeRaw(T &&x) {
+                return { bytedata_utils::RunSerializer<T>::apply(x) };
+            }
+            template <class T>
+            static bool decodeRaw(T &t, basic::ByteDataView const &x) {
+                return bytedata_utils::RunDeserializer<T>::applyInPlace(t, x.content);
+            }
         };
         template<>
         class WrapperUtils<CBOR> {
@@ -44,6 +52,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             template <class T>
             static CBOR<T> enclose(T &&x) {
                 return CBOR<T> {std::move(x)};
+            }
+            template <class T>
+            static ByteData encodeRaw(T &&x) {
+                return { bytedata_utils::RunCBORSerializer<T>::apply(x) };
+            }
+            template <class T>
+            static bool decodeRaw(T &t, basic::ByteDataView const &x) {
+                auto s = bytedata_utils::RunCBORDeserializer<T>::applyInPlace(t, x.content, 0);
+                return (s && (*s == x.content.length()));
             }
         };
         template<>
@@ -61,6 +78,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             static proto_interop::Proto<T> enclose(T &&x) {
                 return proto_interop::Proto<T> {std::move(x)};
             }
+            template <class T>
+            static ByteData encodeRaw(T &&x) {
+                return { proto_interop::Proto<T>::runSerializeIntoValue(x) };
+            }
+            template <class T>
+            static bool decodeRaw(T &t, basic::ByteDataView const &x) {
+                return proto_interop::Proto<T>::runDeserialize(t, x.content);
+            }
         };
         template<>
         class WrapperUtils<nlohmann_json_interop::Json> {
@@ -76,6 +101,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             template <class T>
             static nlohmann_json_interop::Json<T> enclose(T &&x) {
                 return nlohmann_json_interop::Json<T> {std::move(x)};
+            }
+            template <class T>
+            static ByteData encodeRaw(T &&x) {
+                std::ostringstream oss;
+                nlohmann_json_interop::Json<T>::runSerialize(x, oss);
+                return { oss.str() };
+            }
+            template <class T>
+            static bool decodeRaw(T &t, basic::ByteDataView const &x) {
+                return nlohmann_json_interop::Json<T>::runDeserialize(t, x.content);
             }
         };
         template<>
@@ -93,7 +128,42 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             static struct_field_info_utils::FlatPack<T> enclose(T &&x) {
                 return struct_field_info_utils::FlatPack<T> {std::move(x)};
             }
+            template <class T>
+            static ByteData encodeRaw(T &&x) {
+                std::ostringstream oss;
+                struct_field_info_utils::FlatPack<T>::runSerialize(x, oss);
+                return { oss.str() };
+            }
+            template <class T>
+            static bool decodeRaw(T &t, basic::ByteDataView const &x) {
+                return struct_field_info_utils::FlatPack<T>::runDeserialize(t, x.content);
+            }
         };
+        template <template <class... Xs> class Wrapper, class T>
+        inline ByteData encodeRaw(T &&x) {
+            return WrapperUtils<Wrapper>::template encodeRaw<T>(std::move(x));
+        }
+        template <template <class... Xs> class Wrapper, class T>
+        inline bool decodeRaw(T &t, basic::ByteDataView const &x) {
+            return WrapperUtils<Wrapper>::template decodeRaw<T>(t, x);
+        }
+        template <template <class... Xs> class Wrapper, class T>
+        inline bool decodeRaw(T &t, basic::ByteData const &x) {
+            return WrapperUtils<Wrapper>::template decodeRaw<T>(t, basic::byteDataView(x));
+        }
+        template <template <class... Xs> class Wrapper, class T>
+        inline ByteDataWithTopic encodeRawWithTopic(TypedDataWithTopic<T> &&x) {
+            return {x.topic, WrapperUtils<Wrapper>::template encodeRaw<T>(std::move(x.content)).content};
+        }
+        template <template <class... Xs> class Wrapper, class T>
+        inline bool decodeRawWithTopic(TypedDataWithTopic<T> &t, basic::ByteDataWithTopic const &x) {
+            if (WrapperUtils<Wrapper>::template decodeRaw<T>(t.content, basic::ByteDataView {std::string_view {x.content}})) {
+                t.topic = x.topic;
+                return true;
+            } else {
+                return false;
+            }
+        }
         template <template<class... Xs> class Wrapper, class T>
         struct WrappedTypeInternal {
             using TheType = Wrapper<T>;
