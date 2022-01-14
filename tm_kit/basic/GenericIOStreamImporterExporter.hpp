@@ -383,7 +383,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     os_->flush();
                 }
             };
-            class LocalEThreaded final : public infra::RealTimeApp<Env>::template AbstractExporter<T>, public infra::RealTimeAppComponents<Env>::template ThreadedHandler<ByteDataWithTopic,LocalEThreaded> {
+            class LocalEThreaded final : public infra::RealTimeApp<Env>::template AbstractExporter<T>, public infra::RealTimeAppComponents<Env>::template ThreadedHandler<T,LocalEThreaded> {
             private:
                 std::ostream *os_;
                 Writer writer_;
@@ -398,8 +398,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 virtual void start(Env *env) override final {
                     writer_.start(env, *os_);
                 }
-            private:
-                virtual void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<T> &&d) override final {
+            public:
+                void actuallyHandle(typename infra::RealTimeApp<Env>::template InnerData<T> &&d) {
                     TM_INFRA_EXPORTER_TRACER(d.environment);
                     writer_.writeOne(d.environment, *os_, std::move(d.timedData));
                     os_->flush();
