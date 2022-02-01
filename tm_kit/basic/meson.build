@@ -45,6 +45,8 @@ tm_basic_headers = [
     , 'StructFieldInfoBasedDynamicView.hpp'
     , 'EncodableThroughProxy.hpp'
     , 'EncodeKeyThroughProxy.hpp'
+    , 'SerializationHelperMacros_Proxy.hpp'
+    , 'FixedPrecisionShortDecimal.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
