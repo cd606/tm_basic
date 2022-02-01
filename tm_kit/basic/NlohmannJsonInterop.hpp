@@ -980,13 +980,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             data.clear();
             auto const &i = (key?input.at(*key):input);
             bool ret = true;
-            for (auto const &item : i) {
+            for (auto const &item : i.items()) {
                 K k;
                 D d;
-                if (!JsonDecoder<K>::read(item[0], std::nullopt, k, mapping)) {
+                if (!JsonDecoder<K>::read(item.key(), std::nullopt, k, mapping)) {
                     ret = false;
                 }
-                if (!JsonDecoder<D>::read(item[1], std::nullopt, d, mapping)) {
+                if (!JsonDecoder<D>::read(item.value(), std::nullopt, d, mapping)) {
                     ret = false;
                 }
                 data[k] = d;
@@ -1001,13 +1001,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             data.clear();
             auto const &i = (key?input.at(*key):input);
             bool ret = true;
-            for (auto const &item : i) {
+            for (auto const &item : i.items()) {
                 K k;
                 D d;
-                if (!JsonDecoder<K>::read(item[0], std::nullopt, k, mapping)) {
+                if (!JsonDecoder<K>::read(item.key(), std::nullopt, k, mapping)) {
                     ret = false;
                 }
-                if (!JsonDecoder<D>::read(item[1], std::nullopt, d, mapping)) {
+                if (!JsonDecoder<D>::read(item.value(), std::nullopt, d, mapping)) {
                     ret = false;
                 }
                 data[k] = d;
