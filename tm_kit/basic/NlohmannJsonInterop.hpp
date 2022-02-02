@@ -1177,8 +1177,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         s = iter->second;
                     }
                 }
-                bool ret = JsonDecoder<F>::read(input, s, data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), mapping);
-                return read_impl<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, (retSoFar && ret));
+                if (input.find(s) == input.end()) {
+                    return read_impl<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
+                } else {
+                    bool ret = JsonDecoder<F>::read(input, s, data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), mapping);
+                    return read_impl<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, (retSoFar && ret));
+                }
             } else {
                 return retSoFar;
             }
