@@ -375,7 +375,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         {
             auto f = std::move(folder);
             auto t = std::move(resultTransformer);
-            return [this,env,descriptor,pollingPolicy,f=std::move(f),t=std::move(t)]() {
+            return [this,env,descriptor,pollingPolicy,f=std::move(f),t=std::move(t)]() mutable {
                 auto f1 = std::move(f);
                 auto t1 = std::move(t);
                 return reader<ChainData,ChainItemFolder,TriggerT,ResultTransformer>(
@@ -414,7 +414,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 , basic::VoidStruct
                 , IdleLogic
             > l = std::move(idleLogic);
-            return [this,env,descriptor,pollingPolicy,f=std::move(f),h=std::move(h),l=std::move(l)]() {
+            return [this,env,descriptor,pollingPolicy,f=std::move(f),h=std::move(h),l=std::move(l)]() mutable {
                 ChainItemFolder f1 = std::move(f);
                 InputHandler h1 = std::move(h);
                 std::conditional_t<
