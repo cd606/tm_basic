@@ -374,7 +374,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             -> ImporterOrActionFactory<ChainItemFolder,TriggerT,ResultTransformer>
         {
             auto f = std::make_shared<std::decay_t<decltype(folder)>>(std::move(folder));
-            auto t = std::make_shared<std::decay_t<decltype(resultTransformer)>>std::move(resultTransformer);
+            auto t = std::make_shared<std::decay_t<decltype(resultTransformer)>>(std::move(resultTransformer));
             return [this,env,descriptor,pollingPolicy,f,t]() {
                 return reader<ChainData,ChainItemFolder,TriggerT,ResultTransformer>(
                     env, descriptor, pollingPolicy, std::move(*f), std::move(*t)
