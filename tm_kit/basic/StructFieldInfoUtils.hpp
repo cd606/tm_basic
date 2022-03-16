@@ -100,6 +100,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     };
 
     template <class T>
+    inline void initialize(T &t) {
+        StructFieldInfoBasedInitializer<T>::initialize(t);
+    }
+
+    template <class T>
     class StructFieldInfoBasedHash {
     private:
         template <int FieldCount, int FieldIndex>

@@ -47,6 +47,7 @@ tm_basic_headers = [
     , 'EncodeKeyThroughProxy.hpp'
     , 'SerializationHelperMacros_Proxy.hpp'
     , 'FixedPrecisionShortDecimal.hpp'
+    , 'TimePointAsString.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
