@@ -98,6 +98,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             os << "] (" << d.content.length() << " bytes)";
             return os; 
         }
+        
+        template <class T>
+        struct IsEnumWithStringRepresentation {
+            static constexpr bool value = false;
+        };
 
         template <class T, typename Enable=void>
         struct RunCBORSerializer {

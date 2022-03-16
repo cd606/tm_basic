@@ -78,13 +78,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static constexpr bool value = true;
     };
     template <class T>
-    class JsonEncoder<T, std::enable_if_t<std::is_enum_v<T>, void>> {
+    class JsonEncoder<T, std::enable_if_t<std::is_enum_v<T> && !bytedata_utils::IsEnumWithStringRepresentation<T>::value, void>> {
     public:
         static void write(nlohmann::json &output, std::optional<std::string> const &key, T data) {
             if (key) {
                 output[*key] = static_cast<std::underlying_type_t<T>>(data);
             } else {
                 output = static_cast<std::underlying_type_t<T>>(data);
+            }
+        }
+    };
+    template <class T>
+    class JsonEncoder<T, std::enable_if_t<std::is_enum_v<T> && bytedata_utils::IsEnumWithStringRepresentation<T>::value, void>> {
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, T data) {
+            if (key) {
+                output[*key] = bytedata_utils::RunCBORSerializer<T>::S_NAMES[static_cast<int>(data)];
+            } else {
+                output = bytedata_utils::RunCBORSerializer<T>::S_NAMES[static_cast<int>(data)];
             }
         }
     };
@@ -648,7 +659,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class T>
-    class JsonDecoder<T, std::enable_if_t<std::is_enum_v<T>, void>> {
+    class JsonDecoder<T, std::enable_if_t<std::is_enum_v<T> && !bytedata_utils::IsEnumWithStringRepresentation<T>::value, void>> {
     public:
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
             std::underlying_type_t<T> t;
@@ -673,6 +684,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
             data = static_cast<T>(t);
             return ret;
+        }
+    };
+    template <class T>
+    class JsonDecoder<T, std::enable_if_t<std::is_enum_v<T> && bytedata_utils::IsEnumWithStringRepresentation<T>::value, void>> {
+    public:
+        static bool read(nlohmann::json const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
+            auto const &i = (key?input.at(*key):input);
+            if (!i.is_string()) {
+                return false;
+            }
+            std::string s;
+            i.get_to(s);
+            auto iter = bytedata_utils::RunCBORDeserializer<T>::S_MAP.find(s);
+            if (iter == bytedata_utils::RunCBORDeserializer<T>::S_MAP.end()) {
+                return false;
+            }
+            data = iter->second;
+            return true;
         }
     };
     template <>

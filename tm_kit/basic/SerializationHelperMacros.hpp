@@ -1035,6 +1035,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_ENCODE(name, items) \
     namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
         template <> \
+        struct IsEnumWithStringRepresentation<name> { \
+            static constexpr bool value = true; \
+        }; \
+        template <> \
         struct RunCBORSerializer<name, void> { \
             static inline const std::string S_NAMES[] = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_ARRAY_ITEM,_,items) \
@@ -1143,6 +1147,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ENCODE(name, items) \
     namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
+        template <> \
+        struct IsEnumWithStringRepresentation<name> { \
+            static constexpr bool value = true; \
+        }; \
         template <> \
         struct RunCBORSerializer<name, void> { \
             static inline const std::string S_NAMES[] = { \
