@@ -44,8 +44,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             auto pos = s.find_first_of('.');
             if (pos == std::string::npos) {
                 try {
-                    double d = static_cast<double>(boost::lexical_cast<Underlying>(s));
-                    value_ = std::round(d/s_conversionFactor);
+                    value_ = boost::lexical_cast<Underlying>(s)*s_divisionFactor;
                 } catch (boost::bad_lexical_cast const &) {
                     value_ = 0;
                 }
