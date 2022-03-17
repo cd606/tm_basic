@@ -725,7 +725,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             auto const &i = (key?input.at(*key):input);
             if (i.is_null()) {
                 data = ConvertibleWithString<T>::fromString("");
-                return false;
+                return true;
             } else if (i.is_string()) {
                 std::string s;
                 i.get_to(s);
