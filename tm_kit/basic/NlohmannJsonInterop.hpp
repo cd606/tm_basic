@@ -1427,6 +1427,49 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             return t_;
         }
     };
+    template <class T>
+    class Json<T const *, std::enable_if_t<JsonWrappable<T>::value, void>> {
+    private:
+        T const *t_;
+    public:
+        Json() : t_(nullptr) {}
+        Json(T const *t) : t_(t) {}
+        Json(Json const &p) = default;
+        Json(Json &&p) = default;
+        Json &operator=(Json const &p) = default;
+        Json &operator=(Json &&p) = default;
+        ~Json() = default;
+
+        void toNlohmannJson(nlohmann::json &output) const {
+            if (t_) {
+                JsonEncoder<T>::write(output, std::nullopt, *t_);
+            }
+        }
+        void writeToStream(std::ostream &os) const {
+            if (t_) {
+                nlohmann::json output;
+                JsonEncoder<T>::write(output, std::nullopt, *t_);
+                os << output;
+            }
+        }
+        void writeToString(std::string *s) const {
+            if (t_) {
+                nlohmann::json output;
+                JsonEncoder<T>::write(output, std::nullopt, *t_);
+                *s = output.dump();
+            }
+        }
+                
+        T const &value() const {
+            return *t_;
+        }
+        T const &operator*() const {
+            return *t_;
+        }
+        T const *operator->() const {
+            return t_;
+        }
+    };
 
     template <>
     class JsonEncoder<nlohmann::json, void> {
