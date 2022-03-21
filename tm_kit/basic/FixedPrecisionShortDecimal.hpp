@@ -51,7 +51,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             } else {
                 try {
                     double d = boost::lexical_cast<double>(s);
-                    value_ = std::round(d/s_conversionFactor);
+                    value_ = static_cast<Underlying>(std::round(d/s_conversionFactor));
                 } catch (boost::bad_lexical_cast const &) {
                     value_ = 0;
                 }
