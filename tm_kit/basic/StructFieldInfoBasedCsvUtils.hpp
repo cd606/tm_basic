@@ -74,6 +74,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             || std::is_same_v<F, std::string>
             || std::is_empty_v<F>
             || ConvertibleWithString<F>::value
+            || bytedata_utils::IsEnumWithStringRepresentation<F>::value
             || (CsvSingleLayerWrapperHelper<F>::Value && is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>)
         ;
         template <class T>
@@ -347,6 +348,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     //do nothing
                 } else if constexpr (ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
                     os << std::quoted(ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::toString(CsvSingleLayerWrapperHelper<ColType>::constRef(x)));
+                } else if constexpr (bytedata_utils::IsEnumWithStringRepresentation<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
+                    os << std::quoted(bytedata_utils::RunCBORSerializer<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::apply(
+                        CsvSingleLayerWrapperHelper<ColType>::constRef(x)
+                    ));
                 } else {
                     os << CsvSingleLayerWrapperHelper<ColType>::constRef(x);
                 }
@@ -359,6 +364,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     receiver(name, ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::toString(CsvSingleLayerWrapperHelper<ColType>::constRef(x)));
                 } else if constexpr (std::is_empty_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>) {
                     //do nothing
+                } else if constexpr (bytedata_utils::IsEnumWithStringRepresentation<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
+                    receiver(name, bytedata_utils::RunCBORSerializer<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::apply(
+                        CsvSingleLayerWrapperHelper<ColType>::constRef(x)
+                    ));
                 } else {
                     std::ostringstream oss;
                     writeSimpleField_internal<ColType>(oss, x);
@@ -723,6 +732,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         }
                     } else {
                         CsvSingleLayerWrapperHelper<ColType>::ref(x) = ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::fromString("");
+                    }
+                } else if constexpr (bytedata_utils::IsEnumWithStringRepresentation<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
+                    if (s.length() > 0) {
+                        if (s[0] == '"') {
+                            std::string unquoted;
+#ifdef _MSC_VER
+                            boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
+#else
+                            boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
+#endif
+                                >> std::quoted(unquoted);
+                            bytedata_utils::RunDeserializer<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::applyInPlace(
+                                CsvSingleLayerWrapperHelper<ColType>::ref(x)
+                                , unquoted
+                            );
+                        } else {
+                            bytedata_utils::RunDeserializer<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::applyInPlace(
+                                CsvSingleLayerWrapperHelper<ColType>::ref(x)
+                                , s
+                            );
+                        }
+                    } else {
+                        CsvSingleLayerWrapperHelper<ColType>::ref(x) = typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType {};
                     }
                 } else {
                     if (s[0] == '"') {
