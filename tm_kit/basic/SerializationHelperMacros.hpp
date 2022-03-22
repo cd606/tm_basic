@@ -16,6 +16,7 @@
 #include <tm_kit/basic/EqualityCheckHelper.hpp>
 #include <tm_kit/basic/PrintHelper.hpp>
 #include <tm_kit/basic/StructFieldInfoHelper.hpp>
+#include <tm_kit/basic/ConvertibleWithString.hpp>
 
 #if BOOST_VERSION >= 107500
     #ifdef _MSC_VER
@@ -1068,7 +1069,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
     namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
         template <> \
         struct RunCBORDeserializer<name, void> { \
-            static inline const std::unordered_map<std::string, name> S_MAP = {\
+            static inline const std::unordered_map<std::string_view, name> S_MAP = {\
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_MAP_ITEM,name,items) \
             }; \
             static std::optional<std::tuple<name, size_t>> apply(std::string_view const &s, size_t start) { \
@@ -1076,7 +1077,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 if (!t) {\
                     return std::nullopt; \
                 } \
-                auto iter = S_MAP.find(std::get<0>(*t)); \
+                auto iter = S_MAP.find(std::string_view {std::get<0>(*t)}); \
                 if (iter == S_MAP.end()) { \
                     return std::nullopt; \
                 } \
@@ -1123,7 +1124,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 return applyInPlace(output, std::string_view {s}); \
             } \
         }; \
-    } } } } }
+    } } } } } \
+    namespace dev { namespace cd606 { namespace tm { namespace basic { \
+        template <> \
+        class ConvertibleWithString<name> { \
+        public: \
+            static constexpr bool value = true; \
+            static std::string toString(name const &x) { \
+                return bytedata_utils::RunCBORSerializer<name>::S_NAMES[static_cast<int>(x)]; \
+            } \
+            static name fromString(std::string_view const &s) { \
+                auto iter = bytedata_utils::RunCBORDeserializer<name>::S_MAP.find(s); \
+                if (iter == bytedata_utils::RunCBORDeserializer<name>::S_MAP.end()) { \
+                    return name {}; \
+                } else { \
+                    return iter->second; \
+                } \
+            } \
+        }; \
+    } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ITEM_DEF(r, data, elem) \
     BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) BOOST_PP_TUPLE_ELEM(0,elem)
@@ -1181,7 +1200,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
     namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
         template <> \
         struct RunCBORDeserializer<name, void> { \
-            static inline const std::unordered_map<std::string, name> S_MAP = {\
+            static inline const std::unordered_map<std::string_view, name> S_MAP = {\
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_MAP_ITEM,name,items) \
             }; \
             static std::optional<std::tuple<name, size_t>> apply(std::string_view const &s, size_t start) { \
@@ -1189,7 +1208,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 if (!t) {\
                     return std::nullopt; \
                 } \
-                auto iter = S_MAP.find(std::get<0>(*t)); \
+                auto iter = S_MAP.find(std::string_view {std::get<0>(*t)}); \
                 if (iter == S_MAP.end()) { \
                     return std::nullopt; \
                 } \
@@ -1236,7 +1255,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 return applyInPlace(output, std::string_view {s}); \
             } \
         }; \
-    } } } } }
+    } } } } } \
+    namespace dev { namespace cd606 { namespace tm { namespace basic { \
+        template <> \
+        class ConvertibleWithString<name> { \
+        public: \
+            static constexpr bool value = true; \
+            static std::string toString(name const &x) { \
+                return bytedata_utils::RunCBORSerializer<name>::S_NAMES[static_cast<int>(x)]; \
+            } \
+            static name fromString(std::string_view const &s) { \
+                auto iter = bytedata_utils::RunCBORDeserializer<name>::S_MAP.find(s); \
+                if (iter == bytedata_utils::RunCBORDeserializer<name>::S_MAP.end()) { \
+                    return name {}; \
+                } else { \
+                    return iter->second; \
+                } \
+            } \
+        }; \
+    } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING(name, items) \
     TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_DEF(name, items) \
