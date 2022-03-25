@@ -25,6 +25,7 @@
 #include <tm_kit/basic/EncodableThroughProxy.hpp>
 
 #include <nlohmann/json.hpp>
+#include <simdjson.h>
 #include <iomanip>
 
 #include <boost/iostreams/device/array.hpp>
@@ -43,7 +44,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
 
     template <class IntType>
     class JsonEncoder<IntType, std::enable_if_t<
-        (std::is_arithmetic_v<IntType> && !std::is_same_v<IntType,bool> && !std::is_enum_v<IntType>)
+        (std::is_integral_v<IntType> && std::is_arithmetic_v<IntType> && !std::is_same_v<IntType,bool> && !std::is_enum_v<IntType>)
         , void
     >> {
     public:
@@ -57,7 +58,28 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     };
     template <class IntType>
     struct JsonWrappable<IntType, std::enable_if_t<
-        (std::is_arithmetic_v<IntType> && !std::is_same_v<IntType,bool> && !std::is_enum_v<IntType>)
+        (std::is_integral_v<IntType> && std::is_arithmetic_v<IntType> && !std::is_same_v<IntType,bool> && !std::is_enum_v<IntType>)
+        , void
+    >> {
+        static constexpr bool value = true;
+    };
+    template <class FloatType>
+    class JsonEncoder<FloatType, std::enable_if_t<
+        std::is_floating_point_v<FloatType>
+        , void
+    >> {
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, FloatType data) {
+            if (key) {
+                output[*key] = data;
+            } else {
+                output = data;
+            }
+        }
+    };
+    template <class FloatType>
+    struct JsonWrappable<FloatType, std::enable_if_t<
+        std::is_floating_point_v<FloatType>
         , void
     >> {
         static constexpr bool value = true;
@@ -599,7 +621,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
 
     template <class IntType>
     class JsonDecoder<IntType, std::enable_if_t<
-        (std::is_arithmetic_v<IntType> && !std::is_same_v<IntType,bool> && !std::is_enum_v<IntType>)
+        (std::is_integral_v<IntType> && std::is_arithmetic_v<IntType> && !std::is_same_v<IntType,bool> && !std::is_enum_v<IntType>)
         , void
     >> {
     public:
@@ -621,6 +643,81 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             } else {
                 i.get_to(data);
                 return true;
+            }
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, IntType &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            if (key) {
+                try {
+                    if constexpr (std::is_signed_v<IntType>) {
+                        data = static_cast<IntType>((int64_t) input[*key]);
+                        return true;
+                    } else {
+                        data = static_cast<IntType>((uint64_t) input[*key]);
+                        return true;
+                    }
+                } catch (simdjson::simdjson_error) {
+                    data = (IntType) 0;
+                    return false;
+                }
+            } else {
+                try {
+                    if constexpr (std::is_signed_v<IntType>) {
+                        data = static_cast<IntType>((int64_t) input);
+                        return true;
+                    } else {
+                        data = static_cast<IntType>((uint64_t) input);
+                        return true;
+                    }
+                } catch (simdjson::simdjson_error) {
+                    data = (IntType) 0;
+                    return false;
+                }
+            }
+        }
+    };
+    template <class FloatType>
+    class JsonDecoder<FloatType, std::enable_if_t<
+        std::is_floating_point_v<FloatType>
+        , void
+    >> {
+    public:
+        static bool read(nlohmann::json const &input, std::optional<std::string> const &key, FloatType &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            auto const &i = (key?input.at(*key):input);
+            if (i.is_string()) {
+                std::string s;
+                i.get_to(s);
+                try {
+                    data = boost::lexical_cast<FloatType>(s);
+                    return true;
+                } catch (boost::bad_lexical_cast const &) {
+                    data = (FloatType) 0;
+                    return false;
+                }
+            } else if (i.is_null()) {
+                data = (FloatType) 0;
+                return false;
+            } else {
+                i.get_to(data);
+                return true;
+            }
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, FloatType &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            if (key) {
+                try {
+                    data = static_cast<FloatType>((double) input[*key]);
+                    return true;
+                } catch (simdjson::simdjson_error) {
+                    data = (FloatType) 0;
+                    return false;
+                }
+            } else {
+                try {
+                    data = static_cast<FloatType>((double) input);
+                    return true;
+                } catch (simdjson::simdjson_error) {
+                    data = (FloatType) 0;
+                    return false;
+                }
             }
         }
     };
@@ -645,6 +742,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             } else {
                 i.get_to(data);
                 return true;
+            }
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, bool &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            if (key) {
+                try {
+                    data = (bool) input[*key];
+                    return true;
+                } catch (simdjson::simdjson_error) {
+                    data = false;
+                    return false;
+                }
+            } else {
+                try {
+                    data = (bool) input;
+                    return true;
+                } catch (simdjson::simdjson_error) {
+                    data = false;
+                    return false;
+                }
             }
         }
     };
@@ -675,6 +791,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             data = static_cast<T>(t);
             return ret;
         }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            std::underlying_type_t<T> u;
+            auto ret = JsonDecoder<std::underlying_type_t<T>>::read_simd(input, key, u, mapping);
+            if (ret) {
+                data = static_cast<T>(u);
+                return true;
+            } else {
+                return false;
+            }
+        }
     };
     template <>
     class JsonDecoder<std::string, void> {
@@ -687,6 +813,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             } else {
                 i.get_to(data);
                 return true;
+            }
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::string &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            if (key) {
+                try {
+                    data = (std::string) input[*key];
+                    return true;
+                } catch (simdjson::simdjson_error) {
+                    data = "";
+                    return false;
+                }
+            } else {
+                try {
+                    data = (std::string) input;
+                    return true;
+                } catch (simdjson::simdjson_error) {
+                    data = false;
+                    return false;
+                }
             }
         }
     };
@@ -709,6 +854,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 return true;
             }
         }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            std::string s;
+            auto ret = JsonDecoder<std::string>::read_simd(input, key, s, mapping);
+            if (ret) {
+                data = ConvertibleWithString<T>::fromString(s);
+                return true;
+            } else {
+                return false;
+            }
+        }
     };
     template <std::size_t N>
     class JsonDecoder<std::array<char,N>, void> {
@@ -727,6 +882,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
             std::memcpy(data.data(), s.data(), std::min(s.length(), N));
             return ret;
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::array<char, N> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            std::string s;
+            auto ret = JsonDecoder<std::string>::read_simd(input, key, s, mapping);
+            if (ret) {
+                std::memcpy(data.data(), s.data(), std::min(s.length(), N));
+                return true;
+            } else {
+                std::memset(data.data(), 0, N);
+                return false;
+            }
         }
     };
     template <>
@@ -749,6 +915,28 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
             return ret;
         }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, ByteData &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            std::vector<unsigned int> x;
+            try {
+                if (key) {
+                    for (uint64_t item : input[*key].get_array()) {
+                        x.push_back(static_cast<unsigned int>(item));
+                    }
+                } else {
+                    for (uint64_t item : input.get_array()) {
+                        x.push_back(static_cast<unsigned int>(item));
+                    }
+                }
+            } catch (simdjson::simdjson_error) {
+                data = ByteData {};
+                return false;
+            }
+            data.content.resize(x.size());
+            for (std::size_t ii=0; ii<x.size(); ++ii) {
+                data.content[ii] = (char) x[ii];
+            }
+            return true;
+        }
     };
     template <std::size_t N>
     class JsonDecoder<std::array<unsigned char,N>, void> {
@@ -769,6 +957,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 data[ii] = (char) x[ii];
             }
             return ret;
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::array<unsigned char, N> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            std::memset(data.data(), 0, N);
+            std::vector<unsigned int> x;
+            try {
+                if (key) {
+                    for (uint64_t item : input[*key].get_array()) {
+                        x.push_back(static_cast<unsigned int>(item));
+                    }
+                } else {
+                    for (uint64_t item : input.get_array()) {
+                        x.push_back(static_cast<unsigned int>(item));
+                    }
+                }
+            } catch (simdjson::simdjson_error) {
+                return false;
+            }
+            for (std::size_t ii=0; ii<x.size() && ii<N; ++ii) {
+                data[ii] = (char) x[ii];
+            }
+            return true;
         }
     };
     template <>
@@ -799,6 +1008,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
             return ret;
         }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::tm &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            std::string s;
+            auto ret = JsonDecoder<std::string>::read_simd(input, key, s, mapping);
+            if (ret) {
+                std::stringstream ss(s);
+                ss >> std::get_time(&data
+                    , ((s.length()==8)?"%Y%m%d":((s.length()==10)?"%Y-%m-%d":"%Y-%m-%dT%H:%M:%S")));
+                return true;
+            } else {
+                return false;
+            }
+        }
     };
     template <>
     class JsonDecoder<DateHolder, void> {
@@ -820,6 +1041,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     input.get_to(s);
                     ret = true;
                 }
+            }
+            if (s.length() == 8) {
+                data.year = (uint16_t) std::stoi(s.substr(0,4));
+                data.month = (uint8_t) std::stoi(s.substr(4,2));
+                data.day = (uint8_t) std::stoi(s.substr(6,2));
+            } else if (s.length() >= 10) {
+                data.year = (uint16_t) std::stoi(s.substr(0,4));
+                data.month = (uint8_t) std::stoi(s.substr(5,2));
+                data.day = (uint8_t) std::stoi(s.substr(8,2));
+            } else {
+                data.year = 0;
+                data.month = 0;
+                data.day = 0;
+                ret = false;
+            }
+            return ret;
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, DateHolder &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            std::string s;
+            auto ret = JsonDecoder<std::string>::read_simd(input, key, s, mapping);
+            if (!ret) {
+                data = DateHolder {0, 0, 0};
+                return false;
             }
             if (s.length() == 8) {
                 data.year = (uint16_t) std::stoi(s.substr(0,4));
@@ -864,6 +1108,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
             return ret;
         }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::chrono::system_clock::time_point &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            std::string s;
+            auto ret = JsonDecoder<std::string>::read_simd(input, key, s, mapping);
+            if (ret) {
+                data = infra::withtime_utils::parseLocalTime(std::string_view(s));
+                return true;
+            } else {
+                data = std::chrono::system_clock::time_point {};
+                return false;
+            }
+        }
     };
     template <class T>
     class JsonDecoder<std::vector<T>, void> {
@@ -879,6 +1134,36 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     ret = false;
                 }
                 ++ii;
+            }
+            return ret;
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::vector<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            data.clear();
+            bool ret = true;
+            try {
+                if (key) {
+                    auto const &arr = input[*key].get_array();
+                    data.resize(arr.size());
+                    std::size_t ii = 0;
+                    for (auto const &item : arr) {
+                        if (!JsonDecoder<T>::read_simd(item, std::nullopt, data[ii], mapping)) {
+                            ret = false;
+                        }
+                        ++ii;
+                    }
+                } else {
+                    auto const &arr = input.get_array();
+                    data.resize(arr.size());
+                    std::size_t ii = 0;
+                    for (auto const &item : arr) {
+                        if (!JsonDecoder<T>::read_simd(item, std::nullopt, data[ii], mapping)) {
+                            ret = false;
+                        }
+                        ++ii;
+                    }
+                }
+            } catch (simdjson::simdjson_error) {
+                ret = false;
             }
             return ret;
         }
@@ -898,6 +1183,32 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
             return ret;
         }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::list<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            data.clear();
+            bool ret = true;
+            try {
+                if (key) {
+                    auto const &arr = input[*key].get_array();
+                    for (auto const &item : arr) {
+                        data.push_back(T {});
+                        if (!JsonDecoder<T>::read_simd(item, std::nullopt, data.back(), mapping)) {
+                            ret = false;
+                        }
+                    }
+                } else {
+                    auto const &arr = input.get_array();
+                    for (auto const &item : arr) {
+                        data.push_back(T {});
+                        if (!JsonDecoder<T>::read_simd(item, std::nullopt, data.back(), mapping)) {
+                            ret = false;
+                        }
+                    }
+                }
+            } catch (simdjson::simdjson_error) {
+                return false;
+            }
+            return ret;
+        }
     };
     template <class T>
     class JsonDecoder<std::valarray<T>, void> {
@@ -912,6 +1223,34 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     ret = false;
                 }
                 ++ii;
+            }
+            return ret;
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::valarray<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            bool ret = true;
+            std::size_t ii = 0;
+            try {
+                if (key) {
+                    auto const &arr = input[*key].get_array();
+                    data.resize(arr.size());
+                    for (simdjson::dom::element const &item : arr) {
+                        if (!JsonDecoder<T>::read_simd(item, std::nullopt, data[ii], mapping)) {
+                            ret = false;
+                        }
+                        ++ii;
+                    }
+                } else {
+                    auto const &arr = input.get_array();
+                    data.resize(arr.size());
+                    for (simdjson::dom::element const &item : arr) {
+                        if (!JsonDecoder<T>::read_simd(item, std::nullopt, data[ii], mapping)) {
+                            ret = false;
+                        }
+                        ++ii;
+                    }
+                }
+            } catch (simdjson::simdjson_error) {
+                return false;
             }
             return ret;
         }
@@ -941,6 +1280,44 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
             return ret;
         }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::array<T, N> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            std::size_t ii = 0;
+            bool ret = true;
+            try {
+                if (key) {
+                    for (simdjson::dom::element const &item : input[*key].get_array()) {
+                        if (ii < N) {
+                            if (!JsonDecoder<T>::read_simd(item, std::nullopt, data[ii], mapping)) {
+                                ret = false;
+                            }
+                        } else {
+                            break;
+                        }
+                        ++ii;
+                    }
+                } else {
+                    for (simdjson::dom::element const &item : input.get_array()) {
+                        if (ii < N) {
+                            if (!JsonDecoder<T>::read_simd(item, std::nullopt, data[ii], mapping)) {
+                                ret = false;
+                            }
+                        } else {
+                            break;
+                        }
+                        ++ii;
+                    }
+                }
+            } catch (simdjson::simdjson_error) {
+                ret = false;
+            }
+            if (ii < N) {
+                ret = false;
+            }
+            for (; ii<N; ++ii) {
+                struct_field_info_utils::StructFieldInfoBasedInitializer<T>::initialize(data[ii]);
+            }
+            return ret;
+        }
     };
     template <class T>
     class JsonDecoder<std::map<std::string,T>, void> {
@@ -957,6 +1334,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
             return ret;
         }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::map<std::string, T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            data.clear();
+            bool ret = true;
+            try {
+                if (key) {
+                    for (auto const &[k, d] : input[*key].get_object()) {
+                        auto iter = data.insert({(std::string) k, T{}}).first;
+                        if (!JsonDecoder<T>::read_simd(d, std::nullopt, iter->second, mapping)) {
+                            ret = false;
+                        }
+                    }
+                } else {
+                    for (auto const &[k, d] : input.get_object()) {
+                        auto iter = data.insert({(std::string) k, T{}}).first;
+                        if (!JsonDecoder<T>::read_simd(d, std::nullopt, iter->second, mapping)) {
+                            ret = false;
+                        }
+                    }
+                }
+            } catch (simdjson::simdjson_error) {
+                ret = false;
+            }
+            return ret;
+        }
     };
     template <class T>
     class JsonDecoder<std::unordered_map<std::string,T>, void> {
@@ -970,6 +1371,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 if (!JsonDecoder<T>::read(item.value(), std::nullopt, iter->second, mapping)) {
                     ret = false;
                 }
+            }
+            return ret;
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::unordered_map<std::string, T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            data.clear();
+            bool ret = true;
+            try {
+                if (key) {
+                    for (auto const &[k, d] : input[*key].get_object()) {
+                        auto iter = data.insert({(std::string) k, T{}}).first;
+                        if (!JsonDecoder<T>::read_simd(d, std::nullopt, iter->second, mapping)) {
+                            ret = false;
+                        }
+                    }
+                } else {
+                    for (auto const &[k, d] : input.get_object()) {
+                        auto iter = data.insert({(std::string) k, T{}}).first;
+                        if (!JsonDecoder<T>::read_simd(d, std::nullopt, iter->second, mapping)) {
+                            ret = false;
+                        }
+                    }
+                }
+            } catch (simdjson::simdjson_error) {
+                ret = false;
             }
             return ret;
         }
@@ -994,6 +1419,40 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
             return ret;
         }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::map<K,D,Cmp> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            data.clear();
+            bool ret = true;
+            try {
+                if (key) {
+                    for (auto const &[k, d] : input[*key].get_object()) {
+                        K k1;
+                        D d1;
+                        if (!JsonDecoder<K>::read_simd(k, std::nullopt, k1, mapping)) {
+                            ret = false;
+                        }
+                        if (!JsonDecoder<D>::read_simd(d, std::nullopt, d1, mapping)) {
+                            ret = false;
+                        }
+                        data[k1] = d1;
+                    }
+                } else {
+                    for (auto const &[k, d] : input.get_object()) {
+                        K k1;
+                        D d1;
+                        if (!JsonDecoder<K>::read_simd(k, std::nullopt, k1, mapping)) {
+                            ret = false;
+                        }
+                        if (!JsonDecoder<D>::read_simd(d, std::nullopt, d1, mapping)) {
+                            ret = false;
+                        }
+                        data[k1] = d1;
+                    }
+                }
+            } catch (simdjson::simdjson_error) {
+                ret = false;
+            }
+            return ret;
+        }
     };
     template <class K, class D, class Hash>
     class JsonDecoder<std::unordered_map<K,D,Hash>, std::enable_if_t<!std::is_same_v<K,std::string>,void>> {
@@ -1015,6 +1474,40 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
             return ret;
         }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::unordered_map<K,D,Hash> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            data.clear();
+            bool ret = true;
+            try {
+                if (key) {
+                    for (auto const &[k, d] : input[*key].get_object()) {
+                        K k1;
+                        D d1;
+                        if (!JsonDecoder<K>::read_simd(k, std::nullopt, k1, mapping)) {
+                            ret = false;
+                        }
+                        if (!JsonDecoder<D>::read_simd(d, std::nullopt, d1, mapping)) {
+                            ret = false;
+                        }
+                        data[k1] = d1;
+                    }
+                } else {
+                    for (auto const &[k, d] : input.get_object()) {
+                        K k1;
+                        D d1;
+                        if (!JsonDecoder<K>::read_simd(k, std::nullopt, k1, mapping)) {
+                            ret = false;
+                        }
+                        if (!JsonDecoder<D>::read_simd(d, std::nullopt, d1, mapping)) {
+                            ret = false;
+                        }
+                        data[k1] = d1;
+                    }
+                }
+            } catch (simdjson::simdjson_error) {
+                ret = false;
+            }
+            return ret;
+        }
     };
     template <class T>
     class JsonDecoder<std::vector<std::tuple<std::string,T>>, void> {
@@ -1031,6 +1524,38 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     ret = false;
                 }
                 ++ii;
+            }
+            return ret;
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::vector<std::tuple<std::string, T>> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            data.clear();
+            bool ret = true;
+            try {
+                if (key) {
+                    auto const &obj = input[*key].get_object();
+                    data.resize(obj.size());
+                    std::size_t ii = 0;
+                    for (auto const &[k, d] : obj) {
+                        std::get<0>(data[ii]) = k;
+                        if (!JsonDecoder<T>::read_simd(d, std::nullopt, std::get<1>(data[ii]), mapping)) {
+                            ret = false;
+                        }
+                        ++ii;
+                    }
+                } else {
+                    auto const &obj = input.get_object();
+                    data.resize(obj.size());
+                    std::size_t ii = 0;
+                    for (auto const &[k, d] : obj) {
+                        std::get<0>(data[ii]) = k;
+                        if (!JsonDecoder<T>::read_simd(d, std::nullopt, std::get<1>(data[ii]), mapping)) {
+                            ret = false;
+                        }
+                        ++ii;
+                    }
+                }
+            } catch (simdjson::simdjson_error) {
+                ret = false;
             }
             return ret;
         }
@@ -1060,6 +1585,34 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
             return true;
         }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::optional<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            try {
+                if (key) {
+                    if (input[*key].error() == simdjson::NO_SUCH_FIELD) {
+                        data = std::nullopt;
+                    } else if (input[*key].is_null()) {
+                        data = std::nullopt;
+                    } else {
+                        data = T {};
+                        if (!JsonDecoder<T>::read_simd(input[*key].value(), std::nullopt, *data, mapping)) {
+                            data = std::nullopt;
+                        }
+                    }
+                } else {
+                    if (input.is_null()) {
+                        data = std::nullopt;
+                    } else {
+                        data = T {};
+                        if (!JsonDecoder<T>::read_simd(input, std::nullopt, *data, mapping)) {
+                            data = std::nullopt;
+                        }
+                    }
+                }
+            } catch (simdjson::simdjson_error) {
+                data = std::nullopt;
+            }
+            return true;
+        }
     };
     template <>
     class JsonDecoder<VoidStruct, void> {
@@ -1067,11 +1620,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read(nlohmann::json const &/*input*/, std::optional<std::string> const &/*key*/, VoidStruct &/*data*/, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
             return true;
         }
+        static bool read_simd(simdjson::dom::element const &/*input*/, std::optional<std::string> const &/*key*/, VoidStruct &/*data*/, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
+            return true;
+        }
     };
     template <>
     class JsonDecoder<std::monostate, void> {
     public:
         static bool read(nlohmann::json const &/*input*/, std::optional<std::string> const &/*key*/, std::monostate &/*data*/, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
+            return true;
+        }
+        static bool read_simd(simdjson::dom::element const &/*input*/, std::optional<std::string> const &/*key*/, std::monostate &/*data*/, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
             return true;
         }
     };
@@ -1090,12 +1649,26 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
             return true;
         }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, ConstType<N> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            int32_t x;
+            bool ret = JsonDecoder<int32_t>::read_simd(input, key, x, mapping);
+            if (!ret) {
+                return false;
+            }
+            if (x != N) {
+                return false;
+            }
+            return true;
+        }
     };
     template <class T>
     class JsonDecoder<SingleLayerWrapper<T>, void> {
     public:
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, SingleLayerWrapper<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             return JsonDecoder<T>::read(input, key, data.value, mapping);
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, SingleLayerWrapper<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            return JsonDecoder<T>::read_simd(input, key, data.value, mapping);
         }
     };
     template <int32_t N, class T>
@@ -1104,12 +1677,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, SingleLayerWrapperWithID<N,T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             return JsonDecoder<T>::read(input, key, data.value, mapping);
         }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, SingleLayerWrapperWithID<N,T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            return JsonDecoder<T>::read_simd(input, key, data.value, mapping);
+        }
     };
     template <class M, class T>
     class JsonDecoder<SingleLayerWrapperWithTypeMark<M,T>, void> {
     public:
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, SingleLayerWrapperWithTypeMark<M,T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             return JsonDecoder<T>::read(input, key, data.value, mapping);
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, SingleLayerWrapperWithTypeMark<M,T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            return JsonDecoder<T>::read_simd(input, key, data.value, mapping);
         }
     };
 
@@ -1130,6 +1709,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 return false;
             }
         }
+        template <std::size_t Index>
+        static bool read_impl_simd(simdjson::dom::element const &input, int index, std::variant<Ts...> &data, JsonFieldMapping const &mapping) {
+            if constexpr (Index < sizeof...(Ts)) {
+                if (Index == index) {
+                    using F = std::variant_alternative_t<Index, std::variant<Ts...>>;
+                    data.template emplace<Index>();
+                    return JsonDecoder<F>::read_simd(input, std::nullopt, std::get<Index>(data), mapping);
+                } else {
+                    return read_impl_simd<Index+1>(input, index, data, mapping);
+                }
+            } else {
+                return false;
+            }
+        }
     public:
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, std::variant<Ts...> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             auto const &i = (key?input.at(*key):input);
@@ -1142,6 +1735,39 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 return read_impl<0>(i.at("content"), index, data, mapping);
             } else {
                 return false;
+            }
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::variant<Ts...> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            if (key) {
+                if (input[*key].error() == simdjson::NO_SUCH_FIELD) {
+                    return false;
+                }
+                simdjson::dom::element i = input[*key];
+                if (i["index"].error() != simdjson::NO_SUCH_FIELD 
+                    && i["content"].error() != simdjson::NO_SUCH_FIELD)
+                {
+                    std::size_t index;
+                    bool ret = JsonDecoder<std::size_t>::read_simd(i, "index", index, mapping);
+                    if (!ret) {
+                        return false;
+                    }
+                    return read_impl_simd<0>(i["content"], index, data, mapping);
+                } else {
+                    return false;
+                }
+            } else {
+                if (input["index"].error() != simdjson::NO_SUCH_FIELD 
+                    && input["content"].error() != simdjson::NO_SUCH_FIELD)
+                {
+                    std::size_t index;
+                    bool ret = JsonDecoder<std::size_t>::read_simd(input, "index", index, mapping);
+                    if (!ret) {
+                        return false;
+                    }
+                    return read_impl_simd<0>(input["content"], index, data, mapping);
+                } else {
+                    return false;
+                }
             }
         }
     };
@@ -1158,9 +1784,26 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 return retSoFar;
             }
         }
+        template <std::size_t Index>
+        static bool read_impl_simd(simdjson::dom::element const &input, std::tuple<Ts...> &data, JsonFieldMapping const &mapping, bool retSoFar) {
+            if constexpr (Index < sizeof...(Ts)) {
+                using F = std::tuple_element_t<Index, std::tuple<Ts...>>;
+                bool ret = JsonDecoder<F>::read_simd(input.get_array().at(Index), std::nullopt, std::get<Index>(data), mapping);
+                return read_impl_simd<Index+1>(input, data, mapping, (retSoFar && ret));
+            } else {
+                return retSoFar;
+            }
+        }
     public:
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, std::tuple<Ts...> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             return read_impl<0>((key?input.at(*key):input), data, mapping, true);
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::tuple<Ts...> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            if (key) {
+                return read_impl_simd<0>(input[*key], data, mapping, true);
+            } else {
+                return read_impl_simd<0>(input, data, mapping, true);
+            }
         }
     };
 
@@ -1188,6 +1831,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 return retSoFar;
             }
         }
+        template <std::size_t FieldCount, std::size_t FieldIndex>
+        static bool read_impl_simd(simdjson::dom::element const &input, T &data, JsonFieldMapping const &mapping, std::unordered_map<std::string, std::string> const *mappingForThisOne, bool retSoFar) {
+            if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
+                using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
+                std::string s {StructFieldInfo<T>::FIELD_NAMES[FieldIndex]};
+                if (mappingForThisOne != nullptr) {
+                    auto iter = mappingForThisOne->find(s);
+                    if (iter != mappingForThisOne->end()) {
+                        s = iter->second;
+                    }
+                }
+                if (input[s].error() == simdjson::NO_SUCH_FIELD) {
+                    return read_impl_simd<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
+                } else if (input[s].is_null()) {
+                    return read_impl_simd<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
+                } else {
+                    bool ret = JsonDecoder<F>::read_simd(input, s, data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), mapping);
+                    return read_impl_simd<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, (retSoFar && ret));
+                }
+            } else {
+                return retSoFar;
+            }
+        }
     public:
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             struct_field_info_utils::StructFieldInfoBasedInitializer<T>::initialize(data);
@@ -1200,6 +1866,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
             return read_impl<StructFieldInfo<T>::FIELD_NAMES.size(),0>((key?input.at(*key):input), data, mapping, mappingForThisOne, true);
         }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            struct_field_info_utils::StructFieldInfoBasedInitializer<T>::initialize(data);
+            std::unordered_map<std::string, std::string> const *mappingForThisOne = nullptr;
+            if (!mapping.empty()) {
+                auto iter = mapping.find(std::type_index(typeid(T)));
+                if (iter != mapping.end()) {
+                    mappingForThisOne = &(iter->second);
+                }
+            }
+            if (key) {
+                return read_impl_simd<StructFieldInfo<T>::FIELD_NAMES.size(),0>(input[*key], data, mapping, mappingForThisOne, true);
+            } else {
+                return read_impl_simd<StructFieldInfo<T>::FIELD_NAMES.size(),0>(input, data, mapping, mappingForThisOne, true);
+            }
+        }
     };
     template <class T>
     class JsonDecoder<T, std::enable_if_t<bytedata_utils::ProtobufStyleSerializableChecker<T>::IsProtobufStyleSerializable(), void>> {
@@ -1207,6 +1888,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             ByteData b;
             bool ret = JsonDecoder<ByteData>::read(input, key, b, mapping);
+            if (ret) {
+                return data.ParseFromString(b.content);
+            } else {
+                return false;
+            }
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            ByteData b;
+            bool ret = JsonDecoder<ByteData>::read_simd(input, key, b, mapping);
             if (ret) {
                 return data.ParseFromString(b.content);
             } else {
@@ -1276,6 +1966,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
         bool fromNlohmannJson(nlohmann::json const &x, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             return JsonDecoder<T>::read(x, std::nullopt, t_, mapping);
+        }
+        bool fromSimdJson(simdjson::dom::element const &x, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            return JsonDecoder<T>::read_simd(x, std::nullopt, t_, mapping);
         }
         T const &value() const {
             return t_;
@@ -1379,6 +2072,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 return false;
             }
         }
+        bool fromSimdJson(simdjson::dom::element const &x, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            if (t_) {
+                return JsonDecoder<T>::read_simd(x, std::nullopt, *t_, mapping);
+            } else {
+                return false;
+            }
+        }
         
         T const &value() const {
             return *t_;
@@ -1461,6 +2161,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             data = (key?input[*key]:input);
             return true;
         }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, nlohmann::json &data, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
+            throw std::runtime_error("Cannot assign simdjson to nlohmann::json");
+            return false;
+        }
     };
     template <class T>
     class JsonEncoder<Json<T>, void> {
@@ -1478,6 +2182,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     public:
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, Json<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             return data.fromNlohmannJson((key?input[*key]:input), mapping);
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, Json<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            if (key) {
+                return data.fromSimdJson(input[*key], mapping);
+            } else {
+                return data.fromSimdJson(input, mapping);
+            }
         }
     };
 
@@ -1498,6 +2209,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             typename EncodableThroughProxy<T>::DecodeProxyType p;
             if (!JsonDecoder<typename EncodableThroughProxy<T>::DecodeProxyType>::read(input, key, p, mapping)) {
+                return false;
+            }
+            data = EncodableThroughProxy<T>::fromProxy(p);
+            return true;
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            typename EncodableThroughProxy<T>::DecodeProxyType p;
+            if (!JsonDecoder<typename EncodableThroughProxy<T>::DecodeProxyType>::read_simd(input, key, p, mapping)) {
                 return false;
             }
             data = EncodableThroughProxy<T>::fromProxy(p);

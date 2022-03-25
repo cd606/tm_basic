@@ -25,5 +25,11 @@ The requirements of tm_basic are, in addition to requirements of tm_infra:
 * boost >= 1.73.0
 
 * spdlog
+ 
+* nlohmann_json (https://github.com/nlohmann/json)
+
+* simdjson (https://github.com/simdjson/simdjson)
 
 boost and spdlog may be installed through Linux package manager, or through vcpkg (for both Windows and Linux), then made detectable for meson by providing pkg_config file (for Windows, pkg-config-lite works fine with meson). For Linux, vcpkg-generated pkg_config files usually work, but for Windows, hand-written pkg_config files may be needed.
+
+nlohmann_json and simdjson are required for Json serialization/deserialization functionalities. This package also supports CBOR and protobuf serialization/deserialization, but those are directly implemented in wire protocol format and does not depend on libraries.

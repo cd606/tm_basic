@@ -6,7 +6,8 @@ boost_dep = dependency('boost', modules : ['log','log_setup','system','thread','
 spd_dep = dependency('spdlog')
 tm_infra_dep = dependency('tm_kit_infra')
 nlohmann_json_dep = dependency('nlohmann-json')
-common_deps = [thread_dep, boost_dep, spd_dep, tm_infra_dep, nlohmann_json_dep]
+simd_json_dep = dependency('simdjson')
+common_deps = [thread_dep, boost_dep, spd_dep, tm_infra_dep, nlohmann_json_dep, simd_json_dep]
 
 if build_machine.system() == 'windows'
   add_global_arguments('-DWINVER=0x0601', language: 'cpp')
