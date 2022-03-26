@@ -648,12 +648,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, IntType &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             if (key) {
                 try {
-                    if constexpr (std::is_signed_v<IntType>) {
-                        data = static_cast<IntType>((int64_t) input[*key]);
-                        return true;
+                    if (input[*key].is_string()) {
+                        try {
+                            data = boost::lexical_cast<IntType>((std::string_view) input[*key]);
+                            return true;
+                        } catch (boost::bad_lexical_cast) {
+                            data = (IntType) 0;
+                            return false;
+                        }
                     } else {
-                        data = static_cast<IntType>((uint64_t) input[*key]);
-                        return true;
+                        if constexpr (std::is_signed_v<IntType>) {
+                            data = static_cast<IntType>((int64_t) input[*key]);
+                            return true;
+                        } else {
+                            data = static_cast<IntType>((uint64_t) input[*key]);
+                            return true;
+                        }
                     }
                 } catch (simdjson::simdjson_error) {
                     data = (IntType) 0;
@@ -661,12 +671,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 }
             } else {
                 try {
-                    if constexpr (std::is_signed_v<IntType>) {
-                        data = static_cast<IntType>((int64_t) input);
-                        return true;
+                    if (input.is_string()) {
+                        try {
+                            data = boost::lexical_cast<IntType>((std::string_view) input);
+                            return true;
+                        } catch (boost::bad_lexical_cast) {
+                            data = (IntType) 0;
+                            return false;
+                        }
                     } else {
-                        data = static_cast<IntType>((uint64_t) input);
-                        return true;
+                        if constexpr (std::is_signed_v<IntType>) {
+                            data = static_cast<IntType>((int64_t) input);
+                            return true;
+                        } else {
+                            data = static_cast<IntType>((uint64_t) input);
+                            return true;
+                        }
                     }
                 } catch (simdjson::simdjson_error) {
                     data = (IntType) 0;
@@ -704,16 +724,36 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, FloatType &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             if (key) {
                 try {
-                    data = static_cast<FloatType>((double) input[*key]);
-                    return true;
+                    if (input[*key].is_string()) {
+                        try {
+                            data = boost::lexical_cast<FloatType>((std::string_view) input[*key]);
+                            return true;
+                        } catch (boost::bad_lexical_cast) {
+                            data = (FloatType) 0;
+                            return false;
+                        }
+                    } else {
+                        data = static_cast<FloatType>((double) input[*key]);
+                        return true;
+                    }
                 } catch (simdjson::simdjson_error) {
                     data = (FloatType) 0;
                     return false;
                 }
             } else {
                 try {
-                    data = static_cast<FloatType>((double) input);
-                    return true;
+                    if (input.is_string()) {
+                        try {
+                            data = boost::lexical_cast<FloatType>((std::string_view) input);
+                            return true;
+                        } catch (boost::bad_lexical_cast) {
+                            data = (FloatType) 0;
+                            return false;
+                        }
+                    } else {
+                        data = static_cast<FloatType>((double) input);
+                        return true;
+                    }
                 } catch (simdjson::simdjson_error) {
                     data = (FloatType) 0;
                     return false;
@@ -747,16 +787,36 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, bool &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             if (key) {
                 try {
-                    data = (bool) input[*key];
-                    return true;
+                    if (input[*key].is_string()) {
+                        try {
+                            data = boost::lexical_cast<bool>((std::string_view) input[*key]);
+                            return true;
+                        } catch (boost::bad_lexical_cast) {
+                            data = false;
+                            return false;
+                        }
+                    } else {
+                        data = (bool) input[*key];
+                        return true;
+                    }
                 } catch (simdjson::simdjson_error) {
                     data = false;
                     return false;
                 }
             } else {
                 try {
-                    data = (bool) input;
-                    return true;
+                    if (input.is_string()) {
+                        try {
+                            data = boost::lexical_cast<bool>((std::string_view) input);
+                            return true;
+                        } catch (boost::bad_lexical_cast) {
+                            data = false;
+                            return false;
+                        }
+                    } else {
+                        data = (bool) input;
+                        return true;
+                    }
                 } catch (simdjson::simdjson_error) {
                     data = false;
                     return false;
@@ -1427,7 +1487,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     for (auto const &[k, d] : input[*key].get_object()) {
                         K k1;
                         D d1;
-                        if (!JsonDecoder<K>::read_simd(k, std::nullopt, k1, mapping)) {
+                        if (!JsonDecoder<K>::read((nlohmann::json {nlohmann::json::string_t {(std::string_view) k}})[0], std::nullopt, k1, mapping)) {
                             ret = false;
                         }
                         if (!JsonDecoder<D>::read_simd(d, std::nullopt, d1, mapping)) {
@@ -1439,7 +1499,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     for (auto const &[k, d] : input.get_object()) {
                         K k1;
                         D d1;
-                        if (!JsonDecoder<K>::read_simd(k, std::nullopt, k1, mapping)) {
+                        if (!JsonDecoder<K>::read((nlohmann::json {nlohmann::json::string_t {(std::string_view) k}})[0], std::nullopt, k1, mapping)) {
                             ret = false;
                         }
                         if (!JsonDecoder<D>::read_simd(d, std::nullopt, d1, mapping)) {
@@ -1482,7 +1542,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     for (auto const &[k, d] : input[*key].get_object()) {
                         K k1;
                         D d1;
-                        if (!JsonDecoder<K>::read_simd(k, std::nullopt, k1, mapping)) {
+                        if (!JsonDecoder<K>::read((nlohmann::json {nlohmann::json::string_t {(std::string_view) k}})[0], std::nullopt, k1, mapping)) {
                             ret = false;
                         }
                         if (!JsonDecoder<D>::read_simd(d, std::nullopt, d1, mapping)) {
@@ -1494,7 +1554,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     for (auto const &[k, d] : input.get_object()) {
                         K k1;
                         D d1;
-                        if (!JsonDecoder<K>::read_simd(k, std::nullopt, k1, mapping)) {
+                        if (!JsonDecoder<K>::read((nlohmann::json {nlohmann::json::string_t {(std::string_view) k}})[0], std::nullopt, k1, mapping)) {
                             ret = false;
                         }
                         if (!JsonDecoder<D>::read_simd(d, std::nullopt, d1, mapping)) {
