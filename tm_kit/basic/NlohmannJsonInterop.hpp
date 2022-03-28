@@ -883,16 +883,50 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::string &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             if (key) {
                 try {
-                    data = (std::string) input[*key];
-                    return true;
+                    if (input[*key].is_string()) {
+                        data = (std::string) ((std::string_view) input[*key]);
+                        return true;
+                    } else if (input[*key].is_uint64()) {
+                        data = boost::lexical_cast<std::string>((uint64_t) input[*key]);
+                        return true;
+                    } else if (input[*key].is_int64()) {
+                        data = boost::lexical_cast<std::string>((int64_t) input[*key]);
+                        return true;
+                    } else if (input[*key].is_double()) {
+                        data = boost::lexical_cast<std::string>((double) input[*key]);
+                        return true;
+                    } else if (input[*key].is_bool()) {
+                        data = boost::lexical_cast<std::string>((bool) input[*key]);
+                        return true;
+                    } else {
+                        data = "";
+                        return false;
+                    }
                 } catch (simdjson::simdjson_error) {
                     data = "";
                     return false;
                 }
             } else {
                 try {
-                    data = (std::string) input;
-                    return true;
+                    if (input.is_string()) {
+                        data = (std::string) ((std::string_view) input);
+                        return true;
+                    } else if (input.is_uint64()) {
+                        data = boost::lexical_cast<std::string>((uint64_t) input);
+                        return true;
+                    } else if (input.is_int64()) {
+                        data = boost::lexical_cast<std::string>((int64_t) input);
+                        return true;
+                    } else if (input.is_double()) {
+                        data = boost::lexical_cast<std::string>((double) input);
+                        return true;
+                    } else if (input.is_bool()) {
+                        data = boost::lexical_cast<std::string>((bool) input);
+                        return true;
+                    } else {
+                        data = "";
+                        return false;
+                    }
                 } catch (simdjson::simdjson_error) {
                     data = false;
                     return false;
