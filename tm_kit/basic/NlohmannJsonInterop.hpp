@@ -1955,16 +1955,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             data.clear();
             auto const &i = (key?input.at(*key):input);
             bool ret = true;
-            for (auto const &item : i.items()) {
-                K k;
-                D d;
-                if (!JsonDecoder<K>::read(item.key(), std::nullopt, k, mapping)) {
-                    ret = false;
+            if (i.is_array()) {
+                for (auto const &item : i) {
+                    K k;
+                    D d;
+                    if (!JsonDecoder<K>::read(item[0], std::nullopt, k, mapping)) {
+                        ret = false;
+                    }
+                    if (!JsonDecoder<D>::read(item[1], std::nullopt, d, mapping)) {
+                        ret = false;
+                    }
+                    data[k] = d;
                 }
-                if (!JsonDecoder<D>::read(item.value(), std::nullopt, d, mapping)) {
-                    ret = false;
+            } else {
+                for (auto const &item : i.items()) {
+                    K k;
+                    D d;
+                    if (!JsonDecoder<K>::read(item.key(), std::nullopt, k, mapping)) {
+                        ret = false;
+                    }
+                    if (!JsonDecoder<D>::read(item.value(), std::nullopt, d, mapping)) {
+                        ret = false;
+                    }
+                    data[k] = d;
                 }
-                data[k] = d;
             }
             return ret;
         }
@@ -1973,28 +1987,57 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             bool ret = true;
             try {
                 if (key) {
-                    for (auto const &[k, d] : input[*key].get_object()) {
-                        K k1;
-                        D d1;
-                        if (!JsonDecoder<K>::read((nlohmann::json {nlohmann::json::string_t {(std::string_view) k}})[0], std::nullopt, k1, mapping)) {
-                            ret = false;
+                    auto const &x = input[*key];
+                    if (x.is_array()) {
+                        for (auto const &item : x.get_array()) {
+                            K k1;
+                            D d1;
+                            if (!JsonDecoder<K>::read_simd(item.at(0), std::nullopt, k1, mapping)) {
+                                ret = false;
+                            }
+                            if (!JsonDecoder<D>::read_simd(item.at(1), std::nullopt, d1, mapping)) {
+                                ret = false;
+                            }
+                            data[k1] = d1;
                         }
-                        if (!JsonDecoder<D>::read_simd(d, std::nullopt, d1, mapping)) {
-                            ret = false;
+                    } else {
+                        for (auto const &[k, d] : x.get_object()) {
+                            K k1;
+                            D d1;
+                            if (!JsonDecoder<K>::read((nlohmann::json {nlohmann::json::string_t {(std::string_view) k}})[0], std::nullopt, k1, mapping)) {
+                                ret = false;
+                            }
+                            if (!JsonDecoder<D>::read_simd(d, std::nullopt, d1, mapping)) {
+                                ret = false;
+                            }
+                            data[k1] = d1;
                         }
-                        data[k1] = d1;
                     }
                 } else {
-                    for (auto const &[k, d] : input.get_object()) {
-                        K k1;
-                        D d1;
-                        if (!JsonDecoder<K>::read((nlohmann::json {nlohmann::json::string_t {(std::string_view) k}})[0], std::nullopt, k1, mapping)) {
-                            ret = false;
+                    if (input.is_array()) {
+                        for (auto const &item : input.get_array()) {
+                            K k1;
+                            D d1;
+                            if (!JsonDecoder<K>::read_simd(item.at(0), std::nullopt, k1, mapping)) {
+                                ret = false;
+                            }
+                            if (!JsonDecoder<D>::read_simd(item.at(1), std::nullopt, d1, mapping)) {
+                                ret = false;
+                            }
+                            data[k1] = d1;
                         }
-                        if (!JsonDecoder<D>::read_simd(d, std::nullopt, d1, mapping)) {
-                            ret = false;
+                    } else {
+                        for (auto const &[k, d] : input.get_object()) {
+                            K k1;
+                            D d1;
+                            if (!JsonDecoder<K>::read((nlohmann::json {nlohmann::json::string_t {(std::string_view) k}})[0], std::nullopt, k1, mapping)) {
+                                ret = false;
+                            }
+                            if (!JsonDecoder<D>::read_simd(d, std::nullopt, d1, mapping)) {
+                                ret = false;
+                            }
+                            data[k1] = d1;
                         }
-                        data[k1] = d1;
                     }
                 }
             } catch (simdjson::simdjson_error) {
@@ -2089,16 +2132,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             data.clear();
             auto const &i = (key?input.at(*key):input);
             bool ret = true;
-            for (auto const &item : i.items()) {
-                K k;
-                D d;
-                if (!JsonDecoder<K>::read(item.key(), std::nullopt, k, mapping)) {
-                    ret = false;
+            if (i.is_array()) {
+                for (auto const &item : i) {
+                    K k;
+                    D d;
+                    if (!JsonDecoder<K>::read(item[0], std::nullopt, k, mapping)) {
+                        ret = false;
+                    }
+                    if (!JsonDecoder<D>::read(item[1], std::nullopt, d, mapping)) {
+                        ret = false;
+                    }
+                    data[k] = d;
                 }
-                if (!JsonDecoder<D>::read(item.value(), std::nullopt, d, mapping)) {
-                    ret = false;
+            } else {
+                for (auto const &item : i.items()) {
+                    K k;
+                    D d;
+                    if (!JsonDecoder<K>::read(item.key(), std::nullopt, k, mapping)) {
+                        ret = false;
+                    }
+                    if (!JsonDecoder<D>::read(item.value(), std::nullopt, d, mapping)) {
+                        ret = false;
+                    }
+                    data[k] = d;
                 }
-                data[k] = d;
             }
             return ret;
         }
@@ -2107,28 +2164,57 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             bool ret = true;
             try {
                 if (key) {
-                    for (auto const &[k, d] : input[*key].get_object()) {
-                        K k1;
-                        D d1;
-                        if (!JsonDecoder<K>::read((nlohmann::json {nlohmann::json::string_t {(std::string_view) k}})[0], std::nullopt, k1, mapping)) {
-                            ret = false;
+                    auto const &x = input[*key];
+                    if (x.is_array()) {
+                        for (auto const &item : x.get_array()) {
+                            K k1;
+                            D d1;
+                            if (!JsonDecoder<K>::read_simd(item.at(0), std::nullopt, k1, mapping)) {
+                                ret = false;
+                            }
+                            if (!JsonDecoder<D>::read_simd(item.at(1), std::nullopt, d1, mapping)) {
+                                ret = false;
+                            }
+                            data[k1] = d1;
                         }
-                        if (!JsonDecoder<D>::read_simd(d, std::nullopt, d1, mapping)) {
-                            ret = false;
+                    } else {
+                        for (auto const &[k, d] : x.get_object()) {
+                            K k1;
+                            D d1;
+                            if (!JsonDecoder<K>::read((nlohmann::json {nlohmann::json::string_t {(std::string_view) k}})[0], std::nullopt, k1, mapping)) {
+                                ret = false;
+                            }
+                            if (!JsonDecoder<D>::read_simd(d, std::nullopt, d1, mapping)) {
+                                ret = false;
+                            }
+                            data[k1] = d1;
                         }
-                        data[k1] = d1;
                     }
                 } else {
-                    for (auto const &[k, d] : input.get_object()) {
-                        K k1;
-                        D d1;
-                        if (!JsonDecoder<K>::read((nlohmann::json {nlohmann::json::string_t {(std::string_view) k}})[0], std::nullopt, k1, mapping)) {
-                            ret = false;
+                    if (input.is_array()) {
+                        for (auto const &item : input.get_array()) {
+                            K k1;
+                            D d1;
+                            if (!JsonDecoder<K>::read_simd(item.at(0), std::nullopt, k1, mapping)) {
+                                ret = false;
+                            }
+                            if (!JsonDecoder<D>::read_simd(item.at(1), std::nullopt, d1, mapping)) {
+                                ret = false;
+                            }
+                            data[k1] = d1;
                         }
-                        if (!JsonDecoder<D>::read_simd(d, std::nullopt, d1, mapping)) {
-                            ret = false;
+                    } else {
+                        for (auto const &[k, d] : input.get_object()) {
+                            K k1;
+                            D d1;
+                            if (!JsonDecoder<K>::read((nlohmann::json {nlohmann::json::string_t {(std::string_view) k}})[0], std::nullopt, k1, mapping)) {
+                                ret = false;
+                            }
+                            if (!JsonDecoder<D>::read_simd(d, std::nullopt, d1, mapping)) {
+                                ret = false;
+                            }
+                            data[k1] = d1;
                         }
-                        data[k1] = d1;
                     }
                 }
             } catch (simdjson::simdjson_error) {
