@@ -2971,12 +2971,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     mappingForThisOne = &(iter->second);
                 }
             }
-            if (key) {
-                auto x = input.get_object()[*key].get_object().value();
-                return read_impl_simd_ondemand<StructFieldInfo<T>::FIELD_NAMES.size(),0>(x, data, mapping, mappingForThisOne, true);
+            if constexpr (std::is_same_v<std::decay_t<X>, simdjson::ondemand::object>) {
+                if (key) {
+                    auto x = input[*key].get_object().value();
+                    return read_impl_simd_ondemand<StructFieldInfo<T>::FIELD_NAMES.size(),0>(x, data, mapping, mappingForThisOne, true);
+                } else {
+                    return read_impl_simd_ondemand<StructFieldInfo<T>::FIELD_NAMES.size(),0>(input, data, mapping, mappingForThisOne, true);
+                }
             } else {
-                auto x = input.get_object().value();
-                return read_impl_simd_ondemand<StructFieldInfo<T>::FIELD_NAMES.size(),0>(x, data, mapping, mappingForThisOne, true);
+                if (key) {
+                    auto x = input.get_object()[*key].get_object().value();
+                    return read_impl_simd_ondemand<StructFieldInfo<T>::FIELD_NAMES.size(),0>(x, data, mapping, mappingForThisOne, true);
+                } else {
+                    auto x = input.get_object().value();
+                    return read_impl_simd_ondemand<StructFieldInfo<T>::FIELD_NAMES.size(),0>(x, data, mapping, mappingForThisOne, true);
+                }
             }
         }
     };
