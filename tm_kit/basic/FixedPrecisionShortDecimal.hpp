@@ -114,16 +114,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         std::string asString() const {
             std::ostringstream oss;
             oss << value_/s_divisionFactor;
-            Underlying d = ((std::is_unsigned_v<Underlying> || value_>=0)?value_:-value_)%s_divisionFactor;
-            if (d != 0) {
-                std::size_t length = Precision;
-                while (d%10 == 0) {
-                    d /= 10;
-                    --length;
+            if constexpr (std::is_unsigned_v<Underlying>) {
+                Underlying d = value_%s_divisionFactor;
+                if (d != 0) {
+                    std::size_t length = Precision;
+                    while (d%10 == 0) {
+                        d /= 10;
+                        --length;
+                    }
+                    oss << '.' << std::setw(length) << std::setfill('0') << d;
                 }
-                oss << '.' << std::setw(length) << std::setfill('0') << d;
+                return oss.str();
+            } else {
+                Underlying d = ((value_>=0)?value_:-value_)%s_divisionFactor;
+                if (d != 0) {
+                    std::size_t length = Precision;
+                    while (d%10 == 0) {
+                        d /= 10;
+                        --length;
+                    }
+                    oss << '.' << std::setw(length) << std::setfill('0') << d;
+                }
+                return oss.str();
             }
-            return oss.str();
         }
     };
 
