@@ -83,7 +83,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
         FixedPrecisionShortDecimal operator-() const {
-            return FixedPrecisionShortDecimal {-value_};
+            if constexpr (std::is_signed_v<Underlying>) {
+                return FixedPrecisionShortDecimal {-value_};
+            } else {
+                throw std::runtime_error("Trying to take negative on an unsigned value");
+                return FixedPrecisionShortDecimal {};
+            }
         }
         FixedPrecisionShortDecimal operator+(FixedPrecisionShortDecimal const &another) const {
             return FixedPrecisionShortDecimal {value_+another.value_};
