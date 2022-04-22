@@ -677,6 +677,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         }
     };
+    template <class T, class SizeType>
+    class SimpleSerializingWriter<std::shared_ptr<const T>, SizeType> {
+    public:
+        template <class Env>
+        static void start(Env *env, std::ostream &os) {
+        }
+        template <class Env, class TimePoint>
+        static void writeOne(Env *env, std::ostream &os, infra::WithTime<std::shared_ptr<const T>, TimePoint> &&data) {
+            if constexpr (bytedata_utils::DirectlySerializableChecker<T>::IsDirectlySerializable()) {
+                std::string s = bytedata_utils::RunSerializer<T>::apply(*(data.value));
+                SizeType l = boost::endian::native_to_little<SizeType>(s.length());
+                os.write(reinterpret_cast<char *>(&l), sizeof(SizeType));
+                os.write(s.data(), s.length());
+            } else {
+                std::string s = bytedata_utils::RunCBORSerializer<T>::apply(*(data.value));
+                SizeType l = boost::endian::native_to_little<SizeType>(s.length());
+                os.write(reinterpret_cast<char *>(&l), sizeof(SizeType));
+                os.write(s.data(), s.length());
+            }
+        }
+    };
     template <class T, class TimeExtractor, class SizeType=std::size_t, std::size_t BufferSize=4*1024*1024>
     class SimpleDeserializingReader {
     private:
@@ -744,6 +765,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 os.write(s.data(), s.length());
             } else {
                 std::string s = bytedata_utils::RunCBORSerializer<T>::apply(data.value);
+                SizeType l = boost::endian::native_to_little<SizeType>(s.length());
+                os.write(reinterpret_cast<char *>(&l), sizeof(SizeType));
+                os.write(s.data(), s.length());
+            }
+        }
+    };
+    template <class T, class TimeWriter, class SizeType>
+    class SimpleSerializingWriterWithTime<std::shared_ptr<const T>, TimeWriter, SizeType> {
+    private:
+        TimeWriter timeWriter_;
+    public:
+        SimpleSerializingWriterWithTime(TimeWriter &&timeWriter = TimeWriter {}) : timeWriter_(std::move(timeWriter)) {}
+        template <class Env>
+        static void start(Env *env, std::ostream &os) {}
+        template <class Env, class TimePoint>
+        void writeOne(Env *env, std::ostream &os, infra::WithTime<std::shared_ptr<const T>, TimePoint> &&data) {
+            timeWriter_(env, os, data.timePoint);
+            if constexpr (bytedata_utils::DirectlySerializableChecker<T>::IsDirectlySerializable()) {
+                std::string s = bytedata_utils::RunSerializer<T>::apply(*(data.value));
+                SizeType l = boost::endian::native_to_little<SizeType>(s.length());
+                os.write(reinterpret_cast<char *>(&l), sizeof(SizeType));
+                os.write(s.data(), s.length());
+            } else {
+                std::string s = bytedata_utils::RunCBORSerializer<T>::apply(*(data.value));
                 SizeType l = boost::endian::native_to_little<SizeType>(s.length());
                 os.write(reinterpret_cast<char *>(&l), sizeof(SizeType));
                 os.write(s.data(), s.length());
