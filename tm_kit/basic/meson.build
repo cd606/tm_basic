@@ -48,6 +48,7 @@ tm_basic_headers = [
     , 'SerializationHelperMacros_Proxy.hpp'
     , 'FixedPrecisionShortDecimal.hpp'
     , 'TimePointAsString.hpp'
+    , 'CollectionAsJoinedString.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
