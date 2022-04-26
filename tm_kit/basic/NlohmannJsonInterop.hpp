@@ -476,15 +476,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     struct JsonWrappable<SingleLayerWrapperWithID<N,T>, void> {
         static constexpr bool value = JsonWrappable<T>::value;
     };
+
+    struct JsonVariantTypeMark {};
+
+    template <class... Ts>
+    using JsonVariant = SingleLayerWrapperWithTypeMark<JsonVariantTypeMark, std::variant<std::monostate,Ts...>>;
+
     template <class M, class T>
-    class JsonEncoder<SingleLayerWrapperWithTypeMark<M,T>, void> {
+    class JsonEncoder<SingleLayerWrapperWithTypeMark<M,T>, std::enable_if_t<!std::is_same_v<M,JsonVariantTypeMark>, void>> {
     public:
         static void write(nlohmann::json &output, std::optional<std::string> const &key, SingleLayerWrapperWithTypeMark<M,T> const &data) {
             JsonEncoder<T>::write(output, key, data.value);
         }
     };
     template <class M, class T>
-    struct JsonWrappable<SingleLayerWrapperWithTypeMark<M,T>, void> {
+    struct JsonWrappable<SingleLayerWrapperWithTypeMark<M,T>, std::enable_if_t<!std::is_same_v<M,JsonVariantTypeMark>, void>> {
         static constexpr bool value = JsonWrappable<T>::value;
     };
 
@@ -527,6 +533,50 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     public:
         static void write(nlohmann::json &output, std::optional<std::string> const &key, std::variant<Ts...> const &data) {
+            if constexpr (sizeof...(Ts) >= 0) {
+                write_impl<0>((key?output[*key]:output), data);
+            }
+        }
+    };
+
+    template <class... Ts>
+    struct JsonWrappable<JsonVariant<Ts...>, void> {
+    private:
+        template <std::size_t Index>
+        static constexpr bool value_internal() {
+            if constexpr (Index < sizeof...(Ts)) {
+                if constexpr (!JsonWrappable<std::variant_alternative_t<Index+1,std::variant<std::monostate,Ts...>>>::value) {
+                    return false;
+                } else {
+                    return value_internal<Index+1>();
+                }
+            } else {
+                return true;
+            }
+        }
+    public:
+        static constexpr bool value = value_internal<0>();
+    };
+    template <class... Ts>
+    class JsonEncoder<JsonVariant<Ts...>, std::enable_if_t<JsonWrappable<JsonVariant<Ts...>>::value, void>> {
+    private:
+        template <std::size_t Index>
+        static void write_impl(nlohmann::json &output, JsonVariant<Ts...> const &data) {
+            if constexpr (Index >= 0 && Index < sizeof...(Ts)) {
+                if (Index+1 == data.value.index()) {
+                    using F = std::variant_alternative_t<Index+1,std::variant<std::monostate,Ts...>>;
+                    JsonEncoder<F>::write(
+                        output
+                        , std::nullopt
+                        , std::get<Index+1>(data.value)
+                    );
+                } else {
+                    write_impl<Index+1>(output, data);
+                }
+            }
+        }
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, JsonVariant<Ts...> const &data) {
             if constexpr (sizeof...(Ts) >= 0) {
                 write_impl<0>((key?output[*key]:output), data);
             }
@@ -2563,7 +2613,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class M, class T>
-    class JsonDecoder<SingleLayerWrapperWithTypeMark<M,T>, void> {
+    class JsonDecoder<SingleLayerWrapperWithTypeMark<M,T>, std::enable_if_t<!std::is_same_v<M,JsonVariantTypeMark>, void>> {
     public:
         static void fillFieldNameMapping(JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             JsonDecoder<T>::fillFieldNameMapping(mapping);
@@ -2724,6 +2774,97 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class... Ts>
+    class JsonDecoder<JsonVariant<Ts...>, std::enable_if_t<JsonWrappable<JsonVariant<Ts...>>::value, void>> {
+    private:
+        template <std::size_t Index>
+        static bool read_impl(nlohmann::json const &input, JsonVariant<Ts...> &data, JsonFieldMapping const &mapping) {
+            if constexpr (Index < sizeof...(Ts)) {
+                if (Index+1 == data.value.index()) {
+                    using F = std::variant_alternative_t<Index+1, std::variant<std::monostate,Ts...>>;
+                    return JsonDecoder<F>::read(input, std::nullopt, std::get<Index+1>(data.value), mapping);
+                } else {
+                    return read_impl<Index+1>(input, data, mapping);
+                }
+            } else {
+                return false;
+            }
+        }
+        template <std::size_t Index>
+        static bool read_impl_simd(simdjson::dom::element const &input, JsonVariant<Ts...> &data, JsonFieldMapping const &mapping) {
+            if constexpr (Index < sizeof...(Ts)) {
+                if (Index+1 == data.value.index()) {
+                    using F = std::variant_alternative_t<Index+1, std::variant<std::monostate,Ts...>>;
+                    return JsonDecoder<F>::read_simd(input, std::nullopt, std::get<Index+1>(data.value), mapping);
+                } else {
+                    return read_impl_simd<Index+1>(input, data, mapping);
+                }
+            } else {
+                return false;
+            }
+        }
+        template <std::size_t Index, class X>
+        static bool read_impl_simd_ondemand(X &input, JsonVariant<Ts...> &data, JsonFieldMapping const &mapping) {
+            if constexpr (Index < sizeof...(Ts)) {
+                if (Index+1 == data.value.index()) {
+                    using F = std::variant_alternative_t<Index+1, std::variant<std::monostate,Ts...>>;
+                    return JsonDecoder<F>::read_simd_ondemand(input, std::nullopt, std::get<Index+1>(data.value), mapping);
+                } else {
+                    return read_impl_simd_ondemand<Index+1,X>(input, data, mapping);
+                }
+            } else {
+                return false;
+            }
+        }
+        template <std::size_t Index>
+        static void fillFieldNameMapping_internal(JsonFieldMapping const &mapping) {
+            if constexpr (Index < sizeof...(Ts)) {
+                using F = std::variant_alternative_t<Index+1, std::variant<std::monostate,Ts...>>;
+                JsonDecoder<F>::fillFieldNameMapping(mapping);
+                fillFieldNameMapping_internal<Index+1>(mapping);
+            }
+        }
+    public:
+        static void fillFieldNameMapping(JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            fillFieldNameMapping_internal<0>(mapping);
+        }
+        static bool read(nlohmann::json const &input, std::optional<std::string> const &key, JsonVariant<Ts...> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            if (data.value.index() == 0) {
+                return false;
+            }
+            auto const &i = (key?input.at(*key):input);
+            return read_impl<0>(i, data, mapping);
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, JsonVariant<Ts...> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            if (data.value.index() == 0) {
+                return false;
+            }
+            if (key) {
+                if (input[*key].error() == simdjson::NO_SUCH_FIELD) {
+                    return false;
+                }
+                simdjson::dom::element i = input[*key];
+                return read_impl_simd<0>(i, data, mapping);
+            } else {
+                return read_impl_simd<0>(input, data, mapping);
+            }
+        }
+        template <class X>
+        static bool read_simd_ondemand(X &input, std::optional<std::string> const &key, JsonVariant<Ts...> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            if (data.value.index() == 0) {
+                return false;
+            }
+            if (key) {
+                auto x = input.get_object()[*key];
+                if (x.error() == simdjson::NO_SUCH_FIELD) {
+                    return false;
+                }
+                return read_impl_simd_ondemand<0>(x, data, mapping);
+            } else {
+                return read_impl_simd_ondemand<0>(input, data, mapping);
+            }
+        }
+    };
+    template <class... Ts>
     class JsonDecoder<std::tuple<Ts...>, std::enable_if_t<JsonWrappable<std::tuple<Ts...>>::value, void>> {
     private:
         template <std::size_t Index>
@@ -2800,9 +2941,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     private:
         static bool s_fieldNameMappingFilled;
         static std::array<std::string, StructFieldInfo<T>::FIELD_NAMES.size()> s_fieldNameMapping;
+        static std::array<std::function<void(T &)>, StructFieldInfo<T>::FIELD_NAMES.size()> s_fieldPreprocessors;
         template <std::size_t FieldCount, std::size_t FieldIndex>
         static bool read_impl(nlohmann::json const &input, T &data, JsonFieldMapping const &mapping, std::unordered_map<std::string, std::string> const *mappingForThisOne, bool retSoFar) {
             if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
+                if (s_fieldPreprocessors[FieldIndex]) {
+                    (s_fieldPreprocessors[FieldIndex])(data);
+                }
                 using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
                 if (s_fieldNameMappingFilled && mappingForThisOne == nullptr) {
                     std::string const &s = s_fieldNameMapping[FieldIndex];
@@ -2834,6 +2979,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         template <std::size_t FieldCount, std::size_t FieldIndex>
         static bool read_impl_simd(simdjson::dom::element const &input, T &data, JsonFieldMapping const &mapping, std::unordered_map<std::string, std::string> const *mappingForThisOne, bool retSoFar) {
             if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
+                if (s_fieldPreprocessors[FieldIndex]) {
+                    (s_fieldPreprocessors[FieldIndex])(data);
+                }
                 using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
                 if (s_fieldNameMappingFilled && mappingForThisOne == nullptr) {
                     std::string const &s = s_fieldNameMapping[FieldIndex];
@@ -2869,6 +3017,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         template <std::size_t FieldCount, std::size_t FieldIndex>
         static bool read_impl_simd_ondemand(simdjson::ondemand::object &input, T &data, JsonFieldMapping const &mapping, std::unordered_map<std::string, std::string> const *mappingForThisOne, bool retSoFar) {
             if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
+                if (s_fieldPreprocessors[FieldIndex]) {
+                    (s_fieldPreprocessors[FieldIndex])(data);
+                }
                 using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
                 if (s_fieldNameMappingFilled && mappingForThisOne == nullptr) {
                     std::string const &s = s_fieldNameMapping[FieldIndex];
@@ -2935,6 +3086,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
             fillFieldNameMapping_internal<StructFieldInfo<T>::FIELD_NAMES.size(),0>(mappingForThisOne, mapping);
         }
+        static void setFieldPreprocessor(std::string_view const &fieldName, std::function<void(T &)> preprocessor) {
+            auto idx = StructFieldInfo<T>::getFieldIndex(fieldName);
+            if (idx >= 0 && idx < StructFieldInfo<T>::FIELD_NAMES.size()) {
+                s_fieldPreprocessors[idx] = preprocessor;
+            }
+        }
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             struct_field_info_utils::StructFieldInfoBasedInitializer<T>::initialize(data);
             std::unordered_map<std::string, std::string> const *mappingForThisOne = nullptr;
@@ -2993,6 +3150,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     bool JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>>::s_fieldNameMappingFilled = false;
     template <class T>
     std::array<std::string, StructFieldInfo<T>::FIELD_NAMES.size()> JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>>::s_fieldNameMapping;
+    template <class T>
+    std::array<std::function<void(T &)>, StructFieldInfo<T>::FIELD_NAMES.size()> JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>>::s_fieldPreprocessors;
 
     template <class T>
     class JsonDecoder<T, std::enable_if_t<bytedata_utils::ProtobufStyleSerializableChecker<T>::IsProtobufStyleSerializable(), void>> {
