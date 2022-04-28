@@ -750,9 +750,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             if (key) {
                 try {
                     auto x = input.get_object()[*key];
-                    if (x.get_string().error() != simdjson::INCORRECT_TYPE) {
+                    auto x_s = x.get_string();
+                    if (x_s.error() != simdjson::INCORRECT_TYPE) {
                         try {
-                            data = boost::lexical_cast<IntType>((std::string_view) x.get_string());
+                            data = boost::lexical_cast<IntType>((std::string_view) x_s.value());
                             return true;
                         } catch (boost::bad_lexical_cast) {
                             data = (IntType) 0;
@@ -773,9 +774,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 }
             } else {
                 try {
-                    if (input.get_string().error() != simdjson::INCORRECT_TYPE) {
+                    auto i_s = input.get_string();
+                    if (i_s.error() != simdjson::INCORRECT_TYPE) {
                         try {
-                            data = boost::lexical_cast<IntType>(input.get_string());
+                            data = boost::lexical_cast<IntType>((std::string_view) i_s.value());
                             return true;
                         } catch (boost::bad_lexical_cast) {
                             data = (IntType) 0;
@@ -868,9 +870,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             if (key) {
                 try {
                     auto x = input.get_object()[*key];
-                    if (x.get_string().error() != simdjson::INCORRECT_TYPE) {
+                    auto x_s = x.get_string();
+                    if (x_s.error() != simdjson::INCORRECT_TYPE) {
                         try {
-                            data = boost::lexical_cast<FloatType>(x.get_string());
+                            data = boost::lexical_cast<FloatType>(x_s);
                             return true;
                         } catch (boost::bad_lexical_cast) {
                             data = (FloatType) 0;
@@ -886,9 +889,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 }
             } else {
                 try {
-                    if (input.get_string().error() != simdjson::INCORRECT_TYPE) {
+                    auto i_s = input.get_string();
+                    if (i_s.error() != simdjson::INCORRECT_TYPE) {
                         try {
-                            data = boost::lexical_cast<FloatType>(input.get_string());
+                            data = boost::lexical_cast<FloatType>(i_s);
                             return true;
                         } catch (boost::bad_lexical_cast) {
                             data = (FloatType) 0;
@@ -973,9 +977,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             if (key) {
                 try {
                     auto x = input.get_object()[*key];
-                    if (x.get_string().error() != simdjson::INCORRECT_TYPE) {
+                    auto x_s = x.get_string();
+                    if (x_s.error() != simdjson::INCORRECT_TYPE) {
                         try {
-                            data = boost::lexical_cast<bool>(x.get_string().value());
+                            data = boost::lexical_cast<bool>(x_s.value());
                             return true;
                         } catch (boost::bad_lexical_cast) {
                             data = false;
@@ -991,9 +996,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 }
             } else {
                 try {
-                    if (input.get_string().error() != simdjson::INCORRECT_TYPE) {
+                    auto i_s = input.get_string();
+                    if (i_s.error() != simdjson::INCORRECT_TYPE) {
                         try {
-                            data = boost::lexical_cast<bool>(input.get_string().value());
+                            data = boost::lexical_cast<bool>(i_s.value());
                             return true;
                         } catch (boost::bad_lexical_cast) {
                             data = false;
@@ -1132,50 +1138,66 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             if (key) {
                 auto x = input.get_object()[*key];
                 try {
-                    if (x.get_string().error() != simdjson::INCORRECT_TYPE) {
-                        data = (std::string) (x.get_string().value());
+                    auto x_s = x.get_string();
+                    if (x_s.error() != simdjson::INCORRECT_TYPE) {
+                        data = (std::string) (x_s.value());
                         return true;
-                    } else if (x.get_uint64().error() != simdjson::INCORRECT_TYPE) {
-                        data = boost::lexical_cast<std::string>(x.get_uint64().value());
+                    } 
+                    auto x_ui = x.get_uint64();
+                    if (x_ui.error() != simdjson::INCORRECT_TYPE) {
+                        data = boost::lexical_cast<std::string>(x_ui.value());
                         return true;
-                    } else if (x.get_int64().error() != simdjson::INCORRECT_TYPE) {
-                        data = boost::lexical_cast<std::string>(x.get_int64().value());
+                    } 
+                    auto x_i = x.get_int64();
+                    if (x_i.error() != simdjson::INCORRECT_TYPE) {
+                        data = boost::lexical_cast<std::string>(x_i.value());
                         return true;
-                    } else if (x.get_double().error() != simdjson::INCORRECT_TYPE) {
-                        data = boost::lexical_cast<std::string>(x.get_double().value());
+                    } 
+                    auto x_d = x.get_double();
+                    if (x_d.error() != simdjson::INCORRECT_TYPE) {
+                        data = boost::lexical_cast<std::string>(x_d.value());
                         return true;
-                    } else if (x.get_bool().error() != simdjson::INCORRECT_TYPE) {
-                        data = boost::lexical_cast<std::string>(x.get_bool().value());
+                    } 
+                    auto x_b = x.get_bool();
+                    if (x_b.error() != simdjson::INCORRECT_TYPE) {
+                        data = boost::lexical_cast<std::string>(x_b.value());
                         return true;
-                    } else {
-                        data = "";
-                        return false;
                     }
+                    data = "";
+                    return false;
                 } catch (simdjson::simdjson_error) {
                     data = "";
                     return false;
                 }
             } else {
                 try {
-                    if (input.get_string().error() != simdjson::INCORRECT_TYPE) {
-                        data = (std::string) (input.get_string().value());
+                    auto i_s = input.get_string();
+                    if (i_s.error() != simdjson::INCORRECT_TYPE) {
+                        data = (std::string) (i_s.value());
                         return true;
-                    } else if (input.get_uint64().error() != simdjson::INCORRECT_TYPE) {
-                        data = boost::lexical_cast<std::string>(input.get_uint64().value());
+                    } 
+                    auto i_ui = input.get_uint64();
+                    if (i_ui.error() != simdjson::INCORRECT_TYPE) {
+                        data = boost::lexical_cast<std::string>(i_ui.value());
                         return true;
-                    } else if (input.get_int64().error() != simdjson::INCORRECT_TYPE) {
-                        data = boost::lexical_cast<std::string>(input.get_int64().value());
+                    } 
+                    auto i_i = input.get_int64();
+                    if (i_i.error() != simdjson::INCORRECT_TYPE) {
+                        data = boost::lexical_cast<std::string>(i_i.value());
                         return true;
-                    } else if (input.get_double().error() != simdjson::INCORRECT_TYPE) {
-                        data = boost::lexical_cast<std::string>(input.get_double().value());
+                    } 
+                    auto i_d = input.get_double();
+                    if (i_d.error() != simdjson::INCORRECT_TYPE) {
+                        data = boost::lexical_cast<std::string>(i_d.value());
                         return true;
-                    } else if (input.get_bool().error() != simdjson::INCORRECT_TYPE) {
-                        data = boost::lexical_cast<std::string>(input.get_bool().value());
+                    } 
+                    auto i_b = input.get_bool();
+                    if (i_b.error() != simdjson::INCORRECT_TYPE) {
+                        data = boost::lexical_cast<std::string>(i_b.value());
                         return true;
-                    } else {
-                        data = "";
-                        return false;
-                    }
+                    } 
+                    data = "";
+                    return false;
                 } catch (simdjson::simdjson_error) {
                     data = "";
                     return false;
