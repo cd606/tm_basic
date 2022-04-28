@@ -716,7 +716,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                             return true;
                         }
                     }
-                } catch (simdjson::simdjson_error) {
+                } catch (simdjson::simdjson_error const &) {
                     data = (IntType) 0;
                     return false;
                 }
@@ -739,7 +739,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                             return true;
                         }
                     }
-                } catch (simdjson::simdjson_error) {
+                } catch (simdjson::simdjson_error const &) {
                     data = (IntType) 0;
                     return false;
                 }
@@ -768,7 +768,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                             return true;
                         }
                     }
-                } catch (simdjson::simdjson_error) {
+                } catch (simdjson::simdjson_error const &) {
                     data = (IntType) 0;
                     return false;
                 }
@@ -792,7 +792,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                             return true;
                         }
                     }
-                } catch (simdjson::simdjson_error) {
+                } catch (simdjson::simdjson_error const &) {
                     data = (IntType) 0;
                     return false;
                 }
@@ -841,7 +841,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         data = static_cast<FloatType>((double) input[*key]);
                         return true;
                     }
-                } catch (simdjson::simdjson_error) {
+                } catch (simdjson::simdjson_error const &) {
                     data = (FloatType) 0;
                     return false;
                 }
@@ -859,7 +859,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         data = static_cast<FloatType>((double) input);
                         return true;
                     }
-                } catch (simdjson::simdjson_error) {
+                } catch (simdjson::simdjson_error const &) {
                     data = (FloatType) 0;
                     return false;
                 }
@@ -883,7 +883,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         data = static_cast<FloatType>(x.get_double());
                         return true;
                     }
-                } catch (simdjson::simdjson_error) {
+                } catch (simdjson::simdjson_error const &) {
                     data = (FloatType) 0;
                     return false;
                 }
@@ -902,7 +902,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         data = static_cast<FloatType>(input.get_double());
                         return true;
                     }
-                } catch (simdjson::simdjson_error) {
+                } catch (simdjson::simdjson_error const &) {
                     data = (FloatType) 0;
                     return false;
                 }
@@ -948,7 +948,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         data = (bool) input[*key];
                         return true;
                     }
-                } catch (simdjson::simdjson_error) {
+                } catch (simdjson::simdjson_error const &) {
                     data = false;
                     return false;
                 }
@@ -966,7 +966,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         data = (bool) input;
                         return true;
                     }
-                } catch (simdjson::simdjson_error) {
+                } catch (simdjson::simdjson_error const &) {
                     data = false;
                     return false;
                 }
@@ -990,7 +990,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         data = x.get_bool().value();
                         return true;
                     }
-                } catch (simdjson::simdjson_error) {
+                } catch (simdjson::simdjson_error const &) {
                     data = false;
                     return false;
                 }
@@ -1009,7 +1009,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         data = input.get_bool().value();
                         return true;
                     }
-                } catch (simdjson::simdjson_error) {
+                } catch (simdjson::simdjson_error const &) {
                     data = false;
                     return false;
                 }
@@ -1102,7 +1102,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         data = "";
                         return false;
                     }
-                } catch (simdjson::simdjson_error) {
+                } catch (simdjson::simdjson_error const &) {
                     data = "";
                     return false;
                 }
@@ -1127,7 +1127,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         data = "";
                         return false;
                     }
-                } catch (simdjson::simdjson_error) {
+                } catch (simdjson::simdjson_error const &) {
                     data = false;
                     return false;
                 }
@@ -1165,7 +1165,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     }
                     data = "";
                     return false;
-                } catch (simdjson::simdjson_error) {
+                } catch (simdjson::simdjson_error const &) {
                     data = "";
                     return false;
                 }
@@ -1198,7 +1198,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     } 
                     data = "";
                     return false;
-                } catch (simdjson::simdjson_error) {
+                } catch (simdjson::simdjson_error const &) {
                     data = "";
                     return false;
                 }
@@ -1323,7 +1323,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         x.push_back(static_cast<unsigned int>(item));
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 data = ByteData {};
                 return false;
             }
@@ -1346,7 +1346,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         x.push_back(static_cast<unsigned int>(item.get_uint64()));
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 data = ByteData {};
                 return false;
             }
@@ -1391,7 +1391,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         x.push_back(static_cast<unsigned int>(item));
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 return false;
             }
             for (std::size_t ii=0; ii<x.size() && ii<N; ++ii) {
@@ -1413,7 +1413,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         x.push_back(static_cast<unsigned int>(item.get_uint64()));
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 return false;
             }
             for (std::size_t ii=0; ii<x.size() && ii<N; ++ii) {
@@ -1659,7 +1659,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         ++ii;
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 ret = false;
             }
             return ret;
@@ -1675,7 +1675,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         ret = false;
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 ret = false;
             }
             return ret;
@@ -1720,7 +1720,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         }
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 return false;
             }
             return ret;
@@ -1736,7 +1736,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         ret = false;
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 ret = false;
             }
             return ret;
@@ -1784,7 +1784,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         ++ii;
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 return false;
             }
             return ret;
@@ -1859,7 +1859,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         ++ii;
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 ret = false;
             }
             if (ii < N) {
@@ -1885,7 +1885,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     }
                     ++ii;
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 ret = false;
             }
             if (ii < N) {
@@ -1934,7 +1934,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         }
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 ret = false;
             }
             return ret;
@@ -1951,7 +1951,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         ret = false;
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 ret = false;
             }
             return ret;
@@ -1994,7 +1994,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         }
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 ret = false;
             }
             return ret;
@@ -2011,7 +2011,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         ret = false;
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 ret = false;
             }
             return ret;
@@ -2112,7 +2112,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         }
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 ret = false;
             }
             return ret;
@@ -2188,7 +2188,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         }
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 ret = false;
             }
             return ret;
@@ -2289,7 +2289,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         }
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 ret = false;
             }
             return ret;
@@ -2365,7 +2365,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         }
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 ret = false;
             }
             return ret;
@@ -2419,7 +2419,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         ++ii;
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 ret = false;
             }
             return ret;
@@ -2437,7 +2437,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         ret = false;
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 ret = false;
             }
             return ret;
@@ -2494,7 +2494,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         }
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 data = std::nullopt;
             }
             return true;
@@ -2524,7 +2524,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         }
                     }
                 }
-            } catch (simdjson::simdjson_error) {
+            } catch (simdjson::simdjson_error const &) {
                 data = std::nullopt;
             }
             return true;
