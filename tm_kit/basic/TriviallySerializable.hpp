@@ -8,8 +8,11 @@
 #include <cstring>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
-    template <class T, typename = std::enable_if_t<std::is_trivially_copyable_v<T>>>
-    struct TriviallySerializable final {
+    template <class T, class Enable=void>
+    struct TriviallySerializable {};
+
+    template <class T>
+    struct TriviallySerializable<T, std::enable_if_t<std::is_trivially_copyable_v<T>>> final {
         using value_type = T;
         T value;
 
@@ -22,6 +25,26 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return false;
             }
             std::memcpy(&value, s.data(), sizeof(T));
+            return true;
+        }
+    };
+    template <class T>
+    struct TriviallySerializable<std::shared_ptr<const T>, std::enable_if_t<std::is_trivially_copyable_v<T>>> final {
+        using value_type = std::shared_ptr<const T>;
+        std::shared_ptr<const T> value;
+
+        void writeToString(std::string *s) const {
+            s->resize(sizeof(T));
+            std::memcpy(s->data(), value.get(), sizeof(T));
+        }
+        bool fromStringView(std::string_view const &s) {
+            value.reset();
+            if (s.length() != sizeof(T)) {
+                return false;
+            }
+            std::shared_ptr<T> x = std::make_shared<T>();
+            std::memcpy(x.get(), s.data(), sizeof(T));
+            value = std::const_pointer_cast<const T>(x);
             return true;
         }
     };

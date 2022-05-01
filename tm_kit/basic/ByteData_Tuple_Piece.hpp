@@ -167,6 +167,22 @@ struct RunCBORSerializerWithNameList<std::tuple<>, 0> {
     }
 };
 template <>
+struct RunCBORSerializerWithNameList<std::shared_ptr<const std::tuple<>>, 0> {
+    static std::string apply(std::shared_ptr<const std::tuple<>> const &data, std::array<std::string, 0> const &nameList) {
+        std::string s;
+        s.resize(calculateSize(data, nameList)); 
+        apply(data, nameList, const_cast<char *>(s.data()));
+        return s;
+    }
+    static std::size_t apply(std::shared_ptr<const std::tuple<>> const &/*data*/, std::array<std::string, 0> const &/*nameList*/, char *output) {
+        *output = static_cast<char>(0xA0);
+        return 1;
+    }
+    static std::size_t calculateSize(std::shared_ptr<const std::tuple<>> const &/*data*/, std::array<std::string, 0> const &/*nameList*/) {
+        return 1;
+    }
+};
+template <>
 struct RunCBORDeserializer<std::tuple<>> {
     static std::optional<std::tuple<std::tuple<>,size_t>> apply(std::string_view const &data, size_t start) {
         if (data.length() < start+1) {
@@ -215,6 +231,36 @@ struct RunCBORDeserializerWithNameList<std::tuple<>, 0> {
         if (static_cast<uint8_t>(data[start]) != 0xA0) {
             return std::nullopt;
         }
+        return 1;
+    }
+};
+template <>
+struct RunCBORDeserializerWithNameList<std::shared_ptr<const std::tuple<>>, 0> {
+    static std::optional<std::tuple<std::shared_ptr<const std::tuple<>>,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string, 0> const &/*nameList*/) {
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if (static_cast<uint8_t>(data[start]) != 0xA0) {
+            return std::nullopt;
+        }
+        return std::tuple<std::shared_ptr<const std::tuple<>>,size_t> {
+            std::const_pointer_cast<const std::tuple<>>(
+                std::make_shared<std::tuple<>>()
+            )
+            , 1
+        };
+    }
+    static std::optional<size_t> applyInPlace(std::shared_ptr<const std::tuple<>> &output, std::string_view const &data, size_t start, std::array<std::string, 0> const &/*nameList*/) {
+        output.reset();
+        if (data.length() < start+1) {
+            return std::nullopt;
+        }
+        if (static_cast<uint8_t>(data[start]) != 0xA0) {
+            return std::nullopt;
+        }
+        output = std::const_pointer_cast<const std::tuple<>>(
+            std::make_shared<std::tuple<>>()
+        );
         return 1;
     }
 };
@@ -275,6 +321,44 @@ struct RunCBORSerializerWithNameList<std::tuple<As...>, N> {
             , As...
         >(data, nameList);
         return s;
+    }
+};
+template <class... As, size_t N>
+struct RunCBORSerializerWithNameList<std::shared_ptr<const std::tuple<As...>>, N> {
+    static std::string apply(std::shared_ptr<const std::tuple<As...>> const &data, std::array<std::string, N> const &nameList) {
+        if (!data) {
+            return RunCBORSerializerWithNameList<std::tuple<As...>,N>::apply(
+                std::tuple<As...> {}, nameList
+            );
+        } else {
+            return RunCBORSerializerWithNameList<std::tuple<As...>,N>::apply(
+                *data, nameList
+            );
+        }
+    }
+    static std::size_t apply(std::shared_ptr<const std::tuple<As...>> const &data, std::array<std::string, N> const &nameList, char *output) {
+        static_assert(N == sizeof...(As), "name list size must match tuple size");
+        if (!data) {
+            return RunCBORSerializerWithNameList<std::tuple<As...>,N>::apply(
+                std::tuple<As...> {}, nameList, output
+            );
+        } else {
+            return RunCBORSerializerWithNameList<std::tuple<As...>,N>::apply(
+                *data, nameList, output
+            );
+        }
+    }
+    static std::size_t calculateSize(std::shared_ptr<const std::tuple<As...>> const &data, std::array<std::string, N> const &nameList) {
+        static_assert(N == sizeof...(As), "name list size must match tuple size");
+        if (!data) {
+            return RunCBORSerializerWithNameList<std::tuple<As...>,N>::calculateSize(
+                std::tuple<As...> {}, nameList
+            );
+        } else {
+            return RunCBORSerializerWithNameList<std::tuple<As...>,N>::calculateSize(
+                *data, nameList
+            );
+        }
     }
 };
 template <class... As>
@@ -425,5 +509,29 @@ struct RunCBORDeserializerWithNameList<std::tuple<As...>, N> {
             std::get<0>(parserIter->second) = true;
         }
         return accumLen;
+    }
+};
+template <class... As, size_t N>
+struct RunCBORDeserializerWithNameList<std::shared_ptr<const std::tuple<As...>>, N> {
+    static std::optional<std::tuple<std::shared_ptr<const std::tuple<As...>>,size_t>> apply(std::string_view const &data, size_t start, std::array<std::string, N> const &nameList) {
+        auto x = std::make_shared<std::tuple<As...>>();
+        auto res = RunCBORDeserializerWithNameList<std::tuple<As...>,N>::applyInPlace(*x, data, start, nameList);
+        if (!res) {
+            return std::nullopt;
+        }
+        return std::tuple<std::shared_ptr<const std::tuple<As...>>,size_t> {
+            std::const_pointer_cast<const std::tuple<As...>>(x)
+            , *res
+        };
+    }
+    static std::optional<size_t> applyInPlace(std::shared_ptr<const std::tuple<As...>> &output, std::string_view const &data, size_t start, std::array<std::string, N> const &nameList) {
+        output.reset();
+        auto x = std::make_shared<std::tuple<As...>>();
+        auto res = RunCBORDeserializerWithNameList<std::tuple<As...>,N>::applyInPlace(*x, data, start, nameList);
+        if (!res) {
+            return std::nullopt;
+        }
+        output = std::const_pointer_cast<const std::tuple<As...>>(x);
+        return *res;
     }
 };

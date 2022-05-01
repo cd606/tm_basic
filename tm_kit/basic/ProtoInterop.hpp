@@ -3576,7 +3576,171 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         T const *operator->() const {
             return t_;
         }
-    };  
+    };
+    template <class T>
+    class Proto<T const *, std::enable_if_t<
+        (
+            ProtoWrappable<T>::value
+        ), void
+    >> {
+    private:
+        T const *t_;
+    public:
+        Proto() : t_(nullptr) {}
+        Proto(T const *t) : t_(t) {}
+        Proto(Proto const &p) : t_(p.t_) {}
+        Proto(Proto &&p) : t_(p.t_) {}
+        Proto &operator=(Proto const &p) = delete;
+        Proto &operator=(Proto &&p) = delete;
+        ~Proto() = default;
+
+        void SerializeToStream(std::ostream &os) const {
+            if (t_) {
+                if constexpr (StructFieldInfo<T>::HasGeneratedStructFieldInfo) {
+                    ProtoEncoder<T>::write(std::nullopt, *t_, os, false);
+                } else {
+                    ProtoEncoder<T>::write(1, *t_, os, false);
+                }
+            }
+        }
+        void SerializeToString(std::string *s) const {
+            if (t_) {
+                std::ostringstream oss;
+                if constexpr (StructFieldInfo<T>::HasGeneratedStructFieldInfo) {
+                    ProtoEncoder<T>::write(std::nullopt, *t_, oss, false);
+                } else {
+                    ProtoEncoder<T>::write(1, *t_, oss, false);
+                }
+                *s = oss.str();
+            } else {
+                *s = "";
+            }
+        }
+        T const &value() const {
+            return *t_;
+        }
+        T const &operator*() const {
+            return *t_;
+        }
+        T const *operator->() const {
+            return t_;
+        }
+    }; 
+    template <class T>
+    class Proto<std::shared_ptr<const T>, std::enable_if_t<
+        (
+            ProtoWrappable<T>::value
+        ), void
+    >> {
+    private:
+        std::shared_ptr<const T> t_;
+        T val_;
+        ProtoDecoder<T> dec_;
+    public:
+        Proto() : t_(), val_(), dec_(&val_, 1) {}
+        Proto(std::shared_ptr<const T> const &t) : t_(t), val_(), dec_(&val_, 1) {}
+        Proto(std::shared_ptr<const T> &&t) : t_(std::move(t)), val_(), dec_(&val_, 1) {}
+        Proto(Proto const &p) : t_(p.t_), val_(p.val_), dec_(&val_, 1) {}
+        Proto(Proto &&p) : t_(std::move(p.t_)), val_(std::move(p.val_)), dec_(&val_, 1) {}
+        Proto &operator=(Proto const &p) {
+            if (this != &p) {
+                t_ = p.t_;
+                val_ = p.val_;
+            }
+            return *this;
+        }
+        Proto &operator=(Proto &&p) {
+            if (this != &p) {
+                t_ = std::move(p.t_);
+                val_ = std::move(p.val_);
+            }
+            return *this;
+        }
+        ~Proto() = default;
+
+        Proto &operator=(std::shared_ptr<const T> const &t) {
+            t_ = t;
+            return *this;
+        }
+        Proto &operator=(std::shared_ptr<const T> &&t) {
+            t_ = std::move(t);
+            return *this;
+        }
+
+        void SerializeToStream(std::ostream &os) const {
+            if constexpr (StructFieldInfo<T>::HasGeneratedStructFieldInfo) {
+                ProtoEncoder<T>::write(std::nullopt, *t_, os, false);
+            } else {
+                ProtoEncoder<T>::write(1, *t_, os, false);
+            }
+        }
+        void SerializeToString(std::string *s) const {
+            std::ostringstream oss;
+            if constexpr (StructFieldInfo<T>::HasGeneratedStructFieldInfo) {
+                ProtoEncoder<T>::write(std::nullopt, *t_, oss, false);
+            } else {
+                ProtoEncoder<T>::write(1, *t_, oss, false);
+            }
+            *s = oss.str();
+        }
+        bool ParseFromStringView(std::string_view const &s) {
+            t_.reset();
+            std::optional<std::size_t> res;
+            if constexpr (StructFieldInfo<T>::HasGeneratedStructFieldInfo) {
+                res = dec_.handle({internal::ProtoWireType::LengthDelimited, 0}, s, 0);
+            } else {
+                res = dec_.handleWithOuterHeader(s, 0);
+            }
+            if (res) {
+                auto x = std::make_shared<T>(std::move(val_));
+                t_ = std::const_pointer_cast<const T>(x);
+                return true;
+            } else {
+                return false;
+            }
+        }
+        bool ParseFromString(std::string const &s) {
+            return ParseFromStringView(std::string_view(s));
+        }
+        std::shared_ptr<const T> const &value() const {
+            return t_;
+        }
+        std::shared_ptr<const T> const &operator*() const {
+            return t_;
+        }
+        std::shared_ptr<const T> &&moveValue() && {
+            return std::move(t_);
+        }
+        static void runSerialize(std::shared_ptr<const T> const &t, std::ostream &os) {
+            if constexpr (StructFieldInfo<T>::HasGeneratedStructFieldInfo) {
+                ProtoEncoder<T>::write(std::nullopt, *t, os, false);
+            } else {
+                ProtoEncoder<T>::write(1, *t, os, false);
+            }
+        }
+        static bool runDeserialize(std::shared_ptr<const T> &t, std::string_view const &input) {
+            t.reset();
+            auto x = std::make_shared<T>();
+            ProtoDecoder<T> dec(*x, 1);
+            std::optional<std::size_t> res;
+            if constexpr (StructFieldInfo<T>::HasGeneratedStructFieldInfo) {
+                res = dec.handle({internal::ProtoWireType::LengthDelimited, 0}, input, 0);
+            } else {
+                res = dec.handleWithOuterHeader(input, 0);
+            }
+            if (res) {
+                t = std::const_pointer_cast<const T>(x);
+                return true;
+            } else {
+                return false;
+            }
+        }
+        static std::string runSerializeIntoValue(std::shared_ptr<const T> const &t) {
+            std::ostringstream oss;
+            runSerialize(t, oss);
+            return oss.str();
+        }
+    }; 
 
     template <class T>
     struct ProtoWrappable<T, std::enable_if_t<EncodableThroughProxy<T>::value && ProtoWrappable<typename EncodableThroughProxy<T>::EncodeProxyType>::value && ProtoWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value, void>> {

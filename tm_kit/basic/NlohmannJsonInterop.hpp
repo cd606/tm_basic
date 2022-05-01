@@ -3575,6 +3575,53 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
 
+    template <class T>
+    class JsonEncoder<std::shared_ptr<const T>, std::enable_if_t<JsonWrappable<T>::value, void>> {
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, std::shared_ptr<const T> const &data) {
+            JsonEncoder<T>::write(output, key, *data);
+        }
+    };
+    template <class T>
+    struct JsonWrappable<std::shared_ptr<const T>, std::enable_if_t<JsonWrappable<T>::value, void>> {
+        static constexpr bool value = true;
+    };
+    template <class T>
+    class JsonDecoder<std::shared_ptr<const T>, std::enable_if_t<JsonWrappable<T>::value, void>> {
+    public:
+        static void fillFieldNameMapping(JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            JsonDecoder<T>::fillFieldNameMapping(mapping);
+        }
+        static bool read(nlohmann::json const &input, std::optional<std::string> const &key, std::shared_ptr<const T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            data.reset();
+            auto x = std::make_shared<T>();
+            if (!JsonDecoder<T>::read(input, key, *x, mapping)) {
+                return false;
+            }
+            data = std::const_pointer_cast<const T>(x);
+            return true;
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::shared_ptr<const T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            data.reset();
+            auto x = std::make_shared<T>();
+            if (!JsonDecoder<T>::read_simd(input, key, *x, mapping)) {
+                return false;
+            }
+            data = std::const_pointer_cast<const T>(x);
+            return true;
+        }
+        template <class X>
+        static bool read_simd_ondemand(X &input, std::optional<std::string> const &key, std::shared_ptr<const T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            data.reset();
+            auto x = std::make_shared<T>();
+            if (!JsonDecoder<T>::template read_simd_ondemand<X>(input, key, *x, mapping)) {
+                return false;
+            }
+            data = std::const_pointer_cast<const T>(x);
+            return true;
+        }
+    };
+
 } } } } }
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils {

@@ -1,6 +1,6 @@
 import * as TMInfra from '../../tm_infra/node_lib/TMInfra'
 import * as _ from 'lodash';
-import * as dateformat from 'dateformat'
+import * as dateFNS from 'date-fns'
 import * as fs from 'fs'
 import * as Stream from 'stream'
 import { Console } from 'console';
@@ -161,7 +161,7 @@ export class ClockEnv implements TMInfra.EnvBase {
         };
     }
     public static formatDate(d : Date) : string {
-        return dateformat(d, "yyyy-mm-dd HH:MM:ss.l");
+        return dateFNS.format(d, "yyyy-mm-dd HH:MM:ss.SSS");
     }
 }
 
@@ -678,15 +678,15 @@ export namespace Files {
                 switch (this.option.timePrecision) {
                 case "second":
                     theTime = new Date(Number(t*BigInt(1000)));
-                    theTimeString = dateformat(theTime, "yyyy-mm-dd HH:MM:ss");
+                    theTimeString = dateFNS.format(theTime, "yyyy-mm-dd HH:MM:ss");
                     break;
                 case "millisecond":
                     theTime = new Date(Number(t));
-                    theTimeString = dateformat(theTime, "yyyy-mm-dd HH:MM:ss.l");
+                    theTimeString = dateFNS.format(theTime, "yyyy-mm-dd HH:MM:ss.SSS");
                     break;
                 case "microsecond":
                     theTime = new Date(Number(t/BigInt(1000)));
-                    theTimeString = dateformat(theTime, "yyyy-mm-dd HH:MM:ss")+printf('.%06d', Number(t%BigInt(1000000)));
+                    theTimeString = dateFNS.format(theTime, "yyyy-mm-dd HH:MM:ss")+printf('.%06d', Number(t%BigInt(1000000)));
                     break;
                 }
                 idx += this.option.timeFieldLength;

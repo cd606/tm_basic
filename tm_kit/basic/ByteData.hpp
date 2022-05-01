@@ -865,6 +865,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         };
         template <class A>
+        struct RunCBORSerializer<std::shared_ptr<const A>, void> {
+            static std::string apply(std::shared_ptr<const A> const &data) {
+                if (!data) {
+                    return RunCBORSerializer<A>::apply(A {});
+                } else {
+                    return RunCBORSerializer<A>::apply(*data);
+                }
+            }
+            static std::size_t apply(std::shared_ptr<const A> const &data, char *output) {
+                if (!data) {
+                    return RunCBORSerializer<A>::apply(A {}, output);
+                } else {
+                    return RunCBORSerializer<A>::apply(*data, output);
+                }
+            }
+            static std::size_t calculateSize(std::shared_ptr<const A> const &data) {
+                if (!data) {
+                    return RunCBORSerializer<A>::calculateSize(A {});
+                } else {
+                    return RunCBORSerializer<A>::calculateSize(*data);
+                }
+            }
+        };
+        template <class A>
         struct RunCBORSerializer<std::optional<A>, void> {
             static std::string apply(std::optional<A> const &data) {
                 if (!data) {
@@ -2370,6 +2394,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 default:
                     return std::nullopt;
                 }
+            }
+        };
+        template <class A>
+        struct RunCBORDeserializer<std::shared_ptr<const A>, void> {
+            static std::optional<std::tuple<std::shared_ptr<const A>, size_t>> apply(std::string_view const &data, size_t start) {
+                std::shared_ptr<A> x = std::make_shared<A>();
+                auto v = RunCBORDeserializer<A>::applyInPlace(*x, data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                return std::tuple<std::shared_ptr<const A>, size_t> {
+                    std::const_pointer_cast<const A>(x), *v
+                };
+            }
+            static std::optional<size_t> applyInPlace(std::shared_ptr<const A> &output, std::string_view const &data, size_t start) {
+                output.reset();
+                std::shared_ptr<A> x = std::make_shared<A>();
+                auto v = RunCBORDeserializer<A>::applyInPlace(*x, data, start);
+                if (!v) {
+                    return std::nullopt;
+                }
+                output = std::const_pointer_cast<const A>(x);
+                return *v;
             }
         };
         template <class A>

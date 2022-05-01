@@ -101,6 +101,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static constexpr bool IsGoodForFlatPack = checkGood<StructFieldInfo<typename FlatPackSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0>();
             static constexpr std::size_t FlatPackFieldCount = totalFieldCount<StructFieldInfo<typename FlatPackSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0,0>();
         };
+        template <class T>
+        class StructFieldInfoFlatPackSupportChecker<std::shared_ptr<const T>, false> {
+        public:
+            static constexpr bool IsComposite = false;
+            static constexpr bool IsGoodForFlatPack = false;
+            static constexpr std::size_t FlatPackFieldCount = 0;
+        };
 
         class StructFieldInfoBasedSimpleFlatPackOutputImpl {
         private:
@@ -446,6 +453,91 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             return t_;
         }
     };
+    template <class T>
+    class FlatPack<T const *, std::enable_if_t<internal::StructFieldInfoFlatPackSupportChecker<T>::IsGoodForFlatPack && internal::StructFieldInfoFlatPackSupportChecker<T>::IsComposite, void>> {
+    private:
+        T const *t_;
+    public:
+        FlatPack() : t_(nullptr) {}
+        FlatPack(T const *t) : t_(t) {}
+        FlatPack(FlatPack const &p) = default;
+        FlatPack(FlatPack &&p) = default;
+        FlatPack &operator=(FlatPack const &p) = default;
+        FlatPack &operator=(FlatPack &&p) = default;
+        ~FlatPack() = default;
+
+        void writeToStream(std::ostream &os) const {
+            if (t_) {
+                StructFieldInfoBasedSimpleFlatPackOutput<T>::writeData(os, *t_);
+            }
+        }
+        void writeToString(std::string *s) const {
+            if (t_) {
+                std::ostringstream oss;
+                StructFieldInfoBasedSimpleFlatPackOutput<T>::writeData(oss, *t_);
+                *s = oss.str();
+            }
+        }
+        T const &value() const {
+            return *t_;
+        }
+        T const &operator*() const {
+            return *t_;
+        }
+        T const *operator->() const {
+            return t_;
+        }
+    };
+    template <class T>
+    class FlatPack<std::shared_ptr<const T>, std::enable_if_t<internal::StructFieldInfoFlatPackSupportChecker<T>::IsGoodForFlatPack && internal::StructFieldInfoFlatPackSupportChecker<T>::IsComposite, void>> {
+    private:
+        std::shared_ptr<const T> t_;
+    public:
+        FlatPack() : t_() {}
+        FlatPack(std::shared_ptr<const T> const &t) : t_(t) {}
+        FlatPack(std::shared_ptr<const T> &&t) : t_(std::move(t)) {}
+        FlatPack(FlatPack const &p) = default;
+        FlatPack(FlatPack &&p) = default;
+        FlatPack &operator=(FlatPack const &p) = default;
+        FlatPack &operator=(FlatPack &&p) = default;
+        ~FlatPack() = default;
+
+        void writeToStream(std::ostream &os) const {
+            if (t_) {
+                StructFieldInfoBasedSimpleFlatPackOutput<T>::writeData(os, *t_);
+            }
+        }
+        void writeToString(std::string *s) const {
+            if (t_) {
+                std::ostringstream oss;
+                StructFieldInfoBasedSimpleFlatPackOutput<T>::writeData(oss, *t_);
+                *s = oss.str();
+            }
+        }
+        bool fromStringView(std::string_view const &s) {
+            t_.reset();
+            auto x = std::make_shared<T>();
+            auto res = StructFieldInfoBasedSimpleFlatPackInput<T>::readOne(s, 0, *x);
+            if (res) {
+                t_ = std::const_pointer_cast<const T>(x);
+                return true;
+            } else {
+                return false;
+            }
+        }
+        bool fromString(std::string const &s) {
+            return fromStringView(std::string_view(s));
+        }
+        std::shared_ptr<const T> const &value() const {
+            return t_;
+        }
+        std::shared_ptr<const T> &&moveValue() && {
+            return std::move(t_);
+        }
+        std::shared_ptr<const T> &operator*() {
+            return t_;
+        }
+    };
 } } } } }
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils {
@@ -462,7 +554,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
     template <class T>
     struct RunDeserializer<struct_field_info_utils::FlatPack<T>, void> {
         static std::optional<struct_field_info_utils::FlatPack<T>> apply(std::string_view const &data) {
-            TriviallySerializable<T> t;
+            struct_field_info_utils::FlatPack<T> t;
             if (t.fromStringView(data)) {
                 return {std::move(t)};
             } else {
