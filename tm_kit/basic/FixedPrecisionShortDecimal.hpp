@@ -63,6 +63,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         FixedPrecisionShortDecimal &operator=(FixedPrecisionShortDecimal &&) = default;
         ~FixedPrecisionShortDecimal() = default;
 
+        static FixedPrecisionShortDecimal zero() {
+            return FixedPrecisionShortDecimal();
+        }
+        static FixedPrecisionShortDecimal max() {
+            return FixedPrecisionShortDecimal(std::numeric_limits<Underlying>::max());
+        }
+        static FixedPrecisionShortDecimal min() {
+            return FixedPrecisionShortDecimal(std::numeric_limits<Underlying>::min());
+        }
+
         bool operator==(FixedPrecisionShortDecimal const &another) const {
             return (value_ == another.value_);
         }
