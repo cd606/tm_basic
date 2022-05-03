@@ -121,6 +121,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         explicit operator double() const {
             return s_conversionFactor*value_;
         }
+        explicit operator float() const {
+            return ((float) s_conversionFactor)*((float) value_);
+        }
         std::string asString() const {
             std::ostringstream oss;
             oss << value_/s_divisionFactor;
