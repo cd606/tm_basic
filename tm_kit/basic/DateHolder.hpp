@@ -4,6 +4,8 @@
 #include <iostream>
 #include <iomanip>
 #include <functional>
+#include <chrono>
+#include <ctime>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
     struct DateHolder {
@@ -52,6 +54,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     }
     inline bool operator!=(DateHolder const &d1, DateHolder const &d2) {
         return !(d1 == d2);
+    }
+
+    inline DateHolder dateHolderFromTimePoint(std::chrono::system_clock::time_point const &tp) {
+        std::time_t t = std::chrono::system_clock::to_time_t(tp);
+        std::tm *m = std::localtime(&t);
+        return DateHolder {
+            m->tm_year+1900
+            , m->tm_mon+1
+            , m->tm_mday
+        };
     }
 } } } }
 
