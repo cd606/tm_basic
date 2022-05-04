@@ -161,7 +161,7 @@ export class ClockEnv implements TMInfra.EnvBase {
         };
     }
     public static formatDate(d : Date) : string {
-        return dateFNS.format(d, "yyyy-mm-dd HH:MM:ss.SSS");
+        return dateFNS.format(d, "yyyy-MM-dd HH:mm:ss.SSS");
     }
 }
 
@@ -678,15 +678,15 @@ export namespace Files {
                 switch (this.option.timePrecision) {
                 case "second":
                     theTime = new Date(Number(t*BigInt(1000)));
-                    theTimeString = dateFNS.format(theTime, "yyyy-mm-dd HH:MM:ss");
+                    theTimeString = dateFNS.format(theTime, "yyyy-MM-dd HH:mm:ss");
                     break;
                 case "millisecond":
                     theTime = new Date(Number(t));
-                    theTimeString = dateFNS.format(theTime, "yyyy-mm-dd HH:MM:ss.SSS");
+                    theTimeString = dateFNS.format(theTime, "yyyy-MM-dd HH:mm:ss.SSS");
                     break;
                 case "microsecond":
                     theTime = new Date(Number(t/BigInt(1000)));
-                    theTimeString = dateFNS.format(theTime, "yyyy-mm-dd HH:MM:ss")+printf('.%06d', Number(t%BigInt(1000000)));
+                    theTimeString = dateFNS.format(theTime, "yyyy-MM-dd HH:mm:ss")+printf('.%06d', Number(t%BigInt(1000000)));
                     break;
                 }
                 idx += this.option.timeFieldLength;
