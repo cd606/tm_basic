@@ -37,6 +37,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
         static constexpr Underlying s_divisionFactor = divisionFactor();
     public:
+        using UnderlyingType = Underlying;
         FixedPrecisionShortDecimal() : value_(0) {}
         explicit FixedPrecisionShortDecimal(Underlying u) : value_(u) {}
         explicit FixedPrecisionShortDecimal(double d) : value_(std::round(d/s_conversionFactor)) {}
