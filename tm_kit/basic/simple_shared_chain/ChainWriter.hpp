@@ -9,6 +9,7 @@
 #include <tm_kit/basic/simple_shared_chain/FolderUsingPartialHistoryInformation.hpp>
 #include <tm_kit/basic/simple_shared_chain/ChainPollingPolicy.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
+#include <tm_kit/basic/NotConstructibleStruct.hpp>
 #include <chrono>
 #include <thread>
 #include <mutex>
@@ -1500,6 +1501,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         static std::tuple<ResponseType, std::optional<std::tuple<std::string, ChainData>>>
         handleInput(Env *, void *, typename infra::RealTimeApp<Env>::template TimedDataType<typename infra::RealTimeApp<Env>::template Key<VoidStruct>> const &, ChainState const &) {
             return {VoidStruct {}, std::nullopt};
+        }
+    };
+
+    template <class ChainData>
+    class CompletelyEmptyInputHandler {
+    public:
+        using InputType = NotConstructibleStruct;
+        using ResponseType = VoidStruct;
+        static void initialize(void *, void *) {}
+        template <class Env, class ChainState>
+        static std::tuple<std::optional<ResponseType>, std::optional<std::tuple<std::string, ChainData>>>
+        handleInput(Env *, void *, typename infra::RealTimeApp<Env>::template TimedDataType<typename infra::RealTimeApp<Env>::template Key<NotConstructibleStruct>> const &, ChainState const &) {
+            return {std::nullopt, std::nullopt};
         }
     };
 
