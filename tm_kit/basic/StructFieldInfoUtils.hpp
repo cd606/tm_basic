@@ -32,12 +32,63 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     x.year = tm.tm_year+1900;
                     x.month = tm.tm_mon+1;
                     x.day = tm.tm_mday;
+                } else if constexpr (std::is_same_v<typename StructFieldTypeInfo<T,FieldIndex>::TheType, std::chrono::system_clock::time_point>) {
+                    auto s = source.template get<std::string>(FieldIndex+startSourceIndex);
+                    data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()) = 
+                        infra::withtime_utils::parseLocalTime(s);
                 } else {
                     data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()) = source.template get<typename StructFieldTypeInfo<T,FieldIndex>::TheType>(FieldIndex+startSourceIndex);
                 }
                 if constexpr (FieldIndex < FieldCount-1) {
                     fillData_internal<R,FieldCount,FieldIndex+1>(data, source, startSourceIndex);
                 }
+            }
+        }
+        template <std::size_t FieldIndex>
+        static void addToCommaSeparatedFieldNamesForSelect(std::ostream &oss, bool &begin) {
+            if constexpr (FieldIndex < StructFieldInfo<T>::FIELD_NAMES.size()) {
+                if (!begin) {
+                    oss << ", ";
+                }
+                begin = false;
+                if constexpr (std::is_same_v<typename StructFieldTypeInfo<T,FieldIndex>::TheType, std::chrono::system_clock::time_point>) {
+                    oss << "DATE_FORMAT(" << StructFieldInfo<T>::FIELD_NAMES[FieldIndex] 
+                        << ",'%Y-%m-%dT%H:%i:%S.%f')";
+                } else {
+                    oss << StructFieldInfo<T>::FIELD_NAMES[FieldIndex];
+                }
+                addToCommaSeparatedFieldNamesForSelect<FieldIndex+1>(oss, begin);
+            }
+        }
+        template <std::size_t FieldIndex>
+        static void addValueFieldsToInsertValueList_internal(std::ostream &oss, bool &begin) {
+            if constexpr (FieldIndex < basic::StructFieldInfo<T>::FIELD_NAMES.size()) {
+                if (!begin) {
+                    oss << ',';
+                }
+                begin = false;
+                if constexpr (std::is_same_v<typename StructFieldTypeInfo<T,FieldIndex>::TheType, std::chrono::system_clock::time_point>) {
+                    oss << "STR_TO_DATE(:" << basic::StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << ",'%Y-%m-%dT%H:%i:%S.%f')";
+                } else {
+                    oss << ':' << basic::StructFieldInfo<T>::FIELD_NAMES[FieldIndex];
+                }
+                addValueFieldsToInsertValueList_internal<FieldIndex+1>(oss, begin);
+            }
+        }
+        template <std::size_t FieldIndex>
+        static void addValueFieldsToWhereClauseList_internal(std::ostream &oss, bool &begin) {
+            if constexpr (FieldIndex < basic::StructFieldInfo<T>::FIELD_NAMES.size()) {
+                if (!begin) {
+                    oss << " AND ";
+                }
+                begin = false;
+                oss << basic::StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << " = ";
+                if constexpr (std::is_same_v<typename StructFieldTypeInfo<T,FieldIndex>::TheType, std::chrono::system_clock::time_point>) {
+                    oss << "STR_TO_DATE(:" << basic::StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << ",'%Y-%m-%dT%H:%i:%S.%f')";
+                } else {
+                    oss << ':' << basic::StructFieldInfo<T>::FIELD_NAMES[FieldIndex];
+                }
+                addValueFieldsToInsertValueList_internal<FieldIndex+1>(oss, begin);
             }
         }
     public:
@@ -53,6 +104,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 oss << n;
             }
             return oss.str();
+        }
+        static std::string commaSeparatedFieldNamesForSelect() {
+            bool begin = true;
+            std::ostringstream oss;
+            addToCommaSeparatedFieldNamesForSelect<0>(oss, begin);
+            return oss.str();
+        }
+        static void addValueFieldsToInsertValueList(std::ostream &oss, bool &begin) {
+            addValueFieldsToInsertValueList_internal<0>(oss, begin);
+        }
+        static void addValueFieldsToWhereClauseValueList(std::ostream &oss, bool &begin) {
+            addValueFieldsToWhereClauseList_internal<0>(oss, begin);
         }
         template <class R>
         static void fillData(T &data, R const &source, int startSourceIndex=0) {
