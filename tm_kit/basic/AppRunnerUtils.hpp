@@ -1904,6 +1904,204 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             };
         }
+
+        template <class T>
+        static typename R::template Source<T> pacer(
+            R &r
+            , std::string const &prefix 
+            , typename R::template Sourceoid<T> const &originalSource
+            , typename M::Duration const &timeWindowLength
+            , uint64_t maxCountInWindow
+            , bool paceByDiscard
+        ) {
+            if (paceByDiscard) {
+                class Discarder {
+                private:
+                    typename M::Duration timeWindowLength_;
+                    uint64_t maxCountInWindow_;
+                    std::deque<typename M::TimePoint> pastEvents_;
+                public:
+                    Discarder(typename M::Duration const &timeWindowLength, uint64_t maxCountInWindow) 
+                        : timeWindowLength_(timeWindowLength), maxCountInWindow_(maxCountInWindow), pastEvents_() 
+                    {}
+                    ~Discarder() = default;
+                    Discarder(Discarder const &) = delete;
+                    Discarder &operator=(Discarder const &) = delete;
+                    Discarder(Discarder &&) = default;
+                    Discarder &operator=(Discarder &&) = default;
+
+                    typename M::template Data<T> operator()(typename M::template InnerData<T> &&input) {
+                        auto now = input.environment->now();
+                        while (!pastEvents_.empty()) {
+                            if (pastEvents_.front()+timeWindowLength_ < now) {
+                                pastEvents_.pop_front();
+                            } else {
+                                break;
+                            }
+                        }
+                        if (pastEvents_.size() < maxCountInWindow_) {
+                            pastEvents_.push_back(now);
+                            return typename M::template InnerData<T> {std::move(input)};
+                        } else {
+                            return std::nullopt;
+                        }
+                    }
+                };
+
+                auto discarder = infra::GenericLift<M>::lift(Discarder {timeWindowLength, maxCountInWindow});
+                r.registerAction(prefix+"/discarder", discarder);
+                
+                originalSource(r, r.actionAsSink(discarder));
+                return r.actionAsSource(discarder);
+            } else {
+                using Fac = typename AppClockHelper<M>::Facility;
+                class PacerBuffer {
+                private:
+                    typename M::Duration timeWindowLength_;
+                    uint64_t maxCountInWindow_;
+                    std::deque<typename M::TimePoint> pastEvents_;
+                    std::deque<std::tuple<T, bool>> buffer_;
+                public:
+                    PacerBuffer(typename M::Duration const &timeWindowLength, uint64_t maxCountInWindow) 
+                        : timeWindowLength_(timeWindowLength), maxCountInWindow_(maxCountInWindow), pastEvents_(), buffer_() 
+                    {}
+                    ~PacerBuffer() = default;
+                    PacerBuffer(PacerBuffer const &) = delete;
+                    PacerBuffer &operator=(PacerBuffer const &) = delete;
+                    PacerBuffer(PacerBuffer &&) = default;
+                    PacerBuffer &operator=(PacerBuffer &&) = default;
+
+                    typename M::template Data<
+                        std::tuple<
+                            std::vector<T>
+                            , std::tuple<bool, typename M::Duration>
+                        >
+                    > operator()(
+                        typename M::template InnerData<
+                            std::variant<
+                                T
+                                , typename M::template KeyedData<typename Fac::template FacilityInput<VoidStruct>, VoidStruct>
+                            >
+                        > &&input
+                    ) {
+                        auto now = input.environment->now();
+                        while (!pastEvents_.empty()) {
+                            if (pastEvents_.front()+timeWindowLength_ < now) {
+                                pastEvents_.pop_front();
+                            } else {
+                                break;
+                            }
+                        }
+                        if (input.timedData.value.index() == 0) {
+                            if (buffer_.empty() && pastEvents_.size() < maxCountInWindow_) {
+                                pastEvents_.push_back(now);
+                                return typename M::template InnerData<
+                                    std::tuple<
+                                        std::vector<T>
+                                        , std::tuple<bool, typename M::Duration>
+                                    > 
+                                > {
+                                    input.environment
+                                    , {
+                                        now
+                                        , {{std::move(std::get<0>(input.timedData.value))}, {true, typename M::Duration {}}}
+                                        , input.timedData.finalFlag
+                                    }
+                                };
+                            } else {
+                                buffer_.push_back({
+                                    std::move(std::get<0>(input.timedData.value))
+                                    , input.timedData.finalFlag
+                                });
+                            }
+                        }
+
+                        std::vector<T> res;
+                        bool final = false;
+                        while (!buffer_.empty() && pastEvents_.size() < maxCountInWindow_) {
+                            res.push_back(std::move(std::get<0>(buffer_.front())));
+                            if (std::get<1>(buffer_.front())) {
+                                final = true;
+                            }
+                            pastEvents_.push_back(now);
+                            buffer_.pop_front();
+                        }
+                        bool hasRes = !res.empty();
+                        typename M::Duration waitTime {};
+                        if (!hasRes) {
+                            auto peIter = pastEvents_.begin();
+                            if (peIter != pastEvents_.end()) {
+                                auto t1 = *peIter;
+                                ++peIter;
+                                if (peIter != pastEvents_.end()) {
+                                    waitTime = *peIter-t1;
+                                } else {
+                                    waitTime = now-t1;
+                                }
+                            }
+                        }
+                        return typename M::template InnerData<
+                            std::tuple<
+                                std::vector<T>
+                                , std::tuple<bool, typename M::Duration>
+                            >
+                        > {
+                            input.environment
+                            , {
+                                now
+                                , {std::move(res), {hasRes, waitTime}}
+                                , final
+                            }
+                        };
+                    }
+                };
+
+                auto pacerBuffer = infra::GenericLift<M>::lift(PacerBuffer {timeWindowLength, maxCountInWindow});
+                r.registerAction(prefix+"/pacerBuffer", pacerBuffer);
+
+                auto t2v = M::template dispatchTupleAction<
+                    std::vector<T>
+                    , std::tuple<bool, typename M::Duration>
+                >();
+                r.registerAction(prefix+"/t2v", t2v);
+
+                auto createKey = infra::GenericLift<M>::lift(
+                    [](std::tuple<bool, typename M::Duration> &&x) -> std::optional<typename M::template Key<typename Fac::template FacilityInput<VoidStruct>>> {
+                        if (std::get<0>(x)) {
+                            return std::nullopt;
+                        } else {
+                            return {{typename Fac::template FacilityInput<VoidStruct> {
+                                VoidStruct {}
+                                , {std::get<1>(x)}
+                            }}};
+                        }
+                    }
+                );
+                r.registerAction(prefix+"/createKey", createKey);
+
+                auto fac = Fac::template createClockCallback<VoidStruct, VoidStruct>(
+                    [](typename M::TimePoint const &, std::size_t, std::size_t) {
+                        return VoidStruct {};
+                    }
+                );
+                r.registerOnOrderFacility(prefix+"/clockFacility", fac);
+
+                originalSource(r, r.actionAsSink_2_0(pacerBuffer));
+                r.placeOrderWithFacility(
+                    r.actionAsSource(createKey)
+                    , fac
+                    , r.actionAsSink_2_1(pacerBuffer)
+                );
+                r.connect(r.actionAsSource(pacerBuffer), r.actionAsSink(t2v));
+                r.connect_2_1(r.actionAsSource(t2v), r.actionAsSink(createKey));
+
+                auto d = CommonFlowUtilComponents<M>::template dispatchOneByOne<T>();
+                r.registerAction(prefix+"/dispatcher", d);
+                r.connect_2_0(r.actionAsSource(t2v), r.actionAsSink(d));
+
+                return r.actionAsSource(d);
+            }
+        }
     };
 
 } } } }
