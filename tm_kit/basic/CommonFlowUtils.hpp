@@ -19,6 +19,7 @@
 #include <tm_kit/basic/SingleLayerWrapper.hpp>
 #include <tm_kit/basic/CounterComponent.hpp>
 #include <tm_kit/basic/ByteData.hpp>
+#include <tm_kit/basic/PrintHelper.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
 
@@ -118,6 +119,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             return infra::KleisliUtils<M>::template liftPure<Wrapped1>(
                 [](Wrapped1 &&x) -> Wrapped2 {
                     return Wrapped2 {std::move(x.value)};
+                }
+            );
+        }
+
+        template <class T>
+        static auto printExporter() {
+            return infra::GenericLift<M>::lift(
+                [](typename M::template InnerData<T> &&data) {
+                    std::ostringstream oss;
+                    oss << "{timestamp=";
+                    PrintHelper<decltype(data.timedData.timePoint)>::print(oss, data.timedData.timePoint);
+                    oss << ", value=";
+                    PrintHelper<T>::print(oss, data.timedData.value);
+                    oss << "}";
+                    if (data.timedData.finalFlag) {
+                        oss << " [F]";
+                    }
+                    data.environment->log(infra::LogLevel::Info, oss.str());
                 }
             );
         }

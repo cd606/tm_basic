@@ -533,5 +533,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             os << "}";
         }
     };
+    template <class T, class Env>
+    class PrintHelper<infra::Key<T,Env>> {
+    public:
+        static void print(std::ostream &os, infra::Key<T,Env> const &k) {
+            os << "Key{id=";
+            PrintHelper<typename Env::IDType>::print(os, k.id());
+            os << ",key=";
+            PrintHelper<T>::print(os, k.key());
+            os << "}";
+        }
+    };
+    template <class K, class D, class Env>
+    class PrintHelper<infra::KeyedData<K,D,Env>> {
+    public:
+        static void print(std::ostream &os, infra::KeyedData<K,D,Env> const &x) {
+            os << "KeyedData{key=";
+            PrintHelper<infra::Key<K,Env>>::print(os, x.key);
+            os << ",data=";
+            PrintHelper<D>::print(os, x.data);
+            os << "}";
+        }
+    };
 }}}}
 #endif
