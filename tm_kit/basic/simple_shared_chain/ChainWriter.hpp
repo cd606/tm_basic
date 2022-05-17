@@ -1540,6 +1540,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         static std::tuple<ResponseType, std::vector<std::tuple<std::string, ChainData>>>
         handleInput(Env *, void *, typename infra::RealTimeApp<Env>::template TimedDataType<typename infra::RealTimeApp<Env>::template Key<std::vector<ChainData>>> const &input, ChainState const &) {
             std::tuple<ResponseType, std::vector<std::tuple<std::string, ChainData>>> ret {};
+            std::get<0>(ret) = true;
             for (auto const item : input.value.key()) {
                 std::get<1>(ret).push_back(
                     std::tuple<std::string, ChainData> {
