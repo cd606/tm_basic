@@ -1530,6 +1530,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
     };
 
+    template <class ChainData>
+    class SimplyPlaceMultipleOnChainInputHandler {
+    public:
+        using InputType = std::vector<ChainData>;
+        using ResponseType = bool;
+        static void initialize(void *, void *) {}
+        template <class Env, class ChainState>
+        static std::tuple<ResponseType, std::vector<std::tuple<std::string, ChainData>>>
+        handleInput(Env *, void *, typename infra::RealTimeApp<Env>::template TimedDataType<typename infra::RealTimeApp<Env>::template Key<std::vector<ChainData>>> const &input, ChainState const &) {
+            std::tuple<ResponseType, std::vector<std::tuple<std::string, ChainData>>> ret {};
+            for (auto const item : input.value.key()) {
+                std::get<1>(ret).push_back(
+                    std::tuple<std::string, ChainData> {
+                        "", item
+                    }
+                );
+            }
+            return ret;
+        }
+    };
+
     template <class ChainData, class StateData>
     class SimplyReturnStateIdleLogic {
     public:
