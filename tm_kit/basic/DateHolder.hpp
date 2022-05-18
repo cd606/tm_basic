@@ -60,9 +60,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         std::time_t t = std::chrono::system_clock::to_time_t(tp);
         std::tm *m = std::localtime(&t);
         return DateHolder {
-            m->tm_year+1900
-            , m->tm_mon+1
-            , m->tm_mday
+            static_cast<uint16_t>(m->tm_year+1900)
+            , static_cast<uint8_t>(m->tm_mon+1)
+            , static_cast<uint8_t>(m->tm_mday)
         };
     }
 } } } }
