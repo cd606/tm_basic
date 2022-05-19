@@ -3750,11 +3750,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     }; 
 
     template <class T>
-    struct ProtoWrappable<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && !EncodableThroughProxy<T>::value && ConvertibleWithString<T>::value, void>> {
+    struct ProtoWrappable<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && !EncodableThroughProxy<T>::value && !std::is_enum_v<T> && ConvertibleWithString<T>::value, void>> {
         static constexpr bool value = true;
     };
     template <class T>
-    class ProtoEncoder<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && !EncodableThroughProxy<T>::value && ConvertibleWithString<T>::value, void>> {
+    class ProtoEncoder<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && !EncodableThroughProxy<T>::value && !std::is_enum_v<T> && ConvertibleWithString<T>::value, void>> {
     public:
         static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
             return ProtoEncoder<std::string>::thisFieldNumber(inputFieldNumber);
@@ -3767,7 +3767,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <class T>
-    class ProtoDecoder<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && !EncodableThroughProxy<T>::value && ConvertibleWithString<T>::value, void>> final : public IProtoDecoder<T> {
+    class ProtoDecoder<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && !EncodableThroughProxy<T>::value && !std::is_enum_v<T> && ConvertibleWithString<T>::value, void>> final : public IProtoDecoder<T> {
     private:
         std::string proxy_;
         ProtoDecoder<std::string> subDec_;
