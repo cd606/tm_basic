@@ -75,6 +75,28 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             );
         }
+        template <class T>
+        static auto dispatchInSegments(std::size_t segmentSize) {
+            return M::template liftMulti<std::vector<T>>(
+                [segmentSize](std::vector<T> &&x) -> std::vector<std::vector<T>>
+                {
+                    auto ll = x.size();
+                    if (ll <= segmentSize) {
+                        return {std::move(x)};
+                    } else {
+                        std::vector<std::vector<T>> segments;
+                        for (std::size_t ii=0; ii<ll; ii+=segmentSize) {
+                            segments.push_back({});
+                            auto &b = segments.back();
+                            for (std::size_t jj=ii; jj<ii+segmentSize && jj<ll; ++jj) {
+                                b.push_back(std::move(x[jj]));
+                            }
+                        }
+                        return segments;
+                    }
+                }
+            );
+        }
         
         //this is used when we want to convert an 
         //input to some empty type, so it effectively becomes
