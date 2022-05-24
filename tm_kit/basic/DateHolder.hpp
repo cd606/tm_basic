@@ -65,6 +65,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             , static_cast<uint8_t>(m->tm_mday)
         };
     }
+    inline DateHolder dateHolderFromYYYYMMDD(int yyyymmdd) {
+        return DateHolder {
+            static_cast<uint16_t>(yyyymmdd/10000)
+            , static_cast<uint8_t>((yyyymmdd%10000)/100)
+            , static_cast<uint8_t>(yyyymmdd%100)
+        };
+    }
+    inline int dateHolderToYYYYMMDD(DateHolder const &d) {
+        return (int) d.year*10000+(int) d.month*100+(int) d.day;
+    }
 } } } }
 
 namespace std {
