@@ -2653,6 +2653,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return true;
             }
         };
+        template <class T>
+        struct DirectlySerializableChecker<std::shared_ptr<const T>> {
+            static constexpr bool IsDirectlySerializable() {
+                return DirectlySerializableChecker<T>::IsDirectlySerializable();
+            }
+        };
 
         template <class T, typename Enable=void>
         struct RunSerializer {
@@ -2660,6 +2666,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::string s;
                 data.SerializeToString(&s);
                 return s;
+            }
+        };
+        template <class T>
+        struct RunSerializer<std::shared_ptr<const T>, void> {
+            static std::string apply(std::shared_ptr<const T> const &data) {
+                return RunSerializer<T>::apply(*data);
             }
         };
         template <class T>
@@ -2762,6 +2774,33 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
             static bool applyInPlace(T &output, std::string const &data) {
                 return output.ParseFromString(data);
+            }
+        };
+        template <class T>
+        struct RunDeserializer<std::shared_ptr<const T>, void> {
+            static std::optional<std::shared_ptr<const T>> apply(std::string_view const &data) {
+                return apply(std::string {data});
+            }
+            static std::optional<std::shared_ptr<const T>> apply(std::string const &data) {
+                auto x = RunDeserializer<T>::apply(data);
+                if (x) {
+                    auto t = std::make_shared<T>(std::move(*x));
+                    return std::const_pointer_cast<const T>(t);
+                } else {
+                    return std::nullopt;
+                }
+            }
+            static bool applyInPlace(std::shared_ptr<const T> &output, std::string_view const &data) {
+                return applyInPlace(output, std::string {data});
+            }
+            static bool applyInPlace(std::shared_ptr<const T> &output, std::string const &data) {
+                auto t = std::make_shared<T>();
+                if (RunDeserializer<T>::applyInPlace(*t, data)) {
+                    output = std::const_pointer_cast<const T>(t);
+                    return true;
+                } else {
+                    return false;
+                }
             }
         };
         template <class T>
