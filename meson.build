@@ -4,7 +4,11 @@ inc = include_directories('.')
 thread_dep = dependency('threads')
 boost_dep = dependency('boost', modules : ['log','log_setup','system','thread','filesystem','iostreams'])
 spd_dep = dependency('spdlog')
-tm_infra_dep = dependency('tm_kit_infra')
+if get_option('buildtype') == 'debug'
+  tm_infra_dep = dependency('tm_kit_infra_debug')
+else
+  tm_infra_dep = dependency('tm_kit_infra')
+endif
 nlohmann_json_dep = dependency('nlohmann-json')
 simd_json_dep = dependency('simdjson')
 common_deps = [thread_dep, boost_dep, spd_dep, tm_infra_dep, nlohmann_json_dep, simd_json_dep]
