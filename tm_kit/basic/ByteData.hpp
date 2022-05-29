@@ -3466,6 +3466,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static std::shared_ptr<typename M::template Action<T, TypedDataWithTopic<T>>> addConstTopic(std::string const &s) {
             return addTopic<T>(ConstGenerator<std::string, T>(s));
         }
+        static std::shared_ptr<typename M::template Action<ByteData, ByteDataWithTopic>> addConstTopicToByteData(std::string const &s) {
+            return M::template liftPure<ByteData>(
+                [s](ByteData &&data) -> ByteDataWithTopic {
+                    return {s, std::move(data.content)};
+                }
+            );
+        }
 
         template <class T>
         static std::shared_ptr<typename M::template Action<TypedDataWithTopic<T>, ByteDataWithTopic>> serialize() {

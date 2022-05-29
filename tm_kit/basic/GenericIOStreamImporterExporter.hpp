@@ -212,14 +212,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::atomic<bool> running_;
 
                 void run() {
-                    GenericIOStreamImporterExporterHelper::template startQueue<infra::SinglePassIterationApp<Env>,T,Reader,DataComparer>(
+                    GenericIOStreamImporterExporterHelper::template startQueue<infra::RealTimeApp<Env>,T,Reader,DataComparer>(
                         env_, queue_, spec_, reader_, dataComparer_
                     );
                     while (running_) {
                         TM_INFRA_IMPORTER_TRACER(env_);
                         auto t = env_->now();
                         while (true) {
-                            auto ret = GenericIOStreamImporterExporterHelper::template stepQueue<infra::SinglePassIterationApp<Env>,T,Reader,DataComparer>(
+                            auto ret = GenericIOStreamImporterExporterHelper::template stepQueue<infra::RealTimeApp<Env>,T,Reader,DataComparer>(
                                 env_, queue_, reader_
                             );
                             if (!ret) {
