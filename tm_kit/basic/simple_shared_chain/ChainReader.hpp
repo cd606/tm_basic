@@ -186,7 +186,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         : public infra::IRealTimeAppPossiblyThreadedNode
           , public infra::RealTimeApp<Env>::template AbstractImporter<
             std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>
-          > {
+          >
+          , public virtual infra::IControllableNode<Env> {
     private:
         using OutputType = std::conditional_t<std::is_same_v<ResultTransformer, void>, typename ChainItemFolder::ResultType, typename ResultTypeExtractor<ResultTransformer>::TheType>;
         
@@ -365,6 +366,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
         virtual std::optional<std::thread::native_handle_type> threadHandle() override final {
             return th_.native_handle();
+        }
+        void control(Env */*env*/, std::string const &command, std::vector<std::string> const &params) override final {
+            if (command == "stop") {
+                running_ = false;
+            }
         }
     };
 

@@ -78,6 +78,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 , typename infra::RealTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>
                 , typename infra::RealTimeApp<Env>::template AbstractIntegratedOnOrderFacilityWithExternalEffects<typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T>
             >
+        , public virtual infra::IControllableNode<Env>
     {
     private:
         using OOF = typename infra::RealTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>;
@@ -99,6 +100,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 [](auto *h, auto *c, auto const *v) -> decltype((void) h->idleCallback(c, *v)) {}
             );
             TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(env_, ":idlework");
+            if (!running_) {
+                return;
+            }
             if constexpr (std::is_same_v<IdleLogic, void>) {
                 //only read one, since this is just a helper
                 std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
@@ -128,8 +132,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             } else {
                 ChainLock<Chain> _(chain_);
                 //we must read until the end
-                while (true) {
-                    while (true) {
+                while (running_) {
+                    while (running_) {
                         std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
                         if (!nextItem) {
                             break;
@@ -148,6 +152,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                                 currentState_ = folder_.fold(currentState_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
                             }
                         }
+                    }
+                    if (!running_) {
+                        break;
                     }
                     auto processResult = idleLogic_.work(env_, chain_, currentState_);
                     if constexpr (
@@ -215,10 +222,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 [](auto *f, auto *v, auto const *id, auto const *data) -> decltype((void) (f->foldInPlace(*v, *id, *data))) {}
             );
             TM_INFRA_FACILITY_TRACER_WITH_SUFFIX(data.environment, ":handle");
+            if (!running_) {
+                return;
+            }
             auto id = data.timedData.value.id();
             ChainLock<Chain> _(chain_);
-            while (true) {
-                while (true) {
+            while (running_) {
+                while (running_) {
                     std::optional<typename Chain::ItemType> nextItem = chain_->fetchNext(currentItem_);
                     if (!nextItem) {
                         break;
@@ -237,6 +247,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                             currentState_ = folder_.fold(currentState_, Chain::extractStorageIDStringView(currentItem_), *dataPtr);
                         }
                     }
+                }
+                if (!running_) {
+                    break;
                 }
                 auto processResult = inputHandler_.handleInput(data.environment, chain_, data.timedData, currentState_);
                 if constexpr (
@@ -376,6 +389,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , typename infra::RealTimeApp<Env>::template AbstractOnOrderFacility<typename InputHandler::InputType, typename InputHandler::ResponseType>
             , typename infra::RealTimeApp<Env>::template AbstractIntegratedOnOrderFacilityWithExternalEffects<typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T>
         >;
+
+        std::atomic<bool> running_;
     public:
         using IdleLogicPlaceHolder = std::conditional_t<
             std::is_same_v<IdleLogic, void>
@@ -399,6 +414,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             , env_(nullptr)
             , idleLogic_(std::move(idleLogic))
             , startWaiterStruct_(std::make_unique<StartWaiterStruct>())
+            , running_(true)
         {}
         virtual ~ChainWriter() {
             if (innerHandler1_) {
@@ -504,6 +520,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 return infra::RealTimeApp<Env>::template onOrderFacilityWithExternalEffects<
                     typename InputHandler::InputType, typename InputHandler::ResponseType, typename OffChainUpdateTypeExtractor<IdleLogic>::T
                 >(new ChainWriter(chain, pollingPolicy, std::move(folder), std::move(inputHandler), std::move(idleLogic)));
+            }
+        }
+        void control(Env */*env*/, std::string const &command, std::vector<std::string> const &params) override final {
+            if (command == "stop") {
+                running_ = false;
             }
         }
     };

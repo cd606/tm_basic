@@ -23,12 +23,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
         };
         template <class S, class T>
         static std::shared_ptr<typename M::template OnOrderFacility<FacilityInput<S>,T>> createClockCallback(std::function<T(typename Env::TimePointType const &, std::size_t, std::size_t)> converter) {
-            class LocalF final : public M::template AbstractOnOrderFacility<FacilityInput<S>,T> {
+            class LocalF final : public M::template AbstractOnOrderFacility<FacilityInput<S>,T>, public virtual infra::IControllableNode<Env> {
             private:
                 std::function<T(typename Env::TimePointType const &, std::size_t, std::size_t)> converter_;
+                std::unordered_map<uint64_t, std::function<void()>> cancellors_;
+                std::recursive_mutex cancellorsMutex_;
+                uint64_t cancellorCount_;
             public:
                 LocalF(std::function<T(typename Env::TimePointType const &, std::size_t, std::size_t)> converter)
-                    : converter_(converter)
+                    : converter_(converter), cancellors_(), cancellorsMutex_(), cancellorCount_(0)
                 {
                 }
                 virtual void handle(typename M::template InnerData<typename M::template Key<FacilityInput<S>>> &&input) override final {
@@ -42,26 +45,47 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                     Env *env = input.environment;
                     typename Env::IDType id = input.timedData.value.id();
                     if (filteredDurations.empty()) {
-                        env->createOneShotDurationTimer(Duration(0), [this,env,id]() {
+                        std::lock_guard<std::recursive_mutex> _(cancellorsMutex_);
+                        ++cancellorCount_;
+                        cancellors_[cancellorCount_] = env->createOneShotDurationTimer(Duration(0), [this,env,id,cancellorID=cancellorCount_]() {
                             auto now = env->now();
                             T t = converter_(now, 0, 0);
                             this->publish(typename M::template InnerData<typename M::template Key<T>> {
                                 env, {now, {id, std::move(t)}, true}
                             });
+                            {
+                                std::lock_guard<std::recursive_mutex> _(cancellorsMutex_);
+                                cancellors_.erase(cancellorID);
+                            }
                         });
                     } else {
                         std::sort(filteredDurations.begin(), filteredDurations.end());
                         std::size_t count = filteredDurations.size();
+                        std::lock_guard<std::recursive_mutex> _(cancellorsMutex_);
                         for (size_t ii=0; ii<count; ++ii) {
                             bool isFinal = (ii == count-1);
-                            env->createOneShotDurationTimer(filteredDurations[ii], [this,env,id,isFinal,ii,count]() {
+                            ++cancellorCount_;
+                            cancellors_[cancellorCount_] = env->createOneShotDurationTimer(filteredDurations[ii], [this,env,id,isFinal,ii,count,cancellorID=cancellorCount_]() {
                                 auto now = env->now();
                                 T t = converter_(now, ii, count);
                                 this->publish(typename M::template InnerData<typename M::template Key<T>> {
                                     env, {now, {id, std::move(t)}, isFinal}
                                 });
+                                {
+                                    std::lock_guard<std::recursive_mutex> _(cancellorsMutex_);
+                                    cancellors_.erase(cancellorID);
+                                }
                             });
                         }
+                    }
+                }
+                void control(Env */*env*/, std::string const &command, std::vector<std::string> const &params) override final {
+                    if (command == "stop") {
+                        std::lock_guard<std::recursive_mutex> _(cancellorsMutex_);
+                        for (auto const &item : cancellors_) {
+                            item.second();
+                        }
+                        cancellors_.clear();
                     }
                 }
             };
@@ -69,12 +93,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
         }
         template <class S, class T, class F>
         static std::shared_ptr<typename M::template OnOrderFacility<FacilityInput<S>,T>> createGenericClockCallback(F &&converter) {
-            class LocalF final : public M::template AbstractOnOrderFacility<FacilityInput<S>,T> {
+            class LocalF final : public M::template AbstractOnOrderFacility<FacilityInput<S>,T>, public virtual infra::IControllableNode<Env> {
             private:
                 F converter_;
+                std::unordered_map<uint64_t, std::function<void()>> cancellors_;
+                std::recursive_mutex cancellorsMutex_;
+                uint64_t cancellorCount_;
             public:
                 LocalF(F &&converter)
-                    : converter_(std::move(converter))
+                    : converter_(std::move(converter)), cancellors_(), cancellorsMutex_(), cancellorCount_(0)
                 {
                 }
                 virtual void handle(typename M::template InnerData<typename M::template Key<FacilityInput<S>>> &&input) override final {
@@ -125,7 +152,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                     typename Env::IDType id = input.timedData.value.id();
                     auto val = std::move(input.timedData.value.key().inputData);
                     if (filteredDurations.empty()) {
-                        env->createOneShotDurationTimer(Duration(0), [this,env,id,val=std::move(val)]() {
+                        std::lock_guard<std::recursive_mutex> _(cancellorsMutex_);
+                        ++cancellorCount_;
+                        cancellors_[cancellorCount_] = env->createOneShotDurationTimer(Duration(0), [this,env,id,val=std::move(val),cancellorID=cancellorCount_]() {
                             auto now = env->now();
                             if constexpr (simple_callback_checker((F *) nullptr)) {
                                 auto t = converter_(now, 0, 0);
@@ -192,14 +221,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                             } else {
                                 throw std::runtime_error("real_time_clock::ClockFacility::createGenericClockCallback: bad function type");
                             }
+                            {
+                                std::lock_guard<std::recursive_mutex> _(cancellorsMutex_);
+                                cancellors_.erase(cancellorID);
+                            }
                         });
                     } else {
                         std::sort(filteredDurations.begin(), filteredDurations.end());
                         std::size_t count = filteredDurations.size();
+                        std::lock_guard<std::recursive_mutex> _(cancellorsMutex_);
                         for (size_t ii=0; ii<count; ++ii) {
                             bool isFinal = (ii == count-1);
                             if constexpr (simple_callback_checker((F *) nullptr)) {
-                                env->createOneShotDurationTimer(filteredDurations[ii], [this,env,id,isFinal,ii,count]() {
+                                ++cancellorCount_;
+                                cancellors_[cancellorCount_] = env->createOneShotDurationTimer(filteredDurations[ii], [this,env,id,isFinal,ii,count,cancellorID=cancellorCount_]() {
                                     auto now = env->now();                                
                                     auto t = converter_(now, ii, count);
                                     if constexpr (std::is_same_v<T, std::decay_t<decltype(t)>>) {
@@ -221,10 +256,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                                             }
                                         }
                                     }
+                                    {
+                                        std::lock_guard<std::recursive_mutex> _(cancellorsMutex_);
+                                        cancellors_.erase(cancellorID);
+                                    }
                                 });
                             } else if constexpr (complex_callback_checker((F *) nullptr)) {
                                 auto d = filteredDurations[ii];
-                                env->createOneShotDurationTimer(d, [this,env,id,isFinal,ii,count,d]() {
+                                ++cancellorCount_;
+                                cancellors_[cancellorCount_] = env->createOneShotDurationTimer(d, [this,env,id,isFinal,ii,count,d,cancellorID=cancellorCount_]() {
                                     auto now = env->now();                                
                                     auto t = converter_(now, d, ii, count);
                                     if constexpr (std::is_same_v<T, std::decay_t<decltype(t)>>) {
@@ -246,6 +286,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                                             }
                                         }
                                     }
+                                    {
+                                        std::lock_guard<std::recursive_mutex> _(cancellorsMutex_);
+                                        cancellors_.erase(cancellorID);
+                                    }
                                 });
 #ifdef _MSC_VER
                             } else if constexpr (full_callback_checker((F *) nullptr, (S *) nullptr)) {
@@ -253,7 +297,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                             } else if constexpr (full_callback_checker((F *) nullptr)) {
 #endif
                                 auto d = filteredDurations[ii];                                
-                                env->createOneShotDurationTimer(d, [this,env,id,isFinal,ii,count,d,val=(isFinal?std::move(val):infra::withtime_utils::makeValueCopy<S>(val))]() {
+                                ++cancellorCount_;
+                                cancellors_[cancellorCount_] = env->createOneShotDurationTimer(d, [this,env,id,isFinal,ii,count,d,val=(isFinal?std::move(val):infra::withtime_utils::makeValueCopy<S>(val)),cancellorID=cancellorCount_]() {
                                     auto now = env->now();  
                                     auto val1 = std::move(val);
                                     auto t = converter_(now, d, ii, count, std::move(val1));
@@ -276,11 +321,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                                             }
                                         }
                                     }
+                                    {
+                                        std::lock_guard<std::recursive_mutex> _(cancellorsMutex_);
+                                        cancellors_.erase(cancellorID);
+                                    }
                                 });
                             } else {
                                 throw std::runtime_error("real_time_clock::ClockFacility::createGenericClockCallback: bad function type");
                             }
                         }
+                    }
+                }
+                void control(Env */*env*/, std::string const &command, std::vector<std::string> const &params) override final {
+                    if (command == "stop") {
+                        std::lock_guard<std::recursive_mutex> _(cancellorsMutex_);
+                        for (auto const &item : cancellors_) {
+                            item.second();
+                        }
+                        cancellors_.clear();
                     }
                 }
             };

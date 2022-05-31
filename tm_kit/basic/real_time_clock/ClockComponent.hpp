@@ -29,10 +29,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
         TimePointType resolveTime(TimePointType const &/*_triggeringInputTime*/) {
             return Clock::now();
         }
-        void createOneShotTimer(TimePointType const &fireAtTime, std::function<void()> callback);
-        void createOneShotDurationTimer(DurationType const &fireAfterDuration, std::function<void()> callback);
-        void createRecurringTimer(TimePointType const &firstFireAtTime, TimePointType const &lastFireAtTime, DurationType const &period, std::function<void()> callback);
-        void createVariableDurationRecurringTimer(TimePointType const &firstFireAtTime, TimePointType const &lastFireAtTime, std::function<DurationType(TimePointType const &)> periodCalc, std::function<void()> callback);
+        //the functions returned are cancellors
+        std::function<void()> createOneShotTimer(TimePointType const &fireAtTime, std::function<void()> callback);
+        std::function<void()> createOneShotDurationTimer(DurationType const &fireAfterDuration, std::function<void()> callback);
+        std::function<void()> createRecurringTimer(TimePointType const &firstFireAtTime, TimePointType const &lastFireAtTime, DurationType const &period, std::function<void()> callback);
+        std::function<void()> createVariableDurationRecurringTimer(TimePointType const &firstFireAtTime, TimePointType const &lastFireAtTime, std::function<DurationType(TimePointType const &)> periodCalc, std::function<void()> callback);
     };
 
     class SimplifiedClockComponent : public Clock {
@@ -55,10 +56,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
         static TimePointType resolveTime(TimePointType const &triggeringInputTime) {
             return triggeringInputTime;
         }
-        void createOneShotTimer(TimePointType const &fireAtTime, std::function<void()> callback);
-        void createOneShotDurationTimer(DurationType const &fireAfterDuration, std::function<void()> callback);
-        void createRecurringTimer(TimePointType const &firstFireAtTime, TimePointType const &lastFireAtTime, DurationType const &period, std::function<void()> callback);
-        void createVariableDurationRecurringTimer(TimePointType const &firstFireAtTime, TimePointType const &lastFireAtTime, std::function<DurationType(TimePointType const &)> periodCalc, std::function<void()> callback);
+        //the functions returned are cancellors
+        std::function<void()> createOneShotTimer(TimePointType const &fireAtTime, std::function<void()> callback);
+        std::function<void()> createOneShotDurationTimer(DurationType const &fireAfterDuration, std::function<void()> callback);
+        std::function<void()> createRecurringTimer(TimePointType const &firstFireAtTime, TimePointType const &lastFireAtTime, DurationType const &period, std::function<void()> callback);
+        std::function<void()> createVariableDurationRecurringTimer(TimePointType const &firstFireAtTime, TimePointType const &lastFireAtTime, std::function<DurationType(TimePointType const &)> periodCalc, std::function<void()> callback);
     };
 
 } } } } }

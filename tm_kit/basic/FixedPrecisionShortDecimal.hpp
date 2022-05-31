@@ -64,6 +64,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         FixedPrecisionShortDecimal &operator=(FixedPrecisionShortDecimal &&) = default;
         ~FixedPrecisionShortDecimal() = default;
 
+        template <std::size_t NewPrecision>
+        FixedPrecisionShortDecimal<NewPrecision, Underlying> changePrecision() const {
+            if constexpr (NewPrecision == Precision) {
+                return FixedPrecisionShortDecimal<NewPrecision, Underlying>(value_);
+            } else if constexpr (NewPrecision > Precision) {
+                Underlying v = value_;
+                for (int ii=Precision; ii<NewPrecision; ++ii) {
+                    v *= (Underlying) 10;
+                }
+                return FixedPrecisionShortDecimal<NewPrecision, Underlying>(v);
+            } else {
+                Underlying factor = 1;
+                for (int ii=NewPrecision; ii<Precision; ++ii) {
+                    factor *= (Underlying) 10;
+                }
+                if ((value_ % factor) >= factor/2) {
+                    return FixedPrecisionShortDecimal<NewPrecision, Underlying>(value_/factor+1);
+                } else {
+                    return FixedPrecisionShortDecimal<NewPrecision, Underlying>(value_/factor);
+                }
+            }
+        }
+
         static FixedPrecisionShortDecimal zero() {
             return FixedPrecisionShortDecimal();
         }

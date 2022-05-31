@@ -20,15 +20,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
         ~ClockComponentImpl() {
             service_->stop();
         }
-        void scheduleOneTimeCallback(std::chrono::system_clock::time_point const &t, std::function<void()> callback) {
+        std::function<void()> scheduleOneTimeCallback(std::chrono::system_clock::time_point const &t, std::function<void()> callback) {
             auto timer = std::make_shared<boost::asio::system_timer>(*service_, t);
             timer->async_wait([timer,callback](boost::system::error_code const &err) {
                 if (!err) {
                     callback();
                 }
             });
+            return [timer]() {
+                timer->cancel();
+            };
         }
-        void scheduleRecurringCallback(std::chrono::system_clock::time_point const &start, std::chrono::system_clock::time_point const &end, std::chrono::system_clock::duration const &period, std::function<void()> callback) {
+        std::function<void()> scheduleRecurringCallback(std::chrono::system_clock::time_point const &start, std::chrono::system_clock::time_point const &end, std::chrono::system_clock::duration const &period, std::function<void()> callback) {
             auto timer = std::make_shared<boost::asio::system_timer>(*service_, start);
             timer->async_wait([this,timer,start,end,period,callback](boost::system::error_code const &err) {
                 if (!err) {
@@ -39,8 +42,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                     callback();
                 }
             });
+            return [timer]() {
+                timer->cancel();
+            };
         }
-        void scheduleVariableDurationRecurringCallback(std::chrono::system_clock::time_point const &start, std::chrono::system_clock::time_point const &end, std::function<std::chrono::system_clock::duration(std::chrono::system_clock::time_point const &)> periodCalc, std::function<void()> callback) {
+        std::function<void()> scheduleVariableDurationRecurringCallback(std::chrono::system_clock::time_point const &start, std::chrono::system_clock::time_point const &end, std::function<std::chrono::system_clock::duration(std::chrono::system_clock::time_point const &)> periodCalc, std::function<void()> callback) {
             auto timer = std::make_shared<boost::asio::system_timer>(*service_, start);
             timer->async_wait([this,timer,start,end,periodCalc,callback](boost::system::error_code const &err) {
                 if (!err) {
@@ -51,6 +57,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                     callback();
                 }
             });
+            return [timer]() {
+                timer->cancel();
+            };
         }
     };
 
@@ -60,19 +69,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
     ClockComponent &ClockComponent::operator=(ClockComponent &&) = default;
     ClockComponent::~ClockComponent() = default;
 
-    void ClockComponent::createOneShotTimer(ClockComponent::TimePointType const &fireAtTime, std::function<void()> callback) {
+    std::function<void()> ClockComponent::createOneShotTimer(ClockComponent::TimePointType const &fireAtTime, std::function<void()> callback) {
         auto t = Clock::actualTime(fireAtTime);
         if (t >= std::chrono::system_clock::now()) {
-            impl_->scheduleOneTimeCallback(t, callback);
+            return impl_->scheduleOneTimeCallback(t, callback);
+        } else {
+            return {};
         }
     }
-    void ClockComponent::createOneShotDurationTimer(ClockComponent::DurationType const &fireAfterDuration, std::function<void()> callback) {
+    std::function<void()> ClockComponent::createOneShotDurationTimer(ClockComponent::DurationType const &fireAfterDuration, std::function<void()> callback) {
         if (fireAfterDuration >= ClockComponent::DurationType(0)) {
             auto t = std::chrono::system_clock::now()+Clock::actualDuration(fireAfterDuration);
-            impl_->scheduleOneTimeCallback(t, callback);
+            return impl_->scheduleOneTimeCallback(t, callback);
+        } else {
+            return {};
         }
     }
-    void ClockComponent::createRecurringTimer(ClockComponent::TimePointType const &firstFireAtTime, ClockComponent::TimePointType const &lastFireAtTime, ClockComponent::DurationType const &period, std::function<void()> callback) {
+    std::function<void()> ClockComponent::createRecurringTimer(ClockComponent::TimePointType const &firstFireAtTime, ClockComponent::TimePointType const &lastFireAtTime, ClockComponent::DurationType const &period, std::function<void()> callback) {
         auto t1 = Clock::actualTime(firstFireAtTime);
         auto t2 = Clock::actualTime(lastFireAtTime);
         auto d = Clock::actualDuration(period);
@@ -81,10 +94,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
             t1 += d;
         }
         if (t1 <= t2) {
-            impl_->scheduleRecurringCallback(t1,t2,d,callback);
+            return impl_->scheduleRecurringCallback(t1,t2,d,callback);
+        } else {
+            return {};
         }
     }
-    void ClockComponent::createVariableDurationRecurringTimer(ClockComponent::TimePointType const &firstFireAtTime, ClockComponent::TimePointType const &lastFireAtTime, std::function<ClockComponent::DurationType(ClockComponent::TimePointType const &)> periodCalc, std::function<void()> callback) {
+    std::function<void()> ClockComponent::createVariableDurationRecurringTimer(ClockComponent::TimePointType const &firstFireAtTime, ClockComponent::TimePointType const &lastFireAtTime, std::function<ClockComponent::DurationType(ClockComponent::TimePointType const &)> periodCalc, std::function<void()> callback) {
         auto t1 = Clock::actualTime(firstFireAtTime);
         auto t2 = Clock::actualTime(lastFireAtTime);
         auto d = Clock::actualDuration(periodCalc(firstFireAtTime));
@@ -93,9 +108,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
             t1 += d;
         }
         if (t1 <= t2) {
-            impl_->scheduleVariableDurationRecurringCallback(t1,t2,[this,periodCalc](ClockComponent::TimePointType const &tp) {
+            return impl_->scheduleVariableDurationRecurringCallback(t1,t2,[this,periodCalc](ClockComponent::TimePointType const &tp) {
                 return this->Clock::actualDuration(periodCalc(tp));
             },callback);
+        } else {
+            return {};
         }
     }
 
@@ -104,18 +121,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
     SimplifiedClockComponent &SimplifiedClockComponent::operator=(SimplifiedClockComponent &&) = default;
     SimplifiedClockComponent::~SimplifiedClockComponent() = default;
 
-    void SimplifiedClockComponent::createOneShotTimer(ClockComponent::TimePointType const &fireAtTime, std::function<void()> callback) {
+    std::function<void()> SimplifiedClockComponent::createOneShotTimer(ClockComponent::TimePointType const &fireAtTime, std::function<void()> callback) {
         if (fireAtTime >= std::chrono::system_clock::now()) {
-            impl_->scheduleOneTimeCallback(fireAtTime, callback);
+            return impl_->scheduleOneTimeCallback(fireAtTime, callback);
+        } else {
+            return {};
         }
     }
-    void SimplifiedClockComponent::createOneShotDurationTimer(ClockComponent::DurationType const &fireAfterDuration, std::function<void()> callback) {
+    std::function<void()> SimplifiedClockComponent::createOneShotDurationTimer(ClockComponent::DurationType const &fireAfterDuration, std::function<void()> callback) {
         if (fireAfterDuration >= ClockComponent::DurationType(0)) {
             auto t = std::chrono::system_clock::now()+fireAfterDuration;
-            impl_->scheduleOneTimeCallback(t, callback);
+            return impl_->scheduleOneTimeCallback(t, callback);
+        } else {
+            return {};
         }
     }
-    void SimplifiedClockComponent::createRecurringTimer(ClockComponent::TimePointType const &firstFireAtTime, ClockComponent::TimePointType const &lastFireAtTime, ClockComponent::DurationType const &period, std::function<void()> callback) {
+    std::function<void()> SimplifiedClockComponent::createRecurringTimer(ClockComponent::TimePointType const &firstFireAtTime, ClockComponent::TimePointType const &lastFireAtTime, ClockComponent::DurationType const &period, std::function<void()> callback) {
         auto t1 = firstFireAtTime;
         auto t2 = lastFireAtTime;
         auto d = period;
@@ -124,10 +145,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
             t1 += d;
         }
         if (t1 <= t2) {
-            impl_->scheduleRecurringCallback(t1,t2,d,callback);
+            return impl_->scheduleRecurringCallback(t1,t2,d,callback);
+        } else {
+            return {};
         }
     }
-    void SimplifiedClockComponent::createVariableDurationRecurringTimer(ClockComponent::TimePointType const &firstFireAtTime, ClockComponent::TimePointType const &lastFireAtTime, std::function<ClockComponent::DurationType(ClockComponent::TimePointType const &)> periodCalc, std::function<void()> callback) {
+    std::function<void()> SimplifiedClockComponent::createVariableDurationRecurringTimer(ClockComponent::TimePointType const &firstFireAtTime, ClockComponent::TimePointType const &lastFireAtTime, std::function<ClockComponent::DurationType(ClockComponent::TimePointType const &)> periodCalc, std::function<void()> callback) {
         auto t1 = firstFireAtTime;
         auto t2 = lastFireAtTime;
         auto d = periodCalc(firstFireAtTime);
@@ -136,7 +159,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
             t1 += d;
         }
         if (t1 <= t2) {
-            impl_->scheduleVariableDurationRecurringCallback(t1,t2,periodCalc,callback);
+            return impl_->scheduleVariableDurationRecurringCallback(t1,t2,periodCalc,callback);
+        } else {
+            return {};
         }
     }
 
