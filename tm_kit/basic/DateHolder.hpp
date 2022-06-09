@@ -75,6 +75,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     inline int dateHolderToYYYYMMDD(DateHolder const &d) {
         return (int) d.year*10000+(int) d.month*100+(int) d.day;
     }
+	inline DateHolder parseDateHolder(std::string const &s) {
+		if (s.length() == 8) {
+			try {
+				return dateHolderFromYYYYMMDD(std::stoi(s));
+			} catch (...) {
+				return DateHolder {};
+			}
+		} else if (s.length() == 10) {
+			try {
+				return DateHolder {(uint16_t) std::stoi(s.substr(0,4)), (uint8_t) std::stoi(s.substr(5,2)), (uint8_t) std::stoi(s.substr(8,2))};
+			} catch (...) {
+				return DateHolder {};
+			}
+		} else {
+			return DateHolder {};
+		}
+	}
 } } } }
 
 namespace std {
