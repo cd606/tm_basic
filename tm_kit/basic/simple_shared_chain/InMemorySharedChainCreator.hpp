@@ -470,6 +470,42 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                 );
             }
         }
+        template <class ChainData, class ChainItemFolder, class F, bool ForceSeparateDataStorageIfPossible=false>
+        bool oneShotWrite(
+            typename App::EnvironmentType *env
+            , std::string const &descriptor
+            , F const &f
+            , ChainItemFolder &&folder = ChainItemFolder {}
+        ) {
+            auto parsed = parseDescriptor(descriptor);
+            if (std::get<0>(parsed) == ChainType::Empty) {
+                return true;
+            } else if (std::get<0>(parsed) == ChainType::LockFree) {
+                return basic::simple_shared_chain::OneShotChainWriter<typename App::EnvironmentType,simple_shared_chain::InMemoryLockFreeChain<ChainData>>::write(
+                    env
+                    , getChain<simple_shared_chain::InMemoryLockFreeChain<ChainData>>(
+                        std::get<1>(parsed)
+                        , []() {
+                            return new basic::simple_shared_chain::InMemoryLockFreeChain<ChainData>();
+                        }
+                    )
+                    , f 
+                    , std::move(folder)
+                );
+            } else {
+                return basic::simple_shared_chain::OneShotChainWriter<typename App::EnvironmentType,simple_shared_chain::InMemoryWithLockChain<ChainData>>::write(
+                    env
+                    , getChain<simple_shared_chain::InMemoryWithLockChain<ChainData>>(
+                        std::get<1>(parsed)
+                        , []() {
+                            return new basic::simple_shared_chain::InMemoryWithLockChain<ChainData>();
+                        }
+                    )
+                    , f 
+                    , std::move(folder)
+                );
+            }
+        }
     };
 
 } } } } }
