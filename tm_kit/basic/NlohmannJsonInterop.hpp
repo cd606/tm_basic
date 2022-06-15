@@ -1074,7 +1074,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             auto const &i = (key?input.at(*key):input);
             if (i.is_null()) {
                 data = "";
-                return false;
+                return true;
             } else {
                 i.get_to(data);
                 return true;
@@ -1083,7 +1083,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::string &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             if (key) {
                 try {
-                    if (input[*key].is_string()) {
+                    if (input[*key].is_null()) {
+                        data = "";
+                        return true;
+                    } else if (input[*key].is_string()) {
                         data = (std::string) ((std::string_view) input[*key]);
                         return true;
                     } else if (input[*key].is_uint64()) {
@@ -1108,7 +1111,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 }
             } else {
                 try {
-                    if (input.is_string()) {
+                    if (input.is_null()) {
+                        data = "";
+                        return true;
+                    } else if (input.is_string()) {
                         data = (std::string) ((std::string_view) input);
                         return true;
                     } else if (input.is_uint64()) {
@@ -1128,7 +1134,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         return false;
                     }
                 } catch (simdjson::simdjson_error const &) {
-                    data = false;
+                    data = "";
                     return false;
                 }
             }
@@ -1485,14 +1491,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             bool ret = false;
             std::string s;
             if (key) {
-                if (!input.at(*key).is_string()) {
+                if (input.at(*key).is_null()) {
+                    s = "";
+                    ret = true;
+                } else if (!input.at(*key).is_string()) {
                     ret = false;
                 } else {
                     input.at(*key).get_to(s);
                     ret = true;
                 }
             } else {
-                if (!input.is_string()) {
+                if (input.is_null()) {
+                    s = "";
+                    ret = true;
+                } else if (!input.is_string()) {
                     ret = false;
                 } else {
                     input.get_to(s);
@@ -1511,7 +1523,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 data.year = 0;
                 data.month = 0;
                 data.day = 0;
-                ret = false;
             }
             return ret;
         }
@@ -1534,7 +1545,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 data.year = 0;
                 data.month = 0;
                 data.day = 0;
-                ret = false;
             }
             return ret;
         }
@@ -1558,7 +1568,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 data.year = 0;
                 data.month = 0;
                 data.day = 0;
-                ret = false;
             }
             return ret;
         }
