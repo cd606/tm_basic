@@ -350,6 +350,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             std::size_t ret = 2166136261;
             ret = (ret*16777619)^std::hash<std::string>()(t.topic);
             ret = (ret*16777619)^std::hash<std::string>()(t.content);
+	    return ret;
         }
     };
     template <>
@@ -359,6 +360,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             std::size_t ret = 2166136261;
             ret = (ret*16777619)^std::hash<std::string>()(t.id);
             ret = (ret*16777619)^std::hash<std::string>()(t.content);
+	    return ret;
         }
     };
 }}}}}
