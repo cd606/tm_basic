@@ -44,7 +44,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
 
     template <class IntType>
     class JsonEncoder<IntType, std::enable_if_t<
-        (std::is_integral_v<IntType> && std::is_arithmetic_v<IntType> && !std::is_same_v<IntType,bool> && !std::is_enum_v<IntType>)
+        (std::is_integral_v<IntType> && std::is_arithmetic_v<IntType> && !std::is_same_v<IntType,bool> && !std::is_enum_v<IntType> && !std::is_same_v<IntType,char>)
         , void
     >> {
     public:
@@ -58,7 +58,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     };
     template <class IntType>
     struct JsonWrappable<IntType, std::enable_if_t<
-        (std::is_integral_v<IntType> && std::is_arithmetic_v<IntType> && !std::is_same_v<IntType,bool> && !std::is_enum_v<IntType>)
+        (std::is_integral_v<IntType> && std::is_arithmetic_v<IntType> && !std::is_same_v<IntType,bool> && !std::is_enum_v<IntType> && !std::is_same_v<IntType,char>)
         , void
     >> {
         static constexpr bool value = true;
@@ -671,7 +671,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
 
     template <class IntType>
     class JsonDecoder<IntType, std::enable_if_t<
-        (std::is_integral_v<IntType> && std::is_arithmetic_v<IntType> && !std::is_same_v<IntType,bool> && !std::is_enum_v<IntType>)
+        (std::is_integral_v<IntType> && std::is_arithmetic_v<IntType> && !std::is_same_v<IntType,bool> && !std::is_enum_v<IntType> && !std::is_same_v<IntType,char>)
         , void
     >> {
     public:
