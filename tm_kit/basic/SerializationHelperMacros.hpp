@@ -1042,6 +1042,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(items)> names = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_ARRAY_ITEM,_,items) \
             }; \
+            static constexpr name lookup(std::string_view const &s) { \
+                for (std::size_t ii=0; ii<item_count; ++ii) { \
+                    if (names[ii] == s) { \
+                        return static_cast<name>(ii); \
+                    } \
+                } \
+                return static_cast<name>(item_count); \
+            } \
         }; \
         template <> \
         struct RunCBORSerializer<name, void> { \
@@ -1177,6 +1185,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(items)> names = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ARRAY_ITEM,_,items) \
             }; \
+            static constexpr name lookup(std::string_view const &s) { \
+                for (std::size_t ii=0; ii<item_count; ++ii) { \
+                    if (names[ii] == s) { \
+                        return static_cast<name>(ii); \
+                    } \
+                } \
+                return static_cast<name>(item_count); \
+            } \
         }; \
         template <> \
         struct RunCBORSerializer<name, void> { \
