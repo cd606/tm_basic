@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/sinks/rotating_file_sink.h>
 
 #include <tm_kit/infra/LogLevel.hpp>
 #include <tm_kit/infra/ChronoUtils.hpp>
@@ -68,7 +69,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         }
-        void doSetLogFilePrefix(std::string const &prefix, bool containTimePart) {
+        void doSetLogFilePrefix(std::string const &prefix, bool containTimePart, std::optional<uintmax_t> maxSize) {
             if (prefixSet_) {
                 return;
             }
@@ -82,27 +83,36 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             std::replace(nowStr.begin(), nowStr.end(), ':', '_');
             std::replace(nowStr.begin(), nowStr.end(), ' ', '_');
             int64_t pid = infra::pid_util::getpid();
-            auto logger = spdlog::basic_logger_mt("logger", prefix+"."+nowStr+"."+std::to_string(pid)+".log");
-            logger->set_level(spdlog::level::trace);
-            logger->flush_on(spdlog::level::trace); //always flush
-            spdlog::set_default_logger(logger);
+            if (maxSize) {
+                auto logger = spdlog::rotating_logger_mt("logger", prefix+"."+nowStr+"."+std::to_string(pid)+".log", static_cast<std::size_t>(*maxSize), 1);
+                logger->set_level(spdlog::level::trace);
+                logger->flush_on(spdlog::level::trace); //always flush
+                spdlog::set_default_logger(logger);
+            } else {
+                auto logger = spdlog::basic_logger_mt("logger", prefix+"."+nowStr+"."+std::to_string(pid)+".log");
+                logger->set_level(spdlog::level::trace);
+                logger->flush_on(spdlog::level::trace); //always flush
+                spdlog::set_default_logger(logger);
+            }
             prefixSet_ = true;
         }
         std::optional<std::string> logFilePrefix_;
         bool logFilePrefixContainTimePart_;
+        std::optional<uintmax_t> maxSize_;
         bool prefixSet_;
     public:
-        TimeComponentEnhancedWithSpdLogging() : TimeComponent(), firstTime_(true), firstTimeMutex_(), isActualClock_(false), logFilePrefix_(std::nullopt), logFilePrefixContainTimePart_(false), prefixSet_(false) {
+        TimeComponentEnhancedWithSpdLogging() : TimeComponent(), firstTime_(true), firstTimeMutex_(), isActualClock_(false), logFilePrefix_(std::nullopt), logFilePrefixContainTimePart_(false), maxSize_(std::nullopt), prefixSet_(false) {
             initialSetup();
         }
         virtual ~TimeComponentEnhancedWithSpdLogging() {}
-        void setLogFilePrefix(std::string const &prefix, bool containTimePart=false) {
+        void setLogFilePrefix(std::string const &prefix, bool containTimePart=false, std::optional<uintmax_t> maxSize=std::nullopt) {
             if constexpr (ForceActualTimeLogging) {
-                doSetLogFilePrefix(prefix, containTimePart);
+                doSetLogFilePrefix(prefix, containTimePart, maxSize);
                 initialSetup();
             } else {
                 logFilePrefix_ = prefix;
                 logFilePrefixContainTimePart_ = containTimePart;
+                maxSize_ = maxSize;
             }
         }
         void log(infra::LogLevel l, std::string const &s) {
@@ -114,7 +124,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         std::lock_guard<std::mutex> _(firstTimeMutex_);
                         if (firstTime_) {
                             if (logFilePrefix_) {
-                                doSetLogFilePrefix(*logFilePrefix_, logFilePrefixContainTimePart_);
+                                doSetLogFilePrefix(*logFilePrefix_, logFilePrefixContainTimePart_, maxSize_);
                             }
                             isActualClock_ = this->isActualClock();
                             if (isActualClock_) {
@@ -137,7 +147,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     if (firstTime_) {
                         if (TimeComponent::now() != typename TimeComponent::TimePointType {}) {
                             if (logFilePrefix_) {
-                                doSetLogFilePrefix(*logFilePrefix_, logFilePrefixContainTimePart_);
+                                doSetLogFilePrefix(*logFilePrefix_, logFilePrefixContainTimePart_, maxSize_);
                                 initialSetup();
                             }
                             firstTime_ = false;

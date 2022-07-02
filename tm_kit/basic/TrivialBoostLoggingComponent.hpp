@@ -71,7 +71,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
         }
-        void doSetLogFilePrefix(std::string const &prefix, bool containTimePart) {
+        void doSetLogFilePrefix(std::string const &prefix, bool containTimePart, std::optional<uintmax_t> maxSize) {
             if (prefixSet_) {
                 return;
             }
@@ -96,6 +96,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         , boost::log::keywords::format = "[%Severity%] [%TimeStamp%] [Thread %ThreadID%] %Message%"
                         , boost::log::keywords::open_mode = std::ios_base::app
                         , boost::log::keywords::auto_flush = true
+                        , boost::log::keywords::max_size = (maxSize?*maxSize:std::numeric_limits<uintmax_t>::max())
                     );
                 } else {
                     boost::log::add_file_log(
@@ -103,6 +104,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         , boost::log::keywords::format = "[%Severity%] [%TimeStamp%] %Message%"
                         , boost::log::keywords::open_mode = std::ios_base::app
                         , boost::log::keywords::auto_flush = true
+                        , boost::log::keywords::max_size = (maxSize?*maxSize:std::numeric_limits<uintmax_t>::max())
                     );
                 }
             } else {
@@ -112,6 +114,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         , boost::log::keywords::format = "%Message%"
                         , boost::log::keywords::open_mode = std::ios_base::app
                         , boost::log::keywords::auto_flush = true
+                        , boost::log::keywords::max_size = (maxSize?*maxSize:std::numeric_limits<uintmax_t>::max())
                     );
                 } else {
                     if (isActualClock_) {
@@ -121,6 +124,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                                 , boost::log::keywords::format = "[%Severity%] [%TimeStamp%] [Thread %ThreadID%] %Message%"
                                 , boost::log::keywords::open_mode = std::ios_base::app
                                 , boost::log::keywords::auto_flush = true
+                                , boost::log::keywords::max_size = (maxSize?*maxSize:std::numeric_limits<uintmax_t>::max())
                             );
                         } else {
                             boost::log::add_file_log(
@@ -128,6 +132,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                                 , boost::log::keywords::format = "[%Severity%] [%TimeStamp%] %Message%"
                                 , boost::log::keywords::open_mode = std::ios_base::app
                                 , boost::log::keywords::auto_flush = true
+                                , boost::log::keywords::max_size = (maxSize?*maxSize:std::numeric_limits<uintmax_t>::max())
                             );
                         }
                     } else {
@@ -136,6 +141,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                             , boost::log::keywords::format = "%Message%"
                             , boost::log::keywords::open_mode = std::ios_base::app
                             , boost::log::keywords::auto_flush = true
+                            , boost::log::keywords::max_size = (maxSize?*maxSize:std::numeric_limits<uintmax_t>::max())
                         );
                     }
                 }
@@ -144,18 +150,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
         std::optional<std::string> logFilePrefix_;
         bool logFilePrefixContainTimePart_;
+        std::optional<uintmax_t> maxSize_;
         bool prefixSet_;
     public:
-        TimeComponentEnhancedWithBoostTrivialLogging() : TimeComponent(), firstTime_(true), firstTimeMutex_(), isActualClock_(false), logFilePrefix_(std::nullopt), logFilePrefixContainTimePart_(false), originalSink_(), prefixSet_(false) {
+        TimeComponentEnhancedWithBoostTrivialLogging() : TimeComponent(), firstTime_(true), firstTimeMutex_(), isActualClock_(false), originalSink_(), logFilePrefix_(std::nullopt), logFilePrefixContainTimePart_(false), maxSize_(std::nullopt), prefixSet_(false) {
             initialSetup();
         }
         virtual ~TimeComponentEnhancedWithBoostTrivialLogging() {}
-        void setLogFilePrefix(std::string const &prefix, bool containTimePart=false) {
+        void setLogFilePrefix(std::string const &prefix, bool containTimePart=false, std::optional<uintmax_t> maxSize=std::nullopt) {
             if constexpr (ForceActualTimeLogging) {
-                doSetLogFilePrefix(prefix, containTimePart);
+                doSetLogFilePrefix(prefix, containTimePart, maxSize);
             } else {
                 logFilePrefix_ = prefix;
                 logFilePrefixContainTimePart_ = containTimePart;
+                maxSize_ = maxSize;
             }
         }
         void log(infra::LogLevel l, std::string const &s) {
@@ -168,7 +176,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         if (firstTime_) {
                             isActualClock_ = this->isActualClock();
                             if (logFilePrefix_) {
-                                doSetLogFilePrefix(*logFilePrefix_, logFilePrefixContainTimePart_);
+                                doSetLogFilePrefix(*logFilePrefix_, logFilePrefixContainTimePart_, maxSize_);
                             } else {
                                 if (!isActualClock_) {
                                     boost::log::add_console_log(
@@ -188,7 +196,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     if (firstTime_) {
                         if (TimeComponent::now() != typename TimeComponent::TimePointType {}) {
                             if (logFilePrefix_) {
-                                doSetLogFilePrefix(*logFilePrefix_, logFilePrefixContainTimePart_);
+                                doSetLogFilePrefix(*logFilePrefix_, logFilePrefixContainTimePart_, maxSize_);
                             }
                             firstTime_ = false;
                         }

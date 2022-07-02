@@ -1800,6 +1800,42 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             return M::template liftMaybe2<A,B>(
                 CollectAndPassDownOnRight<A,B,F>(std::move(f))
                 , infra::LiftParameters<typename M::TimePoint>()
+                    .SuggestThreadedcollectAn(suggestThreaded)
+            );
+        }
+    private:
+        template <class A, class B, class FoldedType, class Folder, class Outputter>
+        class FoldAndPassDownOnRight {
+        private:
+            Folder f_;
+            Outputter o_;
+            FoldedType t_;
+        public:
+            using C = decltype(o_(*((FoldedType *) nullptr), std::move(*((B *) nullptr))));
+            
+            FoldAndPassDownOnRight(Folder &&f, Outputter &&o) : f_(std::move(f)), o_(std::move(o)), t_() {}
+            FoldAndPassDownOnRight(FoldAndPassDownOnRight &&s) : f_(std::move(s.f_)), o_(std::move(s.o_)), t_(std::move(s.t_)) {}
+            FoldAndPassDownOnRight &operator=(FoldAndPassDownOnRight &&) = delete;
+            FoldAndPassDownOnRight(FoldAndPassDownOnRight const &) = delete;
+            FoldAndPassDownOnRight &operator=(FoldAndPassDownOnRight const &) = delete;
+
+            std::optional<C> operator()(std::variant<A,B> &&data) {
+                if (data.index() == 0) {
+                    f_(t_, std::move(std::get<0>(data)));
+                    return std::nullopt;
+                } else {
+                    return o_(t_, std::move(std::get<1>(data)));
+                }
+            }
+        };
+    public:
+        template <class A, class B, class FoldedType, class Folder, class Outputter>
+        static std::shared_ptr<typename M::template Action<
+            std::variant<A,B>, typename FoldAndPassDownOnRight<A,B,FoldedType,Folder,Outputter>::C
+        >> foldAndPassDownOnRight(Folder &&f, Outputter &&o, bool suggestThreaded=false) {
+            return M::template liftMaybe2<A,B>(
+                FoldAndPassDownOnRight<A,B,FoldedType,Folder,Outputter>(std::move(f), std::move(o))
+                , infra::LiftParameters<typename M::TimePoint>()
                     .SuggestThreaded(suggestThreaded)
             );
         }
