@@ -450,14 +450,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             ) {
                 return server;
             } else {
+                using WA = WrapFacilitioidConnectorForSerializationHelpers::WrappedType<Wrapper,A>;
                 return AppRunnerUtilComponents<R>::template wrapFacilitioidConnector<std::tuple<Extra,WrapFacilitioidConnectorForSerializationHelpers::WrappedType<Wrapper,A>>,WrapFacilitioidConnectorForSerializationHelpers::WrappedType<Wrapper,B>,std::tuple<Extra,A>,B>(
-                    infra::KleisliUtils<typename R::AppType>::template liftPure<std::tuple<Extra,WrapFacilitioidConnectorForSerializationHelpers::WrappedType<Wrapper,A>>>(
-                        [](std::tuple<Extra,WrapFacilitioidConnectorForSerializationHelpers::WrappedType<Wrapper,A>> &&x) -> std::tuple<Extra,A> {
+                    infra::KleisliUtils<typename R::AppType>::template liftPure<std::tuple<Extra,WA>>(
+                        [](std::tuple<Extra,WA> &&x) -> std::tuple<Extra,A> {
                             return {std::move(std::get<0>(x)), WrapFacilitioidConnectorForSerializationHelpers::WrapperUtils<Wrapper>::template extract<A>(std::move(std::get<1>(x)))};
                         }
                     )
                     , infra::KleisliUtils<typename R::AppType>::template liftPure<std::tuple<Extra,A>>(
-                        [](std::tuple<Extra,A> &&x) -> std::tuple<Extra,WrapFacilitioidConnectorForSerializationHelpers::WrappedType<Wrapper,A>> {
+                        [](std::tuple<Extra,A> &&x) -> std::tuple<Extra,WA> {
                             return {std::move(std::get<0>(x)), WrapFacilitioidConnectorForSerializationHelpers::WrapperUtils<Wrapper>::template enclose<A>(std::move(std::get<1>(x)))};
                         }
                     )
