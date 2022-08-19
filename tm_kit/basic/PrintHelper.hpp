@@ -355,6 +355,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         }
     };
+    template <class T>
+    class PrintHelper<std::shared_ptr<const T>> {
+    public:
+        static void print(std::ostream &os, std::shared_ptr<const T> const &t) {
+            if (!t) {
+                os << "null";
+            } else {
+                os << "&(";
+                PrintHelper<T>::print(os, *t);
+                os << ')';
+            }
+        }
+    };
     template <class TupleType, size_t CurrentIdx, size_t TotalItems, class... Items>
     class TuplePrintHelper {};
     template <class TupleType, size_t CurrentIdx, size_t TotalItems, class CurrentItem, class... MoreItems>
