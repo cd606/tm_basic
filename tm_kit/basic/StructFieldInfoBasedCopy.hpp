@@ -18,7 +18,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 GetRef<T>::ref(dest) = T(GetRef<U>::constRef(src));
             }
             static void move(T &dest, U &&src) {
-                GetRef<T>::ref(dest) = T(std::move(GetRef<U>::moveRef(src)));
+                GetRef<T>::ref(dest) = T(std::move(GetRef<U>::moveRef(std::move(src))));
             }
         };
         template <class ComplexCopy>
