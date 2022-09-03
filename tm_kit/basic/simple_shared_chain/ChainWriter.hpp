@@ -1551,6 +1551,28 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
         }
     };
 
+    template <class Env, class ChainData>
+    class SimplyTryPlaceOnChainOnceInputHandler {
+    private:
+        std::unordered_set<typename Env::IDType> seenIDs_;
+    public:
+        using InputType = ChainData;
+        using ResponseType = bool;
+        void initialize(void *, void *) {}
+        template <class ChainState>
+        std::tuple<ResponseType, std::optional<std::tuple<std::string, ChainData>>>
+        handleInput(Env *, void *, typename infra::RealTimeApp<Env>::template TimedDataType<typename infra::RealTimeApp<Env>::template Key<ChainData>> const &input, ChainState const &) {
+            auto iter = seenIDs_.find(input.value.id());
+            if (iter == seenIDs_.end()) {
+                seenIDs_.insert(input.value.id());
+                return {true, {{"", input.value.key()}}};
+            } else {
+                seenIDs_.erase(iter);
+                return {false, std::nullopt};
+            }
+        }
+    };
+
     template <class ChainData>
     class SimplyPlaceMultipleOnChainInputHandler {
     public:

@@ -702,21 +702,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     class SimpleDeserializingReader {
     private:
         TimeExtractor timeExtractor_;
-        GenericIOStreamImporterExporterHelper::BufferedReader<BufferSize> bufferedReader_;
+        std::vector<GenericIOStreamImporterExporterHelper::BufferedReader<BufferSize>> bufferedReaders_;
+        std::unordered_map<std::istream *, std::size_t> readerIdx_;
     public:
-        SimpleDeserializingReader(TimeExtractor &&timeExtractor = TimeExtractor {}) : timeExtractor_(std::move(timeExtractor)), bufferedReader_() {}
+        SimpleDeserializingReader(TimeExtractor &&timeExtractor = TimeExtractor {}) : timeExtractor_(std::move(timeExtractor)), bufferedReaders_(), readerIdx_() {}
         template <class Env>
-        static void start(Env *env, std::istream &is) {}
+        void start(Env *env, std::istream &is) {
+            bufferedReaders_.push_back({});
+            readerIdx_.insert({&is, bufferedReaders_.size()-1});
+        }
         template <class Env>
         std::optional<std::tuple<typename Env::TimePointType, T>> readOne(Env *env, std::istream &is) {
-            auto sizeBuf = bufferedReader_.read(is, sizeof(SizeType));
+            auto idxIter = readerIdx_.find(&is);
+            if (idxIter == readerIdx_.end()) {
+                return std::nullopt;
+            }
+            auto &bufferedReader = bufferedReaders_[idxIter->second];
+            auto sizeBuf = bufferedReader.read(is, sizeof(SizeType));
             if (sizeBuf.length() == 0) {
                 return std::nullopt;
             }
             SizeType l;
             std::memcpy(&l, sizeBuf.data(), sizeof(SizeType));
             l = boost::endian::little_to_native<SizeType>(l);
-            auto dataBuf = bufferedReader_.read(is, l);
+            auto dataBuf = bufferedReader.read(is, l);
             if (dataBuf.length() == 0) {
                 return std::nullopt;
             }
@@ -799,14 +808,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     class SimpleDeserializingReaderWithTime {
     private:
         TimeReader timeReader_;
-        GenericIOStreamImporterExporterHelper::BufferedReader<BufferSize> bufferedReader_;
+        std::vector<GenericIOStreamImporterExporterHelper::BufferedReader<BufferSize>> bufferedReaders_;
+        std::unordered_map<std::istream *, std::size_t> readerIdx_;
     public:
-        SimpleDeserializingReaderWithTime(TimeReader &&timeReader = TimeReader {}) : timeReader_(std::move(timeReader)), bufferedReader_() {}
+        SimpleDeserializingReaderWithTime(TimeReader &&timeReader = TimeReader {}) : timeReader_(std::move(timeReader)), bufferedReaders_(), readerIdx_() {}
         template <class Env>
-        static void start(Env *env, std::istream &is) {}
+        void start(Env *env, std::istream &is) {
+            bufferedReaders_.push_back({});
+            readerIdx_.insert({&is, bufferedReaders_.size()-1});
+        }
         template <class Env>
         std::optional<std::tuple<typename Env::TimePointType, T>> readOne(Env *env, std::istream &is) {
-            auto timeBuf = bufferedReader_.read(is, TimeReader::TimeSize);
+            auto idxIter = readerIdx_.find(&is);
+            if (idxIter == readerIdx_.end()) {
+                return std::nullopt;
+            }
+            auto &bufferedReader = bufferedReaders_[idxIter->second];
+            auto timeBuf = bufferedReader.read(is, TimeReader::TimeSize);
             if (timeBuf.length() == 0) {
                 return std::nullopt;
             }
@@ -814,14 +832,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             if (!tp) {
                 return std::nullopt;
             }
-            auto sizeBuf = bufferedReader_.read(is, sizeof(SizeType));
+            auto sizeBuf = bufferedReader.read(is, sizeof(SizeType));
             if (sizeBuf.length() == 0) {
                 return std::nullopt;
             }
             SizeType l;
             std::memcpy(&l, sizeBuf.data(), sizeof(SizeType));
             l = boost::endian::little_to_native<SizeType>(l);
-            auto dataBuf = bufferedReader_.read(is, l);
+            auto dataBuf = bufferedReader.read(is, l);
             if (dataBuf.length() == 0) {
                 return std::nullopt;
             }
