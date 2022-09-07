@@ -66,7 +66,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
         template <class App, class T, class Reader, class DataComparer>
         static void startQueue(typename App::EnvironmentType *env, Queue<App,T,DataComparer> &queue, GenericIStreamImporterSpec<App> &spec, Reader &reader, DataComparer &comparer) {
-            for (auto ii=0; ii<spec.size(); ++ii) {
+            for (std::size_t ii=0; ii<spec.size(); ++ii) {
                 reader.start(env, *(spec[ii].stream));
                 std::optional<std::tuple<typename App::TimePoint,T>> data = reader.readOne(env, *(spec[ii].stream));
                 if (data) {
