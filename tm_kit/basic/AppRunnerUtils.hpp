@@ -1547,7 +1547,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
 
-            return std::move(ret);
+            return ret;
         }
         template <class T>
         static auto singlePassTestRunOneUpdate(
