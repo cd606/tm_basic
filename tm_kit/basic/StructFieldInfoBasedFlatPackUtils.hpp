@@ -138,11 +138,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     writeSimpleField_internal<F>(os, f);
                 } else if constexpr (ArrayAndOptionalChecker<typename FlatPackSingleLayerWrapperHelper<F>::UnderlyingType>::IsArray) {
                     using BT = typename ArrayAndOptionalChecker<typename FlatPackSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
-                    for (auto const &item : FlatPackSingleLayerWrapperHelper<F>::constRef(f)) {
-                        if constexpr (is_simple_flatpack_field_v<BT>) {
-                            writeSimpleField_internal<BT>(os, item);
-                        } else {
-                            writeSingleField<BT>(os, item);
+                    if constexpr (std::is_arithmetic_v<BT>) {
+                        os.write(
+                            reinterpret_cast<char const *>(FlatPackSingleLayerWrapperHelper<F>::constRef(f).data())
+                            , sizeof(BT)*ArrayAndOptionalChecker<F>::ArrayLength
+                        );
+                    } else {
+                        for (auto const &item : FlatPackSingleLayerWrapperHelper<F>::constRef(f)) {
+                            if constexpr (is_simple_flatpack_field_v<BT>) {
+                                writeSimpleField_internal<BT>(os, item);
+                            } else {
+                                writeSingleField<BT>(os, item);
+                            }
                         }
                     }
                 } else {
@@ -246,7 +253,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     return parseSimpleField_internal<F>(input, start, output);
                 } else if constexpr (ArrayAndOptionalChecker<typename FlatPackSingleLayerWrapperHelper<F>::UnderlyingType>::IsArray) {
                     using BT = typename ArrayAndOptionalChecker<typename FlatPackSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
-                    if constexpr (is_simple_flatpack_field_v<BT>) {
+                    if constexpr (std::is_arithmetic_v<BT>) {
+    #ifdef _MSC_VER
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(input.data()+start, input.length()-start)
+    #else
+                        boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(input.begin()+start, input.size()-start)
+    #endif
+                        .read(
+                            reinterpret_cast<char *>(FlatPackSingleLayerWrapperHelper<F>::ref(output).data())
+                            , sizeof(BT)*ArrayAndOptionalChecker<F>::ArrayLength
+                        );
+                        return sizeof(BT)*ArrayAndOptionalChecker<F>::ArrayLength;
+                    } else if constexpr (is_simple_flatpack_field_v<BT>) {
                         std::size_t pos = 0;
                         for (auto &item : FlatPackSingleLayerWrapperHelper<F>::ref(output)) {
                             auto res = parseSimpleField_internal<BT>(input, start+pos, item);
