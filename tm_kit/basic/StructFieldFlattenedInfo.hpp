@@ -176,7 +176,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 typename internal::GetRef<typename StructFieldTypeInfo<T,FirstIndex>::TheType>::TheType
                 , StructFieldFlattenedInfoCursor<FieldType,RemainingIndices...>
             >::valuePointer(
-                internal::GetRef<typename StructFieldTypeInfo<T,FirstIndex>::TheType>::ref(data.*(StructFieldTypeInfo<T,FirstIndex>::fieldPointer()))
+                internal::GetRef<typename StructFieldTypeInfo<T,FirstIndex>::TheType>::ref(StructFieldTypeInfo<T,FirstIndex>::access(data))
             );
         }
         static FieldType const *constValuePointer(T const &data) {
@@ -184,7 +184,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 typename internal::GetRef<typename StructFieldTypeInfo<T,FirstIndex>::TheType>::TheType
                 , StructFieldFlattenedInfoCursor<FieldType,RemainingIndices...>
             >::constValuePointer(
-                internal::GetRef<typename StructFieldTypeInfo<T,FirstIndex>::TheType>::constRef(data.*(StructFieldTypeInfo<T,FirstIndex>::fieldPointer()))
+                internal::GetRef<typename StructFieldTypeInfo<T,FirstIndex>::TheType>::constRef(StructFieldTypeInfo<T,FirstIndex>::constAccess(data))
             );
         }
     };

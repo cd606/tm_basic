@@ -35,19 +35,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     class StructFieldTypeInfo<infra::VersionedData<VersionType,DataType,CmpType>, 0> { 
     public:
         using TheType = VersionType;
-        using FieldPointer = VersionType infra::VersionedData<VersionType,DataType,CmpType>::*; 
-        static constexpr FieldPointer fieldPointer() {
-            return &infra::VersionedData<VersionType,DataType,CmpType>::version;
-        } 
+        static TheType &access(infra::VersionedData<VersionType,DataType,CmpType> &d) {
+            return d.version;
+        }
+        static TheType const &constAccess(infra::VersionedData<VersionType,DataType,CmpType> const &d) {
+            return d.version;
+        }
+        static TheType &&moveAccess(infra::VersionedData<VersionType,DataType,CmpType> &&d) {
+            return std::move(d.version);
+        }
     };
     template <class VersionType, class DataType, class CmpType> 
     class StructFieldTypeInfo<infra::VersionedData<VersionType,DataType,CmpType>, 1> { 
     public:
         using TheType = DataType;
-        using FieldPointer = DataType infra::VersionedData<VersionType,DataType,CmpType>::*; 
-        static constexpr FieldPointer fieldPointer() {
-            return &infra::VersionedData<VersionType,DataType,CmpType>::data;
-        } 
+        static TheType &access(infra::VersionedData<VersionType,DataType,CmpType> &d) {
+            return d.data;
+        }
+        static TheType const &constAccess(infra::VersionedData<VersionType,DataType,CmpType> const &d) {
+            return d.data;
+        }
+        static TheType &&moveAccess(infra::VersionedData<VersionType,DataType,CmpType> &&d) {
+            return std::move(d.data);
+        }
     };
 
     template <class GroupIDType, class VersionType, class DataType, class CmpType>
@@ -74,28 +84,43 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     class StructFieldTypeInfo<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType>, 0> { 
     public:
         using TheType = GroupIDType;
-        using FieldPointer = GroupIDType infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType>::*; 
-        static constexpr FieldPointer fieldPointer() {
-            return &infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType>::groupID;
-        } 
+        static TheType &access(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType> &d) {
+            return d.groupID;
+        }
+        static TheType const &constAccess(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType> const &d) {
+            return d.groupID;
+        }
+        static TheType &&moveAccess(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType> &&d) {
+            return std::move(d.groupID);
+        }
     };
     template <class GroupIDType, class VersionType, class DataType, class CmpType> 
     class StructFieldTypeInfo<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType>, 1> { 
     public:
         using TheType = VersionType;
-        using FieldPointer = VersionType infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType>::*; 
-        static constexpr FieldPointer fieldPointer() {
-            return &infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType>::version;
-        } 
+        static TheType &access(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType> &d) {
+            return d.version;
+        }
+        static TheType const &constAccess(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType> const &d) {
+            return d.version;
+        }
+        static TheType &&moveAccess(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType> &&d) {
+            return std::move(d.version);
+        }
     };
     template <class GroupIDType, class VersionType, class DataType, class CmpType> 
     class StructFieldTypeInfo<infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType>, 2> { 
     public:
-        using TheType = DataType;
-        using FieldPointer = DataType infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType>::*; 
-        static constexpr FieldPointer fieldPointer() {
-            return &infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType>::data;
-        } 
+        using TheType = DataType; 
+        static TheType &access(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType> &d) {
+            return d.data;
+        }
+        static TheType const &constAccess(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType> const &d) {
+            return d.data;
+        }
+        static TheType &&moveAccess(infra::GroupedVersionedData<GroupIDType,VersionType,DataType,CmpType> &&d) {
+            return std::move(d.data);
+        }
     };
 }}}}
 #endif

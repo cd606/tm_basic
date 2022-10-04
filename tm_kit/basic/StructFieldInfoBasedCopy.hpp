@@ -345,10 +345,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     if constexpr (UFieldIndex >= 0 && UFieldIndex < UFieldCount) {
                         if constexpr (StructFieldInfo<T>::FIELD_NAMES[TFieldIndex] == StructFieldInfo<U>::FIELD_NAMES[UFieldIndex]) {
                             using F1 = typename StructFieldTypeInfo<T,TFieldIndex>::TheType;
-                            auto T::*p1 = StructFieldTypeInfo<T,TFieldIndex>::fieldPointer();
                             using F2 = typename StructFieldTypeInfo<U,UFieldIndex>::TheType;
-                            auto U::*p2 = StructFieldTypeInfo<U,UFieldIndex>::fieldPointer();
-                            ComplexCopy::template copy<F1,F2>(dest.*p1, src.*p2);
+                            ComplexCopy::template copy<F1,F2>(
+                                StructFieldTypeInfo<T,TFieldIndex>::access(dest)
+                                , StructFieldTypeInfo<U,UFieldIndex>::constAccess(src)
+                            );
                         }
                         copy_internal<TFieldCount,TFieldIndex,UFieldCount,UFieldIndex+1>(dest, src);
                     } else {
@@ -362,10 +363,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     if constexpr (UFieldIndex >= 0 && UFieldIndex < UFieldCount) {
                         if constexpr (StructFieldInfo<T>::FIELD_NAMES[TFieldIndex] == StructFieldInfo<U>::FIELD_NAMES[UFieldIndex]) {
                             using F1 = typename StructFieldTypeInfo<T,TFieldIndex>::TheType;
-                            auto T::*p1 = StructFieldTypeInfo<T,TFieldIndex>::fieldPointer();
                             using F2 = typename StructFieldTypeInfo<U,UFieldIndex>::TheType;
-                            auto U::*p2 = StructFieldTypeInfo<U,UFieldIndex>::fieldPointer();
-                            ComplexCopy::template move<F1,F2>(dest.*p1, std::move(src.*p2));
+                            ComplexCopy::template move<F1,F2>(
+                                StructFieldTypeInfo<T,TFieldIndex>::access(dest)
+                                , StructFieldTypeInfo<U,UFieldIndex>::moveAccess(std::move(src))
+                            );
                         }
                         move_internal<TFieldCount,TFieldIndex,UFieldCount,UFieldIndex+1>(dest, std::move(src));
                     } else {

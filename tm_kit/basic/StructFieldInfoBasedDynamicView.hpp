@@ -18,7 +18,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 if constexpr (K < N) {
                     *outIter++ = std::tuple<std::string_view, std::any> {
                         StructFieldInfo<T>::FIELD_NAMES[K]
-                        , std::any {t.*(StructFieldTypeInfo<T,K>::fieldPointer())}
+                        , std::any {StructFieldTypeInfo<T,K>::constAccess(t)}
                     };
                     copyNamesAndValuesToImpl<T,OutIter,K+1,N>(t, outIter);
                 }
@@ -26,7 +26,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             template <class T, class OutIter, std::size_t K, std::size_t N>
             static void copyValuesToImpl(T const &t, OutIter &outIter) {
                 if constexpr (K < N) {
-                    *outIter++ = std::any {t.*(StructFieldTypeInfo<T,K>::fieldPointer())};
+                    *outIter++ = std::any {StructFieldTypeInfo<T,K>::constAccess(t)};
                     copyValuesToImpl<T,OutIter,K+1,N>(t, outIter);
                 }
             }
@@ -43,11 +43,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 );
                 if constexpr (K < N) {
                     if constexpr (checker1((F *) nullptr, (std::any const *) nullptr)) {
-                        f(std::any {t.*(StructFieldTypeInfo<T,K>::fieldPointer())});
+                        f(std::any {StructFieldTypeInfo<T,K>::constAccess(t)});
                     } else if constexpr (checker2((F *) nullptr, (std::string_view const *) nullptr, (std::any const *) nullptr)) {
-                        f(StructFieldInfo<T>::FIELD_NAMES[K], std::any {t.*(StructFieldTypeInfo<T,K>::fieldPointer())});
+                        f(StructFieldInfo<T>::FIELD_NAMES[K], std::any {StructFieldTypeInfo<T,K>::constAccess(t)});
                     } else if constexpr (checker3((F *) nullptr, (std::size_t const *) nullptr, (std::string_view const *) nullptr, (std::any const *) nullptr)) {
-                        f(K, StructFieldInfo<T>::FIELD_NAMES[K], std::any {t.*(StructFieldTypeInfo<T,K>::fieldPointer())});
+                        f(K, StructFieldInfo<T>::FIELD_NAMES[K], std::any {StructFieldTypeInfo<T,K>::constAccess(t)});
                     }
                     forAllImpl<T,F,K+1,N>(t, std::forward<F>(f));
                 }
@@ -66,11 +66,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 if constexpr (K < N) {
                     if constexpr (std::is_same_v<X, typename StructFieldTypeInfo<T,K>::TheType>) {
                         if constexpr (checker1((F *) nullptr, (X const *) nullptr)) {
-                            f(t.*(StructFieldTypeInfo<T,K>::fieldPointer()));
+                            f(StructFieldTypeInfo<T,K>::constAccess(t));
                         } else if constexpr (checker2((F *) nullptr, (std::string_view const *) nullptr, (X const *) nullptr)) {
-                            f(StructFieldInfo<T>::FIELD_NAMES[K], t.*(StructFieldTypeInfo<T,K>::fieldPointer()));
+                            f(StructFieldInfo<T>::FIELD_NAMES[K], StructFieldTypeInfo<T,K>::constAccess(t));
                         } else if constexpr (checker3((F *) nullptr, (std::size_t const *) nullptr, (std::string_view const *) nullptr, (X const *) nullptr)) {
-                            f(K, StructFieldInfo<T>::FIELD_NAMES[K], t.*(StructFieldTypeInfo<T,K>::fieldPointer()));
+                            f(K, StructFieldInfo<T>::FIELD_NAMES[K], StructFieldTypeInfo<T,K>::constAccess(t));
                         }
                     }
                     forAllByTypeImpl<T,X,F,K+1,N>(t, std::forward<F>(f));
@@ -90,11 +90,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 if constexpr (K < N) {
                     if constexpr (std::is_same_v<X, typename StructFieldTypeInfo<T,K>::TheType>) {
                         if constexpr (checker1((F *) nullptr, (X *) nullptr)) {
-                            f(t.*(StructFieldTypeInfo<T,K>::fieldPointer()));
+                            f(StructFieldTypeInfo<T,K>::access(t));
                         } else if constexpr (checker2((F *) nullptr, (std::string_view const *) nullptr, (X *) nullptr)) {
-                            f(StructFieldInfo<T>::FIELD_NAMES[K], t.*(StructFieldTypeInfo<T,K>::fieldPointer()));
+                            f(StructFieldInfo<T>::FIELD_NAMES[K], StructFieldTypeInfo<T,K>::access(t));
                         } else if constexpr (checker3((F *) nullptr, (std::size_t const *) nullptr, (std::string_view const *) nullptr, (X *) nullptr)) {
-                            f(K, StructFieldInfo<T>::FIELD_NAMES[K], t.*(StructFieldTypeInfo<T,K>::fieldPointer()));
+                            f(K, StructFieldInfo<T>::FIELD_NAMES[K], StructFieldTypeInfo<T,K>::access(t));
                         }
                     }
                     updateAllByTypeImpl<T,X,F,K+1,N>(t, std::forward<F>(f));
@@ -135,7 +135,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 if constexpr (K<N) {
                     if (K==ii) {
                         return [](T const &t) {
-                            return std::any {t.*(StructFieldTypeInfo<T,K>::fieldPointer())};
+                            return std::any {StructFieldTypeInfo<T,K>::constAccess(t)};
                         };
                     } else {
                         return getAnyAccessFuncImpl<K+1,N>(ii);
@@ -152,7 +152,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 if constexpr (K<N) {
                     if (K==ii) {
                         return [](T &t, std::any const &input) {
-                            t.*(StructFieldTypeInfo<T,K>::fieldPointer()) = std::any_cast<
+                            StructFieldTypeInfo<T,K>::access(t) = std::any_cast<
                                 typename StructFieldTypeInfo<T,K>::TheType
                             >(input);
                         };

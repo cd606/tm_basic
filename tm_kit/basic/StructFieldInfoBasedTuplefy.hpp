@@ -30,23 +30,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             };
             template <int K>
             static constexpr OneFieldType<K> fetchOneField(T const &t) {
-                return t.*(StructFieldTypeInfo<T,K>::fieldPointer());
+                return StructFieldTypeInfo<T,K>::constAccess(t);
             }
             template <int K>
             static constexpr OnePtrFieldType<K> fetchOneFieldPointer(T &t) {
-                return &(t.*(StructFieldTypeInfo<T,K>::fieldPointer()));
+                return &(StructFieldTypeInfo<T,K>::access(t));
             }
             template <int K>
             static constexpr OneConstPtrFieldType<K> fetchOneFieldConstPointer(T const &t) {
-                return &(t.*(StructFieldTypeInfo<T,K>::fieldPointer()));
+                return &(StructFieldTypeInfo<T,K>::constAccess(t));
             }
             template <int K>
             static constexpr void copyFromField(T &t, OneFieldType<K> const &v) {
-                t.*(StructFieldTypeInfo<T,K>::fieldPointer()) = v;
+                StructFieldTypeInfo<T,K>::access(t) = v;
             }
             template <int K>
             static void moveFromField(T &t, OneFieldType<K> &&v) {
-                t.*(StructFieldTypeInfo<T,K>::fieldPointer()) = std::move(v);
+                StructFieldTypeInfo<T,K>::access(t) = std::move(v);
             }
         public:
             using TupleType = typename TupleTypeInternal<IndexSeq>::TheType;

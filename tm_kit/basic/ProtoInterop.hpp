@@ -1493,7 +1493,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         static void write_impl(T const &data, std::ostream &os, std::array<uint64_t, FieldCount> const &indices) {
             if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                 using F = typename StructFieldTypeInfo<T,FieldIndex>::TheType;
-                ProtoEncoder<F>::write(indices[FieldIndex], data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), os, false);
+                ProtoEncoder<F>::write(indices[FieldIndex], StructFieldTypeInfo<T,FieldIndex>::constAccess(data), os, false);
                 write_impl<FieldCount,FieldIndex+1>(data, os, indices);
             }
         }
@@ -3273,7 +3273,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
                     ProtoEncoder<F>::thisFieldNumber(current)
                 )) {
                     ret[n] = new ProtoDecoder<F>(
-                        &(t->*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()))
+                        &(StructFieldTypeInfo<T,FieldIndex>::access(*t))
                         , ProtoEncoder<F>::thisFieldNumber(current)
                     );
                 }

@@ -864,9 +864,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
     class StructFieldTypeInfo<data,BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)> { \
     public: \
         using TheType = TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem)); \
-        using FieldPointer = TheType data::*; \
-        static constexpr FieldPointer fieldPointer() {\
-            return &data::BOOST_PP_TUPLE_ELEM(1,elem); \
+        static TheType &access(data &d) { \
+            return d.BOOST_PP_TUPLE_ELEM(1,elem); \
+        } \
+        static TheType const &constAccess(data const &d) { \
+            return d.BOOST_PP_TUPLE_ELEM(1,elem); \
+        } \
+        static TheType &&moveAccess(data &&d) { \
+            return std::move(d.BOOST_PP_TUPLE_ELEM(1,elem)); \
         } \
     };
 
@@ -913,9 +918,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
     class StructFieldTypeInfo<BOOST_PP_TUPLE_ELEM(0,data)<BOOST_PP_TUPLE_ENUM(BOOST_PP_TUPLE_ELEM(2,data))>,BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)> { \
     public: \
         using TheType = TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem)); \
-        using FieldPointer = TheType BOOST_PP_TUPLE_ELEM(0,data)<BOOST_PP_TUPLE_ENUM(BOOST_PP_TUPLE_ELEM(2,data))>::*; \
-        static constexpr FieldPointer fieldPointer() {\
-            return &BOOST_PP_TUPLE_ELEM(0,data)<BOOST_PP_TUPLE_ENUM(BOOST_PP_TUPLE_ELEM(2,data))>::BOOST_PP_TUPLE_ELEM(1,elem); \
+        static TheType &access(BOOST_PP_TUPLE_ELEM(0,data)<BOOST_PP_TUPLE_ENUM(BOOST_PP_TUPLE_ELEM(2,data))> &d) { \
+            return d.BOOST_PP_TUPLE_ELEM(1,elem); \
+        } \
+        static TheType const &constAccess(BOOST_PP_TUPLE_ELEM(0,data)<BOOST_PP_TUPLE_ENUM(BOOST_PP_TUPLE_ELEM(2,data))> const &d) { \
+            return d.BOOST_PP_TUPLE_ELEM(1,elem); \
+        } \
+        static TheType &&moveAccess(BOOST_PP_TUPLE_ELEM(0,data)<BOOST_PP_TUPLE_ENUM(BOOST_PP_TUPLE_ELEM(2,data))> &&d) { \
+            return std::move(d.BOOST_PP_TUPLE_ELEM(1,elem)); \
         } \
     };
 

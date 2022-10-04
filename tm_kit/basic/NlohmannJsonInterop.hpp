@@ -617,7 +617,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 JsonEncoder<F>::write(
                     output
                     , std::string(StructFieldInfo<T>::FIELD_NAMES[FieldIndex])
-                    , data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer())
+                    , StructFieldTypeInfo<T,FieldIndex>::constAccess(data)
                 );
                 write_impl<FieldCount,FieldIndex+1>(output, data);
             }
@@ -2985,7 +2985,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     if (input.find(s) == input.end()) {
                         return read_impl<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
                     } else {
-                        bool ret = JsonDecoder<F>::read(input, s, data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), mapping);
+                        bool ret = JsonDecoder<F>::read(input, s, StructFieldTypeInfo<T,FieldIndex>::access(data), mapping);
                         return read_impl<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, (retSoFar && ret));
                     }
                 } else {
@@ -2999,7 +2999,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     if (input.find(s) == input.end()) {
                         return read_impl<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
                     } else {
-                        bool ret = JsonDecoder<F>::read(input, s, data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), mapping);
+                        bool ret = JsonDecoder<F>::read(input, s, StructFieldTypeInfo<T,FieldIndex>::access(data), mapping);
                         return read_impl<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, (retSoFar && ret));
                     }
                 }
@@ -3021,7 +3021,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     } else if (input[s].is_null()) {
                         return read_impl_simd<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
                     } else {
-                        bool ret = JsonDecoder<F>::read_simd(input, s, data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), mapping);
+                        bool ret = JsonDecoder<F>::read_simd(input, s, StructFieldTypeInfo<T,FieldIndex>::access(data), mapping);
                         return read_impl_simd<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, (retSoFar && ret));
                     }
                 } else {
@@ -3037,7 +3037,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     } else if (input[s].is_null()) {
                         return read_impl_simd<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
                     } else {
-                        bool ret = JsonDecoder<F>::read_simd(input, s, data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), mapping);
+                        bool ret = JsonDecoder<F>::read_simd(input, s, StructFieldTypeInfo<T,FieldIndex>::access(data), mapping);
                         return read_impl_simd<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, (retSoFar && ret));
                     }
                 }
@@ -3060,7 +3060,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     } else if (x.is_null()) {
                         return read_impl_simd_ondemand<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
                     } else {
-                        bool ret = JsonDecoder<F>::read_simd_ondemand(x, std::nullopt, data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), mapping);
+                        bool ret = JsonDecoder<F>::read_simd_ondemand(x, std::nullopt, StructFieldTypeInfo<T,FieldIndex>::access(data), mapping);
                         return read_impl_simd_ondemand<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, (retSoFar && ret));
                     }
                 } else {
@@ -3077,7 +3077,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     } else if (x.is_null()) {
                         return read_impl_simd_ondemand<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
                     } else {
-                        bool ret = JsonDecoder<F>::read_simd_ondemand(x, std::nullopt, data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()), mapping);
+                        bool ret = JsonDecoder<F>::read_simd_ondemand(x, std::nullopt, StructFieldTypeInfo<T,FieldIndex>::access(data), mapping);
                         return read_impl_simd_ondemand<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, (retSoFar && ret));
                     }
                 }

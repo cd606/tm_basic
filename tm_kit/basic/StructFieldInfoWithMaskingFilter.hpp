@@ -134,11 +134,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         using TheType = typename StructFieldTypeInfo<
             T, filterResults.filteredToOriginal[Idx]
         >::TheType; 
-        using FieldPointer = TheType struct_field_info_masking::MaskedStruct<T,maskF>::*;
-        static constexpr FieldPointer fieldPointer() {
-            return (FieldPointer) StructFieldTypeInfo<
+        static TheType &access(struct_field_info_masking::MaskedStruct<T,maskF> &data) {
+            return StructFieldTypeInfo<
                 T, filterResults.filteredToOriginal[Idx]
-            >::fieldPointer();
+            >::access(static_cast<T &>(data));
+        }
+        static TheType const &constAccess(struct_field_info_masking::MaskedStruct<T,maskF> const &data) {
+            return StructFieldTypeInfo<
+                T, filterResults.filteredToOriginal[Idx]
+            >::constAccess(static_cast<T const &>(data));
+        }
+        static TheType &&moveAccess(struct_field_info_masking::MaskedStruct<T,maskF> &&data) {
+            return StructFieldTypeInfo<
+                T, filterResults.filteredToOriginal[Idx]
+            >::moveAccess(static_cast<T &&>(data));
         }
     };
 

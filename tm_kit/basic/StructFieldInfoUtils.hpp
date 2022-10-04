@@ -28,16 +28,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                 if constexpr (std::is_same_v<typename StructFieldTypeInfo<T,FieldIndex>::TheType, DateHolder>) {
                     auto tm = source.template get<std::tm>(FieldIndex+startSourceIndex);
-                    auto &x = data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer());
+                    auto &x = StructFieldTypeInfo<T,FieldIndex>::access(data);
                     x.year = tm.tm_year+1900;
                     x.month = tm.tm_mon+1;
                     x.day = tm.tm_mday;
                 } else if constexpr (std::is_same_v<typename StructFieldTypeInfo<T,FieldIndex>::TheType, std::chrono::system_clock::time_point>) {
                     auto s = source.template get<std::string>(FieldIndex+startSourceIndex);
-                    data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()) = 
+                    StructFieldTypeInfo<T,FieldIndex>::access(data) = 
                         infra::withtime_utils::parseLocalTime(s);
                 } else {
-                    data.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()) = source.template get<typename StructFieldTypeInfo<T,FieldIndex>::TheType>(FieldIndex+startSourceIndex);
+                    StructFieldTypeInfo<T,FieldIndex>::access(data) = source.template get<typename StructFieldTypeInfo<T,FieldIndex>::TheType>(FieldIndex+startSourceIndex);
                 }
                 if constexpr (FieldIndex < FieldCount-1) {
                     fillData_internal<R,FieldCount,FieldIndex+1>(data, source, startSourceIndex);
@@ -136,7 +136,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                 StructFieldInfoBasedInitializer<
                     typename StructFieldTypeInfo<T,FieldIndex>::TheType
-                >::initialize(t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()));
+                >::initialize(StructFieldTypeInfo<T,FieldIndex>::access(t));
                 if constexpr (FieldIndex < FieldCount-1) {
                     initialize_internal<FieldCount,FieldIndex+1>(t);
                 }
@@ -176,7 +176,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                     auto fieldHash = StructFieldInfoBasedHash<
                         typename StructFieldTypeInfo<T,FieldIndex>::TheType
-                    >()(t.*(StructFieldTypeInfo<T,FieldIndex>::fieldPointer()));
+                    >()(StructFieldTypeInfo<T,FieldIndex>::constAccess(t));
                     std::size_t newVal = (soFar*16777619)^fieldHash;
                     if constexpr (FieldIndex < FieldCount-1) {
                         return hash_internal<FieldCount,FieldIndex+1>(t, newVal);

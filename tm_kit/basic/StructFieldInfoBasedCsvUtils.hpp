@@ -479,8 +479,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         os << ',';
                     }
                     using F = typename StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::TheType;
-                    auto CsvSingleLayerWrapperHelper<T>::UnderlyingType::*p = StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::fieldPointer();
-                    writeSingleField<F>(os, (CsvSingleLayerWrapperHelper<T>::constRef(t)).*p);
+                    writeSingleField<F>(os, StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::constAccess(CsvSingleLayerWrapperHelper<T>::constRef(t)));
                     writeData_internal<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldCount,FieldIndex+1>(os, (CsvSingleLayerWrapperHelper<T>::constRef(t)));
                 }
             }
@@ -492,8 +491,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     if (prefix != "") {
                         s = prefix+"."+s;
                     }
-                    auto CsvSingleLayerWrapperHelper<T>::UnderlyingType::*p = StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::fieldPointer();
-                    outputSingleFieldToReceiver<F>(s, (CsvSingleLayerWrapperHelper<T>::constRef(t)).*p, receiver);
+                    outputSingleFieldToReceiver<F>(s, StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::constAccess(CsvSingleLayerWrapperHelper<T>::constRef(t)), receiver);
                     outputNameValuePairs_internal<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldCount,FieldIndex+1>(prefix, CsvSingleLayerWrapperHelper<T>::constRef(t), receiver);
                 }
             }
@@ -940,27 +938,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 }        
             }
             template <class T, class F, std::size_t Index>
-            static void createOneTupleParser(std::string const &name, F (T::*p), std::unordered_map<std::string, std::function<void(T &, std::string_view const &)>> &ret) {
+            static void createOneTupleParser(std::string const &name, F &(*f)(T &), std::unordered_map<std::string, std::function<void(T &, std::string_view const &)>> &ret) {
                 using BT = typename CsvSingleLayerWrapperHelper<F>::UnderlyingType;
                 if constexpr (Index < std::tuple_size_v<BT>) {
                     auto insideMap = createParserMap<std::tuple_element_t<Index,BT>>(name+"."+std::to_string(Index));
                     for (auto const &item : insideMap) {
-                        ret[item.first] = [p,f=item.second](T &t, std::string_view const &v) {
-                            f(std::get<Index>(CsvSingleLayerWrapperHelper<F>::ref(t.*p)), v);
+                        ret[item.first] = [f,g=item.second](T &t, std::string_view const &v) {
+                            g(std::get<Index>(CsvSingleLayerWrapperHelper<F>::ref(f(t))), v);
                         };
                     }
-                    createOneTupleParser<T,F,Index+1>(name, p, ret);
+                    createOneTupleParser<T,F,Index+1>(name, f, ret);
                 }
             }
             template <class T, class F>
-            static void createOneFieldParser_internal(std::string const &name, F (T::*p), std::unordered_map<std::string, std::function<void(T &, std::string_view const &)>> &ret) {
+            static void createOneFieldParser_internal(std::string const &name, F &(*f)(T &), std::unordered_map<std::string, std::function<void(T &, std::string_view const &)>> &ret) {
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
-                    ret[name] = [p](T &t, std::string_view const &v) {
-                        parseSimpleField_internal<F>(v, t.*p);
+                    ret[name] = [f](T &t, std::string_view const &v) {
+                        parseSimpleField_internal<F>(v, f(t));
                     };
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsCharArray) {                    
-                    ret[name] = [p](T &t, std::string_view const &v) {
-                        auto &r = CsvSingleLayerWrapperHelper<F>::ref(t.*p);
+                    ret[name] = [f](T &t, std::string_view const &v) {
+                        auto &r = CsvSingleLayerWrapperHelper<F>::ref(f(t));
                         std::memset(r.data(), 0, ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength);
                         std::memcpy(r.data(), v.data(), std::min(ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength, v.length()));
                     };
@@ -968,16 +966,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
                     if constexpr (is_simple_csv_field_v<BT>) {
                         for (std::size_t ii=0; ii<ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength; ++ii) {
-                            ret[name+"["+std::to_string(ii)+"]"] = [p,ii](T &t, std::string_view const &v) {
-                                parseSimpleField_internal<F>(v, (CsvSingleLayerWrapperHelper<F>::ref(t.*p))[ii]);
+                            ret[name+"["+std::to_string(ii)+"]"] = [f,ii](T &t, std::string_view const &v) {
+                                parseSimpleField_internal<F>(v, (CsvSingleLayerWrapperHelper<F>::ref(f(t)))[ii]);
                             };
                         }
                     } else {
                         for (std::size_t ii=0; ii<ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength; ++ii) {
                             auto insideMap = createParserMap<BT>(name+"["+std::to_string(ii)+"]");
                             for (auto const &item : insideMap) {
-                                ret[item.first] = [p,ii,f=item.second](T &t, std::string_view const &v) {
-                                    f((CsvSingleLayerWrapperHelper<F>::ref(t.*p))[ii], v);
+                                ret[item.first] = [f,ii,g=item.second](T &t, std::string_view const &v) {
+                                    g((CsvSingleLayerWrapperHelper<F>::ref(f(t)))[ii], v);
                                 };
                             }
                         }
@@ -985,35 +983,35 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsOptional) {
                     using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
                     if constexpr (is_simple_csv_field_v<BT>) {
-                        ret[name] = [p](T &t, std::string_view const &v) {
+                        ret[name] = [f](T &t, std::string_view const &v) {
                             BT x;
                             if (parseSimpleField_internal<BT>(v, x)) {
-                                CsvSingleLayerWrapperHelper<F>::ref(t.*p) = std::move(x);
+                                CsvSingleLayerWrapperHelper<F>::ref(f(t)) = std::move(x);
                             } else {
-                                CsvSingleLayerWrapperHelper<F>::ref(t.*p) = std::nullopt;
+                                CsvSingleLayerWrapperHelper<F>::ref(f(t)) = std::nullopt;
                             }
                         };
                     } else {
                         auto insideMap = createParserMap<BT>(name);
                         for (auto const &item : insideMap) {
-                            ret[item.first] = [p,f=item.second](T &t, std::string_view const &v) {
-                                auto &r = CsvSingleLayerWrapperHelper<F>::ref(t.*p);
+                            ret[item.first] = [f,g=item.second](T &t, std::string_view const &v) {
+                                auto &r = CsvSingleLayerWrapperHelper<F>::ref(f(t));
                                 if (!r) {
                                     r = BT {};
                                     StructFieldInfoBasedInitializer<BT>::initialize(*r);
                                 }
-                                f(*r, v);
+                                g(*r, v);
                             };
                         }
                     }
                 } else if constexpr (IsTuple<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::Value) {
-                    createOneTupleParser<T, F, 0>(name, p, ret);
+                    createOneTupleParser<T, F, 0>(name, f, ret);
                 } else {
                     using BT = typename CsvSingleLayerWrapperHelper<F>::UnderlyingType;
                     auto insideMap = createParserMap<BT>(name);
                     for (auto const &item : insideMap) {
-                        ret[item.first] = [p,f=item.second](T &t, std::string_view const &v) {
-                            f(CsvSingleLayerWrapperHelper<F>::ref(t.*p), v);
+                        ret[item.first] = [f,g=item.second](T &t, std::string_view const &v) {
+                            g(CsvSingleLayerWrapperHelper<F>::ref(f(t)), v);
                         };
                     }
                 }        
@@ -1022,8 +1020,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static std::tuple<bool,std::size_t> parse_internal(std::vector<std::string_view> const &parts, T &t, int currentIdx, bool hasGoodSoFar) {
                 if constexpr (FieldCount >=0 && FieldIndex < FieldCount) {
                     using F = typename StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::TheType;
-                    auto CsvSingleLayerWrapperHelper<T>::UnderlyingType::*p = StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::fieldPointer();
-                    auto res = parseOne<F>(parts, ((CsvSingleLayerWrapperHelper<T>::ref(t)).*p), currentIdx);
+                    auto res = parseOne<F>(parts, StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::access(CsvSingleLayerWrapperHelper<T>::ref(t)), currentIdx);
                     if (std::get<0>(res)) {
                         hasGoodSoFar = true;
                     }
@@ -1036,8 +1033,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static std::tuple<bool,std::size_t> parse_internal_with_idx_dict(std::vector<std::string_view> const &parts, T &t, int currentIdx, bool hasGoodSoFar, std::vector<std::size_t> const &idxDict) {
                 if constexpr (FieldCount >=0 && FieldIndex < FieldCount) {
                     using F = typename StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::TheType;
-                    auto T::*p = StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::fieldPointer();
-                    auto res = parseOneWithIdxDict<F>(parts, (t.*p), currentIdx, idxDict);
+                    auto res = parseOneWithIdxDict<F>(parts, StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::access(t), currentIdx, idxDict);
                     if (std::get<0>(res)) {
                         hasGoodSoFar = true;
                     }
@@ -1054,8 +1050,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     if (prefix != "") {
                         s = prefix+"."+s;
                     }
-                    auto T::*p = StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::fieldPointer();
-                    createOneFieldParser_internal(s, p, ret);
+                    createOneFieldParser_internal(s, &StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::access, ret);
                     createParserMap_internal<T,FieldCount,FieldIndex+1>(prefix, ret);
                 }
             }

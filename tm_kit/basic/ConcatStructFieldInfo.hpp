@@ -177,11 +177,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         using TheType = typename StructFieldTypeInfo<
             typename L::TheSubStruct, L::TranslatedIdx
         >::TheType;
-        using FieldPointer = TheType struct_field_info_utils::ConcatStructFields<Ss...>::*;
-        static constexpr FieldPointer fieldPointer() {
-            return (FieldPointer) StructFieldTypeInfo< 
+        static TheType &access(struct_field_info_utils::ConcatStructFields<Ss...> &d) {
+            return StructFieldTypeInfo< 
                 typename L::TheSubStruct, L::TranslatedIdx
-            >::fieldPointer();
+            >::access(static_cast<typename L::TheSubStruct &>(d));
+        }
+        static TheType const &constAccess(struct_field_info_utils::ConcatStructFields<Ss...> const &d) {
+            return StructFieldTypeInfo< 
+                typename L::TheSubStruct, L::TranslatedIdx
+            >::constAccess(static_cast<typename L::TheSubStruct const &>(d));
+        }
+        static TheType &&moveAccess(struct_field_info_utils::ConcatStructFields<Ss...> &&d) {
+            return StructFieldTypeInfo< 
+                typename L::TheSubStruct, L::TranslatedIdx
+            >::moveAccess(static_cast<typename L::TheSubStruct &&>(std::move(d)));
         }
     };
 

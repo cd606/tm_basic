@@ -23,6 +23,8 @@ tm_basic_headers = [
     , 'GenericIOStreamImporterExporter.hpp'
     , 'NotConstructibleStruct.hpp'
     , 'StructFieldInfoHelper.hpp'
+    , 'StructFieldInfoHelper_Tuple.hpp'
+    , 'StructFieldInfoHelper_NamedField.hpp'
     , 'StructFieldInfoUtils.hpp'
     , 'GraphControlFacility.hpp'
     , 'CounterComponent.hpp'

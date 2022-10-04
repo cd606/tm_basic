@@ -162,8 +162,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static void writeData_internal(std::ostream &os, T const &t) {
                 if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                     using F = typename StructFieldTypeInfo<typename FlatPackSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::TheType;
-                    auto FlatPackSingleLayerWrapperHelper<T>::UnderlyingType::*p = StructFieldTypeInfo<typename FlatPackSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::fieldPointer();
-                    writeSingleField<F>(os, (FlatPackSingleLayerWrapperHelper<T>::constRef(t)).*p);
+                    writeSingleField<F>(os, StructFieldTypeInfo<typename FlatPackSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::constAccess(FlatPackSingleLayerWrapperHelper<T>::constRef(t)));
                     writeData_internal<typename FlatPackSingleLayerWrapperHelper<T>::UnderlyingType,FieldCount,FieldIndex+1>(os, (FlatPackSingleLayerWrapperHelper<T>::constRef(t)));
                 }
             }
@@ -293,8 +292,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static std::optional<std::size_t> parse_internal(std::string_view input, std::size_t start, T &t, std::size_t soFar) {
                 if constexpr (FieldCount >=0 && FieldIndex < FieldCount) {
                     using F = typename StructFieldTypeInfo<typename FlatPackSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::TheType;
-                    auto FlatPackSingleLayerWrapperHelper<T>::UnderlyingType::*p = StructFieldTypeInfo<typename FlatPackSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::fieldPointer();
-                    auto res = parseOne<F>(input, start, ((FlatPackSingleLayerWrapperHelper<T>::ref(t)).*p));
+                    auto res = parseOne<F>(input, start, StructFieldTypeInfo<typename FlatPackSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::access(FlatPackSingleLayerWrapperHelper<T>::ref(t)));
                     if (!res) {
                         return std::nullopt;
                     }
