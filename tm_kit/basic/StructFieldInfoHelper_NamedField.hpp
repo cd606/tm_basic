@@ -97,6 +97,32 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return RunCBORDeserializer<T>::applyInPlace(output.value, data, start);
             }
         };
+
+        template <typename T>
+        concept HasStructFieldInfo = StructFieldInfo<T>::HasGeneratedStructFieldInfo;
+
+        template <class T> requires HasStructFieldInfo<T>
+        class GetByName {
+        public:
+            template <struct_field_info_helper_internal::StringLiteral lit> 
+                requires (StructFieldInfo<T>::getFieldIndex(lit.value) >= 0)
+            static auto &get(T &t) {
+                return StructFieldTypeInfo<T, StructFieldInfo<T>::getFieldIndex(lit.value)>::access(t);
+            }
+            template <struct_field_info_helper_internal::StringLiteral lit> 
+                requires (StructFieldInfo<T>::getFieldIndex(lit.value) >= 0)
+            static auto const &get(T const &t) {
+                return StructFieldTypeInfo<T, StructFieldInfo<T>::getFieldIndex(lit.value)>::constAccess(t);
+            }
+            template <struct_field_info_helper_internal::StringLiteral lit> 
+                requires (StructFieldInfo<T>::getFieldIndex(lit.value) >= 0)
+            static auto &&get(T &&t) {
+                return StructFieldTypeInfo<T, StructFieldInfo<T>::getFieldIndex(lit.value)>::moveAccess(std::move(t));
+            }
+        };
+
+        #define TM_BASIC_GET_FIELD(x, f) \
+            dev::cd606::tm::basic::bytedata_utils::GetByName<std::decay_t<decltype(x)>>::get<#f>(x)
     }
 
 }}}}
