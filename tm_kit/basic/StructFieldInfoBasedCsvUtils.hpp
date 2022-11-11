@@ -388,9 +388,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
                     writeSimpleField_internal<F>(os, f);
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsCharArray) {
+                    char const *p = CsvSingleLayerWrapperHelper<F>::constRef(f).data();
+                    std::size_t ii = 0;
+                    for (; ii<ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength; ++ii) {
+                        if (p[ii] == '\0') {
+                            break;
+                        }
+                    }
                     os << std::quoted(std::string_view(
-                        CsvSingleLayerWrapperHelper<F>::constRef(f).data()
-                        , ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength
+                        p
+                        , ii
                     ));
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsArray) {
                     using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
@@ -434,11 +441,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
                     outputSimpleFieldToReceiver_internal<F>(name, f, receiver);
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsCharArray) {
+                    char const *p = CsvSingleLayerWrapperHelper<F>::constRef(f).data();
+                    std::size_t ii = 0;
+                    for (; ii<ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength; ++ii) {
+                        if (p[ii] == '\0') {
+                            break;
+                        }
+                    }
                     receiver(
                         name
                         , std::string(
-                            CsvSingleLayerWrapperHelper<F>::constRef(f).data()
-                            , ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength
+                            p
+                            , ii
                         )
                     );
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsArray) {
