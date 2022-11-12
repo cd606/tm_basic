@@ -39,7 +39,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             if constexpr (sizeof...(More) == 0) {
                 return;
             } else {
-                fieldNamesHelper_internal<Idx+nm.size(),More...>(ret);
+                fieldNamesHelper_internal<Idx+StructFieldInfo<First>::FIELD_NAMES.size(),More...>(ret);
             }
         }
         static constexpr std::array<std::string_view, N> fieldNamesHelper() {
