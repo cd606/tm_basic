@@ -513,6 +513,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             for (char c : t) {
                 if (c == '\0') {
                     hasEnd = true;
+                    break;
                 } else if (!std::isprint(static_cast<unsigned char>(c))) {
                     isString = false;
                     break;

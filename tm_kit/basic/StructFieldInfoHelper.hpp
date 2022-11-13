@@ -2,6 +2,7 @@
 #define TM_KIT_BASIC_STRUCT_FIELD_INFO_HELPER_HPP_
 
 #include <tm_kit/infra/VersionedData.hpp>
+#include <string_view>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <class T>
@@ -11,6 +12,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     };
     template <class T, int Idx>
     class StructFieldTypeInfo {
+    };
+    template <class T>
+    class StructFieldOffsetInfo {
+    public:
+        static constexpr bool HasGeneratedStructFieldOffsetInfo = false;
     };
 
     //specialize for versioned data and grouped versioned data

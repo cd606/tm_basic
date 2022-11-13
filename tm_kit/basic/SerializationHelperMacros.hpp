@@ -854,6 +854,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_ONE_FIELD_NAME(r, data, elem) \
     BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(1,elem)) BOOST_PP_COMMA()
 
+#define TM_BASIC_CBOR_CAPABLE_STRUCT_ONE_FIELD_OFFSET(r, data, elem) \
+    offsetof(data, BOOST_PP_TUPLE_ELEM(1,elem)) BOOST_PP_COMMA()
+
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_ONE_GET_FIELD_INDEX(r, data, elem) \
     if (fieldName == BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(1,elem))) { \
         return BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS); \
@@ -890,6 +893,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             } \
         }; \
         BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_FIELD_TYPE_INFO,name,content); \
+        template <> \
+        class StructFieldOffsetInfo<name> { \
+        public: \
+            static constexpr bool HasGeneratedStructFieldOffsetInfo = true; \
+            static constexpr std::array<std::size_t, BOOST_PP_SEQ_SIZE(content)> FIELD_OFFSETS = { \
+                BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_ONE_FIELD_OFFSET,name,content) \
+            }; \
+        }; \
     } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_FIELD_INFO(name) \
@@ -944,6 +955,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             } \
         }; \
         BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_FIELD_TYPE_INFO,(name, (TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)), (TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams))),content); \
+        template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+        class StructFieldOffsetInfo<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> { \
+        public: \
+            static constexpr bool HasGeneratedStructFieldOffsetInfo = true; \
+            using TheStruct = name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>; \
+            static constexpr std::array<std::size_t, BOOST_PP_SEQ_SIZE(content)> FIELD_OFFSETS = { \
+                BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_ONE_FIELD_OFFSET,TheStruct,content) \
+            }; \
+        }; \
     } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_FIELD_INFO(templateParams, name) \

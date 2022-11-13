@@ -51,6 +51,7 @@ tm_basic_headers = [
     , 'FixedPrecisionShortDecimal.hpp'
     , 'TimePointAsString.hpp'
     , 'CollectionAsJoinedString.hpp'
+    , 'StructFieldInfoBasedHdf5Utils.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
