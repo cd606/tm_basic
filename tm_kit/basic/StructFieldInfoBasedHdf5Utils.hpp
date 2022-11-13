@@ -234,32 +234,28 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             std::unique_ptr<H5::DataSet> dataset;
             try {
                 if (groups.empty()) {
-                    dataset = std::make_unique<H5::DataSet>(
-                        file->openDataSet(realParts.back())
-                    );
+                    file->unlink(realParts.back());
                 } else {
-                    dataset = std::make_unique<H5::DataSet>(
-                        groups.back()->openDataSet(realParts.back())
-                    );
+                    groups.back()->unlink(realParts.back());
                 }
             } catch (H5::Exception const &) {
-                if (groups.empty()) {
-                    dataset = std::make_unique<H5::DataSet>(
-                        file->createDataSet(
-                            realParts.back()
-                            , theType
-                            , space
-                        )
-                    );
-                } else {
-                    dataset = std::make_unique<H5::DataSet>(
-                        groups.back()->createDataSet(
-                            realParts.back()
-                            , theType
-                            , space
-                        )
-                    );
-                }
+            }
+            if (groups.empty()) {
+                dataset = std::make_unique<H5::DataSet>(
+                    file->createDataSet(
+                        realParts.back()
+                        , theType
+                        , space
+                    )
+                );
+            } else {
+                dataset = std::make_unique<H5::DataSet>(
+                    groups.back()->createDataSet(
+                        realParts.back()
+                        , theType
+                        , space
+                    )
+                );
             }
             dataset->write(data.data(), theType);
         }
