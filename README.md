@@ -35,3 +35,5 @@ boost and spdlog may be installed through Linux package manager, or through vcpk
 nlohmann_json and simdjson are required for Json serialization/deserialization functionalities. This package also supports CBOR and protobuf serialization/deserialization, but those are directly implemented in wire protocol format and does not depend on libraries.
 
 For simdjson that is installed via vcpkg on Windows, for some reason, ${VCPKG_ROOT}/buildtrees/simdjson/src/${SIMDJSON_VERSION}/singleheader/simdjson.cpp has *not* been compiled into the library (as of version v1.0.2-054cb6851f.clean). So, if an app uses simdjson functionality and needs to be compiled on Windows, then this file needs to be added to the source list of the app, otherwise there will be link errors.
+
+There is one header file that uses HDF5. Because that is a single header not included in any other header, HDF5 has not been listed as a dependency for this package. If a project needs this header, that project should have a dependency to hdf5_cpp (if vcpkg is used for providing dependencies). Also, on Windows, that project would have to define H5_BUILT_AS_DYNAMIC_LIB=1.
