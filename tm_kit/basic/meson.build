@@ -52,6 +52,7 @@ tm_basic_headers = [
     , 'TimePointAsString.hpp'
     , 'CollectionAsJoinedString.hpp'
     , 'StructFieldInfoBasedHdf5Utils.hpp'
+    , 'TimestampedCollectionImporter.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
