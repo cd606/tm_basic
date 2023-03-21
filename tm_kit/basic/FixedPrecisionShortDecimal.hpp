@@ -38,6 +38,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static constexpr Underlying s_divisionFactor = divisionFactor();
     public:
         using UnderlyingType = Underlying;
+        static constexpr std::size_t PrecisionValue = Precision;
         FixedPrecisionShortDecimal() : value_(0) {}
         explicit FixedPrecisionShortDecimal(Underlying u) : value_(u) {}
         explicit FixedPrecisionShortDecimal(double d) : value_(std::round(d/s_conversionFactor)) {}
@@ -64,25 +65,50 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         FixedPrecisionShortDecimal &operator=(FixedPrecisionShortDecimal &&) = default;
         ~FixedPrecisionShortDecimal() = default;
 
-        template <std::size_t NewPrecision>
-        FixedPrecisionShortDecimal<NewPrecision, Underlying> changePrecision() const {
+        template <std::size_t NewPrecision, typename NewUnderlying=Underlying>
+        FixedPrecisionShortDecimal<NewPrecision, NewUnderlying> changePrecision() const {
             if constexpr (NewPrecision == Precision) {
-                return FixedPrecisionShortDecimal<NewPrecision, Underlying>(value_);
-            } else if constexpr (NewPrecision > Precision) {
-                Underlying v = value_;
-                for (int ii=Precision; ii<NewPrecision; ++ii) {
-                    v *= (Underlying) 10;
-                }
-                return FixedPrecisionShortDecimal<NewPrecision, Underlying>(v);
-            } else {
-                Underlying factor = 1;
-                for (int ii=NewPrecision; ii<Precision; ++ii) {
-                    factor *= (Underlying) 10;
-                }
-                if ((value_ % factor) >= factor/2) {
-                    return FixedPrecisionShortDecimal<NewPrecision, Underlying>(value_/factor+1);
+                if constexpr (std::is_same_v<NewUnderlying, Underlying>) {
+                    return FixedPrecisionShortDecimal<NewPrecision, NewUnderlying>(value_);
                 } else {
-                    return FixedPrecisionShortDecimal<NewPrecision, Underlying>(value_/factor);
+                    return FixedPrecisionShortDecimal<NewPrecision, NewUnderlying>(static_cast<NewUnderlying>(value_));
+                }
+            } else if constexpr (NewPrecision > Precision) {
+                if constexpr (std::is_same_v<NewUnderlying, Underlying>) {
+                    Underlying v = value_;
+                    for (int ii=Precision; ii<NewPrecision; ++ii) {
+                        v *= (Underlying) 10;
+                    }
+                    return FixedPrecisionShortDecimal<NewPrecision, Underlying>(v);
+                } else {
+                    NewUnderlying v = static_cast<NewUnderlying>(value_);
+                    for (int ii=Precision; ii<NewPrecision; ++ii) {
+                        v *= (NewUnderlying) 10;
+                    }
+                    return FixedPrecisionShortDecimal<NewPrecision, NewUnderlying>(v);
+                }
+            } else {
+                if constexpr (std::is_same_v<NewUnderlying, Underlying>) {
+                    Underlying factor = 1;
+                    for (int ii=NewPrecision; ii<Precision; ++ii) {
+                        factor *= (Underlying) 10;
+                    }
+                    if ((value_ % factor) >= factor/2) {
+                        return FixedPrecisionShortDecimal<NewPrecision, Underlying>(value_/factor+1);
+                    } else {
+                        return FixedPrecisionShortDecimal<NewPrecision, Underlying>(value_/factor);
+                    }
+                } else {
+                    NewUnderlying factor = 1;
+                    for (int ii=NewPrecision; ii<Precision; ++ii) {
+                        factor *= (NewUnderlying) 10;
+                    }
+                    NewUnderlying v = static_cast<NewUnderlying>(value_);
+                    if ((v % factor) >= factor/2) {
+                        return FixedPrecisionShortDecimal<NewPrecision, NewUnderlying>(v/factor+1);
+                    } else {
+                        return FixedPrecisionShortDecimal<NewPrecision, NewUnderlying>(v/factor);
+                    }
                 }
             }
         }
