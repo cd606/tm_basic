@@ -8,6 +8,7 @@
 namespace dev { namespace cd606 { namespace tm { namespace infra {
     namespace withtime_utils {
         extern std::chrono::system_clock::time_point parseZonedTime(int year, int month, int day, int hour, int minute, int second, int microseconds, std::string_view const &timeZoneName);
+        extern std::chrono::system_clock::time_point parseZonedTime(std::string_view const &timeString, std::string_view const &timeZoneName);
     }
 } } } }
 
