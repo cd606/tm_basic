@@ -19,6 +19,34 @@ namespace dev { namespace cd606 { namespace tm { namespace infra {
             );
             return static_cast<int64_t>(std::chrono::duration_cast<Duration>(tp-midnight).count());
         }
+        template <class Env
+            , std::enable_if_t<std::is_same_v<typename Env::TimePointType, std::chrono::system_clock
+::time_point>,int> = 0
+            >
+        class MemorizedZonedMidnight {
+        private:
+            std::chrono::system_clock::time_point midnight_;
+        public:
+            MemorizedZonedMidnight(Env *env, std::string_view const &timeZoneName) {
+                std::chrono::system_clock::time_point tp = env->now();
+                std::time_t t = std::chrono::system_clock::to_time_t(tp);
+                std::tm *m = std::localtime(&t);
+                midnight_ = parseZonedTime(
+                    m->tm_year+1900, m->tm_mon+1, m->tm_mday, 0, 0, 0, 0, timeZoneName
+                );
+            }
+            MemorizedZonedMidnight(int year, int month, int day, std::string_view const &timeZoneName) {
+                midnight_ = parseZonedTime(year, month, day, 0, 0, 0, 0, timeZoneName);
+            }
+            template <class Duration>
+            int64_t sinceMidnight(std::chrono::system_clock::time_point tp) const {
+                return static_cast<int64_t>(std::chrono::duration_cast<Duration>(tp-midnight_).count());
+            }
+            template <class Duration>
+            std::chrono::system_clock::time_point midnightDurationToTime(Duration const &d) const {
+                return midnight_ + d;
+            }
+        };
     }
 } } } }
 
