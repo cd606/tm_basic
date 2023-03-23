@@ -2,6 +2,7 @@
 #define TM_KIT_BASIC_CHRONO_UTILS_ADD_ON_HPP_
 
 #include <tm_kit/infra/ChronoUtils.hpp>
+#include <date/tz.h>
 
 //This is "add on" to the infra withtime_utils files, so the functions
 //stay in the tm::infra namespace
@@ -15,12 +16,11 @@ namespace dev { namespace cd606 { namespace tm { namespace infra {
         
         template <class Duration>
         inline int64_t sinceZonedMidnight(std::chrono::system_clock::time_point const &tp, std::string_view const &timeZoneName) {
-            std::time_t t = std::chrono::system_clock::to_time_t(tp);
-            std::tm *m = std::localtime(&t);
-            auto midnight = parseZonedTime(
-                m->tm_year+1900, m->tm_mon+1, m->tm_mday, 0, 0, 0, 0, timeZoneName
-            );
-            return static_cast<int64_t>(std::chrono::duration_cast<Duration>(tp-midnight).count());
+            auto zt = date::make_zoned(date::locate_zone(timeZoneName), tp);
+            auto days = date::floor<date::days>(zt.get_local_time());
+            auto ymd = date::year_month_day {days};
+            auto zt1 = date::make_zoned(date::locate_zone(timeZoneName), date::local_days {ymd});
+            return static_cast<int64_t>(std::chrono::duration_cast<Duration>(zt.get_local_time()-zt1.get_local_time()).count());
         }
         template <class Env
             , std::enable_if_t<std::is_same_v<typename Env::TimePointType, std::chrono::system_clock
@@ -32,11 +32,11 @@ namespace dev { namespace cd606 { namespace tm { namespace infra {
         public:
             MemorizedZonedMidnight(Env *env, std::string_view const &timeZoneName) {
                 std::chrono::system_clock::time_point tp = env->now();
-                std::time_t t = std::chrono::system_clock::to_time_t(tp);
-                std::tm *m = std::localtime(&t);
-                midnight_ = parseZonedTime(
-                    m->tm_year+1900, m->tm_mon+1, m->tm_mday, 0, 0, 0, 0, timeZoneName
-                );
+                auto zt = date::make_zoned(date::locate_zone(timeZoneName), tp);
+                auto days = date::floor<date::days>(zt.get_local_time());
+                auto ymd = date::year_month_day {days};
+                auto zt1 = date::make_zoned(date::locate_zone(timeZoneName), date::local_days {ymd});
+                midnight_ = zt1.get_sys_time();
             }
             MemorizedZonedMidnight(int year, int month, int day, std::string_view const &timeZoneName) {
                 midnight_ = parseZonedTime(year, month, day, 0, 0, 0, 0, timeZoneName);
