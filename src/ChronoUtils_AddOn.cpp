@@ -1,5 +1,8 @@
 #include "tm_kit/basic/ChronoUtils_AddOn.hpp"
 #include <date/tz.h>
+#if __cplusplus >= 202002L
+#include <format>
+#endif
 
 namespace dev { namespace cd606 { namespace tm { namespace infra {
     namespace withtime_utils {
@@ -52,6 +55,34 @@ namespace dev { namespace cd606 { namespace tm { namespace infra {
                     year, mon, day, hour, min, sec, microsec, timeZoneName
                 );
             }
+        }
+        std::chrono::system_clock::time_point parseZonedTodayActualTime(int hour, int minute, int second, int microseconds, std::string_view const &timeZoneName) {
+#if __cplusplus >= 202002L
+            auto zt = std::chrono::make_zoned(std::chrono::locate_zone(timeZoneName), std::chrono::system_clock::now());
+            auto y = std::stoi(std::format("%Y", zt));
+            auto m = std::stoi(std::format("%m", zt));
+            auto s = std::stoi(std::format("%d", zt));
+            return parseZonedTime(y, m, s, hour, minute, second, microseconds, timeZoneName);
+#else
+            auto zt = date::make_zoned(date::locate_zone(timeZoneName), std::chrono::system_clock::now());
+            auto y = std::stoi(date::format("%Y", zt));
+            auto m = std::stoi(date::format("%m", zt));
+            auto s = std::stoi(date::format("%d", zt));
+            return parseZonedTime(y, m, s, hour, minute, second, microseconds, timeZoneName);
+#endif
+        }
+        std::string zonedTimeString(std::chrono::system_clock::time_point const &tp, std::string_view const &timeZoneName) {
+#if __cplusplus >= 202002L
+            auto zt = std::chrono::make_zoned(std::chrono::locate_zone(timeZoneName), tp);
+            return std::format(
+                "%Y-%m-%dT%H:%M:%S", zt
+            )+" ("+std::string(timeZoneName)+")";
+#else
+            auto zt = date::make_zoned(date::locate_zone(timeZoneName), tp);
+            return date::format(
+                "%Y-%m-%dT%H:%M:%S", zt
+            )+" ("+std::string(timeZoneName)+")";
+#endif
         }
     }
 } } } }
