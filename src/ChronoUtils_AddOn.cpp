@@ -69,7 +69,7 @@ namespace dev { namespace cd606 { namespace tm { namespace infra {
             return parseZonedTime((int) ymd.year(), (unsigned) ymd.month(), (unsigned) ymd.day(), hour, minute, second, microseconds, timeZoneName);
 #endif
         }
-        std::string zonedTimeString(std::chrono::system_clock::time_point const &tp, std::string_view const &timeZoneName) {
+        std::string zonedTimeString(std::chrono::system_clock::time_point const &tp, std::string_view const &timeZoneName, bool includeZoneName) {
 #if __cplusplus >= 202002L
             auto zt = std::chrono::make_zoned(std::chrono::locate_zone(timeZoneName), tp);
             auto days = std::chrono::floor<std::chrono::days>(zt.get_local_time());
@@ -91,11 +91,13 @@ namespace dev { namespace cd606 { namespace tm { namespace infra {
                 << ':'
                 << std::setw(2) << std::setfill('0') << ((micros%(60ULL*1000000ULL))/1000000ULL)
                 << '.'
-                << std::setw(6) << std::setfill('0') << (micros%1000000ULL)
-                << " ("
-                << timeZoneName
-                << ')'
-                ;
+                << std::setw(6) << std::setfill('0') << (micros%1000000ULL);
+            if (includeZoneName) {
+                oss << " ("
+                    << timeZoneName
+                    << ')'
+                    ;
+            }
             return oss.str();
 #else
             auto zt = date::make_zoned(date::locate_zone(timeZoneName), tp);
@@ -118,11 +120,13 @@ namespace dev { namespace cd606 { namespace tm { namespace infra {
                 << ':'
                 << std::setw(2) << std::setfill('0') << ((micros%(60ULL*1000000ULL))/1000000ULL)
                 << '.'
-                << std::setw(6) << std::setfill('0') << (micros%1000000ULL)
-                << " ("
-                << timeZoneName
-                << ')'
-                ;
+                << std::setw(6) << std::setfill('0') << (micros%1000000ULL);
+            if (includeZoneName) {
+                oss << " ("
+                    << timeZoneName
+                    << ')'
+                    ;
+            }
             return oss.str();
 #endif
         }

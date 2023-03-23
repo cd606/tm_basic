@@ -11,7 +11,7 @@ namespace dev { namespace cd606 { namespace tm { namespace infra {
         extern std::chrono::system_clock::time_point parseZonedTime(int year, int month, int day, int hour, int minute, int second, int microseconds, std::string_view const &timeZoneName);
         extern std::chrono::system_clock::time_point parseZonedTime(std::string_view const &timeString, std::string_view const &timeZoneName);
         extern std::chrono::system_clock::time_point parseZonedTodayActualTime(int hour, int minute, int second, int microseconds, std::string_view const &timeZoneName);
-        extern std::string zonedTimeString(std::chrono::system_clock::time_point const &tp, std::string_view const &timeZoneName);
+        extern std::string zonedTimeString(std::chrono::system_clock::time_point const &tp, std::string_view const &timeZoneName, bool includeZoneName=false);
         
         template <class Duration>
         inline int64_t sinceZonedMidnight(std::chrono::system_clock::time_point const &tp, std::string_view const &timeZoneName) {
