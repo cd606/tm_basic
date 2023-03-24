@@ -28,7 +28,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 #if __cplusplus >= 202002L
         template <struct_field_info_helper_internal::StringLiteral TimeZoneName>
 #else
-        template <char *TimeZoneName>
+        template <const char *TimeZoneName>
 #endif
         struct Named {
 #if __cplusplus >= 202002L
@@ -56,7 +56,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 #if __cplusplus >= 202002L
         template <struct_field_info_helper_internal::StringLiteral TimeZoneName>
 #else
-        template <char *TimeZoneName>
+        template <const char *TimeZoneName>
 #endif
         class IsValidTimeZoneSpec<Named<TimeZoneName>> {
         public:
