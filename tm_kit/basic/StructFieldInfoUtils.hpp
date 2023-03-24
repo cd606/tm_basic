@@ -18,6 +18,8 @@
 
 #include <tm_kit/basic/StructFieldInfoHelper.hpp>
 #include <tm_kit/basic/ByteData.hpp>
+#include <tm_kit/basic/TimePointAsString.hpp>
+#include <tm_kit/basic/ConvertibleWithString.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace struct_field_info_utils {
     template <class T>
@@ -36,6 +38,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     auto s = source.template get<std::string>(FieldIndex+startSourceIndex);
                     StructFieldTypeInfo<T,FieldIndex>::access(data) = 
                         infra::withtime_utils::parseLocalTime(s);
+                } else if constexpr (ConvertibleWithString<typename StructFieldTypeInfo<T,FieldIndex>::TheType>::value) {
+                    auto s = source.template get<std::string>(FieldIndex+startSourceIndex);
+                    StructFieldTypeInfo<T,FieldIndex>::access(data) = 
+                        ConvertibleWithString<typename StructFieldTypeInfo<T,FieldIndex>::TheType>::fromString(s);
                 } else {
                     StructFieldTypeInfo<T,FieldIndex>::access(data) = source.template get<typename StructFieldTypeInfo<T,FieldIndex>::TheType>(FieldIndex+startSourceIndex);
                 }
@@ -54,6 +60,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 if constexpr (std::is_same_v<typename StructFieldTypeInfo<T,FieldIndex>::TheType, std::chrono::system_clock::time_point>) {
                     oss << "DATE_FORMAT(" << StructFieldInfo<T>::FIELD_NAMES[FieldIndex] 
                         << ",'%Y-%m-%dT%H:%i:%S.%f')";
+                } else if constexpr(IsTimePointAsString<typename StructFieldTypeInfo<T,FieldIndex>::TheType>::Value) {
+                    oss << "DATE_FORMAT(" << StructFieldInfo<T>::FIELD_NAMES[FieldIndex] 
+                        << ",'%Y-%m-%dT%H:%i:%S.%f')";
                 } else {
                     oss << StructFieldInfo<T>::FIELD_NAMES[FieldIndex];
                 }
@@ -68,6 +77,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 }
                 begin = false;
                 if constexpr (std::is_same_v<typename StructFieldTypeInfo<T,FieldIndex>::TheType, std::chrono::system_clock::time_point>) {
+                    oss << "STR_TO_DATE(:" << basic::StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << ",'%Y-%m-%dT%H:%i:%S.%f')";
+                } else if constexpr (IsTimePointAsString<typename StructFieldTypeInfo<T,FieldIndex>::TheType>::Value) {
                     oss << "STR_TO_DATE(:" << basic::StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << ",'%Y-%m-%dT%H:%i:%S.%f')";
                 } else {
                     oss << ':' << basic::StructFieldInfo<T>::FIELD_NAMES[FieldIndex];
@@ -84,6 +95,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 begin = false;
                 oss << basic::StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << " = ";
                 if constexpr (std::is_same_v<typename StructFieldTypeInfo<T,FieldIndex>::TheType, std::chrono::system_clock::time_point>) {
+                    oss << "STR_TO_DATE(:" << basic::StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << ",'%Y-%m-%dT%H:%i:%S.%f')";
+                } if constexpr (IsTimePointAsString<typename StructFieldTypeInfo<T,FieldIndex>::TheType>::Value) {
                     oss << "STR_TO_DATE(:" << basic::StructFieldInfo<T>::FIELD_NAMES[FieldIndex] << ",'%Y-%m-%dT%H:%i:%S.%f')";
                 } else {
                     oss << ':' << basic::StructFieldInfo<T>::FIELD_NAMES[FieldIndex];
@@ -317,6 +330,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     public:
         std::size_t operator()(std::chrono::system_clock::time_point const &t) const {
             return (std::size_t) (std::chrono::duration_cast<std::chrono::milliseconds>(t.time_since_epoch()).count());
+        }
+    };
+    template <typename TimeZoneSpec>
+    class StructFieldInfoBasedHash<TimePointAsString<TimeZoneSpec>> {
+    public:
+        std::size_t operator()(TimePointAsString<TimeZoneSpec> const &t) const {
+            return (std::size_t) (std::chrono::duration_cast<std::chrono::milliseconds>(t.value().time_since_epoch()).count());
         }
     };
     template <>
