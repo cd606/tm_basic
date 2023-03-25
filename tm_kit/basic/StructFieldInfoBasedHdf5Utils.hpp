@@ -381,49 +381,53 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             dataset->write(data.data(), theType);
         }
         static void read(std::vector<T> &data, std::string const &fileName, std::string const &datasetName) {
-            auto file = std::make_unique<H5::H5File>(
-                fileName
-                , H5F_ACC_RDONLY
-            );
-            auto theType = internal::StructFieldInfoBasedHdf5Support<T>::TheType();
-            std::vector<std::string> parts;
-            boost::split(parts, datasetName, boost::is_any_of("/"));
-            std::vector<std::string> realParts;
-            for (auto const &p : parts) {
-                auto p1 = boost::trim_copy(p);
-                if (p1 != "") {
-                    realParts.push_back(p1);
+            try {
+                auto file = std::make_unique<H5::H5File>(
+                    fileName
+                    , H5F_ACC_RDONLY
+                );
+                auto theType = internal::StructFieldInfoBasedHdf5Support<T>::TheType();
+                std::vector<std::string> parts;
+                boost::split(parts, datasetName, boost::is_any_of("/"));
+                std::vector<std::string> realParts;
+                for (auto const &p : parts) {
+                    auto p1 = boost::trim_copy(p);
+                    if (p1 != "") {
+                        realParts.push_back(p1);
+                    }
                 }
-            }
-            if (realParts.empty()) {
-                return;
-            }
-            std::vector<std::unique_ptr<H5::Group>> groups;
-            for (std::size_t ii=0; ii<realParts.size()-1; ++ii) {
-                std::unique_ptr<H5::Group> gr;
-                if (ii == 0) {
-                    gr = std::make_unique<H5::Group>(
-                        file->openGroup(realParts[ii])
+                if (realParts.empty()) {
+                    return;
+                }
+                std::vector<std::unique_ptr<H5::Group>> groups;
+                for (std::size_t ii=0; ii<realParts.size()-1; ++ii) {
+                    std::unique_ptr<H5::Group> gr;
+                    if (ii == 0) {
+                        gr = std::make_unique<H5::Group>(
+                            file->openGroup(realParts[ii])
+                        );
+                    } else {
+                        gr = std::make_unique<H5::Group>(
+                            groups.back()->openGroup(realParts[ii])
+                        );
+                    }
+                    groups.push_back(std::move(gr));
+                }
+                std::unique_ptr<H5::DataSet> dataset;
+                if (groups.empty()) {
+                    dataset = std::make_unique<H5::DataSet>(
+                        file->openDataSet(realParts.back())
                     );
                 } else {
-                    gr = std::make_unique<H5::Group>(
-                        groups.back()->openGroup(realParts[ii])
+                    dataset = std::make_unique<H5::DataSet>(
+                        groups.back()->openDataSet(realParts.back())
                     );
                 }
-                groups.push_back(std::move(gr));
+                data.resize(dataset->getSpace().getSimpleExtentNpoints());
+                dataset->read(data.data(), theType);
+            } catch (H5::Exception const &) {
+                data.clear();
             }
-            std::unique_ptr<H5::DataSet> dataset;
-            if (groups.empty()) {
-                dataset = std::make_unique<H5::DataSet>(
-                    file->openDataSet(realParts.back())
-                );
-            } else {
-                dataset = std::make_unique<H5::DataSet>(
-                    groups.back()->openDataSet(realParts.back())
-                );
-            }
-            data.resize(dataset->getSpace().getSimpleExtentNpoints());
-            dataset->read(data.data(), theType);
         }
         static void append(std::vector<T> const &data, std::unique_ptr<H5::DataSet> const &dataset) {
             auto dataType = hdf5DataType();
