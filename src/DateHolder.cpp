@@ -19,6 +19,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         date::year_month_day ymd2 {d2};
         return DateHolder {(uint16_t) ((int) ymd2.year()), (uint8_t) ((unsigned) ymd2.month()), (uint8_t) ((unsigned) ymd2.day())};
     }
+    extern DateHolder operator-(DateHolder const &d, int offset) {
+        return d+(-offset);
+    }
     extern DateHolder operator+(int offset, DateHolder const &d) {
         return d+offset;
     }
