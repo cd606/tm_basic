@@ -65,6 +65,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             , static_cast<uint8_t>(m->tm_mday)
         };
     }
+    extern DateHolder dateHolderFromZonedTimePoint(std::chrono::system_clock::time_point const &tp, std::string_view const &timeZoneName);
+    extern int operator-(DateHolder const &d1, DateHolder const &d2);
+    extern DateHolder operator+(DateHolder const &d, int offset);
+    extern DateHolder operator+(int offset, DateHolder const &d);
     inline DateHolder dateHolderFromYYYYMMDD(int yyyymmdd) {
         return DateHolder {
             static_cast<uint16_t>(yyyymmdd/10000)
