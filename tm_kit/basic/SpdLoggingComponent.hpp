@@ -16,6 +16,7 @@
 #include <tm_kit/infra/PidUtil.hpp>
 
 #include <tm_kit/basic/LoggingComponentBase.hpp>
+#include <tm_kit/basic/TimePointAsString.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
 
@@ -50,7 +51,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
 
-    template <class TimeComponent, bool LogThreadID=true, bool ForceActualTimeLogging=false>
+    template <class TimeComponent, bool LogThreadID=true, bool ForceActualTimeLogging=false, typename TimeZone=basic::time_zone_spec::Local>
     class TimeComponentEnhancedWithSpdLogging : public TimeComponent, public virtual LoggingComponentBase {
     private:
         std::conditional_t<(TimeComponent::CanBeActualTimeClock&&!ForceActualTimeLogging),std::atomic<bool>,bool> firstTime_;
@@ -78,7 +79,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             if constexpr (ForceActualTimeLogging) {
                 nowStr = infra::withtime_utils::genericLocalTimeString(std::chrono::system_clock::now()).substr(0, (containTimePart?19:10));
             } else {
-                nowStr = infra::withtime_utils::genericLocalTimeString(TimeComponent::now()).substr(0, (containTimePart?19:10));
+                if constexpr (std::is_same_v<typename TimeComponent::TimePointType, std::chrono::system_clock::time_point>) {
+                    nowStr = dev::cd606::tm::basic::TimePointAsString<TimeZone>(TimeComponent::now()).asString().substr(0, (containTimePart?19:10));
+                } else {
+                    nowStr = infra::withtime_utils::genericLocalTimeString(TimeComponent::now()).substr(0, (containTimePart?19:10));
+                }
             }
             std::replace(nowStr.begin(), nowStr.end(), '-', '_');
             std::replace(nowStr.begin(), nowStr.end(), ':', '_');
@@ -156,10 +161,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     }
                 }
                 std::ostringstream oss;
-                oss << '[' << infra::logLevelToString(l) << "] ";
-                oss << '[' << infra::withtime_utils::genericLocalTimeString(TimeComponent::now()) << "] ";
+                oss << '[' << infra::logLevelToString(l) << "] ";                
+                if constexpr (std::is_same_v<typename TimeComponent::TimePointType, std::chrono::system_clock::time_point>) {
+                    oss << '[' << dev::cd606::tm::basic::TimePointAsString<TimeZone>(TimeComponent::now()).asString() << "] ";
+                } else {
+                    oss << '[' << infra::withtime_utils::genericLocalTimeString(TimeComponent::now()) << "] ";
+                }
+
                 if constexpr (LogThreadID) {
-                    oss << "[Thread " << std::this_thread::get_id() << "] ";
+                    thread_local static auto threadId = std::this_thread::get_id();
+                    oss << "[Thread " << threadId << "] ";
                 }
                 oss << s;
                 switch (l) {
