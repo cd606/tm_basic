@@ -472,7 +472,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             } \
             static std::optional<size_t> applyInPlace(name &output, std::string_view const &s, size_t start) { \
                 std::tuple<> x; \
-                return RunCBORDeserializer<std::tuple<>, 0>::applyInPlace(x, s, start); \
+                return RunCBORDeserializer<std::tuple<>>::applyInPlace(x, s, start); \
             } \
         }; \
         template <> \
