@@ -6,6 +6,7 @@
 #include <functional>
 #include <chrono>
 #include <ctime>
+#include <string>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
     struct DateHolder {
