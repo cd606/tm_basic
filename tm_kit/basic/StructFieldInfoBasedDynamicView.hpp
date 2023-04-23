@@ -1,16 +1,56 @@
 #ifndef TM_KIT_BASIC_STRUCT_FIELD_INFO_BASED_ANY_ITER_HPP_
 #define TM_KIT_BASIC_STRUCT_FIELD_INFO_BASED_ANY_ITER_HPP_
 
-#include <tm_kit/basic/StructFieldInfoHelper.hpp>
 #include <type_traits>
 #include <tuple>
 #include <string_view>
 #include <any>
 #include <typeinfo>
+#if __cplusplus < 202002L
 #include <boost/hana/type.hpp>
+#endif
+#include <tm_kit/basic/StructFieldInfoHelper.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace struct_field_info_utils {
     namespace internal {
+#if __cplusplus >= 202002L
+        template <class F>
+        concept CallAny = requires (F &f, std::any const &x) {
+            f(x);
+        };
+        template <class F>
+        concept CallAnyWithName = requires (F &f, std::string_view const &nm, std::any const &x) {
+            f(nm, x);
+        };
+        template <class F>
+        concept CallAnyWithNameAndIndex = requires (F &f, std::size_t idx, std::string_view const &nm, std::any const &x) {
+            f(idx, nm, x);
+        };
+        template <class F, class X>
+            concept CallX = requires (F &f, X const &x) {
+                f(x);
+            };
+            template <class F, class X>
+            concept CallXWithName = requires (F &f, std::string_view const &nm, X const &x) {
+                f(nm, x);
+            };
+            template <class F, class X>
+            concept CallXWithNameAndIndex = requires (F &f, std::size_t idx, std::string_view const &nm, X const &x) {
+                f(idx, nm, x);
+            };
+        template <class F, class X>
+        concept UpdateX = requires (F &f, X &x) {
+            f(x);
+        };
+        template <class F, class X>
+        concept UpdateXWithName = requires (F &f, std::string_view const &nm, X &x) {
+            f(nm, x);
+        };
+        template <class F, class X>
+        concept UpdateXWithNameAndIndex = requires (F &f, std::size_t idx, std::string_view const &nm, X &x) {
+            f(idx, nm, x);
+        };
+#endif
         class AnyIter {
         private:
             template <class T, class OutIter, std::size_t K, std::size_t N>
@@ -30,6 +70,52 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     copyValuesToImpl<T,OutIter,K+1,N>(t, outIter);
                 }
             }
+#if __cplusplus >= 202002L
+            template <class T, class F, std::size_t K, std::size_t N>
+            static void forAllImpl(T const &t, F &&f) {
+                if constexpr (K < N) {
+                    if constexpr (CallAny<F>) {
+                        f(std::any {StructFieldTypeInfo<T,K>::constAccess(t)});
+                    } else if constexpr (CallAnyWithName<F>) {
+                        f(StructFieldInfo<T>::FIELD_NAMES[K], std::any {StructFieldTypeInfo<T,K>::constAccess(t)});
+                    } else if constexpr (CallAnyWithNameAndIndex<F>) {
+                        f(K, StructFieldInfo<T>::FIELD_NAMES[K], std::any {StructFieldTypeInfo<T,K>::constAccess(t)});
+                    }
+                    forAllImpl<T,F,K+1,N>(t, std::forward<F>(f));
+                }
+            }
+            template <class T, class X, class F, std::size_t K, std::size_t N>
+            static void forAllByTypeImpl(T const &t, F &&f) {
+                if constexpr (K < N) {
+                    if constexpr (std::is_same_v<X, typename StructFieldTypeInfo<T,K>::TheType>) {
+                        if constexpr (CallX<F, X>) {
+                            f(StructFieldTypeInfo<T,K>::constAccess(t));
+                        } else if constexpr (CallXWithName<F, X>) {
+                            f(StructFieldInfo<T>::FIELD_NAMES[K], StructFieldTypeInfo<T,K>::constAccess(t));
+                        } else if constexpr (CallXWithNameAndIndex<F, X>) {
+                            f(K, StructFieldInfo<T>::FIELD_NAMES[K], StructFieldTypeInfo<T,K>::constAccess(t));
+                        }
+                    }
+                    forAllByTypeImpl<T,X,F,K+1,N>(t, std::forward<F>(f));
+                }
+            }
+            
+            template <class T, class X, class F, std::size_t K, std::size_t N>
+            static void updateAllByTypeImpl(T &t, F &&f) {
+                if constexpr (K < N) {
+                    if constexpr (std::is_same_v<X, typename StructFieldTypeInfo<T,K>::TheType>) {
+                        if constexpr (UpdateX<F, X>) {
+                            f(StructFieldTypeInfo<T,K>::access(t));
+                        } else if constexpr (UpdateXWithName<F, X>) {
+                            f(StructFieldInfo<T>::FIELD_NAMES[K], StructFieldTypeInfo<T,K>::access(t));
+                        } else if constexpr (UpdateXWithNameAndIndex<F, X>) {
+                            f(K, StructFieldInfo<T>::FIELD_NAMES[K], StructFieldTypeInfo<T,K>::access(t));
+                        }
+                    }
+                    updateAllByTypeImpl<T,X,F,K+1,N>(t, std::forward<F>(f));
+                }
+            }
+#else
             template <class T, class F, std::size_t K, std::size_t N>
             static void forAllImpl(T const &t, F &&f) {
                 static const auto checker1 = boost::hana::is_valid(
@@ -100,6 +186,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     updateAllByTypeImpl<T,X,F,K+1,N>(t, std::forward<F>(f));
                 }
             }
+#endif
         public:
             template <class T, class OutIter, typename=std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo>>
             static void copyNamesAndValuesTo(T const &t, OutIter outIter) {
