@@ -1,23 +1,17 @@
 #include "tm_kit/basic/ChronoUtils_AddOn.hpp"
+#if __cplusplus < 202002L
 #include <date/tz.h>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
 
-namespace dev { namespace cd606 { namespace tm { namespace infra {
+namespace dev { namespace cd606 { namespace tm { namespace basic {
     namespace withtime_utils {
         std::chrono::system_clock::time_point parseZonedTime(int year, int month, int day, int hour, int minute, int second, int microseconds, std::string_view const &timeZoneName) {
-#if __cplusplus >= 202002L
-            std::chrono::zoned_time<
-                std::chrono::system_clock::duration
-            > zt (timeZoneName, std::chrono::local_days {std::chrono::year_month_day {std::chrono::year(year), std::chrono::month(month), std::chrono::day(day)}});
-            return zt.get_sys_time()+std::chrono::hours(hour)+std::chrono::minutes(minute)+std::chrono::seconds(second)+std::chrono::microseconds(microseconds);
-#else
             date::zoned_time<
                 std::chrono::system_clock::duration
             > zt (timeZoneName, date::local_days {date::year_month_day {date::year(year), date::month(month), date::day(day)}});
             return zt.get_sys_time()+std::chrono::hours(hour)+std::chrono::minutes(minute)+std::chrono::seconds(second)+std::chrono::microseconds(microseconds);
-#endif
         }
         //The format is fixed as "yyyy-MM-ddTHH:mm:ss.mmmmmm" (the microsecond part can be omitted)
         std::chrono::system_clock::time_point parseZonedTime(std::string_view const &s, std::string_view const &timeZoneName) {
@@ -57,49 +51,12 @@ namespace dev { namespace cd606 { namespace tm { namespace infra {
             }
         }
         std::chrono::system_clock::time_point parseZonedTodayActualTime(int hour, int minute, int second, int microseconds, std::string_view const &timeZoneName) {
-#if __cplusplus >= 202002L
-            auto zt = std::chrono::make_zoned(std::chrono::locate_zone(timeZoneName), std::chrono::system_clock::now());
-            auto days = std::chrono::floor<std::chrono::days>(zt.get_local_time());
-            auto ymd = std::chrono::year_month_day {days};
-            return parseZonedTime((int) ymd.year(), (unsigned) ymd.month(), (unsigned) ymd.day(), hour, minute, second, microseconds, timeZoneName);
-#else
             auto zt = date::make_zoned(date::locate_zone(timeZoneName), std::chrono::system_clock::now());
             auto days = date::floor<date::days>(zt.get_local_time());
             auto ymd = date::year_month_day {days};
             return parseZonedTime((int) ymd.year(), (unsigned) ymd.month(), (unsigned) ymd.day(), hour, minute, second, microseconds, timeZoneName);
-#endif
         }
         std::string zonedTimeString(std::chrono::system_clock::time_point const &tp, std::string_view const &timeZoneName, bool includeZoneName) {
-#if __cplusplus >= 202002L
-            auto zt = std::chrono::make_zoned(std::chrono::locate_zone(timeZoneName), tp);
-            auto days = std::chrono::floor<std::chrono::days>(zt.get_local_time());
-            auto ymd = std::chrono::year_month_day {days};
-            auto zt1 = std::chrono::make_zoned(std::chrono::locate_zone(timeZoneName), std::chrono::local_days {ymd});
-            auto micros = std::chrono::duration_cast<std::chrono::microseconds>(
-                zt.get_local_time()-zt1.get_local_time()
-            ).count();
-            std::ostringstream oss;
-            oss << std::setw(4) << std::setfill('0') << (int) ymd.year()
-                << '-'
-                << std::setw(2) << std::setfill('0') << (unsigned) ymd.month()
-                << '-'
-                << std::setw(2) << std::setfill('0') << (unsigned) ymd.day()
-                << 'T'
-                << std::setw(2) << std::setfill('0') << (micros/(3600ULL*1000000ULL))
-                << ':'
-                << std::setw(2) << std::setfill('0') << ((micros%(3600ULL*1000000ULL))/(60ULL*1000000ULL))
-                << ':'
-                << std::setw(2) << std::setfill('0') << ((micros%(60ULL*1000000ULL))/1000000ULL)
-                << '.'
-                << std::setw(6) << std::setfill('0') << (micros%1000000ULL);
-            if (includeZoneName) {
-                oss << " ("
-                    << timeZoneName
-                    << ')'
-                    ;
-            }
-            return oss.str();
-#else
             auto zt = date::make_zoned(date::locate_zone(timeZoneName), tp);
             auto days = date::floor<date::days>(zt.get_local_time());
             auto ymd = date::year_month_day {days};
@@ -128,7 +85,7 @@ namespace dev { namespace cd606 { namespace tm { namespace infra {
                     ;
             }
             return oss.str();
-#endif
         }
     }
 } } } }
+#endif
