@@ -2,11 +2,13 @@
 #define TM_KIT_BASIC_CHRONO_UTILS_ADD_ON_HPP_
 
 #include <tm_kit/infra/ChronoUtils.hpp>
+
+#if __cplusplus < 202002L
 #include <date/tz.h>
 
 //This is "add on" to the infra withtime_utils files, so the functions
 //stay in the tm::infra namespace
-namespace dev { namespace cd606 { namespace tm { namespace infra {
+namespace dev { namespace cd606 { namespace tm { namespace basic {
     namespace withtime_utils {
         //The implementation may break down on dst-changing Sundays
         extern std::chrono::system_clock::time_point parseZonedTime(int year, int month, int day, int hour, int minute, int second, int microseconds, std::string_view const &timeZoneName);
@@ -52,5 +54,31 @@ namespace dev { namespace cd606 { namespace tm { namespace infra {
         };
     }
 } } } }
+
+namespace dev { namespace cd606 { namespace tm { namespace infra {
+    namespace withtime_utils {
+        inline std::chrono::system_clock::time_point parseZonedTime(int year, int month, int day, int hour, int minute, int second, int microseconds, std::string_view const &timeZoneName) {
+            return basic::withtime_utils::parseZonedTime(year, month, day, hour, minute, second, microseconds, timeZoneName);
+        }
+        inline std::chrono::system_clock::time_point parseZonedTime(std::string_view const &timeString, std::string_view const &timeZoneName) {
+            return basic::withtime_utils::parseZonedTime(timeString, timeZoneName);
+        }
+        inline std::chrono::system_clock::time_point parseZonedTodayActualTime(int hour, int minute, int second, int microseconds, std::string_view const &timeZoneName) {
+            return basic::withtime_utils::parseZonedTodayActualTime(hour, minute, second, microseconds, timeZoneName);
+        }
+        inline std::string zonedTimeString(std::chrono::system_clock::time_point const &tp, std::string_view const &timeZoneName, bool includeZoneName=false) {
+            return basic::withtime_utils::zonedTimeString(tp, timeZoneName, includeZoneName);
+        }
+        
+        template <class Duration>
+        inline int64_t sinceZonedMidnight(std::chrono::system_clock::time_point const &tp, std::string_view const &timeZoneName) {
+            return basic::withtime_utils::sinceZonedMidnight<Duration>(tp, timeZoneName);
+        }
+        template <class Env>
+        using MemorizedZonedMidnight = basic::withtime_utils::MemorizedZonedMidnight<Env>;
+    }
+} } } }
+
+#endif
 
 #endif
