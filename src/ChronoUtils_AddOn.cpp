@@ -1,5 +1,5 @@
 #include "tm_kit/basic/ChronoUtils_AddOn.hpp"
-#if __cplusplus < 202002L
+#if __cplusplus < 202002L || !defined(_MSC_VER)
 #include <date/tz.h>
 #include <iostream>
 #include <sstream>

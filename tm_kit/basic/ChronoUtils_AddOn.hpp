@@ -3,7 +3,8 @@
 
 #include <tm_kit/infra/ChronoUtils.hpp>
 
-#if __cplusplus < 202002L
+//zoned_time support is not yet complete in gcc, so currently this is only enabled for Visual C++
+#if __cplusplus < 202002L || !defined(_MSC_VER)
 #include <date/tz.h>
 
 //This is "add on" to the infra withtime_utils files, so the functions
