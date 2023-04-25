@@ -1178,7 +1178,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             static name fromString(std::string_view const &s) { \
                 auto iter = bytedata_utils::RunCBORDeserializer<name>::S_MAP.find(s); \
                 if (iter == bytedata_utils::RunCBORDeserializer<name>::S_MAP.end()) { \
-                    return name {}; \
+                    throw std::runtime_error {std::string("Can't parse '")+std::string(s)+"' into "+ #name}; \
                 } else { \
                     return iter->second; \
                 } \
@@ -1321,7 +1321,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             static name fromString(std::string_view const &s) { \
                 auto iter = bytedata_utils::RunCBORDeserializer<name>::S_MAP.find(s); \
                 if (iter == bytedata_utils::RunCBORDeserializer<name>::S_MAP.end()) { \
-                    return name {}; \
+                    throw std::runtime_error {std::string("Can't parse '")+std::string(s)+"' into "+ #name}; \
                 } else { \
                     return iter->second; \
                 } \
