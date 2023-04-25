@@ -1178,6 +1178,85 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             static name fromString(std::string_view const &s) { \
                 auto iter = bytedata_utils::RunCBORDeserializer<name>::S_MAP.find(s); \
                 if (iter == bytedata_utils::RunCBORDeserializer<name>::S_MAP.end()) { \
+                    return name {}; \
+                } else { \
+                    return iter->second; \
+                } \
+            } \
+        }; \
+    } } } }
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_DECODE_STRICT(name, items) \
+    namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
+        template <> \
+        struct RunCBORDeserializer<name, void> { \
+            static inline const std::unordered_map<std::string_view, name> S_MAP = {\
+                BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_MAP_ITEM,name,items) \
+            }; \
+            static std::optional<std::tuple<name, size_t>> apply(std::string_view const &s, size_t start) { \
+                auto t = RunCBORDeserializer<std::string>::apply(s, start); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                auto iter = S_MAP.find(std::string_view {std::get<0>(*t)}); \
+                if (iter == S_MAP.end()) { \
+                    return std::nullopt; \
+                } \
+                return std::tuple<name, size_t> { \
+                    iter->second, std::get<1>(*t) \
+                }; \
+            } \
+            static std::optional<size_t> applyInPlace(name &output, std::string_view const &s, size_t start) { \
+                auto t = RunCBORDeserializer<std::string>::apply(s, start); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                auto iter = S_MAP.find(std::get<0>(*t)); \
+                if (iter == S_MAP.end()) { \
+                    return std::nullopt; \
+                } \
+                output = iter->second; \
+                return std::get<1>(*t); \
+            } \
+        }; \
+        template <> \
+        struct RunDeserializer<name, void> { \
+            static std::optional<name> apply(std::string_view const &s) { \
+                auto t = RunDeserializer<CBOR<name>, void>::apply(s); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                return std::move(t->value); \
+            } \
+            static std::optional<name> apply(std::string const &s) { \
+                return apply(std::string_view {s}); \
+            } \
+            static bool applyInPlace(name &output, std::string_view const &s) { \
+                auto t = RunCBORDeserializer<name, void>::applyInPlace(output, s, 0); \
+                if (!t) { \
+                    return false; \
+                } \
+                if (*t != s.length()) { \
+                    return false; \
+                } \
+                return true; \
+            } \
+            static bool applyInPlace(name &output, std::string const &s) { \
+                return applyInPlace(output, std::string_view {s}); \
+            } \
+        }; \
+    } } } } } \
+    namespace dev { namespace cd606 { namespace tm { namespace basic { \
+        template <> \
+        class ConvertibleWithString<name> { \
+        public: \
+            static constexpr bool value = true; \
+            static std::string toString(name const &x) { \
+                return bytedata_utils::RunCBORSerializer<name>::S_NAMES[static_cast<int>(x)]; \
+            } \
+            static name fromString(std::string_view const &s) { \
+                auto iter = bytedata_utils::RunCBORDeserializer<name>::S_MAP.find(s); \
+                if (iter == bytedata_utils::RunCBORDeserializer<name>::S_MAP.end()) { \
                     throw std::runtime_error {std::string("Can't parse '")+std::string(s)+"' into "+ #name}; \
                 } else { \
                     return iter->second; \
@@ -1321,6 +1400,85 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             static name fromString(std::string_view const &s) { \
                 auto iter = bytedata_utils::RunCBORDeserializer<name>::S_MAP.find(s); \
                 if (iter == bytedata_utils::RunCBORDeserializer<name>::S_MAP.end()) { \
+                    return name {}; \
+                } else { \
+                    return iter->second; \
+                } \
+            } \
+        }; \
+    } } } }
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_DECODE_STRICT(name, items) \
+    namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils { \
+        template <> \
+        struct RunCBORDeserializer<name, void> { \
+            static inline const std::unordered_map<std::string_view, name> S_MAP = {\
+                BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_MAP_ITEM,name,items) \
+            }; \
+            static std::optional<std::tuple<name, size_t>> apply(std::string_view const &s, size_t start) { \
+                auto t = RunCBORDeserializer<std::string>::apply(s, start); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                auto iter = S_MAP.find(std::string_view {std::get<0>(*t)}); \
+                if (iter == S_MAP.end()) { \
+                    return std::nullopt; \
+                } \
+                return std::tuple<name, size_t> { \
+                    iter->second, std::get<1>(*t) \
+                }; \
+            } \
+            static std::optional<size_t> applyInPlace(name &output, std::string_view const &s, size_t start) { \
+                auto t = RunCBORDeserializer<std::string>::apply(s, start); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                auto iter = S_MAP.find(std::get<0>(*t)); \
+                if (iter == S_MAP.end()) { \
+                    return std::nullopt; \
+                } \
+                output = iter->second; \
+                return std::get<1>(*t); \
+            } \
+        }; \
+        template <> \
+        struct RunDeserializer<name, void> { \
+            static std::optional<name> apply(std::string_view const &s) { \
+                auto t = RunDeserializer<CBOR<name>, void>::apply(s); \
+                if (!t) {\
+                    return std::nullopt; \
+                } \
+                return std::move(t->value); \
+            } \
+            static std::optional<name> apply(std::string const &s) { \
+                return apply(std::string_view {s}); \
+            } \
+            static bool applyInPlace(name &output, std::string_view const &s) { \
+                auto t = RunCBORDeserializer<name, void>::applyInPlace(output, s, 0); \
+                if (!t) { \
+                    return false; \
+                } \
+                if (*t != s.length()) { \
+                    return false; \
+                } \
+                return true; \
+            } \
+            static bool applyInPlace(name &output, std::string const &s) { \
+                return applyInPlace(output, std::string_view {s}); \
+            } \
+        }; \
+    } } } } } \
+    namespace dev { namespace cd606 { namespace tm { namespace basic { \
+        template <> \
+        class ConvertibleWithString<name> { \
+        public: \
+            static constexpr bool value = true; \
+            static std::string toString(name const &x) { \
+                return bytedata_utils::RunCBORSerializer<name>::S_NAMES[static_cast<int>(x)]; \
+            } \
+            static name fromString(std::string_view const &s) { \
+                auto iter = bytedata_utils::RunCBORDeserializer<name>::S_MAP.find(s); \
+                if (iter == bytedata_utils::RunCBORDeserializer<name>::S_MAP.end()) { \
                     throw std::runtime_error {std::string("Can't parse '")+std::string(s)+"' into "+ #name}; \
                 } else { \
                     return iter->second; \
@@ -1337,6 +1495,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
     TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_ENCODE(name, items) \
     TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_DECODE(name, items) 
 
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_SERIALIZE_STRICT(name, items) \
+    TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_ENCODE(name, items) \
+    TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_DECODE_STRICT(name, items) 
+
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES(name, items) \
     TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_DEF(name, items) \
     TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_PRINT(name, items) 
@@ -1344,5 +1506,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_SERIALIZE(name, items) \
     TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ENCODE(name, items) \
     TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_DECODE(name, items) 
+
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_SERIALIZE_STRICT(name, items) \
+    TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ENCODE(name, items) \
+    TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_DECODE_STRICT(name, items) 
 
 #endif
