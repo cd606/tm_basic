@@ -608,7 +608,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     };
     
     template <class T>
-    class JsonEncoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
+    class JsonEncoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && !ConvertibleWithString<T>::value, void>> {
     private:
         template <std::size_t FieldCount, std::size_t FieldIndex>
         static void write_impl(nlohmann::json &output, T const &data) {
@@ -628,7 +628,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class T>
-    struct JsonWrappable<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
+    struct JsonWrappable<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && !ConvertibleWithString<T>::value, void>> {
     private:
         template <std::size_t FieldCount, std::size_t FieldIndex>
         static constexpr bool value_internal() {
@@ -2968,7 +2968,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     };
 
     template <class T>
-    class JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>> {
+    class JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && !ConvertibleWithString<T>::value, void>> {
     private:
         static bool s_fieldNameMappingFilled;
         static std::array<std::string, StructFieldInfo<T>::FIELD_NAMES.size()> s_fieldNameMapping;
@@ -3178,11 +3178,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class T>
-    bool JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>>::s_fieldNameMappingFilled = false;
+    bool JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && !ConvertibleWithString<T>::value, void>>::s_fieldNameMappingFilled = false;
     template <class T>
-    std::array<std::string, StructFieldInfo<T>::FIELD_NAMES.size()> JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>>::s_fieldNameMapping;
+    std::array<std::string, StructFieldInfo<T>::FIELD_NAMES.size()> JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && !ConvertibleWithString<T>::value, void>>::s_fieldNameMapping;
     template <class T>
-    std::array<std::function<void(T &)>, StructFieldInfo<T>::FIELD_NAMES.size()> JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo, void>>::s_fieldPreprocessors;
+    std::array<std::function<void(T &)>, StructFieldInfo<T>::FIELD_NAMES.size()> JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && !ConvertibleWithString<T>::value, void>>::s_fieldPreprocessors;
 
     template <class T>
     class JsonDecoder<T, std::enable_if_t<bytedata_utils::ProtobufStyleSerializableChecker<T>::IsProtobufStyleSerializable(), void>> {
