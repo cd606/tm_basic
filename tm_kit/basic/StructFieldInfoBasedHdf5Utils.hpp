@@ -130,9 +130,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static H5::DataType TheType() {
                 H5::EnumType ret {H5::PredType::NATIVE_INT};
                 int v = 0;
-                for (auto const &name : bytedata_utils::IsEnumWithStringRepresentation<T>::names) {
-                    ret.insert(std::string {name}, &v);
-                    ++v;
+                for (auto const &item : bytedata_utils::IsEnumWithStringRepresentation<T>::namesAndValues) {
+                    v = (int) item.second;
+                    ret.insert(std::string {item.first}, &v);
                 }
                 return ret;
             }
