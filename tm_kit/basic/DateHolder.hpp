@@ -113,6 +113,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 			return DateHolder {};
 		}
 	}
+    inline DateHolder oneYearAgo(DateHolder const &d) {
+        if (d.month == 2 && d.day == 29) {
+            return {(uint16_t) (d.year-1), 2, 28};
+        } else {
+            return {(uint16_t) (d.year-1), d.month, d.day};
+        }
+    }
+    inline DateHolder oneYearLater(DateHolder const &d) {
+        if (d.month == 2 && d.day == 29) {
+            return {(uint16_t) (d.year+1), 2, 28};
+        } else {
+            return {(uint16_t) (d.year+1), d.month, d.day};
+        }
+    }
 } } } }
 
 namespace std {
