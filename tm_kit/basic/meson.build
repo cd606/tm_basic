@@ -54,6 +54,7 @@ tm_basic_headers = [
     , 'StructFieldInfoBasedHdf5Utils.hpp'
     , 'TimestampedCollectionImporter.hpp'
     , 'ChronoUtils_AddOn.hpp'
+    , 'StructFieldInfoBasedTraverse.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
