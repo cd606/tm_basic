@@ -22,6 +22,7 @@
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <tm_kit/basic/SingleLayerWrapper.hpp>
 #include <tm_kit/basic/ConstType.hpp>
+#include <tm_kit/basic/ConstValueType.hpp>
 #include <tm_kit/basic/DateHolder.hpp>
 #include <tm_kit/infra/WithTimeData.hpp>
 #include <tm_kit/infra/ChronoUtils.hpp>
@@ -982,6 +983,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
             static constexpr std::size_t calculateSize(ConstType<N> const &data) {
                 return RunCBORSerializer<int32_t>::calculateSize(N);
+            }
+        };
+        template <typename T, T val>
+        struct RunCBORSerializer<ConstValueType<T, val>, void> {
+            static std::string apply(ConstValueType<T, val> const &data) {
+                return RunCBORSerializer<T>::apply(val);
+            }
+            static std::size_t apply(ConstValueType<T, val> const &data, char *output) {
+                return RunCBORSerializer<T>::apply(val, output);
+            }
+            static constexpr std::size_t calculateSize(ConstValueType<T, val> const &data) {
+                return RunCBORSerializer<T>::calculateSize(val);
             }
         };
 
@@ -2576,6 +2589,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 if (std::get<0>(*r) != N) {
+                    return std::nullopt;
+                }
+                return std::get<1>(*r);
+            }
+        };
+        template <typename T, T val>
+        struct RunCBORDeserializer<ConstValueType<T, val>, void> {
+            static std::optional<std::tuple<ConstValueType<T, val>, size_t>> apply(std::string_view const &data, size_t start) {
+                auto r = RunCBORDeserializer<T>::apply(data, start);
+                if (!r) {
+                    return std::nullopt;
+                }
+                if (std::get<0>(*r) != val) {
+                    return std::nullopt;
+                }
+                return std::tuple<ConstValueType<T, val>, size_t> {ConstValueType<T, val> {}, std::get<1>(*r)};
+            }
+            static std::optional<size_t> applyInPlace(ConstValueType<T, val> &output, std::string_view const &data, size_t start) {
+                auto r = RunCBORDeserializer<T>::apply(data, start);
+                if (!r) {
+                    return std::nullopt;
+                }
+                if (std::get<0>(*r) != val) {
                     return std::nullopt;
                 }
                 return std::get<1>(*r);

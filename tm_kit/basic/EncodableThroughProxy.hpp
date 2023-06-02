@@ -4,6 +4,8 @@
 #include <type_traits>
 #include <variant>
 
+#include <tm_kit/basic/ConstValueType.hpp>
+
 namespace dev { namespace cd606 { namespace tm { namespace basic { 
     //This class is supposed to be specialized to provide the to/from 
     //implementation
@@ -15,6 +17,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         using DecodeProxyType = std::monostate;
         static EncodeProxyType toProxy(T const &);
         static T fromProxy(DecodeProxyType const &);
+    };
+
+    template <typename T, T val>
+    class EncodableThroughProxy<ConstValueType<T,val>> {
+    public:
+        static constexpr bool value = true;
+        using EncodeProxyType = T;
+        using DecodeProxyType = T;
+        static EncodeProxyType toProxy(ConstValueType<T,val> const &) {
+            return val;
+        }
+        static ConstValueType<T,val> fromProxy(DecodeProxyType const &) {
+            return {};
+        }
     };
 } } } }
 

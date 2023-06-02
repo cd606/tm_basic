@@ -9,6 +9,8 @@
 #include <tm_kit/basic/TriviallySerializable.hpp>
 #include <tm_kit/basic/VoidStruct.hpp>
 #include <tm_kit/basic/ByteData.hpp>
+#include <tm_kit/basic/ConstType.hpp>
+#include <tm_kit/basic/ConstValueType.hpp>
 
 #include <boost/hana/type.hpp>
 
@@ -567,6 +569,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             os << ",data=";
             PrintHelper<D>::print(os, x.data);
             os << "}";
+        }
+    };
+    template <int32_t N>
+    class PrintHelper<ConstType<N>> {
+    public:
+        static void print(std::ostream &os, ConstType<N> const &) {
+            PrintHelper<int32_t>::print(os, N);
+        }
+    };
+    template <typename T, T val>
+    class PrintHelper<ConstValueType<T,val>> {
+    public:
+        static void print(std::ostream &os, ConstValueType<T,val> const &) {
+            PrintHelper<T>::print(os, val);
         }
     };
 }}}}
