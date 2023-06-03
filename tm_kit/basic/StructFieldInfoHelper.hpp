@@ -19,6 +19,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static constexpr bool HasGeneratedStructFieldOffsetInfo = false;
     };
 
+#if __cplusplus >= 202002L
+    template <class T>
+    concept HasStructFieldInfo = StructFieldInfo<T>::HasGeneratedStructFieldInfo;
+#endif
+
     //specialize for versioned data and grouped versioned data
     template <class VersionType, class DataType, class CmpType>
     class StructFieldInfo<infra::VersionedData<VersionType,DataType,CmpType>> {
