@@ -297,6 +297,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static constexpr bool value = JsonWrappable<T>::value;
     };
     template <class T>
+    class JsonEncoder<std::deque<T>, void> {
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, std::deque<T> const &data) {
+            auto &o = (key?output[*key]:output);
+            for (auto const &item : data) {
+                o.push_back(nlohmann::json());
+                JsonEncoder<T>::write(o.back(), std::nullopt, item);
+            }
+        }
+    };
+    template <class T>
+    struct JsonWrappable<std::deque<T>, void> {
+        static constexpr bool value = JsonWrappable<T>::value;
+    };
+    template <class T>
     class JsonEncoder<std::valarray<T>, void> {
     public:
         static void write(nlohmann::json &output, std::optional<std::string> const &key, std::valarray<T> const &data) {
@@ -1736,6 +1751,67 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
         template <class X>
         static bool read_simd_ondemand(X &input, std::optional<std::string> const &key, std::list<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            data.clear();
+            bool ret = true;
+            try {
+                for (auto item : (key?input.get_object()[*key].get_array():input.get_array())) {
+                    data.push_back(T {});
+                    if (!JsonDecoder<T>::read_simd_ondemand(item, std::nullopt, data.back(), mapping)) {
+                        ret = false;
+                    }
+                }
+            } catch (simdjson::simdjson_error const &) {
+                ret = false;
+            }
+            return ret;
+        }
+    };
+    template <class T>
+    class JsonDecoder<std::deque<T>, void> {
+    public:
+        static void fillFieldNameMapping(JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            JsonDecoder<T>::fillFieldNameMapping(mapping);
+        }
+        static bool read(nlohmann::json const &input, std::optional<std::string> const &key, std::deque<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            data.clear();
+            auto const &i = (key?input.at(*key):input);
+            bool ret = true;
+            for (auto const &item : i) {
+                data.push_back(T {});
+                if (!JsonDecoder<T>::read(item, std::nullopt, data.back(), mapping)) {
+                    ret = false;
+                }
+            }
+            return ret;
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::deque<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            data.clear();
+            bool ret = true;
+            try {
+                if (key) {
+                    auto const &arr = input[*key].get_array();
+                    for (auto const &item : arr) {
+                        data.push_back(T {});
+                        if (!JsonDecoder<T>::read_simd(item, std::nullopt, data.back(), mapping)) {
+                            ret = false;
+                        }
+                    }
+                } else {
+                    auto const &arr = input.get_array();
+                    for (auto const &item : arr) {
+                        data.push_back(T {});
+                        if (!JsonDecoder<T>::read_simd(item, std::nullopt, data.back(), mapping)) {
+                            ret = false;
+                        }
+                    }
+                }
+            } catch (simdjson::simdjson_error const &) {
+                return false;
+            }
+            return ret;
+        }
+        template <class X>
+        static bool read_simd_ondemand(X &input, std::optional<std::string> const &key, std::deque<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             data.clear();
             bool ret = true;
             try {
