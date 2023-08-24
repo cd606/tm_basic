@@ -20,6 +20,7 @@
 #include <tm_kit/basic/ByteData.hpp>
 #include <tm_kit/basic/TimePointAsString.hpp>
 #include <tm_kit/basic/ConvertibleWithString.hpp>
+#include <tm_kit/basic/PrintHelper.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace struct_field_info_utils {  
     template <class T>

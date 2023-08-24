@@ -123,13 +123,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     >
     class StructFieldTypeInfo<struct_field_info_masking::MaskedStruct<T,maskF>, Idx> {
     private:
-        static constexpr std::size_t N = StructFieldInfo<T>::FIELD_NAMES.size();
-        static constexpr std::size_t K = struct_field_info_masking::internal::masking_filter_result_size<N>(
-            StructFieldInfo<T>::FIELD_NAMES, maskF
-        );
-        static constexpr struct_field_info_masking::internal::MaskingFilterResults<N,K> filterResults = {
-            StructFieldInfo<T>::FIELD_NAMES, maskF
-        };
+        using MSI = struct_field_info_masking::MaskedStructInfo<T,maskF>;
+        static constexpr std::size_t N = MSI::N;
+        static constexpr std::size_t K = MSI::K;
+        static constexpr struct_field_info_masking::internal::MaskingFilterResults<N,K> filterResults = MSI::filterResults;
     public:
         using TheType = typename StructFieldTypeInfo<
             T, filterResults.filteredToOriginal[Idx]
@@ -140,6 +137,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             >::access(static_cast<T &>(data));
         }
         static TheType const &constAccess(struct_field_info_masking::MaskedStruct<T,maskF> const &data) {
+            std::cerr << &data << ' ' << static_cast<T const *>(&data) << '\n';
             return StructFieldTypeInfo<
                 T, filterResults.filteredToOriginal[Idx]
             >::constAccess(static_cast<T const &>(data));
@@ -151,6 +149,39 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
 
+    template <
+        class T
+        , bool (*maskF)(std::string_view const &)
+    >
+    class PrintHelper<struct_field_info_masking::MaskedStruct<T,maskF>> {
+    private:
+        using MSI = struct_field_info_masking::MaskedStructInfo<T,maskF>;
+        static constexpr std::size_t N = MSI::N;
+        static constexpr std::size_t K = MSI::K;
+        static constexpr struct_field_info_masking::internal::MaskingFilterResults<N,K> filterResults = MSI::filterResults;
+        template <std::size_t Idx>
+        static void printOne(std::ostream &os, struct_field_info_masking::MaskedStruct<T,maskF> const &t) {
+            if constexpr (Idx >= 0 && Idx < K) {
+                if constexpr (Idx > 0) {
+                    os << ',';
+                }
+                os << filterResults.filteredNames[Idx] << '=';
+                PrintHelper<typename StructFieldTypeInfo<
+                    T, filterResults.filteredToOriginal[Idx]
+                >::TheType>::print(os, StructFieldTypeInfo<
+                    T, filterResults.filteredToOriginal[Idx]
+                >::constAccess(static_cast<T const &>(t)));
+                printOne<Idx+1>(os, t);
+            }
+        }
+    public:
+        static void print(std::ostream &os, struct_field_info_masking::MaskedStruct<T,maskF> const &t) {
+            os << '{';
+            printOne<0>(os, t);
+            os << '}';
+        }
+    };
+    
     namespace bytedata_utils {
         template <
             class T
