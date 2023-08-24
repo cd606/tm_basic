@@ -137,7 +137,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             >::access(static_cast<T &>(data));
         }
         static TheType const &constAccess(struct_field_info_masking::MaskedStruct<T,maskF> const &data) {
-            std::cerr << &data << ' ' << static_cast<T const *>(&data) << '\n';
             return StructFieldTypeInfo<
                 T, filterResults.filteredToOriginal[Idx]
             >::constAccess(static_cast<T const &>(data));
