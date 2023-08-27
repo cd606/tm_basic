@@ -131,7 +131,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static constexpr bool value = true;
     };
     template <class T>
-    class JsonEncoder<T, std::enable_if_t<ConvertibleWithString<T>::value, void>> {
+    class JsonEncoder<T, std::enable_if_t<(!EncodableThroughProxy<T>::value || !JsonWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value) && ConvertibleWithString<T>::value, void>> {
     public:
         static void write(nlohmann::json &output, std::optional<std::string> const &key, T const &data) {
             if (key) {
@@ -142,7 +142,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class T>
-    struct JsonWrappable<T, std::enable_if_t<ConvertibleWithString<T>::value, void>> {
+    struct JsonWrappable<T, std::enable_if_t<(!EncodableThroughProxy<T>::value || !JsonWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value) && ConvertibleWithString<T>::value, void>> {
         static constexpr bool value = true;
     };
     //For same reason as in proto_interop, string_view and ByteDataView are not
@@ -623,7 +623,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     };
     
     template <class T>
-    class JsonEncoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && !ConvertibleWithString<T>::value, void>> {
+    class JsonEncoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && (!EncodableThroughProxy<T>::value || !JsonWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value) &&  !ConvertibleWithString<T>::value, void>> {
     private:
         template <std::size_t FieldCount, std::size_t FieldIndex>
         static void write_impl(nlohmann::json &output, T const &data) {
@@ -643,7 +643,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class T>
-    struct JsonWrappable<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && !ConvertibleWithString<T>::value, void>> {
+    struct JsonWrappable<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && (!EncodableThroughProxy<T>::value || !JsonWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value) && !ConvertibleWithString<T>::value, void>> {
     private:
         template <std::size_t FieldCount, std::size_t FieldIndex>
         static constexpr bool value_internal() {
@@ -1227,7 +1227,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class T>
-    class JsonDecoder<T, std::enable_if_t<ConvertibleWithString<T>::value, void>> {
+    class JsonDecoder<T, std::enable_if_t<(!EncodableThroughProxy<T>::value || !JsonWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value) && ConvertibleWithString<T>::value, void>> {
     public:
         static void fillFieldNameMapping(JsonFieldMapping const &mapping=JsonFieldMapping {}) {}
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
@@ -3044,7 +3044,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     };
 
     template <class T>
-    class JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && !ConvertibleWithString<T>::value, void>> {
+    class JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && (!EncodableThroughProxy<T>::value || !JsonWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value) && !ConvertibleWithString<T>::value, void>> {
     private:
         static bool s_fieldNameMappingFilled;
         static std::array<std::string, StructFieldInfo<T>::FIELD_NAMES.size()> s_fieldNameMapping;
@@ -3254,11 +3254,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         }
     };
     template <class T>
-    bool JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && !ConvertibleWithString<T>::value, void>>::s_fieldNameMappingFilled = false;
+    bool JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && (!EncodableThroughProxy<T>::value || !JsonWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value) && !ConvertibleWithString<T>::value, void>>::s_fieldNameMappingFilled = false;
     template <class T>
-    std::array<std::string, StructFieldInfo<T>::FIELD_NAMES.size()> JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && !ConvertibleWithString<T>::value, void>>::s_fieldNameMapping;
+    std::array<std::string, StructFieldInfo<T>::FIELD_NAMES.size()> JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && (!EncodableThroughProxy<T>::value || !JsonWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value) && !ConvertibleWithString<T>::value, void>>::s_fieldNameMapping;
     template <class T>
-    std::array<std::function<void(T &)>, StructFieldInfo<T>::FIELD_NAMES.size()> JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && !ConvertibleWithString<T>::value, void>>::s_fieldPreprocessors;
+    std::array<std::function<void(T &)>, StructFieldInfo<T>::FIELD_NAMES.size()> JsonDecoder<T, std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo && (!EncodableThroughProxy<T>::value || !JsonWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value) && !ConvertibleWithString<T>::value, void>>::s_fieldPreprocessors;
 
     template <class T>
     class JsonDecoder<T, std::enable_if_t<bytedata_utils::ProtobufStyleSerializableChecker<T>::IsProtobufStyleSerializable(), void>> {
@@ -3638,7 +3638,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             if (!JsonDecoder<typename EncodableThroughProxy<T>::DecodeProxyType>::read(input, key, p, mapping)) {
                 return false;
             }
-            data = EncodableThroughProxy<T>::fromProxy(p);
+            data = EncodableThroughProxy<T>::fromProxy(std::move(p));
             return true;
         }
         static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
@@ -3646,7 +3646,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             if (!JsonDecoder<typename EncodableThroughProxy<T>::DecodeProxyType>::read_simd(input, key, p, mapping)) {
                 return false;
             }
-            data = EncodableThroughProxy<T>::fromProxy(p);
+            data = EncodableThroughProxy<T>::fromProxy(std::move(p));
             return true;
         }
         template <class X>
@@ -3655,7 +3655,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             if (!JsonDecoder<typename EncodableThroughProxy<T>::DecodeProxyType>::template read_simd_ondemand<X>(input, key, p, mapping)) {
                 return false;
             }
-            data = EncodableThroughProxy<T>::fromProxy(p);
+            data = EncodableThroughProxy<T>::fromProxy(std::move(p));
             return true;
         }
     };
