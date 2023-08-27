@@ -3826,7 +3826,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             if (!ret) {
                 return std::nullopt;
             }
-            output = EncodableThroughProxy<T>::fromProxy(proxy_);
+            output = EncodableThroughProxy<T>::fromProxy(std::move(proxy_));
             return ret;
         }
     };
