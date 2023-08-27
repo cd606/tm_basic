@@ -2,6 +2,7 @@
 #define TM_KIT_BASIC_COLLECTION_AS_JOINED_STRING_HPP_
 
 #include <tm_kit/basic/ConvertibleWithString.hpp>
+#include <tm_kit/basic/EncodableThroughProxy.hpp>
 #include <tm_kit/basic/SerializationHelperMacros_Proxy.hpp>
 
 #include <boost/lexical_cast.hpp>
@@ -54,6 +55,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             return c;
         }
     };
+    template <class Collection, char Sep>
+    class EncodableThroughProxy<CollectionAsJoinedString<Collection,Sep>> {
+    public:
+        static constexpr bool value = true;
+        using EncodeProxyType = Collection;
+        using DecodeProxyType = Collection;
+        static EncodeProxyType const &toProxy(CollectionAsJoinedString<Collection,Sep> const &t) {
+            return t.value;
+        }
+        static CollectionAsJoinedString<Collection,Sep> fromProxy(DecodeProxyType &&c) {
+            return {std::move(c)};
+        }
+    };
 }}}}
 
 #define TM_BASIC_COLLECTION_AS_JOINED_STRING_TEMPLATE_ARGS \
@@ -61,7 +75,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     ((char, Sep))
 
 TM_BASIC_TEMPLATE_PRINT_HELPER_THROUGH_STRING(TM_BASIC_COLLECTION_AS_JOINED_STRING_TEMPLATE_ARGS, dev::cd606::tm::basic::CollectionAsJoinedString);
-TM_BASIC_CBOR_TEMPLATE_ENCDEC_THROUGH_STRING(TM_BASIC_COLLECTION_AS_JOINED_STRING_TEMPLATE_ARGS, dev::cd606::tm::basic::CollectionAsJoinedString);
+TM_BASIC_CBOR_TEMPLATE_ENCDEC_THROUGH_PROXY(TM_BASIC_COLLECTION_AS_JOINED_STRING_TEMPLATE_ARGS, dev::cd606::tm::basic::CollectionAsJoinedString);
 
 #undef TM_BASIC_TIME_COLLECTION_AS_JOINED_STRING_TEMPLATE_ARGS
 
