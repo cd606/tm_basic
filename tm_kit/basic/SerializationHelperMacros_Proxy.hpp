@@ -217,7 +217,7 @@
                     return std::nullopt; \
                 } \
                 return std::tuple<name, size_t> { \
-                    dev::cd606::tm::basic::EncodableThroughProxy<name>::fromProxy(std::get<0>(*t)) \
+                    dev::cd606::tm::basic::EncodableThroughProxy<name>::fromProxy(std::move(std::get<0>(*t))) \
                     , std::get<1>(*t) \
                 }; \
             } \
@@ -227,7 +227,7 @@
                 if (!res) { \
                     return std::nullopt; \
                 } \
-                x = dev::cd606::tm::basic::EncodableThroughProxy<name>::fromProxy(y); \
+                x = dev::cd606::tm::basic::EncodableThroughProxy<name>::fromProxy(std::move(y)); \
                 return res; \
             } \
         }; \
@@ -274,7 +274,7 @@
                     , output \
                 ); \
             } \
-            static std::size_t calculateSize(name const &x) { \
+            static std::size_t calculateSize(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x) { \
                 return RunCBORSerializer<typename dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::EncodeProxyType>::calculateSize( \
                     dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::toProxy(x) \
                 ); \
@@ -294,7 +294,7 @@
                     return std::nullopt; \
                 } \
                 return std::tuple<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, size_t> { \
-                    dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::fromProxy(std::get<0>(*t)) \
+                    dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::fromProxy(std::move(std::get<0>(*t))) \
                     , std::get<1>(*t) \
                 }; \
             } \
@@ -304,24 +304,24 @@
                 if (!res) { \
                     return std::nullopt; \
                 } \
-                x = dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::fromProxy(y); \
+                x = dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::fromProxy(std::move(y)); \
                 return res; \
             } \
         }; \
         template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
-        struct RunDeserializer<name, void> { \
-            static std::optional<name> apply(std::string_view const &s) { \
-                auto t = RunDeserializer<CBOR<name>, void>::apply(s); \
+        struct RunDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void> { \
+            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string_view const &s) { \
+                auto t = RunDeserializer<CBOR<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>, void>::apply(s); \
                 if (!t) {\
                     return std::nullopt; \
                 } \
                 return std::move(t->value); \
             } \
-            static std::optional<name> apply(std::string const &s) { \
+            static std::optional<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> apply(std::string const &s) { \
                 return apply(std::string_view {s}); \
             } \
-            static bool applyInPlace(name &output, std::string_view const &s) { \
-                auto t = RunCBORDeserializer<name, void>::applyInPlace(output, s, 0); \
+            static bool applyInPlace(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> &output, std::string_view const &s) { \
+                auto t = RunCBORDeserializer<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, void>::applyInPlace(output, s, 0); \
                 if (!t) { \
                     return false; \
                 } \
@@ -330,7 +330,7 @@
                 } \
                 return true; \
             } \
-            static bool applyInPlace(name &output, std::string const &s) { \
+            static bool applyInPlace(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> &output, std::string const &s) { \
                 return applyInPlace(output, std::string_view {s}); \
             } \
         }; \
