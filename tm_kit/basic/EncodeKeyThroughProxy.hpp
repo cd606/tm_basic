@@ -27,8 +27,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static EncodeProxyType toProxy(typename infra::template Key<K,Env> const &x) {
             return {x.id(), x.key()};
         }
-        static typename infra::template Key<K,Env> fromProxy(DecodeProxyType const &p) {
-            return {p.id, p.key};
+        static typename infra::template Key<K,Env> fromProxy(DecodeProxyType &&p) {
+            return {std::move(p.id), std::move(p.key)};
         }
     };
 } } } }
