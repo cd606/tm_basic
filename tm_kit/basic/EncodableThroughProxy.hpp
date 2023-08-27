@@ -15,8 +15,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static constexpr bool value = false;
         using EncodeProxyType = std::monostate;
         using DecodeProxyType = std::monostate;
-        static EncodeProxyType toProxy(T const &);
-        static T fromProxy(DecodeProxyType const &);
+        static EncodeProxyType const &toProxy(T const &); // or static EncodeProxyType toProxy(T const &); either is ok, the return value will be feeded to a EncodeProxyType const &
+        static T fromProxy(DecodeProxyType &&); //or static T fromProxy(DecodeProxyType const &); either is ok, the received type is DecodeProxyType &&
     };
 
     template <typename T, T val>
