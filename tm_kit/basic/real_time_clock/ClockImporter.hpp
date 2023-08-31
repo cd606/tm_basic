@@ -46,7 +46,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                 void control(Env */*env*/, std::string const &command, std::vector<std::string> const &params) override final {
                     if (command == "stop") {
                         std::lock_guard<std::recursive_mutex> _(cancellorMutex_);
-                        cancellor_();
+                        if (cancellor_) {
+                            cancellor_();
+                        }
                     }
                 }
             };
@@ -91,7 +93,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                 void control(Env */*env*/, std::string const &command, std::vector<std::string> const &params) override final {
                     if (command == "stop") {
                         std::lock_guard<std::recursive_mutex> _(cancellorMutex_);
-                        cancellor_();
+                        if (cancellor_) {
+                            cancellor_();
+                        }
                     }
                 }
             };
@@ -137,7 +141,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace rea
                 void control(Env */*env*/, std::string const &command, std::vector<std::string> const &params) override final {
                     if (command == "stop") {
                         std::lock_guard<std::recursive_mutex> _(cancellorMutex_);
-                        cancellor_();
+                        if (cancellor_) {
+                            cancellor_();
+                        }
                     }
                 }
             };
