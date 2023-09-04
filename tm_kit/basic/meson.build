@@ -2,6 +2,7 @@ tm_basic_headers = [
       'ByteData.hpp'
     , 'ByteData_Tuple_Variant_Piece.hpp'
     , 'ByteData_Tuple_Piece.hpp'
+    , 'ByteData_Variant_Piece.hpp'
     , 'ByteDataWithTopicRecordFile.hpp'
     , 'ByteDataWithTopicRecordFileImporterExporter.hpp'
     , 'CommonFlowUtils.hpp'
