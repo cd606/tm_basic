@@ -91,12 +91,12 @@ namespace bytedata_variant_helper {
         }
         
         static constexpr CBORFieldParsingFuncArray buildParserArray() {
-            CBORFieldParsingFuncArray ret;
+            CBORFieldParsingFuncArray ret {};
             buildParserArray_internal<0>(ret);
             return ret;
         }
         static constexpr CBORFieldInPlaceParsingFuncArray buildInPlaceParserArray() {
-            CBORFieldInPlaceParsingFuncArray ret;
+            CBORFieldInPlaceParsingFuncArray ret {};
             buildInPlaceParserArray_internal<0>(ret);
             return ret;
         }
