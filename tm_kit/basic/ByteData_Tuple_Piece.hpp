@@ -46,13 +46,16 @@ namespace bytedata_tuple_helper {
         return static_cast<int32_t>(std::get<1>(*a));
     }
     template <class TupleType, int Idx, class FirstRemainingA, class... OtherRemainingAs>
-    bool runTupleCBORDeserializerPiece(TupleType &output, std::string_view const &data, size_t start, size_t &accumLen) {
+    bool runTupleCBORDeserializerPiece(std::size_t inputSize, TupleType &output, std::string_view const &data, size_t start, size_t &accumLen) {
+        if (Idx >= inputSize) {
+            return true;
+        }
         int32_t oneParsingRet = oneCBORFieldParsingFunc<TupleType, Idx, FirstRemainingA>(output, data, start, accumLen);
         if (oneParsingRet < 0) {
             return false;
         }
         if constexpr (sizeof...(OtherRemainingAs) > 0) {
-            return runTupleCBORDeserializerPiece<TupleType, Idx+1, OtherRemainingAs...>(output, data, start+static_cast<size_t>(oneParsingRet), accumLen);
+            return runTupleCBORDeserializerPiece<TupleType, Idx+1, OtherRemainingAs...>(inputSize, output, data, start+static_cast<size_t>(oneParsingRet), accumLen);
         } else {
             return true;
         }
@@ -67,13 +70,16 @@ namespace bytedata_tuple_helper {
         return static_cast<int32_t>(*a);
     }
     template <class TupleType, int Idx, class FirstRemainingA, class... OtherRemainingAs>
-    bool runTupleCBORDeserializerInPlacePiece(TupleType &output, std::string_view const &data, size_t start, size_t &accumLen) {
+    bool runTupleCBORDeserializerInPlacePiece(std::size_t inputSize, TupleType &output, std::string_view const &data, size_t start, size_t &accumLen) {
+        if (Idx >= inputSize) {
+            return true;
+        }
         int32_t oneParsingRet = oneCBORFieldInPlaceParsingFunc<TupleType, Idx, FirstRemainingA>(output, data, start, accumLen);
         if (oneParsingRet < 0) {
             return false;
         }
         if constexpr (sizeof...(OtherRemainingAs) > 0) {
-            return runTupleCBORDeserializerInPlacePiece<TupleType, Idx+1, OtherRemainingAs...>(output, data, start+static_cast<size_t>(oneParsingRet), accumLen);
+            return runTupleCBORDeserializerInPlacePiece<TupleType, Idx+1, OtherRemainingAs...>(inputSize, output, data, start+static_cast<size_t>(oneParsingRet), accumLen);
         } else {
             return true;
         }
@@ -374,7 +380,7 @@ struct RunCBORDeserializer<std::tuple<As...>> {
         if (!n) {
             return std::nullopt;
         }
-        if (std::get<0>(*n) != sizeof...(As)) {
+        if (std::get<0>(*n) > sizeof...(As)) {
             return std::nullopt;
         }
         size_t accumLen = std::get<1>(*n);
@@ -384,7 +390,7 @@ struct RunCBORDeserializer<std::tuple<As...>> {
             std::tuple<As...>
             , 0
             , As...
-        >(ret, data, start+accumLen, accumLen)) {
+        >(std::get<0>(*n), ret, data, start+accumLen, accumLen)) {
             return std::nullopt;
         }
         return std::optional<std::tuple<std::tuple<As...>,size_t>> {
@@ -404,7 +410,7 @@ struct RunCBORDeserializer<std::tuple<As...>> {
         if (!n) {
             return std::nullopt;
         }
-        if (std::get<0>(*n) != sizeof...(As)) {
+        if (std::get<0>(*n) > sizeof...(As)) {
             return std::nullopt;
         }
         size_t accumLen = std::get<1>(*n);
@@ -413,7 +419,7 @@ struct RunCBORDeserializer<std::tuple<As...>> {
             std::tuple<As...>
             , 0
             , As...
-        >(output, data, start+accumLen, accumLen)) {
+        >(std::get<0>(*n), output, data, start+accumLen, accumLen)) {
             return std::nullopt;
         }
         return accumLen;
@@ -436,13 +442,13 @@ struct RunCBORDeserializerWithNameList<std::tuple<As...>, N> {
         if (!n) {
             return std::nullopt;
         }
-        if (std::get<0>(*n) != sizeof...(As)) {
+        if (std::get<0>(*n) > sizeof...(As)) {
             return std::nullopt;
         }
 
         size_t accumLen = std::get<1>(*n);
         std::tuple<As...> ret;
-        for (size_t ii=0; ii<sizeof...(As); ++ii) {
+        for (size_t ii=0; ii<std::get<0>(*n); ++ii) {
             auto nm = RunCBORDeserializer<std::string>::apply(data, start+accumLen);
             if (!nm) {
                 return std::nullopt;
@@ -483,12 +489,12 @@ struct RunCBORDeserializerWithNameList<std::tuple<As...>, N> {
         if (!n) {
             return std::nullopt;
         }
-        if (std::get<0>(*n) != sizeof...(As)) {
+        if (std::get<0>(*n) > sizeof...(As)) {
             return std::nullopt;
         }
 
         size_t accumLen = std::get<1>(*n);        
-        for (size_t ii=0; ii<sizeof...(As); ++ii) {
+        for (size_t ii=0; ii<std::get<0>(*n); ++ii) {
             auto nm = RunCBORDeserializer<std::string>::apply(data, start+accumLen);
             if (!nm) {
                 return std::nullopt;
