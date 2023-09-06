@@ -47,9 +47,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                             , (std::string_view *) nullptr
                             , (typename Chain::DataType const *) nullptr
                         )) {
-                            folder.foldInPlace(currentState, Chain::extractStorageIDStringView(currentItem), *dataPtr);
+                            myFolder.foldInPlace(currentState, Chain::extractStorageIDStringView(currentItem), *dataPtr);
                         } else {
-                            currentState = folder.fold(currentState, Chain::extractStorageIDStringView(currentItem), *dataPtr);
+                            currentState = myFolder.fold(currentState, Chain::extractStorageIDStringView(currentItem), *dataPtr);
                         }
                     }
                 }
