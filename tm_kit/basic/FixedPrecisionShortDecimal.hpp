@@ -133,8 +133,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             return changePrecision<AnotherPrecision, AnotherUnderlying>();
         }
 
-        template <class I, typename=std::enable_if_t<std::is_integral_v<I>>
-        static FixedPrecisionShortDecimal fromPrecisionAndValue(std::size_t inputPrecision, I inputValue) const {
+        template <class I, typename=std::enable_if_t<std::is_integral_v<I>>>
+        static FixedPrecisionShortDecimal fromPrecisionAndValue(std::size_t inputPrecision, I inputValue) {
             if (Precision == inputPrecision) {
                 return FixedPrecisionShortDecimal {static_cast<Underlying>(inputValue)};
             } else if (Precision > inputPrecision) {
