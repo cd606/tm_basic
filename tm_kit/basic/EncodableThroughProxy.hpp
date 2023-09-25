@@ -32,6 +32,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             return {};
         }
     };
+
+    template <class T>
+    class EncodableThroughMultipleProxies {
+    public:
+        static constexpr bool value = false;
+        using ProxyTypes = std::variant<std::monostate>;
+        static std::variant_alternative_t<0, ProxyTypes> const &toProxy(T const &); // or static std::variant_alternative_t<0, ProxyTypes> toProxy(T const &); either is ok, the return value will be feeded to a std::variant_alternative_t<0, ProxyTypes> const &
+        static T fromProxy(ProxyTypes &&); //or static T fromProxy(ProxyTypes const &); either is ok, the received type is ProxyTypes &&
+    };
+
 } } } }
 
 #endif

@@ -3636,7 +3636,24 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             typename EncodableThroughProxy<T>::DecodeProxyType p;
             if (!JsonDecoder<typename EncodableThroughProxy<T>::DecodeProxyType>::read(input, key, p, mapping)) {
-                return false;
+                if constexpr (dev::cd606::tm::basic::ConvertibleWithString<T>::value) {
+                    auto const &i = (key?input.at(*key):input);
+                    if (i.is_null()) {
+                        data = ConvertibleWithString<T>::fromString("");
+                        return true;
+                    } else if (i.is_string()) {
+                        std::string s;
+                        i.get_to(s);
+                        data = ConvertibleWithString<T>::fromString(s);
+                        return true;
+                    } else {
+                        std::string s = i.dump();
+                        data = ConvertibleWithString<T>::fromString(s);
+                        return true;
+                    }
+                } else {
+                    return false;
+                }
             }
             data = EncodableThroughProxy<T>::fromProxy(std::move(p));
             return true;
@@ -3644,7 +3661,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             typename EncodableThroughProxy<T>::DecodeProxyType p;
             if (!JsonDecoder<typename EncodableThroughProxy<T>::DecodeProxyType>::read_simd(input, key, p, mapping)) {
-                return false;
+                if constexpr (dev::cd606::tm::basic::ConvertibleWithString<T>::value) {
+                    std::string s;
+                    auto ret = JsonDecoder<std::string>::read_simd(input, key, s, mapping);
+                    if (ret) {
+                        data = ConvertibleWithString<T>::fromString(s);
+                        return true;
+                    } else {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
             }
             data = EncodableThroughProxy<T>::fromProxy(std::move(p));
             return true;
@@ -3653,7 +3681,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read_simd_ondemand(X &input, std::optional<std::string> const &key, T &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             typename EncodableThroughProxy<T>::DecodeProxyType p;
             if (!JsonDecoder<typename EncodableThroughProxy<T>::DecodeProxyType>::template read_simd_ondemand<X>(input, key, p, mapping)) {
-                return false;
+                if constexpr (dev::cd606::tm::basic::ConvertibleWithString<T>::value) {
+                    std::string s;
+                    auto ret = JsonDecoder<std::string>::read_simd_ondemand(input, key, s, mapping);
+                    if (ret) {
+                        data = ConvertibleWithString<T>::fromString(s);
+                        return true;
+                    } else {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
             }
             data = EncodableThroughProxy<T>::fromProxy(std::move(p));
             return true;

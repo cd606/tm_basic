@@ -3812,8 +3812,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     private:
         typename EncodableThroughProxy<T>::DecodeProxyType proxy_;
         ProtoDecoder<typename EncodableThroughProxy<T>::DecodeProxyType> subDec_;
+        std::string proxy1_;
+        ProtoDecoder<std::string> subDec1_;
     public:
-        ProtoDecoder(T* output, uint64_t baseFieldNumber) : IProtoDecoder<T>(output), proxy_(), subDec_(&proxy_, baseFieldNumber) {
+        ProtoDecoder(T* output, uint64_t baseFieldNumber) : IProtoDecoder<T>(output), proxy_(), subDec_(&proxy_, baseFieldNumber), subDec1_(&proxy1_, baseFieldNumber) {
         }
         virtual ~ProtoDecoder() {
         }
@@ -3823,8 +3825,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     protected:
         std::optional<std::size_t> read(T &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
             auto ret =  subDec_.handle(fh, input, start);
-            if (!ret) {
-                return std::nullopt;
+            if (!ret) {                
+                if constexpr (ConvertibleWithString<T>::value) {
+                    auto ret =  subDec1_.handle(fh, input, start);
+                    if (!ret) {
+                        return std::nullopt;
+                    }
+                    output = ConvertibleWithString<T>::fromString(proxy1_);
+                    return ret;
+                } else {
+                    return std::nullopt;
+                }
             }
             output = EncodableThroughProxy<T>::fromProxy(std::move(proxy_));
             return ret;

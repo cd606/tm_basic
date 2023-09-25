@@ -37,9 +37,20 @@
         struct RunCBORDeserializer<name, void> { \
             static std::optional<std::tuple<name, size_t>> apply(std::string_view const &s, size_t start) { \
                 auto t = RunCBORDeserializer<std::string>::apply(s, start); \
-                if (!t) {\
-                    return std::nullopt; \
-                } \
+                if (!t) { \                    
+                    if constexpr (dev::cd606::tm::basic::EncodableThroughProxy<name>::value) { \
+                        auto t1 = RunCBORDeserializer<typename dev::cd606::tm::basic::EncodableThroughProxy<name>::DecodeProxyType>::apply(s, start); \
+                        if (!t1) {\
+                            return std::nullopt; \
+                        } \
+                        return std::tuple<name, size_t> { \
+                            dev::cd606::tm::basic::EncodableThroughProxy<name>::fromProxy(std::move(std::get<0>(*t1))) \
+                            , std::get<1>(*t1) \
+                        }; \
+                    } else { \
+                        return std::nullopt; \
+                    } \
+                } \                                              
                 return std::tuple<name, size_t> { \
                     dev::cd606::tm::basic::ConvertibleWithString<name>::fromString(std::get<0>(*t)) \
                     , std::get<1>(*t) \
@@ -49,7 +60,17 @@
                 std::string y; \
                 auto res = RunCBORDeserializer<std::string>::applyInPlace(y, s, start); \
                 if (!res) { \
-                    return std::nullopt; \
+                    if constexpr (dev::cd606::tm::basic::EncodableThroughProxy<name>::value) { \
+                        typename dev::cd606::tm::basic::EncodableThroughProxy<name>::DecodeProxyType y; \
+                        auto res1 = RunCBORDeserializer<typename dev::cd606::tm::basic::EncodableThroughProxy<name>::DecodeProxyType>::applyInPlace(y, s, start); \
+                        if (!res1) { \
+                            return std::nullopt; \
+                        } \
+                        x = dev::cd606::tm::basic::EncodableThroughProxy<name>::fromProxy(std::move(y)); \
+                        return res1; \
+                    } else { \
+                        return std::nullopt; \
+                    } \                    
                 } \
                 x = dev::cd606::tm::basic::ConvertibleWithString<name>::fromString(std::string_view {y}); \
                 return res; \
@@ -115,7 +136,18 @@
             static std::optional<std::tuple<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, size_t>> apply(std::string_view const &s, size_t start) { \
                 auto t = RunCBORDeserializer<std::string>::apply(s, start); \
                 if (!t) {\
-                    return std::nullopt; \
+                    if constexpr (dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::value) { \
+                        auto t1 = RunCBORDeserializer<typename dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::DecodeProxyType>::apply(s, start); \
+                        if (!t1) {\
+                            return std::nullopt; \
+                        } \
+                        return std::tuple<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, size_t> { \
+                            dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::fromProxy(std::move(std::get<0>(*t1))) \
+                            , std::get<1>(*t1) \
+                        }; \
+                    } else { \
+                        return std::nullopt; \
+                    } \
                 } \
                 return std::tuple<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, size_t> { \
                     dev::cd606::tm::basic::ConvertibleWithString<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::fromString(std::get<0>(*t)) \
@@ -126,7 +158,17 @@
                 std::string y; \
                 auto res = RunCBORDeserializer<std::string>::applyInPlace(y, s, start); \
                 if (!res) { \
-                    return std::nullopt; \
+                    if constexpr (dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::value) { \
+                        typename dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::DecodeProxyType y; \
+                        auto res1 = RunCBORDeserializer<typename dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::DecodeProxyType>::applyInPlace(y, s, start); \
+                        if (!res1) { \
+                            return std::nullopt; \
+                        } \
+                        x = dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::fromProxy(std::move(y)); \
+                        return res1; \
+                    } else { \
+                        return std::nullopt; \
+                    } \  
                 } \
                 x = dev::cd606::tm::basic::ConvertibleWithString<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::fromString(std::string_view {y}); \
                 return res; \
@@ -214,7 +256,18 @@
             static std::optional<std::tuple<name, size_t>> apply(std::string_view const &s, size_t start) { \
                 auto t = RunCBORDeserializer<typename dev::cd606::tm::basic::EncodableThroughProxy<name>::DecodeProxyType>::apply(s, start); \
                 if (!t) {\
-                    return std::nullopt; \
+                    if constexpr (dev::cd606::tm::basic::ConvertibleWithString<name>::value) { \
+                        auto t1 = RunCBORDeserializer<std::string>::apply(s, start); \
+                        if (!t1) {\
+                            return std::nullopt; \
+                        } \
+                        return std::tuple<name, size_t> { \
+                            dev::cd606::tm::basic::ConvertibleWithString<name>::fromString(std::get<0>(*t1)) \
+                            , std::get<1>(*t1) \
+                        }; \
+                    } else { \
+                        return std::nullopt; \
+                    } \
                 } \
                 return std::tuple<name, size_t> { \
                     dev::cd606::tm::basic::EncodableThroughProxy<name>::fromProxy(std::move(std::get<0>(*t))) \
@@ -225,7 +278,17 @@
                 typename dev::cd606::tm::basic::EncodableThroughProxy<name>::DecodeProxyType y; \
                 auto res = RunCBORDeserializer<typename dev::cd606::tm::basic::EncodableThroughProxy<name>::DecodeProxyType>::applyInPlace(y, s, start); \
                 if (!res) { \
-                    return std::nullopt; \
+                    if constexpr (dev::cd606::tm::basic::ConvertibleWithString<name>::value) { \
+                        std::string y; \
+                        auto res1 = RunCBORDeserializer<std::string>::applyInPlace(y, s, start); \
+                        if (!res1) { \
+                            return std::nullopt; \
+                        } \
+                        x = dev::cd606::tm::basic::ConvertibleWithString<name>::fromString(y); \
+                        return res1; \
+                    } else { \
+                        return std::nullopt; \
+                    } \ 
                 } \
                 x = dev::cd606::tm::basic::EncodableThroughProxy<name>::fromProxy(std::move(y)); \
                 return res; \
@@ -291,7 +354,18 @@
             static std::optional<std::tuple<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, size_t>> apply(std::string_view const &s, size_t start) { \
                 auto t = RunCBORDeserializer<typename dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::DecodeProxyType>::apply(s, start); \
                 if (!t) {\
-                    return std::nullopt; \
+                    if constexpr (dev::cd606::tm::basic::ConvertibleWithString<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::value) { \
+                        auto t1 = RunCBORDeserializer<std::string>::apply(s, start); \
+                        if (!t1) {\
+                            return std::nullopt; \
+                        } \
+                        return std::tuple<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, size_t> { \
+                            dev::cd606::tm::basic::ConvertibleWithString<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::fromString(std::get<0>(*t1)) \
+                            , std::get<1>(*t1) \
+                        }; \
+                    } else { \
+                        return std::nullopt; \
+                    } \
                 } \
                 return std::tuple<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>, size_t> { \
                     dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::fromProxy(std::move(std::get<0>(*t))) \
@@ -302,7 +376,17 @@
                 typename dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::DecodeProxyType y; \
                 auto res = RunCBORDeserializer<typename dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::DecodeProxyType>::applyInPlace(y, s, start); \
                 if (!res) { \
-                    return std::nullopt; \
+                    if constexpr (dev::cd606::tm::basic::ConvertibleWithString<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::value) { \
+                        std::string y; \
+                        auto res1 = RunCBORDeserializer<std::string>::applyInPlace(y, s, start); \
+                        if (!res1) { \
+                            return std::nullopt; \
+                        } \
+                        x = dev::cd606::tm::basic::ConvertibleWithString<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::fromString(y); \
+                        return res1; \
+                    } else { \
+                        return std::nullopt; \
+                    } \ 
                 } \
                 x = dev::cd606::tm::basic::EncodableThroughProxy<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>>::fromProxy(std::move(y)); \
                 return res; \
