@@ -42,28 +42,122 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             return ret;
         }
         static constexpr Underlying s_divisionFactor = divisionFactor();
+
+        static Underlying parseMantissa(std::string_view const &s, short e) {
+            auto pos = s.find_first_of('.');
+            auto e1 = (e>0?e:0);
+            Underlying f = s_divisionFactor;
+            if (e1 > 0) {
+                auto e2 = e1;
+                Underlying d = 10;
+                while (e2 > 0) {
+                    if ((e2 & 1) == 1) {
+                        f *= d;
+                    }
+                    d *= d;
+                    e2 >>= 1;
+                }
+            }
+            if (pos == std::string::npos) {
+                try {
+                    return boost::lexical_cast<Underlying>(s)*f;
+                } catch (boost::bad_lexical_cast const &) {
+                    return 0;
+                }
+            } else {
+                try {
+                    Underlying integerPart = boost::lexical_cast<Underlying>(s.substr(0, pos));
+                    if (pos+1 < s.length()) {
+                        Underlying fractionPart = 0;
+                        for (std::size_t ii=0; ii<Precision+e1; ++ii) {
+                            fractionPart *= 10;
+                            if (pos+ii+1 < s.length()) {
+                                if (s[pos+ii+1] < '0' || s[pos+ii+1] > '9') {
+                                    return 0;
+                                }
+                                fractionPart += (Underlying) (s[pos+ii+1]-'0');
+                            }
+                        }
+                        if (pos+Precision+e1+1 < s.length()) {
+                            if (s[pos+Precision+e1+1] >= '5' && s[pos+Precision+e1+1] <= '9') {
+                                fractionPart += 1;
+                            } else if (s[pos+Precision+e1+1] >= '0' && s[pos+Precision+e1+1] <= '4') {
+                                //do nothing
+                            } else {
+                                return 0;
+                            }
+                        }
+                        if constexpr (std::is_signed_v<Underlying>) {
+                            if (integerPart >= 0) {
+                                return (integerPart*f)+fractionPart;
+                            } else {
+                                return -((-integerPart)*f+fractionPart);
+                            }
+                        } else {
+                            return (integerPart*f)+fractionPart;
+                        }
+                    } else {
+                        return integerPart*f;
+                    }
+                } catch (boost::bad_lexical_cast const &) {
+                    return 0;
+                }
+            }
+        }
+
+        static Underlying combineFP(Underlying mantissa, short exp) {
+            if (mantissa == 0) {
+                return 0;
+            }
+            if (exp >= 0) {
+                return mantissa;
+            }
+            if constexpr (std::is_signed_v<Underlying>) {
+                if (mantissa < 0) {
+                    return -combineFP(-mantissa, exp);
+                }
+            }
+            short e1 = -exp;
+            Underlying d = 10;
+            Underlying factor = 1;
+            while (e1 > 0) {
+                if ((e1 & 1) == 1) {
+                    factor *= d;
+                }
+                e1 >>= 1;
+                d *= d;
+            }
+            if (mantissa%factor >= factor/2) {
+                return (mantissa/factor+1);
+            } else {
+                return (mantissa/factor);
+            }
+        }
+
+        static Underlying parseString(std::string_view const &s) {
+            try {
+                auto p = s.find_first_of('e');
+                if (p != std::string::npos) {
+                    auto e = boost::lexical_cast<short>(s.substr(p+1));
+                    return combineFP(parseMantissa(s.substr(0, p), e), e);
+                } 
+                p = s.find_first_of('E');
+                if (p != std::string::npos) {
+                    auto e = boost::lexical_cast<short>(s.substr(p+1));
+                    return combineFP(parseMantissa(s.substr(0, p), e), e);
+                } 
+                return combineFP(parseMantissa(s, 0), 0);
+            } catch (boost::bad_lexical_cast const &) {
+                return 0;
+            }
+        }
     public:
         using UnderlyingType = Underlying;
         static constexpr std::size_t PrecisionValue = Precision;
         FixedPrecisionShortDecimal() : value_(0) {}
         explicit FixedPrecisionShortDecimal(Underlying u) : value_(u) {}
         explicit FixedPrecisionShortDecimal(double d) : value_(static_cast<Underlying>(std::llrint(d/s_conversionFactor))) {}
-        explicit FixedPrecisionShortDecimal(std::string_view const &s) : value_(0) {
-            auto pos = s.find_first_of('.');
-            if (pos == std::string::npos) {
-                try {
-                    value_ = boost::lexical_cast<Underlying>(s)*s_divisionFactor;
-                } catch (boost::bad_lexical_cast const &) {
-                    value_ = 0;
-                }
-            } else {
-                try {
-                    double d = boost::lexical_cast<double>(s);
-                    value_ = static_cast<Underlying>(std::llrint(d/s_conversionFactor));
-                } catch (boost::bad_lexical_cast const &) {
-                    value_ = 0;
-                }
-            }
+        explicit FixedPrecisionShortDecimal(std::string_view const &s) : value_(parseString(s)) {
         }
         FixedPrecisionShortDecimal(FixedPrecisionShortDecimal const &) = default;
         FixedPrecisionShortDecimal(FixedPrecisionShortDecimal &&) = default;
@@ -280,32 +374,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     };
 
     template <std::size_t Precision, typename Underlying>
-    class EncodableThroughProxy<FixedPrecisionShortDecimal<Precision, Underlying>> {
-    public:
-        static constexpr bool value = true;
-        using EncodeProxyType = double;
-        using DecodeProxyType = double;
-        static EncodeProxyType toProxy(FixedPrecisionShortDecimal<Precision, Underlying> const &v) {
-            return (double) v;
-        }
-        static FixedPrecisionShortDecimal<Precision, Underlying> fromProxy(DecodeProxyType const &v) {
-            return FixedPrecisionShortDecimal<Precision, Underlying> {v};
-        }
-    };
-
-    template <std::size_t Precision, typename Underlying>
     class EncodableThroughMultipleProxies<FixedPrecisionShortDecimal<Precision, Underlying>> {
     public:
         static constexpr bool value = true;
-        using ProxyTypes = std::variant<
+        using CBOREncodeProxyType = std::tuple<std::size_t, Underlying>;
+        using JSONEncodeProxyType = std::string;
+        using ProtoEncodeProxyType = double;
+        using DecodeProxyTypes = std::variant<
             std::tuple<std::size_t, Underlying>
-            , double
             , std::string
+            , double
         >;
-        static std::tuple<std::size_t, Underlying> toProxy(FixedPrecisionShortDecimal<Precision, Underlying> const &v) {
+        static std::tuple<std::size_t, Underlying> toCBOREncodeProxy(FixedPrecisionShortDecimal<Precision, Underlying> const &v) {
             return {Precision, v.value()};
         }
-        static FixedPrecisionShortDecimal<Precision, Underlying> fromProxy(ProxyTypes const &v) {
+        static std::string toJSONEncodeProxy(FixedPrecisionShortDecimal<Precision, Underlying> const &v) {
+            return v.asString();
+        }
+        static double toProtoEncodeProxy(FixedPrecisionShortDecimal<Precision, Underlying> const &v) {
+            return (double) v;
+        } 
+        static FixedPrecisionShortDecimal<Precision, Underlying> fromProxy(DecodeProxyTypes const &v) {
             return std::visit([](auto const &x) -> FixedPrecisionShortDecimal<Precision, Underlying> {
                 using V = std::decay_t<decltype(x)>;
                 if constexpr (std::is_same_v<V, std::tuple<std::size_t, Underlying>>) {
@@ -329,7 +418,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     ((typename, Underlying))
 
 TM_BASIC_TEMPLATE_PRINT_HELPER_THROUGH_STRING(TM_BASIC_FIXED_PRECISION_SHORT_DECIMAL_TEMPLATE_ARGS, dev::cd606::tm::basic::FixedPrecisionShortDecimal);
-TM_BASIC_CBOR_TEMPLATE_ENCDEC_THROUGH_PROXY(TM_BASIC_FIXED_PRECISION_SHORT_DECIMAL_TEMPLATE_ARGS, dev::cd606::tm::basic::FixedPrecisionShortDecimal);
+TM_BASIC_CBOR_TEMPLATE_ENCDEC_THROUGH_MULTIPLE_PROXIES(TM_BASIC_FIXED_PRECISION_SHORT_DECIMAL_TEMPLATE_ARGS, dev::cd606::tm::basic::FixedPrecisionShortDecimal);
 
 #undef TM_BASIC_FIXED_PRECISION_SHORT_DECIMAL_TEMPLATE_ARGS
 

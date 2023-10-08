@@ -37,9 +37,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     class EncodableThroughMultipleProxies {
     public:
         static constexpr bool value = false;
-        using ProxyTypes = std::variant<std::monostate>;
-        static std::variant_alternative_t<0, ProxyTypes> const &toProxy(T const &); // or static std::variant_alternative_t<0, ProxyTypes> toProxy(T const &); either is ok, the return value will be feeded to a std::variant_alternative_t<0, ProxyTypes> const &
-        static T fromProxy(ProxyTypes &&); //or static T fromProxy(ProxyTypes const &); either is ok, the received type is ProxyTypes &&
+        using CBOREncodeProxyType = std::monostate;
+        using JSONEncodeProxyType = std::monostate;
+        using ProtoEncodeProxyType = std::monostate;
+        using DecodeProxyTypes = std::variant<std::monostate>;
+        static CBOREncodeProxyType const &toCBOREncodeProxy(T const &); // or static CBOREncodeProxyType toCBOREncodeProxy(T const &); either is ok, the return value will be feeded to a CBOREncodeProxyType const &
+        static JSONEncodeProxyType const &toJSONEncodeProxy(T const &); // or static JSONEncodeProxyType toJSONEncodeProxy(T const &); either is ok, the return value will be feeded to a JSONEncodeProxyType const &
+        static ProtoEncodeProxyType const &toProtoEncodeProxy(T const &); // or static ProtoEncodeProxyType toProtoEncodeProxy(T const &); either is ok, the return value will be feeded to a ProtoEncodeProxyType const &
+        static T fromProxy(DecodeProxyTypes &&); //or static T fromProxy(DecodeProxyTypes const &); either is ok, the received type is DecodeProxyTypes &&
     };
 
 } } } }

@@ -22,24 +22,41 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
         template <class First, class... More>
         static constexpr std::size_t fieldCountHelper(std::size_t soFar) {
-            if constexpr (sizeof...(More) == 0) {
-                return StructFieldInfo<First>::FIELD_NAMES.size()+soFar;
+            if constexpr (StructFieldInfo<First>::HasGeneratedStructFieldInfo) {
+                if constexpr (sizeof...(More) == 0) {
+                    return StructFieldInfo<First>::FIELD_NAMES.size()+soFar;
+                } else {
+                    return fieldCountHelper<More...>(StructFieldInfo<First>::FIELD_NAMES.size()+soFar);
+                }
             } else {
-                return fieldCountHelper<More...>(StructFieldInfo<First>::FIELD_NAMES.size()+soFar);
+                if constexpr (sizeof...(More) == 0) {
+                    return 1+soFar;
+                } else {
+                    return fieldCountHelper<More...>(1+soFar);
+                }
             }
         } 
         static constexpr std::size_t N = fieldCountHelper<Ts...>(0);
 
         template <std::size_t Idx, class First, class... More>
         static constexpr void fieldNamesHelper_internal(std::array<std::string_view, N> &ret) {
-            auto const &nm = StructFieldInfo<First>::FIELD_NAMES;
-            for (std::size_t ii=0; ii<nm.size(); ++ii) {
-                ret[ii+Idx] = nm[ii];
-            }
-            if constexpr (sizeof...(More) == 0) {
-                return;
+            if constexpr (StructFieldInfo<First>::HasGeneratedStructFieldInfo) {
+                auto const &nm = StructFieldInfo<First>::FIELD_NAMES;
+                for (std::size_t ii=0; ii<nm.size(); ++ii) {
+                    ret[ii+Idx] = nm[ii];
+                }
+                if constexpr (sizeof...(More) == 0) {
+                    return;
+                } else {
+                    fieldNamesHelper_internal<Idx+StructFieldInfo<First>::FIELD_NAMES.size(),More...>(ret);
+                }
             } else {
-                fieldNamesHelper_internal<Idx+StructFieldInfo<First>::FIELD_NAMES.size(),More...>(ret);
+                ret[Idx] = "";
+                if constexpr (sizeof...(More) == 0) {
+                    return;
+                } else {
+                    fieldNamesHelper_internal<Idx+1,More...>(ret);
+                }
             }
         }
         static constexpr std::array<std::string_view, N> fieldNamesHelper() {
@@ -49,14 +66,26 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
         template <std::size_t Idx, class First, class... More>
         static constexpr int getFieldIndexHelper(std::string_view const &fieldName) {
-            int ret = StructFieldInfo<First>::getFieldIndex(fieldName);
-            if (ret >= 0) {
-                return ret+Idx;
-            } else {
-                if constexpr (sizeof...(More) == 0) {
-                    return -1;
+            if constexpr (StructFieldInfo<First>::HasGeneratedStructFieldInfo) {
+                int ret = StructFieldInfo<First>::getFieldIndex(fieldName);
+                if (ret >= 0) {
+                    return ret+Idx;
                 } else {
-                    return getFieldIndexHelper<Idx+StructFieldInfo<First>::FIELD_NAMES.size(), More...>(fieldName);
+                    if constexpr (sizeof...(More) == 0) {
+                        return -1;
+                    } else {
+                        return getFieldIndexHelper<Idx+StructFieldInfo<First>::FIELD_NAMES.size(), More...>(fieldName);
+                    }
+                }
+            } else {
+                if (fieldName == "") {
+                    return Idx;
+                } else {
+                    if constexpr (sizeof...(More) == 0) {
+                        return -1;
+                    } else {
+                        return getFieldIndexHelper<Idx+1, More...>(fieldName);
+                    }
                 }
             }
         }

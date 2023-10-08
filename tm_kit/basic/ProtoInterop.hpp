@@ -5,6 +5,7 @@
 #include <tm_kit/basic/StructFieldInfoUtils.hpp>
 #include <tm_kit/basic/ConvertibleWithString.hpp>
 #include <tm_kit/basic/EncodableThroughProxy.hpp>
+#include <tm_kit/infra/TupleVariantHelper.hpp>
 
 #include <iostream>
 
@@ -3750,11 +3751,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     }; 
 
     template <class T>
-    struct ProtoWrappable<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && !EncodableThroughProxy<T>::value && !std::is_enum_v<T> && ConvertibleWithString<T>::value, void>> {
+    struct ProtoWrappable<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && (!EncodableThroughMultipleProxies<T>::value || !ProtoWrappable<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::value) && !EncodableThroughProxy<T>::value && !std::is_enum_v<T> && ConvertibleWithString<T>::value, void>> {
         static constexpr bool value = true;
     };
     template <class T>
-    class ProtoEncoder<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && !EncodableThroughProxy<T>::value && !std::is_enum_v<T> && ConvertibleWithString<T>::value, void>> {
+    class ProtoEncoder<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && (!EncodableThroughMultipleProxies<T>::value || !ProtoWrappable<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::value) && !EncodableThroughProxy<T>::value && !std::is_enum_v<T> && ConvertibleWithString<T>::value, void>> {
     public:
         static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
             return ProtoEncoder<std::string>::thisFieldNumber(inputFieldNumber);
@@ -3767,7 +3768,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <class T>
-    class ProtoDecoder<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && !EncodableThroughProxy<T>::value && !std::is_enum_v<T> && ConvertibleWithString<T>::value, void>> final : public IProtoDecoder<T> {
+    class ProtoDecoder<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && (!EncodableThroughMultipleProxies<T>::value || !ProtoWrappable<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::value) && !EncodableThroughProxy<T>::value && !std::is_enum_v<T> && ConvertibleWithString<T>::value, void>> final : public IProtoDecoder<T> {
     private:
         std::string proxy_;
         ProtoDecoder<std::string> subDec_;
@@ -3791,11 +3792,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     };
 
     template <class T>
-    struct ProtoWrappable<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && EncodableThroughProxy<T>::value && ProtoWrappable<typename EncodableThroughProxy<T>::EncodeProxyType>::value && ProtoWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value, void>> {
+    struct ProtoWrappable<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && (!EncodableThroughMultipleProxies<T>::value || !ProtoWrappable<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::value) && EncodableThroughProxy<T>::value && ProtoWrappable<typename EncodableThroughProxy<T>::EncodeProxyType>::value && ProtoWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value, void>> {
         static constexpr bool value = true;
     };
     template <class T>
-    class ProtoEncoder<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && EncodableThroughProxy<T>::value && ProtoWrappable<typename EncodableThroughProxy<T>::EncodeProxyType>::value, void>> {
+    class ProtoEncoder<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && (!EncodableThroughMultipleProxies<T>::value || !ProtoWrappable<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::value) && EncodableThroughProxy<T>::value && ProtoWrappable<typename EncodableThroughProxy<T>::EncodeProxyType>::value, void>> {
     public:
         static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
             return ProtoEncoder<typename EncodableThroughProxy<T>::EncodeProxyType>::thisFieldNumber(inputFieldNumber);
@@ -3808,7 +3809,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <class T>
-    class ProtoDecoder<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && EncodableThroughProxy<T>::value && ProtoWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value, void>> final : public IProtoDecoder<T> {
+    class ProtoDecoder<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && (!EncodableThroughMultipleProxies<T>::value || !ProtoWrappable<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::value) && EncodableThroughProxy<T>::value && ProtoWrappable<typename EncodableThroughProxy<T>::DecodeProxyType>::value, void>> final : public IProtoDecoder<T> {
     private:
         typename EncodableThroughProxy<T>::DecodeProxyType proxy_;
         ProtoDecoder<typename EncodableThroughProxy<T>::DecodeProxyType> subDec_;
@@ -3839,6 +3840,127 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             }
             output = EncodableThroughProxy<T>::fromProxy(std::move(proxy_));
             return ret;
+        }
+    };
+
+    template <class T>
+    struct ProtoWrappable<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && EncodableThroughMultipleProxies<T>::value && ProtoWrappable<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::value, void>> {
+        static constexpr bool value = true;
+    };
+    template <class T>
+    class ProtoEncoder<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && EncodableThroughMultipleProxies<T>::value && ProtoWrappable<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::value, void>> {
+    public:
+        static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
+            return ProtoEncoder<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::thisFieldNumber(inputFieldNumber);
+        }
+        static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
+            return ProtoEncoder<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::nextFieldNumber(inputFieldNumber);
+        }
+        static void write(std::optional<uint64_t> fieldNumber, T const &data, std::ostream &os, bool writeDefaultValue) {
+            ProtoEncoder<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::write(fieldNumber, EncodableThroughMultipleProxies<T>::toProtoEncodeProxy(data), os, writeDefaultValue);
+        }
+    };
+    template <class T>
+    class ProtoDecoder<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && EncodableThroughMultipleProxies<T>::value && ProtoWrappable<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::value, void>> final : public IProtoDecoder<T> {
+    private:
+        using P = typename EncodableThroughMultipleProxies<T>::DecodeProxyTypes;
+        using PT = dev::cd606::tm::infra::TupleVariantConversion<P>;
+        PT storage_;
+        std::array<IProtoDecoderBase *, std::variant_size_v<P>> decoders_;
+        std::string proxy1_;
+        ProtoDecoder<std::string> subDec1_;
+
+        template <std::size_t FieldIndex>
+        static void addResponsibleFields_internal(uint64_t current, std::set<uint64_t> &output) {
+            if constexpr (FieldIndex >= 0 && FieldIndex < std::variant_size_v<P>) {
+                if constexpr (ProtoWrappable<std::variant_alternative_t<FieldIndex, P>>::value) {
+                    auto v = ProtoDecoder<
+                        std::variant_alternative_t<FieldIndex, P>
+                    >::responsibleForFieldNumbers(
+                        ProtoEncoder<
+                            std::variant_alternative_t<FieldIndex, P>
+                        >::thisFieldNumber(current)
+                    );
+                    std::copy(v.begin(), v.end(), std::inserter(output, output.begin()));
+                }
+                addResponsibleFields_internal<FieldIndex+1>(
+                    current
+                    , output
+                );
+            }
+        }
+        template <std::size_t FieldIndex>
+        void buildDecoders_internal(uint64_t fieldNumber) {
+            if constexpr (FieldIndex >= 0 && FieldIndex < std::variant_size_v<P>) {
+                using F = std::variant_alternative_t<FieldIndex, P>;
+                if constexpr (ProtoWrappable<F>::value) {
+                    decoders_[FieldIndex] = new ProtoDecoder<F>(
+                        &(std::get<FieldIndex>(storage_))
+                        , fieldNumber
+                    );
+                } else {
+                    decoders_[FieldIndex] = nullptr;
+                }
+                buildDecoders_internal<FieldIndex+1>(
+                    fieldNumber
+                );
+            }
+        }
+        template <std::size_t FieldIndex>
+        std::optional<std::size_t> readHelper(T &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) {
+            if constexpr (FieldIndex >= 0 && FieldIndex < std::variant_size_v<P>) {
+                using F = std::variant_alternative_t<FieldIndex, P>;
+                if constexpr (ProtoWrappable<F>::value) {
+                    auto ret = decoders_[FieldIndex]->handle(
+                        fh, input, start
+                    );
+                    if (ret) {
+                        output = EncodableThroughMultipleProxies<T>::fromProxy(P {std::move(
+                            std::get<FieldIndex>(storage_)
+                        )});
+                        return ret;
+                    } else {
+                        return readHelper<FieldIndex+1>(output, fh, input, start);
+                    }
+                } else {
+                    return readHelper<FieldIndex+1>(output, fh, input, start);
+                }
+            } else {
+                return std::nullopt;
+            }
+        }
+    public:
+        ProtoDecoder(T* output, uint64_t baseFieldNumber) : IProtoDecoder<T>(output), storage_(), decoders_(), proxy1_(), subDec1_(&proxy1_, baseFieldNumber) {
+            buildDecoders_internal<0>(baseFieldNumber);
+        }
+        virtual ~ProtoDecoder() {
+            for (auto *d : decoders_) {
+                if (d) {
+                    delete d;
+                }
+            }
+        }
+        static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
+            std::set<uint64_t> v;
+            addResponsibleFields_internal<0>(baseFieldNumber, v);
+            return std::vector<uint64_t> {v.begin(), v.end()};
+        }
+    protected:
+        std::optional<std::size_t> read(T &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
+            auto ret = readHelper<0>(output, fh, input, start);
+            if (ret) {
+                return ret;
+            }          
+            if constexpr (ConvertibleWithString<T>::value) {
+                auto ret =  subDec1_.handle(fh, input, start);
+                if (!ret) {
+                    return std::nullopt;
+                }
+                output = ConvertibleWithString<T>::fromString(proxy1_);
+                return ret;
+            } else {
+                return std::nullopt;
+            }
         }
     };
 
