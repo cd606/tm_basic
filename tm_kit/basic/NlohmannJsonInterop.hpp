@@ -3737,6 +3737,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     }
                 }
                 return readHelper<Idx+1>(input, key, data, mapping);
+            } else {
+                return false;
             }
         }
         template <std::size_t Idx>
@@ -3753,6 +3755,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     }
                 }
                 return readSimdHelper<Idx+1>(input, key, data, mapping);
+            } else {
+                return false;
             }
         }
         template <class X, std::size_t Idx>
@@ -3769,6 +3773,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     }
                 }
                 return readSimdOnDemandHelper<X, Idx+1>(input, key, data, mapping);
+            } else {
+                return false;
             }
         }
     public:
