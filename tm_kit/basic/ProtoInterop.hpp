@@ -3844,11 +3844,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     };
 
     template <class T>
-    struct ProtoWrappable<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && EncodableThroughMultipleProxies<T>::value && ProtoWrappable<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::value, void>> {
+    struct ProtoWrappable<T, std::enable_if_t<!std::is_enum_v<T> && !IgnoreProxiesForProtoInterop<T>::value && EncodableThroughMultipleProxies<T>::value && ProtoWrappable<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::value, void>> {
         static constexpr bool value = true;
     };
     template <class T>
-    class ProtoEncoder<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && EncodableThroughMultipleProxies<T>::value && ProtoWrappable<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::value, void>> {
+    class ProtoEncoder<T, std::enable_if_t<!std::is_enum_v<T> && !IgnoreProxiesForProtoInterop<T>::value && EncodableThroughMultipleProxies<T>::value && ProtoWrappable<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::value, void>> {
     public:
         static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
             return ProtoEncoder<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::thisFieldNumber(inputFieldNumber);
@@ -3861,7 +3861,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
         }
     };
     template <class T>
-    class ProtoDecoder<T, std::enable_if_t<!IgnoreProxiesForProtoInterop<T>::value && EncodableThroughMultipleProxies<T>::value && ProtoWrappable<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::value, void>> final : public IProtoDecoder<T> {
+    class ProtoDecoder<T, std::enable_if_t<!std::is_enum_v<T> && !IgnoreProxiesForProtoInterop<T>::value && EncodableThroughMultipleProxies<T>::value && ProtoWrappable<typename EncodableThroughMultipleProxies<T>::ProtoEncodeProxyType>::value, void>> final : public IProtoDecoder<T> {
     private:
         using P = typename EncodableThroughMultipleProxies<T>::DecodeProxyTypes;
         using PT = dev::cd606::tm::infra::TupleVariantConversion<P>;
