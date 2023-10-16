@@ -17,6 +17,7 @@
 #include <tm_kit/basic/PrintHelper.hpp>
 #include <tm_kit/basic/StructFieldInfoHelper.hpp>
 #include <tm_kit/basic/ConvertibleWithString.hpp>
+#include <tm_kit/basic/EncodableThroughProxy.hpp>
 
 #if BOOST_VERSION >= 107500
     #ifdef _MSC_VER
@@ -1094,7 +1095,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         }; \
         template <> \
         struct RunCBORSerializer<name, void> { \
-            static inline const std::string S_NAMES[] = { \
+            static inline const std::array<std::string, BOOST_PP_SEQ_SIZE(items)> S_NAMES = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_ARRAY_ITEM,_,items) \
             }; \
             static std::string apply(name const &x) { \
@@ -1195,6 +1196,41 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 } \
             } \
         }; \
+        template <> \
+        class EncodableThroughMultipleProxies<name> { \
+        public: \
+            static constexpr bool value = true; \
+            using CBOREncodeProxyType = std::string; \
+            using JSONEncodeProxyType = std::string; \
+            using ProtoEncodeProxyType = std::string; \
+            using DecodeProxyTypes = std::variant<int, std::string>; \
+            static CBOREncodeProxyType toCBOREncodeProxy(name const &x) { \
+                return bytedata_utils::RunCBORSerializer<name>::S_NAMES[static_cast<int>(x)]; \
+            } \
+            static JSONEncodeProxyType toJSONEncodeProxy(name const &x) { \
+                return bytedata_utils::RunCBORSerializer<name>::S_NAMES[static_cast<int>(x)]; \
+            } \
+            static ProtoEncodeProxyType toProtoEncodeProxy(name const &x) { \
+                return bytedata_utils::RunCBORSerializer<name>::S_NAMES[static_cast<int>(x)]; \
+            } \
+            static name fromProxy(DecodeProxyTypes const &x) { \
+                return std::visit([](auto const &y) -> name { \
+                    using T = std::decay_t<decltype(y)>; \
+                    if constexpr (std::is_same_v<T, int>) { \
+                        return static_cast<name>(y); \
+                    } else if constexpr (std::is_same_v<T, std::string>) { \
+                        auto iter = bytedata_utils::RunCBORDeserializer<name>::S_MAP.find(y); \
+                        if (iter == bytedata_utils::RunCBORDeserializer<name>::S_MAP.end()) { \
+                            return name {}; \
+                        } else { \
+                            return iter->second; \
+                        } \
+                    } else { \
+                        return name {}; \
+                    } \
+                }, x); \
+            } \
+        }; \
     } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_DECODE_STRICT(name, items) \
@@ -1274,6 +1310,45 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 } \
             } \
         }; \
+        template <> \
+        class EncodableThroughMultipleProxies<name> { \
+        public: \
+            static constexpr bool value = true; \
+            using CBOREncodeProxyType = std::string; \
+            using JSONEncodeProxyType = std::string; \
+            using ProtoEncodeProxyType = std::string; \
+            using DecodeProxyTypes = std::variant<int, std::string>; \
+            static CBOREncodeProxyType toCBOREncodeProxy(name const &x) { \
+                return bytedata_utils::RunCBORSerializer<name>::S_NAMES[static_cast<int>(x)]; \
+            } \
+            static JSONEncodeProxyType toJSONEncodeProxy(name const &x) { \
+                return bytedata_utils::RunCBORSerializer<name>::S_NAMES[static_cast<int>(x)]; \
+            } \
+            static ProtoEncodeProxyType toProtoEncodeProxy(name const &x) { \
+                return bytedata_utils::RunCBORSerializer<name>::S_NAMES[static_cast<int>(x)]; \
+            } \
+            static name fromProxy(DecodeProxyTypes const &x) { \
+                return std::visit([](auto const &y) -> name { \
+                    using T = std::decay_t<decltype(y)>; \
+                    if constexpr (std::is_same_v<T, int>) { \
+                        if (y < 0 || y >= bytedata_utils::RunCBORSerializer<name>::S_NAMES.size()) { \
+                            throw std::runtime_error {std::string("Can't parse value ")+std::to_string(y)+" into "+ #name}; \
+                        } else { \
+                            return static_cast<name>(y); \
+                        } \
+                    } else if constexpr (std::is_same_v<T, std::string>) { \
+                        auto iter = bytedata_utils::RunCBORDeserializer<name>::S_MAP.find(y); \
+                        if (iter == bytedata_utils::RunCBORDeserializer<name>::S_MAP.end()) { \
+                            throw std::runtime_error {std::string("Can't parse '")+std::string(y)+"' into "+ #name}; \
+                        } else { \
+                            return iter->second; \
+                        } \
+                    } else { \
+                        return name {}; \
+                    } \
+                }, x); \
+            } \
+        }; \
     } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ITEM_DEF(r, data, elem) \
@@ -1327,7 +1402,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         }; \
         template <> \
         struct RunCBORSerializer<name, void> { \
-            static inline const std::string S_NAMES[] = { \
+            static inline const std::array<std::string, BOOST_PP_SEQ_SIZE(items)> S_NAMES = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ARRAY_ITEM,_,items) \
             }; \
             static std::string apply(name const &x) { \
@@ -1428,6 +1503,41 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 } \
             } \
         }; \
+        template <> \
+        class EncodableThroughMultipleProxies<name> { \
+        public: \
+            static constexpr bool value = true; \
+            using CBOREncodeProxyType = std::string; \
+            using JSONEncodeProxyType = std::string; \
+            using ProtoEncodeProxyType = std::string; \
+            using DecodeProxyTypes = std::variant<int, std::string>; \
+            static CBOREncodeProxyType toCBOREncodeProxy(name const &x) { \
+                return bytedata_utils::RunCBORSerializer<name>::S_NAMES[static_cast<int>(x)]; \
+            } \
+            static JSONEncodeProxyType toJSONEncodeProxy(name const &x) { \
+                return bytedata_utils::RunCBORSerializer<name>::S_NAMES[static_cast<int>(x)]; \
+            } \
+            static ProtoEncodeProxyType toProtoEncodeProxy(name const &x) { \
+                return bytedata_utils::RunCBORSerializer<name>::S_NAMES[static_cast<int>(x)]; \
+            } \
+            static name fromProxy(DecodeProxyTypes const &x) { \
+                return std::visit([](auto const &y) -> name { \
+                    using T = std::decay_t<decltype(y)>; \
+                    if constexpr (std::is_same_v<T, int>) { \
+                        return static_cast<name>(y); \
+                    } else if constexpr (std::is_same_v<T, std::string>) { \
+                        auto iter = bytedata_utils::RunCBORDeserializer<name>::S_MAP.find(y); \
+                        if (iter == bytedata_utils::RunCBORDeserializer<name>::S_MAP.end()) { \
+                            return name {}; \
+                        } else { \
+                            return iter->second; \
+                        } \
+                    } else { \
+                        return name {}; \
+                    } \
+                }, x); \
+            } \
+        }; \
     } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_DECODE_STRICT(name, items) \
@@ -1505,6 +1615,45 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 } else { \
                     return iter->second; \
                 } \
+            } \
+        }; \
+        template <> \
+        class EncodableThroughMultipleProxies<name> { \
+        public: \
+            static constexpr bool value = true; \
+            using CBOREncodeProxyType = std::string; \
+            using JSONEncodeProxyType = std::string; \
+            using ProtoEncodeProxyType = std::string; \
+            using DecodeProxyTypes = std::variant<int, std::string>; \
+            static CBOREncodeProxyType toCBOREncodeProxy(name const &x) { \
+                return bytedata_utils::RunCBORSerializer<name>::S_NAMES[static_cast<int>(x)]; \
+            } \
+            static JSONEncodeProxyType toJSONEncodeProxy(name const &x) { \
+                return bytedata_utils::RunCBORSerializer<name>::S_NAMES[static_cast<int>(x)]; \
+            } \
+            static ProtoEncodeProxyType toProtoEncodeProxy(name const &x) { \
+                return bytedata_utils::RunCBORSerializer<name>::S_NAMES[static_cast<int>(x)]; \
+            } \
+            static name fromProxy(DecodeProxyTypes const &x) { \
+                return std::visit([](auto const &y) -> name { \
+                    using T = std::decay_t<decltype(y)>; \
+                    if constexpr (std::is_same_v<T, int>) { \
+                        if (y < 0 || y >= bytedata_utils::RunCBORSerializer<name>::S_NAMES.size()) { \
+                            throw std::runtime_error {std::string("Can't parse value ")+std::to_string(y)+" into "+ #name}; \
+                        } else { \
+                            return static_cast<name>(y); \
+                        } \
+                    } else if constexpr (std::is_same_v<T, std::string>) { \
+                        auto iter = bytedata_utils::RunCBORDeserializer<name>::S_MAP.find(y); \
+                        if (iter == bytedata_utils::RunCBORDeserializer<name>::S_MAP.end()) { \
+                            throw std::runtime_error {std::string("Can't parse '")+std::string(y)+"' into "+ #name}; \
+                        } else { \
+                            return iter->second; \
+                        } \
+                    } else { \
+                        return name {}; \
+                    } \
+                }, x); \
             } \
         }; \
     } } } }
@@ -1706,6 +1855,56 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 } \
             } \
         }; \
+        template <> \
+        class EncodableThroughMultipleProxies<name> { \
+        public: \
+            static constexpr bool value = true; \
+            using CBOREncodeProxyType = std::string; \
+            using JSONEncodeProxyType = std::string; \
+            using ProtoEncodeProxyType = std::string; \
+            using DecodeProxyTypes = std::variant<int, std::string>; \
+            static CBOREncodeProxyType toCBOREncodeProxy(name const &x) { \
+                auto iter = bytedata_utils::RunCBORSerializer<name>::S_NAMES.find(x); \
+                if (iter == bytedata_utils::RunCBORSerializer<name>::S_NAMES.end()) { \
+                    return "(unknown)"; \
+                } else {\
+                    return std::string {iter->second}; \
+                } \
+            } \
+            static JSONEncodeProxyType toJSONEncodeProxy(name const &x) { \
+                auto iter = bytedata_utils::RunCBORSerializer<name>::S_NAMES.find(x); \
+                if (iter == bytedata_utils::RunCBORSerializer<name>::S_NAMES.end()) { \
+                    return "(unknown)"; \
+                } else {\
+                    return std::string {iter->second}; \
+                } \
+            } \
+            static ProtoEncodeProxyType toProtoEncodeProxy(name const &x) { \
+                auto iter = bytedata_utils::RunCBORSerializer<name>::S_NAMES.find(x); \
+                if (iter == bytedata_utils::RunCBORSerializer<name>::S_NAMES.end()) { \
+                    return "(unknown)"; \
+                } else {\
+                    return std::string {iter->second}; \
+                } \
+            } \
+            static name fromProxy(DecodeProxyTypes const &x) { \
+                return std::visit([](auto const &y) -> name { \
+                    using T = std::decay_t<decltype(y)>; \
+                    if constexpr (std::is_same_v<T, int>) { \
+                        return static_cast<name>(y); \
+                    } else if constexpr (std::is_same_v<T, std::string>) { \
+                        auto iter = bytedata_utils::RunCBORDeserializer<name>::S_MAP.find(y); \
+                        if (iter == bytedata_utils::RunCBORDeserializer<name>::S_MAP.end()) { \
+                            return name {}; \
+                        } else { \
+                            return iter->second; \
+                        } \
+                    } else { \
+                        return name {}; \
+                    } \
+                }, x); \
+            } \
+        }; \
     } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_VALUES_DECODE_STRICT(name, items) \
@@ -1788,6 +1987,60 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 } else { \
                     return iter->second; \
                 } \
+            } \
+        }; \
+        template <> \
+        class EncodableThroughMultipleProxies<name> { \
+        public: \
+            static constexpr bool value = true; \
+            using CBOREncodeProxyType = std::string; \
+            using JSONEncodeProxyType = std::string; \
+            using ProtoEncodeProxyType = std::string; \
+            using DecodeProxyTypes = std::variant<int, std::string>; \
+            static CBOREncodeProxyType toCBOREncodeProxy(name const &x) { \
+                auto iter = bytedata_utils::RunCBORSerializer<name>::S_NAMES.find(x); \
+                if (iter == bytedata_utils::RunCBORSerializer<name>::S_NAMES.end()) { \
+                    throw std::runtime_error {std::string("Can't format ")+ #name +" value "+std::to_string(static_cast<std::underlying_type_t<name>>(x))+" into string"}; \
+                } else {\
+                    return std::string {iter->second}; \
+                } \
+            } \
+            static JSONEncodeProxyType toJSONEncodeProxy(name const &x) { \
+                auto iter = bytedata_utils::RunCBORSerializer<name>::S_NAMES.find(x); \
+                if (iter == bytedata_utils::RunCBORSerializer<name>::S_NAMES.end()) { \
+                    throw std::runtime_error {std::string("Can't format ")+ #name +" value "+std::to_string(static_cast<std::underlying_type_t<name>>(x))+" into string"}; \
+                } else {\
+                    return std::string {iter->second}; \
+                } \
+            } \
+            static ProtoEncodeProxyType toProtoEncodeProxy(name const &x) { \
+                auto iter = bytedata_utils::RunCBORSerializer<name>::S_NAMES.find(x); \
+                if (iter == bytedata_utils::RunCBORSerializer<name>::S_NAMES.end()) { \
+                    throw std::runtime_error {std::string("Can't format ")+ #name +" value "+std::to_string(static_cast<std::underlying_type_t<name>>(x))+" into string"}; \
+                } else {\
+                    return std::string {iter->second}; \
+                } \
+            } \
+            static name fromProxy(DecodeProxyTypes const &x) { \
+                return std::visit([](auto const &y) -> name { \
+                    using T = std::decay_t<decltype(y)>; \
+                    if constexpr (std::is_same_v<T, int>) { \
+                        if (bytedata_utils::RunCBORSerializer<name>::S_NAMES.find(static_cast<name>(y)) == bytedata_utils::RunCBORSerializer<name>::S_NAMES.end()) { \
+                            throw std::runtime_error {std::string("Can't parse value ")+std::to_string(y)+" into "+ #name}; \
+                        } else { \
+                            return static_cast<name>(y); \
+                        } \
+                    } else if constexpr (std::is_same_v<T, std::string>) { \
+                        auto iter = bytedata_utils::RunCBORDeserializer<name>::S_MAP.find(y); \
+                        if (iter == bytedata_utils::RunCBORDeserializer<name>::S_MAP.end()) { \
+                            throw std::runtime_error {std::string("Can't parse '")+std::string(y)+"' into "+ #name}; \
+                        } else { \
+                            return iter->second; \
+                        } \
+                    } else { \
+                        return name {}; \
+                    } \
+                }, x); \
             } \
         }; \
     } } } }
@@ -1989,6 +2242,56 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 } \
             } \
         }; \
+        template <> \
+        class EncodableThroughMultipleProxies<name> { \
+        public: \
+            static constexpr bool value = true; \
+            using CBOREncodeProxyType = std::string; \
+            using JSONEncodeProxyType = std::string; \
+            using ProtoEncodeProxyType = std::string; \
+            using DecodeProxyTypes = std::variant<int, std::string>; \
+            static CBOREncodeProxyType toCBOREncodeProxy(name const &x) { \
+                auto iter = bytedata_utils::RunCBORSerializer<name>::S_NAMES.find(x); \
+                if (iter == bytedata_utils::RunCBORSerializer<name>::S_NAMES.end()) { \
+                    return "(unknown)"; \
+                } else {\
+                    return std::string {iter->second}; \
+                } \
+            } \
+            static JSONEncodeProxyType toJSONEncodeProxy(name const &x) { \
+                auto iter = bytedata_utils::RunCBORSerializer<name>::S_NAMES.find(x); \
+                if (iter == bytedata_utils::RunCBORSerializer<name>::S_NAMES.end()) { \
+                    return "(unknown)"; \
+                } else {\
+                    return std::string {iter->second}; \
+                } \
+            } \
+            static ProtoEncodeProxyType toProtoEncodeProxy(name const &x) { \
+                auto iter = bytedata_utils::RunCBORSerializer<name>::S_NAMES.find(x); \
+                if (iter == bytedata_utils::RunCBORSerializer<name>::S_NAMES.end()) { \
+                    return "(unknown)"; \
+                } else {\
+                    return std::string {iter->second}; \
+                } \
+            } \
+            static name fromProxy(DecodeProxyTypes const &x) { \
+                return std::visit([](auto const &y) -> name { \
+                    using T = std::decay_t<decltype(y)>; \
+                    if constexpr (std::is_same_v<T, int>) { \
+                        return static_cast<name>(y); \
+                    } else if constexpr (std::is_same_v<T, std::string>) { \
+                        auto iter = bytedata_utils::RunCBORDeserializer<name>::S_MAP.find(y); \
+                        if (iter == bytedata_utils::RunCBORDeserializer<name>::S_MAP.end()) { \
+                            return name {}; \
+                        } else { \
+                            return iter->second; \
+                        } \
+                    } else { \
+                        return name {}; \
+                    } \
+                }, x); \
+            } \
+        }; \
     } } } }
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_AND_VALUES_DECODE_STRICT(name, items) \
@@ -2071,6 +2374,60 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
                 } else { \
                     return iter->second; \
                 } \
+            } \
+        }; \
+        template <> \
+        class EncodableThroughMultipleProxies<name> { \
+        public: \
+            static constexpr bool value = true; \
+            using CBOREncodeProxyType = std::string; \
+            using JSONEncodeProxyType = std::string; \
+            using ProtoEncodeProxyType = std::string; \
+            using DecodeProxyTypes = std::variant<int, std::string>; \
+            static CBOREncodeProxyType toCBOREncodeProxy(name const &x) { \
+                auto iter = bytedata_utils::RunCBORSerializer<name>::S_NAMES.find(x); \
+                if (iter == bytedata_utils::RunCBORSerializer<name>::S_NAMES.end()) { \
+                    throw std::runtime_error {std::string("Can't format ")+ #name +" value "+std::to_string(static_cast<std::underlying_type_t<name>>(x))+" into string"}; \
+                } else {\
+                    return std::string {iter->second}; \
+                } \
+            } \
+            static JSONEncodeProxyType toJSONEncodeProxy(name const &x) { \
+                auto iter = bytedata_utils::RunCBORSerializer<name>::S_NAMES.find(x); \
+                if (iter == bytedata_utils::RunCBORSerializer<name>::S_NAMES.end()) { \
+                    throw std::runtime_error {std::string("Can't format ")+ #name +" value "+std::to_string(static_cast<std::underlying_type_t<name>>(x))+" into string"}; \
+                } else {\
+                    return std::string {iter->second}; \
+                } \
+            } \
+            static ProtoEncodeProxyType toProtoEncodeProxy(name const &x) { \
+                auto iter = bytedata_utils::RunCBORSerializer<name>::S_NAMES.find(x); \
+                if (iter == bytedata_utils::RunCBORSerializer<name>::S_NAMES.end()) { \
+                    throw std::runtime_error {std::string("Can't format ")+ #name +" value "+std::to_string(static_cast<std::underlying_type_t<name>>(x))+" into string"}; \
+                } else {\
+                    return std::string {iter->second}; \
+                } \
+            } \
+            static name fromProxy(DecodeProxyTypes const &x) { \
+                return std::visit([](auto const &y) -> name { \
+                    using T = std::decay_t<decltype(y)>; \
+                    if constexpr (std::is_same_v<T, int>) { \
+                        if (bytedata_utils::RunCBORSerializer<name>::S_NAMES.find(static_cast<name>(y)) == bytedata_utils::RunCBORSerializer<name>::S_NAMES.end()) { \
+                            throw std::runtime_error {std::string("Can't parse value ")+std::to_string(y)+" into "+ #name}; \
+                        } else { \
+                            return static_cast<name>(y); \
+                        } \
+                    } else if constexpr (std::is_same_v<T, std::string>) { \
+                        auto iter = bytedata_utils::RunCBORDeserializer<name>::S_MAP.find(y); \
+                        if (iter == bytedata_utils::RunCBORDeserializer<name>::S_MAP.end()) { \
+                            throw std::runtime_error {std::string("Can't parse '")+std::string(y)+"' into "+ #name}; \
+                        } else { \
+                            return iter->second; \
+                        } \
+                    } else { \
+                        return name {}; \
+                    } \
+                }, x); \
             } \
         }; \
     } } } }
