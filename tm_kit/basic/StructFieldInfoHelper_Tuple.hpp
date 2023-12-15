@@ -98,21 +98,33 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     };
 
     namespace struct_field_info_helper_internal {
-        template <std::size_t TupleStart, int Idx, class... Ts>
+        template <std::size_t TupleStart, std::size_t Idx, class... Ts>
         class TupleStructTypeHelper {
         };
-        template <std::size_t TupleStart, int Idx>
-        class TupleStructTypeHelper<TupleStart, Idx> {
+
+        template <std::size_t TupleStart, class First, class... Ts>
+        class TupleStructTypeHelper<TupleStart, 0, First, Ts...> {
         public:
-            using PartialType = void;
-            static constexpr int PartialIdx = -1;
-            static constexpr int TupleIdx = std::numeric_limits<std::size_t>::max();
+            static_assert(StructFieldInfo<First>::FIELD_NAMES.size() > 0);
+            using PartialType = First;
+            static constexpr std::size_t PartialIdx = 0;
+            static constexpr std::size_t TupleIdx = TupleStart;
         };
-        template <std::size_t TupleStart, int Idx, class First, class... More>
+
+        template <std::size_t TupleStart, class First>
+        class TupleStructTypeHelper<TupleStart, 0, First> {
+        public:
+            static_assert(StructFieldInfo<First>::FIELD_NAMES.size() > 0);
+            using PartialType = First;
+            static constexpr std::size_t PartialIdx = 0;
+            static constexpr std::size_t TupleIdx = TupleStart;
+        };
+
+        template <std::size_t TupleStart, std::size_t Idx, class First, class... More>
         class TupleStructTypeHelper<TupleStart, Idx, First, More...> {
         public:
             using PartialType = std::conditional_t<
-                (Idx >= 0 && Idx < StructFieldInfo<First>::FIELD_NAMES.size())
+                (Idx < StructFieldInfo<First>::FIELD_NAMES.size())
                 , First
                 , typename TupleStructTypeHelper<
                     TupleStart+1
@@ -120,8 +132,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     , More...
                 >::PartialType
             >;
-            static constexpr int PartialIdx = (
-                (Idx >= 0 && Idx < StructFieldInfo<First>::FIELD_NAMES.size())
+            static constexpr std::size_t PartialIdx = (
+                (Idx < StructFieldInfo<First>::FIELD_NAMES.size())
                 ?
                 Idx
                 :
@@ -132,7 +144,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 >::PartialIdx
             );
             static constexpr std::size_t TupleIdx = (
-                (Idx >= 0 && Idx < StructFieldInfo<First>::FIELD_NAMES.size())
+                (Idx < StructFieldInfo<First>::FIELD_NAMES.size())
                 ?
                 TupleStart
                 :
@@ -143,7 +155,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 >::TupleIdx
             );
         };
-    }   
+    }
+    
     template <int Idx, class... Ts>
     class StructFieldTypeInfo<std::tuple<Ts...>, Idx> {
     private:
