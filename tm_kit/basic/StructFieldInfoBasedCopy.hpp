@@ -336,6 +336,28 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 }
             }
         };
+        template <class U, class ComplexCopy>
+        class CopySimpleImpl<std::string, U, ComplexCopy> {
+        public:
+            static void copy(std::string &dest, U const &src) {
+                if constexpr (bytedata_utils::IsEnumWithStringRepresentation<U>::value) {
+                    std::ostringstream oss;
+                    oss << GetRef<U>::constRef(src);
+                    dest = oss.str();
+                } else {
+                    dest = std::string(GetRef<U>::constRef(src));
+                }
+            }
+            static void move(std::string &dest, U &&src) {
+                if constexpr (bytedata_utils::IsEnumWithStringRepresentation<U>::value) {
+                    std::ostringstream oss;
+                    oss << GetRef<U>::constRef(src);
+                    dest = oss.str();
+                } else {
+                    dest = std::string(std::move(GetRef<U>::moveRef(std::move(src))));
+                }
+            }   
+        };
         template <class T, class U, class ComplexCopy>
         class CopyStructure {
         private:
