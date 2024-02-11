@@ -135,14 +135,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 using TheSubStruct = std::conditional_t<
                     Idx < StructFieldInfo<FirstS>::FIELD_NAMES.size()
                     , FirstS
-                    , typename IdxLookupInConcatStruct<Idx-StructFieldInfo<FirstS>::FIELD_NAMES.size(),RestSs...>::TheSubStruct
+                    , typename IdxLookupInConcatStruct<std::max(Idx-(int)StructFieldInfo<FirstS>::FIELD_NAMES.size(),0),RestSs...>::TheSubStruct
                 >;
                 static constexpr int TranslatedIdx = (
                     Idx < StructFieldInfo<FirstS>::FIELD_NAMES.size()
                     ?
                     Idx 
                     :
-                    IdxLookupInConcatStruct<Idx-StructFieldInfo<FirstS>::FIELD_NAMES.size(), RestSs...>::TranslatedIdx
+                    IdxLookupInConcatStruct<std::max(Idx-(int)StructFieldInfo<FirstS>::FIELD_NAMES.size(),0), RestSs...>::TranslatedIdx
                 );
             };
         }

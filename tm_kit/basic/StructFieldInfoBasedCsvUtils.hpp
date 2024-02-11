@@ -184,8 +184,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 +StructFieldInfoCsvSupportChecker<std::tuple<RestTs...>>::CsvFieldCount;
         };
         template <class T>
-        class StructFieldInfoCsvSupportChecker<T, true> {
-        private:
+        class StructFieldInfoCsvSupportCheckerHelper {
+        public:
             template <class F>
             static constexpr bool fieldIsGood() {
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
@@ -235,10 +235,30 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     return SoFar;
                 }
             }
+        };
+        template <class T>
+        class StructFieldInfoCsvSupportChecker<T, true> {
+        private:
+            template <class F>
+            static constexpr bool fieldIsGood() {
+                return StructFieldInfoCsvSupportCheckerHelper<T>::template fieldIsGood<F>();
+            }
+            template <class F>
+            static constexpr std::size_t fieldCount() {
+                return StructFieldInfoCsvSupportCheckerHelper<T>::template fieldCount<F>();
+            }
+            template <int FieldCount, int FieldIdx>
+            static constexpr bool checkGood() {
+                return StructFieldInfoCsvSupportCheckerHelper<T>::template checkGood<FieldCount, FieldIdx>();
+            }
+            template <int FieldCount, int FieldIdx, std::size_t SoFar>
+            static constexpr std::size_t totalFieldCount() {
+                return StructFieldInfoCsvSupportCheckerHelper<T>::template totalFieldCount<FieldCount, FieldIdx, SoFar>();
+            }
         public:
             static constexpr bool IsComposite = true;
-            static constexpr bool IsGoodForCsv = checkGood<StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0>();
-            static constexpr std::size_t CsvFieldCount = totalFieldCount<StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0,0>();
+            static constexpr bool IsGoodForCsv = StructFieldInfoCsvSupportCheckerHelper<T>::template checkGood<StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0>();
+            static constexpr std::size_t CsvFieldCount = StructFieldInfoCsvSupportCheckerHelper<T>::template totalFieldCount<StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0,0>();
         };
 
         template <class T>
