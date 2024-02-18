@@ -24,6 +24,7 @@
 #include <tm_kit/basic/ConstType.hpp>
 #include <tm_kit/basic/ConstValueType.hpp>
 #include <tm_kit/basic/DateHolder.hpp>
+#include <tm_kit/basic/EqualityCheckHelper.hpp>
 #include <tm_kit/infra/WithTimeData.hpp>
 #include <tm_kit/infra/ChronoUtils.hpp>
 #include <boost/endian/conversion.hpp>
@@ -3593,6 +3594,54 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <class T>
     inline bool operator==(TypedDataWithTopic<T> const &a, TypedDataWithTopic<T> const &b) {
         return (a.topic == b.topic && a.content == b.content);
+    }
+    template <class T>
+    inline bool operator<(CBOR<T> const &a, CBOR<T> const &b) {
+        return (a.value < b.value);
+    }
+    template <class T>
+    inline bool operator<(CBORWithMaxSizeHint<T> const &a, CBORWithMaxSizeHint<T> const &b) {
+        if (ComparisonHelper<T>::check(a.value, b.value)) {
+            return true;
+        }
+        if (ComparisonHelper<T>::check(b.value, a.value)) {
+            return false;
+        }
+        return (a.maxSizeHint < b.maxSizeHint);
+    }
+    inline bool operator<(ByteData const &a, ByteData const &b) {
+        return (a.content < b.content);
+    }
+    inline bool operator<(ByteDataView const &a, ByteDataView const &b) {
+        return (a.content < b.content);
+    }
+    inline bool operator<(ByteDataWithTopic const &a, ByteDataWithTopic const &b) {
+        if (a.content < b.content) {
+            return true;
+        }
+        if (b.content < a.content) {
+            return false;
+        }
+        return (a.topic < b.topic);
+    }
+    inline bool operator<(ByteDataWithID const &a, ByteDataWithID const &b) {
+        if (a.content < b.content) {
+            return true;
+        }
+        if (b.content < a.content) {
+            return false;
+        }
+        return (a.id < b.id);
+    }
+    template <class T>
+    inline bool operator<(TypedDataWithTopic<T> const &a, TypedDataWithTopic<T> const &b) {
+        if (ComparisonHelper<T>::check(a.content, b.content)) {
+            return true;
+        }
+        if (ComparisonHelper<T>::check(b.content, a.content)) {
+            return false;
+        }
+        return (a.topic < b.topic);
     }
 } } } } 
 

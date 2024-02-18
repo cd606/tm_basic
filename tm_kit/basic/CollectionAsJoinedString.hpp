@@ -4,6 +4,7 @@
 #include <tm_kit/basic/ConvertibleWithString.hpp>
 #include <tm_kit/basic/EncodableThroughProxy.hpp>
 #include <tm_kit/basic/SerializationHelperMacros_Proxy.hpp>
+#include <tm_kit/basic/EqualityCheckHelper.hpp>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
@@ -24,6 +25,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
         bool operator!=(CollectionAsJoinedString const &c) const {
             return value != c.value;
+        }
+        bool operator<(CollectionAsJoinedString const &c) const {
+            return ComparisonHelper<Collection>::check(value, c.value);
         }
     };
 

@@ -2,6 +2,7 @@
 #define TM_KIT_BASIC_SINGLE_LAYER_WRAPPER_HPP_
 
 #include <tm_kit/infra/WithTimeData.hpp>
+#include <tm_kit/basic/EqualityCheckHelper.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <class T>
@@ -11,7 +12,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     };
     template <class T>
     inline bool operator==(SingleLayerWrapper<T> const &a, SingleLayerWrapper<T> const &b) {
-        return (a.value == b.value);
+        return EqualityCheckHelper<T>::check(a.value, b.value);
+    }
+    template <class T>
+    inline bool operator<(SingleLayerWrapper<T> const &a, SingleLayerWrapper<T> const &b) {
+        return ComparisonHelper<T>::check(a.value, b.value);
     }
     template <int32_t N, class T>
     struct SingleLayerWrapperWithID {
@@ -52,7 +57,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     };
     template <int32_t N, class T>
     inline bool operator==(SingleLayerWrapperWithID<N, T> const &a, SingleLayerWrapperWithID<N, T> const &b) {
-        return (a.value == b.value);
+        return EqualityCheckHelper<T>::check(a.value, b.value);
+    }
+    template <int32_t N, class T>
+    inline bool operator<(SingleLayerWrapperWithID<N, T> const &a, SingleLayerWrapperWithID<N, T> const &b) {
+        return ComparisonHelper<T>::check(a.value, b.value);
     }
     template <class Mark, class T>
     struct SingleLayerWrapperWithTypeMark {
@@ -93,7 +102,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     };
     template <class Mark, class T>
     inline bool operator==(SingleLayerWrapperWithTypeMark<Mark, T> const &a, SingleLayerWrapperWithTypeMark<Mark, T> const &b) {
-        return (a.value == b.value);
+        return EqualityCheckHelper<T>::check(a.value, b.value);
+    }
+    template <class Mark, class T>
+    inline bool operator<(SingleLayerWrapperWithTypeMark<Mark, T> const &a, SingleLayerWrapperWithTypeMark<Mark, T> const &b) {
+        return ComparisonHelper<T>::check(a.value, b.value);
     }
 
     template <class T>

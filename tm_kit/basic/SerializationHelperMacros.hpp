@@ -84,6 +84,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_EQ_ITEM(r, data, elem) \
     && dev::cd606::tm::basic::EqualityCheckHelper<TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem))>::check(x.BOOST_PP_TUPLE_ELEM(1,elem), y.BOOST_PP_TUPLE_ELEM(1,elem)) 
 
+#define TM_BASIC_CBOR_CAPABLE_STRUCT_LESS_ITEM(r, data, elem) \
+    if (dev::cd606::tm::basic::ComparisonHelper<TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem))>::check(x.BOOST_PP_TUPLE_ELEM(1,elem), y.BOOST_PP_TUPLE_ELEM(1,elem))) { return true; } \
+    if (dev::cd606::tm::basic::ComparisonHelper<TM_BASIC_CBOR_CAPABLE_STRUCT_TYPE_NAME(BOOST_PP_TUPLE_ELEM(0,elem))>::check(y.BOOST_PP_TUPLE_ELEM(1,elem), x.BOOST_PP_TUPLE_ELEM(1,elem))) { return false; } 
+
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_PRINT(name, content) \
     inline std::ostream &operator<<(std::ostream &os, name const &x) { \
         os << BOOST_PP_STRINGIZE(name) << '{'; \
@@ -117,9 +121,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EQ_ITEM,_,content) \
             ); \
     }
+#define TM_BASIC_CBOR_CAPABLE_STRUCT_LESS(name, content) \
+    inline bool operator<(name const &x, name const &y) { \
+        BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_LESS_ITEM,_,content) \
+        return false; \
+    }
 #define TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_EQ(name) \
     inline bool operator==(name const &x, name const &y) { \
         return true; \
+    }
+#define TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_LESS(name) \
+    inline bool operator<(name const &x, name const &y) { \
+        return false; \
     }
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_EQ(templateParams, name, content) \
     template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
@@ -128,10 +141,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_EQ_ITEM,_,content) \
             ); \
     }
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_LESS(templateParams, name, content) \
+    template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+    inline bool operator<(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x, name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &y) { \
+        BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_LESS_ITEM,_,content) \
+        return false; \
+    }
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_EQ(templateParams, name) \
     template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
     inline bool operator==(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x, name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &y) { \
         return true; \
+    }
+#define TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_LESS(templateParams, name) \
+    template <TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_DEF_LIST(templateParams)> \
+    inline bool operator<(name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &x, name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)> const &y) { \
+        return false; \
     }
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_EXTRACT_TYPE_WITH_CONST_PTR(r, data, elem) \
@@ -983,6 +1007,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 #define TM_BASIC_CBOR_CAPABLE_STRUCT(name, content) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_DEF(name, content) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_EQ(name, content) \
+    TM_BASIC_CBOR_CAPABLE_STRUCT_LESS(name, content) \
     TM_BASIC_CBOR_CAPABLE_STRUCT_PRINT(name, content)
 
 #define TM_BASIC_CBOR_CAPABLE_STRUCT_SERIALIZE(name, content) \
@@ -998,6 +1023,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 #define TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT(name) \
     TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_DEF(name) \
     TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_EQ(name) \
+    TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_LESS(name) \
     TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_PRINT(name)
 
 #define TM_BASIC_CBOR_CAPABLE_EMPTY_STRUCT_SERIALIZE(name) \
@@ -1013,6 +1039,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT(templateParams, name, content) \
     TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_DEF(templateParams, name, content) \
     TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_EQ(templateParams, name, content) \
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_LESS(templateParams, name, content) \
     TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_PRINT(templateParams, name, content)
 
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_SERIALIZE(templateParams, name, content) \
@@ -1028,6 +1055,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT(templateParams, name) \
     TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_DEF(templateParams, name) \
     TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_EQ(templateParams, name) \
+    TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_LESS(templateParams, name) \
     TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_PRINT(templateParams, name)
 
 #define TM_BASIC_CBOR_CAPABLE_TEMPLATE_EMPTY_STRUCT_SERIALIZE(templateParams, name) \
