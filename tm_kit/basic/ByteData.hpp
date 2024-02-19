@@ -2701,7 +2701,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         struct RunSerializer {
             static std::string apply(T const &data) {
                 std::string s;
+#ifdef _MSC_VER
+                if constexpr (DirectlySerializableChecker<T>::IsDirectlySerializable()) {
+                    data.SerializeToString(&s);
+                }
+#else
                 data.SerializeToString(&s);
+#endif
                 return s;
             }
         };

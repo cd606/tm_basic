@@ -4,6 +4,7 @@
 #include <tm_kit/basic/StructFieldInfoHelper.hpp>
 #include <tm_kit/basic/ByteData.hpp>
 #include <tm_kit/basic/PrintHelper.hpp>
+#include <tm_kit/basic/EqualityCheckHelper.hpp>
 #include <string_view>
 #include <tuple>
 
@@ -26,6 +27,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         using value_type = T;
         using ValueType = T;
         T value;
+        bool operator==(NamedItem<lit, T> const &x) const {
+            return EqualityCheckHelper<T>::check(value, x.value);
+        }
+        bool operator<(NamedItem<lit, T> const &x) const {
+            return ComparisonHelper<T>::check(value, x.value);
+        }
     };
 
     template <struct_field_info_helper_internal::StringLiteral lit, typename T>
