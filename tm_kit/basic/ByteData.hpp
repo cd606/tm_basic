@@ -23,6 +23,7 @@
 #include <tm_kit/basic/SingleLayerWrapper.hpp>
 #include <tm_kit/basic/ConstType.hpp>
 #include <tm_kit/basic/ConstValueType.hpp>
+#include <tm_kit/basic/ConstStringType.hpp>
 #include <tm_kit/basic/DateHolder.hpp>
 #include <tm_kit/basic/EqualityCheckHelper.hpp>
 #include <tm_kit/infra/WithTimeData.hpp>
@@ -996,6 +997,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
             static constexpr std::size_t calculateSize(ConstValueType<T, val> const &data) {
                 return RunCBORSerializer<T>::calculateSize(val);
+            }
+        };
+        template <typename T>
+        struct RunCBORSerializer<ConstStringType<T>, void> {
+            static std::string apply(ConstStringType<T> const &) {
+                return RunCBORSerializer<std::string>::apply(ConstStringType<T>::VALUE);
+            }
+            static std::size_t apply(ConstStringType<T> const &, char *output) {
+                return RunCBORSerializer<std::string>::apply(ConstStringType<T>::VALUE, output);
+            }
+            static constexpr std::size_t calculateSize(ConstStringType<T> const &) {
+                return RunCBORSerializer<std::string>::calculateSize(ConstStringType<T>::VALUE);
             }
         };
 
@@ -2613,6 +2626,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return std::nullopt;
                 }
                 if (std::get<0>(*r) != val) {
+                    return std::nullopt;
+                }
+                return std::get<1>(*r);
+            }
+        };
+        template <typename T>
+        struct RunCBORDeserializer<ConstStringType<T>, void> {
+            static std::optional<std::tuple<ConstStringType<T>, size_t>> apply(std::string_view const &data, size_t start) {
+                auto r = RunCBORDeserializer<std::string>::apply(data, start);
+                if (!r) {
+                    return std::nullopt;
+                }
+                if (std::string_view(std::get<0>(*r)) != ConstStringType<T>::VALUE) {
+                    return std::nullopt;
+                }
+                return std::tuple<ConstStringType<T>, size_t> {ConstStringType<T> {}, std::get<1>(*r)};
+            }
+            static std::optional<size_t> applyInPlace(ConstStringType<T> &output, std::string_view const &data, size_t start) {
+                auto r = RunCBORDeserializer<std::string>::apply(data, start);
+                if (!r) {
+                    return std::nullopt;
+                }
+                if (std::string_view(std::get<0>(*r)) != ConstStringType<T>::VALUE) {
                     return std::nullopt;
                 }
                 return std::get<1>(*r);

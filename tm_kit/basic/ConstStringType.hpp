@@ -25,9 +25,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     };
 
     template <ConstStringType_StringLiteral lit>
-    struct ConstStringType {
+    struct ConstStringType_LiteralWrapper {};
+
+    template <class T>
+    struct ConstStringType;
+    
+    template <ConstStringType_StringLiteral lit>
+    struct ConstStringType<ConstStringType_LiteralWrapper<lit>> {
         static constexpr std::string_view VALUE = lit.value;
-        
+
         bool operator==(ConstStringType const &) const {
             return true;
         }
@@ -36,7 +42,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
 
-    #define TM_BASIC_CONST_STRING_TYPE(s) dev::cd606::tm::basic::ConstStringType<s>
+    #define TM_BASIC_CONST_STRING_TYPE(s) dev::cd606::tm::basic::ConstStringType<dev::cd606::tm::basic::ConstStringType_LiteralWrapper<s>>
 
 #else
 
@@ -70,7 +76,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         #define TM_BASIC_CONSTSTRINGTYPE_getChr(name, ii) ((TM_BASIC_CONSTSTRINGTYPE_MIN(ii,TM_BASIC_CONSTSTRINGTYPE_MAX_CONST_CHAR))<sizeof(name)/sizeof(*name)?name[ii]:0)
 
         template <char... elements>
-        struct ConstStringType {
+        struct ConstStringType_Literal {};
+        template <typename>
+        struct ConstStringType;
+        template <char... elements>
+        struct ConstStringType<ConstStringType_Literal<elements...>> {
             static constexpr char TheString[sizeof...(elements)+1] { elements..., '\0' };
             static constexpr std::string_view TheView = TheString;
             bool operator==(ConstStringType const &) const {
@@ -81,7 +91,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         };
 
-        #define TM_BASIC_CONST_STRING_TYPE(s) dev::cd606::tm::basic::ConstStringType<TM_BASIC_CONSTSTRINGTYPE__T(s)>
+        #define TM_BASIC_CONST_STRING_TYPE(s) dev::cd606::tm::basic::ConstStringType<dev::cd606::tm::basic::ConstStringType_Literal<TM_BASIC_CONSTSTRINGTYPE__T(s)>>
 
     #else
 
