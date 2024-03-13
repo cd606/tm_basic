@@ -57,6 +57,7 @@ tm_basic_headers = [
     , 'ChronoUtils_AddOn.hpp'
     , 'StructFieldInfoBasedTraverse.hpp'
     , 'ConstValueType.hpp'
+    , 'ConstStringType.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')
