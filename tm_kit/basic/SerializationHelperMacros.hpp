@@ -909,6 +909,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         class StructFieldInfo<name> { \
         public: \
             static constexpr bool HasGeneratedStructFieldInfo = true; \
+            static constexpr std::string_view REFERENCE_NAME = #name ; \
             static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(content)> FIELD_NAMES = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_STRUCT_ONE_FIELD_NAME,_,content) \
             }; \
@@ -934,6 +935,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         class StructFieldInfo<name> { \
         public: \
             static constexpr bool HasGeneratedStructFieldInfo = true; \
+            static constexpr std::string_view REFERENCE_NAME = #name ; \
             static constexpr std::array<std::string_view, 0> FIELD_NAMES = {}; \
             static constexpr int getFieldIndex(std::string_view const &fieldName) { \
                 return -1; \
@@ -971,6 +973,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         class StructFieldInfo<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> { \
         public: \
             static constexpr bool HasGeneratedStructFieldInfo = true; \
+            static constexpr std::string_view REFERENCE_NAME = #name "<>"; \
             static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(content)> FIELD_NAMES = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_ONE_FIELD_NAME,_,content) \
             }; \
@@ -997,6 +1000,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         class StructFieldInfo<name<TM_BASIC_CBOR_CAPABLE_TEMPLATE_STRUCT_TEMPLATE_USE_LIST(templateParams)>> { \
         public: \
             static constexpr bool HasGeneratedStructFieldInfo = true; \
+            static constexpr std::string_view REFERENCE_NAME = #name "<>"; \
             static constexpr std::array<std::string_view, 0> FIELD_NAMES = {}; \
             static constexpr int getFieldIndex(std::string_view const &fieldName) { \
                 return -1; \
@@ -1099,6 +1103,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         template <> \
         struct IsEnumWithStringRepresentation<name> { \
             static constexpr bool value = true; \
+            static constexpr std::string_view REFERENCE_NAME = #name ; \
             static constexpr std::size_t item_count = BOOST_PP_SEQ_SIZE(items); \
             static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(items)> names = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_ARRAY_ITEM,_,items) \
@@ -1406,6 +1411,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         template <> \
         struct IsEnumWithStringRepresentation<name> { \
             static constexpr bool value = true; \
+            static constexpr std::string_view REFERENCE_NAME = #name ; \
             static constexpr std::size_t item_count = BOOST_PP_SEQ_SIZE(items); \
             static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(items)> names = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ARRAY_ITEM,_,items) \
@@ -1722,6 +1728,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         template <> \
         struct IsEnumWithStringRepresentation<name> { \
             static constexpr bool value = true; \
+            static constexpr std::string_view REFERENCE_NAME = #name ; \
             static constexpr std::size_t item_count = BOOST_PP_SEQ_SIZE(items); \
             static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(items)> names = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_VALUES_ARRAY_ITEM,name,items) \
@@ -2109,6 +2116,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
         template <> \
         struct IsEnumWithStringRepresentation<name> { \
             static constexpr bool value = true; \
+            static constexpr std::string_view REFERENCE_NAME = #name ; \
             static constexpr std::size_t item_count = BOOST_PP_SEQ_SIZE(items); \
             static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(items)> names = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_AND_VALUES_ARRAY_ITEM,name,items) \

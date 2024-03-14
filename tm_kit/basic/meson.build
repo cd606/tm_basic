@@ -58,6 +58,7 @@ tm_basic_headers = [
     , 'StructFieldInfoBasedTraverse.hpp'
     , 'ConstValueType.hpp'
     , 'ConstStringType.hpp'
+    , 'MetaInformation.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')

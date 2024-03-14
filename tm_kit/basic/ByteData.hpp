@@ -1002,13 +1002,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <typename T>
         struct RunCBORSerializer<ConstStringType<T>, void> {
             static std::string apply(ConstStringType<T> const &) {
-                return RunCBORSerializer<std::string>::apply(ConstStringType<T>::VALUE);
+                return RunCBORSerializer<std::string>::apply(std::string {ConstStringType<T>::VALUE});
             }
             static std::size_t apply(ConstStringType<T> const &, char *output) {
-                return RunCBORSerializer<std::string>::apply(ConstStringType<T>::VALUE, output);
+                return RunCBORSerializer<std::string>::apply(std::string {ConstStringType<T>::VALUE}, output);
             }
             static constexpr std::size_t calculateSize(ConstStringType<T> const &) {
-                return RunCBORSerializer<std::string>::calculateSize(ConstStringType<T>::VALUE);
+                return RunCBORSerializer<std::string>::calculateSize(std::string {ConstStringType<T>::VALUE});
             }
         };
 

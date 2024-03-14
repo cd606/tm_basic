@@ -470,6 +470,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static constexpr bool value = true;
     };
     template <class T>
+    class JsonEncoder<ConstStringType<T>, void> {
+    public:
+        static void write(nlohmann::json &output, std::optional<std::string> const &key, ConstStringType<T> const &) {
+            if (key) {
+                output[*key] = std::string {ConstStringType<T>::VALUE};
+            } else {
+                output = std::string {ConstStringType<T>::VALUE};
+            }
+        }
+    };
+    template <class T>
+    struct JsonWrappable<ConstStringType<T>, void> {
+        static constexpr bool value = true;
+    };
+    template <class T>
     class JsonEncoder<SingleLayerWrapper<T>, void> {
     public:
         static void write(nlohmann::json &output, std::optional<std::string> const &key, SingleLayerWrapper<T> const &data) {
@@ -2680,6 +2695,45 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 return false;
             }
             if (x != N) {
+                return false;
+            }
+            return true;
+        }
+    };
+    template <class T>
+    class JsonDecoder<ConstStringType<T>, void> {
+    public:
+        static void fillFieldNameMapping(JsonFieldMapping const &mapping=JsonFieldMapping {}) {}
+        static bool read(nlohmann::json const &input, std::optional<std::string> const &key, ConstStringType<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            std::string x;
+            bool ret = JsonDecoder<std::string>::read(input, key, x, mapping);
+            if (!ret) {
+                return false;
+            }
+            if (std::string_view {x} != ConstStringType<T>::VALUE) {
+                return false;
+            }
+            return true;
+        }
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, ConstStringType<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            std::string x;
+            bool ret = JsonDecoder<std::string>::read_simd(input, key, x, mapping);
+            if (!ret) {
+                return false;
+            }
+            if (std::string_view {x} != ConstStringType<T>::VALUE) {
+                return false;
+            }
+            return true;
+        }
+        template <class X>
+        static bool read_simd_ondemand(X &input, std::optional<std::string> const &key, ConstStringType<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+            std::string x;
+            bool ret = JsonDecoder<std::string>::read_simd_ondemand(input, key, x, mapping);
+            if (!ret) {
+                return false;
+            }
+            if (std::string_view {x} != ConstStringType<T>::VALUE) {
                 return false;
             }
             return true;
