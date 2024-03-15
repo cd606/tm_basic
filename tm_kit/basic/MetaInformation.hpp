@@ -3,6 +3,9 @@
 
 #include <tm_kit/basic/SerializationHelperMacros.hpp>
 #include <tm_kit/basic/ByteData.hpp>
+#include <tm_kit/basic/SingleLayerWrapper.hpp>
+#include <tm_kit/basic/ConvertibleWithString.hpp>
+#include <tm_kit/basic/NlohmannJsonInterop.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
     namespace meta_information_helper {
@@ -119,7 +122,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <class T, typename Enable=void>
     class MetaInformationGenerator;
 
-    #define TM_BASIC_META_INFORMATION_HELPER_BUILT_IN_LIST (uint8_t) (uint16_t) (uint32_t) (uint64_t) (int8_t) (int16_t) (int32_t) (int64_t) (bool) (char) (float) (double) (std::string) (std::string_view) (std::chrono::system_clock::time_point) (std::tm)
+    #define TM_BASIC_META_INFORMATION_HELPER_BUILT_IN_LIST (uint8_t) (uint16_t) (uint32_t) (uint64_t) (int8_t) (int16_t) (int32_t) (int64_t) (bool) (char) (float) (double) (std::string) (std::string_view) (std::chrono::system_clock::time_point) (std::tm) (std::monostate)
     #define TM_BASIC_META_INFORMATION_HELPER_BUILT_IN_M(r, data, elem) \
         template <> \
         class MetaInformationGenerator<elem, void> { \
@@ -127,7 +130,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             static MetaInformation generate() { \
                 return MetaInformation_BuiltIn { \
                     {} \
-                    , #elem \
+                    , BOOST_PP_STRINGIZE(elem) \
                 }; \
             } \
         };
@@ -183,6 +186,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }; 
         }
     };
+    template <std::size_t N>
+    class MetaInformationGenerator<
+        std::array<char, N>
+        , void
+    > {
+    public:
+        static MetaInformation generate() { 
+            return MetaInformation_BuiltIn { 
+                {} 
+                , "std::string"
+            }; 
+        }
+    };
 
     #define TM_BASIC_META_INFORMATION_HELPER_TM_LIST (basic::DateHolder)
     #define TM_BASIC_META_INFORMATION_HELPER_TM_M(r, data, elem) \
@@ -192,7 +208,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             static MetaInformation generate() { \
                 return MetaInformation_TM { \
                     {} \
-                    , #elem \
+                    , BOOST_PP_STRINGIZE(elem) \
                 }; \
             } \
         };
@@ -225,6 +241,322 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }; 
         }
     };
+
+    template <>
+    class MetaInformationGenerator<
+        std::tuple<>
+        , void
+    > {
+    public:
+        static MetaInformation generate() {
+            return MetaInformation_Tuple {
+                {}
+                , {}
+            };
+        }
+    };
+    template <typename First, typename... Rest>
+    class MetaInformationGenerator<
+        std::tuple<First, Rest...>
+        , void
+    > {
+    private:
+        template <typename ThisOne, typename... Others>
+        static void addToInfo(std::vector<MetaInformationPtr> &output) {
+            output.push_back(std::const_pointer_cast<MetaInformation const>(
+                std::make_shared<MetaInformation>(
+                    MetaInformationGenerator<ThisOne>::generate()
+                )
+            ));
+            if constexpr (sizeof...(Others) > 0) {
+                addToInfo<Others...>(output);
+            }
+        }
+    public:
+        static MetaInformation generate() {
+            std::vector<MetaInformationPtr> cont;
+            addToInfo<First, Rest...>(cont);
+            return MetaInformation_Tuple {
+                {}
+                , std::move(cont)
+            };
+        }
+    };
+    template <>
+    class MetaInformationGenerator<
+        std::variant<>
+        , void
+    > {
+    public:
+        static MetaInformation generate() {
+            return MetaInformation_Variant {
+                {}
+                , {}
+            };
+        }
+    };
+    template <typename First, typename... Rest>
+    class MetaInformationGenerator<
+        std::variant<First, Rest...>
+        , void
+    > {
+    private:
+        template <typename ThisOne, typename... Others>
+        static void addToInfo(std::vector<MetaInformationPtr> &output) {
+            output.push_back(std::const_pointer_cast<MetaInformation const>(
+                std::make_shared<MetaInformation>(
+                    MetaInformationGenerator<ThisOne>::generate()
+                )
+            ));
+            if constexpr (sizeof...(Others) > 0) {
+                addToInfo<Others...>(output);
+            }
+        }
+    public:
+        static MetaInformation generate() {
+            std::vector<MetaInformationPtr> cont;
+            addToInfo<First, Rest...>(cont);
+            return MetaInformation_Variant {
+                {}
+                , std::move(cont)
+            };
+        }
+    };
+    template <class T>
+    class MetaInformationGenerator<
+        std::optional<T>
+        , void
+    > {
+    public:
+        static MetaInformation generate() {
+            return MetaInformation_Optional {
+                {}
+                , MetaInformationGenerator<T>::generate()
+            };
+        }
+    };
+    template <class T>
+    class MetaInformationGenerator<
+        std::vector<T>
+        , void
+    > {
+    public:
+        static MetaInformation generate() {
+            return MetaInformation_Collection {
+                {}
+                , MetaInformationGenerator<T>::generate()
+            };
+        }
+    };
+    template <class T>
+    class MetaInformationGenerator<
+        std::list<T>
+        , void
+    > {
+    public:
+        static MetaInformation generate() {
+            return MetaInformation_Collection {
+                {}
+                , MetaInformationGenerator<T>::generate()
+            };
+        }
+    };
+    template <class T, std::size_t N>
+    class MetaInformationGenerator<
+        std::array<T, N>
+        , void
+    > {
+    public:
+        static MetaInformation generate() {
+            return MetaInformation_Collection {
+                {}
+                , MetaInformationGenerator<T>::generate()
+            };
+        }
+    };
+    template <class T>
+    class MetaInformationGenerator<
+        std::valarray<T>
+        , void
+    > {
+    public:
+        static MetaInformation generate() {
+            return MetaInformation_Collection {
+                {}
+                , MetaInformationGenerator<T>::generate()
+            };
+        }
+    };
+    template <class T>
+    class MetaInformationGenerator<
+        std::deque<T>
+        , void
+    > {
+    public:
+        static MetaInformation generate() {
+            return MetaInformation_Collection {
+                {}
+                , MetaInformationGenerator<T>::generate()
+            };
+        }
+    };
+    template <class T, class Cmp>
+    class MetaInformationGenerator<
+        std::set<T, Cmp>
+        , void
+    > {
+    public:
+        static MetaInformation generate() {
+            return MetaInformation_Collection {
+                {}
+                , MetaInformationGenerator<T>::generate()
+            };
+        }
+    };
+    template <class T, class Hash>
+    class MetaInformationGenerator<
+        std::unordered_set<T, Hash>
+        , void
+    > {
+    public:
+        static MetaInformation generate() {
+            return MetaInformation_Collection {
+                {}
+                , MetaInformationGenerator<T>::generate()
+            };
+        }
+    };
+    template <class K, class V, class Cmp>
+    class MetaInformationGenerator<
+        std::map<K, V, Cmp>
+        , void
+    > {
+    public:
+        static MetaInformation generate() {
+            return MetaInformation_Dictionary {
+                {}
+                , MetaInformationGenerator<K>::generate()
+                , MetaInformationGenerator<V>::generate()
+            };
+        }
+    };
+    template <class K, class V, class Hash>
+    class MetaInformationGenerator<
+        std::unordered_map<K, V, Hash>
+        , void
+    > {
+    public:
+        static MetaInformation generate() {
+            return MetaInformation_Dictionary {
+                {}
+                , MetaInformationGenerator<K>::generate()
+                , MetaInformationGenerator<V>::generate()
+            };
+        }
+    };
+    //currently, EncodableThroughProxy is not supported yet because there may be multiple proxies
+    template <class T>
+    class MetaInformationGenerator<
+        T
+        , std::enable_if_t<
+            !std::is_same_v<T, char> && ConvertibleWithString<T>::value
+            , void
+        >
+    > {
+        static MetaInformation generate() {
+            std::vector<MetaInformation_OneStructField> cont;
+            fillFieldInfo<0, StructFieldInfo<T>::FIELD_NAMES.size()>(cont);
+            return MetaInformation_BuiltIn {
+                {}
+                , "std::string"
+            };
+        }
+    };
+    template <class T>
+    class MetaInformationGenerator<
+        T
+        , std::enable_if_t<
+            ((!ConvertibleWithString<T>::value) && StructFieldInfo<T>::HasGeneratedStructFieldInfo)
+            , void
+        >
+    > {
+    private:
+        template <std::size_t I, std::size_t N>
+        static void fillFieldInfo(std::vector<MetaInformation_OneStructField> &output) {
+            output.push_back(MetaInformation_OneStructField {
+                std::string {StructFieldInfo<T>::FIELD_NAMES[I]}
+                , std::const_pointer_cast<MetaInformation const>(
+                    std::make_shared<MetaInformation>(
+                        MetaInformationGenerator<typename StructFieldTypeInfo<T, I>::TheType>::generate()
+                    )
+                )
+            });
+            if constexpr (I+1<N) {
+                fillFieldInfo<I+1,N>(output);
+            }
+        }
+    public:
+        static MetaInformation generate() {
+            std::vector<MetaInformation_OneStructField> cont;
+            fillFieldInfo<0, StructFieldInfo<T>::FIELD_NAMES.size()>(cont);
+            return MetaInformation_Structure {
+                {}
+                , std::string {typeid(T).name()}
+                , std::string {StructFieldInfo<T>::REFERENCE_NAME}
+                , std::move(cont)
+            };
+        }
+    };
+
+    //wrappers
+    template <class T>
+    class MetaInformationGenerator<
+        std::shared_ptr<T const>
+        , void
+    > {
+    public:
+        static MetaInformation generate() {
+            return MetaInformationGenerator<T>::generate();
+        }
+    };
+    template <class T>
+    class MetaInformationGenerator<
+        SingleLayerWrapper<T>
+        , void
+    > {
+    public:
+        static MetaInformation generate() {
+            return MetaInformationGenerator<T>::generate();
+        }
+    };
+    template <int32_t N, class T>
+    class MetaInformationGenerator<
+        SingleLayerWrapperWithID<N, T>
+        , void
+    > {
+    public:
+        static MetaInformation generate() {
+            return MetaInformationGenerator<T>::generate();
+        }
+    };
+    template <class Mark, class T>
+    class MetaInformationGenerator<
+        SingleLayerWrapperWithTypeMark<Mark, T>
+        , void
+    > {
+    public:
+        static MetaInformation generate() {
+            return MetaInformationGenerator<T>::generate();
+        }
+    };
+
+    namespace nlohmann_json_interop {
+        //force to be json wrappable so as to break the recursive dependency problem
+        template <>
+        struct JsonWrappable<MetaInformation, void> {
+            static constexpr bool value = true;
+        };
+    }
 
 } } } }
 

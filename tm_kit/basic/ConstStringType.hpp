@@ -122,6 +122,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     #endif
 
 #endif
+
+    template <class T>
+    inline std::ostream &operator<<(std::ostream &os, ConstStringType<T> const &) {
+        os << "ConstStringType<" << ConstStringType<T>::VALUE << ">{}";
+        return os;
+    }
 } } } }
 
 #endif
