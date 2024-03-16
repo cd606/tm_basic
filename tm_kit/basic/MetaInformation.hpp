@@ -344,7 +344,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Collection {
                 {}
-                , MetaInformationGenerator<T>::generate()
+                , std::const_pointer_cast<MetaInformation const>(
+                        std::make_shared<MetaInformation>(
+                            MetaInformationGenerator<T>::generate()
+                            )
+                        )
             };
         }
     };
@@ -357,7 +361,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Collection {
                 {}
-                , MetaInformationGenerator<T>::generate()
+                , std::const_pointer_cast<MetaInformation const>(
+                        std::make_shared<MetaInformation>(
+                            MetaInformationGenerator<T>::generate()
+                            )
+                        )
             };
         }
     };
@@ -370,7 +378,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Collection {
                 {}
-                , MetaInformationGenerator<T>::generate()
+                , std::const_pointer_cast<MetaInformation const>(
+                        std::make_shared<MetaInformation>(
+                            MetaInformationGenerator<T>::generate()
+                            )
+                        )
             };
         }
     };
@@ -383,7 +395,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Collection {
                 {}
-                , MetaInformationGenerator<T>::generate()
+                , std::const_pointer_cast<MetaInformation const>(
+                        std::make_shared<MetaInformation>(
+                            MetaInformationGenerator<T>::generate()
+                            )
+                        )
             };
         }
     };
@@ -396,7 +412,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Collection {
                 {}
-                , MetaInformationGenerator<T>::generate()
+                , std::const_pointer_cast<MetaInformation const>(
+                        std::make_shared<MetaInformation>(
+                            MetaInformationGenerator<T>::generate()
+                            )
+                        )
             };
         }
     };
@@ -409,7 +429,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Collection {
                 {}
-                , MetaInformationGenerator<T>::generate()
+                , std::const_pointer_cast<MetaInformation const>(
+                        std::make_shared<MetaInformation>(
+                            MetaInformationGenerator<T>::generate()
+                            )
+                        )
             };
         }
     };
@@ -422,7 +446,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Collection {
                 {}
-                , MetaInformationGenerator<T>::generate()
+                , std::const_pointer_cast<MetaInformation const>(
+                        std::make_shared<MetaInformation>(
+                            MetaInformationGenerator<T>::generate()
+                            )
+                        )
             };
         }
     };
@@ -435,8 +463,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Dictionary {
                 {}
-                , MetaInformationGenerator<K>::generate()
-                , MetaInformationGenerator<V>::generate()
+                , std::const_pointer_cast<MetaInformation const>(
+                        std::make_shared<MetaInformation>(
+                            MetaInformationGenerator<K>::generate()
+                            )
+                        )
+                , std::const_pointer_cast<MetaInformation const>(
+                        std::make_shared<MetaInformation>(
+                            MetaInformationGenerator<V>::generate()
+                            )
+                        )
             };
         }
     };
@@ -449,8 +485,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Dictionary {
                 {}
-                , MetaInformationGenerator<K>::generate()
-                , MetaInformationGenerator<V>::generate()
+                , std::const_pointer_cast<MetaInformation const>(
+                        std::make_shared<MetaInformation>(
+                            MetaInformationGenerator<K>::generate()
+                            )
+                        )
+                , std::const_pointer_cast<MetaInformation const>(
+                        std::make_shared<MetaInformation>(
+                            MetaInformationGenerator<V>::generate()
+                            )
+                        )
             };
         }
     };
@@ -459,13 +503,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     class MetaInformationGenerator<
         T
         , std::enable_if_t<
-            !std::is_same_v<T, char> && ConvertibleWithString<T>::value
+            !std::is_same_v<T, char> && ConvertibleWithString<T>::value && !bytedata_utils::IsEnumWithStringRepresentation<T>::value
             , void
         >
     > {
+    public:
         static MetaInformation generate() {
-            std::vector<MetaInformation_OneStructField> cont;
-            fillFieldInfo<0, StructFieldInfo<T>::FIELD_NAMES.size()>(cont);
             return MetaInformation_BuiltIn {
                 {}
                 , "std::string"
