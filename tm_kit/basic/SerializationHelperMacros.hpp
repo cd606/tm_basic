@@ -1108,6 +1108,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(items)> names = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_ARRAY_ITEM,_,items) \
             }; \
+            static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(items)> cppValueNames = names; \
             static constexpr std::array<std::pair<std::string_view, name>, BOOST_PP_SEQ_SIZE(items)> namesAndValues = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_PAIR_ARRAY_ITEM,name,items) \
             }; \
@@ -1394,6 +1395,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ARRAY_ITEM(r, data, elem) \
     BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) BOOST_PP_TUPLE_ELEM(1,elem)
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_CPP_VALUE_NAMES_ARRAY_ITEM(r, data, elem) \
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(0,elem))
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_PAIR_ARRAY_ITEM(r, data, elem) \
     BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) std::pair<std::string_view, data> {BOOST_PP_TUPLE_ELEM(1,elem), data::BOOST_PP_TUPLE_ELEM(0,elem)}
 
@@ -1415,6 +1418,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             static constexpr std::size_t item_count = BOOST_PP_SEQ_SIZE(items); \
             static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(items)> names = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_ARRAY_ITEM,_,items) \
+            }; \
+            static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(items)> cppValueNames = { \
+                BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_CPP_VALUE_NAMES_ARRAY_ITEM,_,items) \
             }; \
             static constexpr std::array<std::pair<std::string_view,name>, BOOST_PP_SEQ_SIZE(items)> namesAndValues = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_PAIR_ARRAY_ITEM,name,items) \
@@ -1733,6 +1739,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(items)> names = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_VALUES_ARRAY_ITEM,name,items) \
             }; \
+            static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(items)> cppValueNames = names; \
             static constexpr std::array<std::pair<std::string_view, name>, BOOST_PP_SEQ_SIZE(items)> namesAndValues = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_VALUES_PAIR_ARRAY_ITEM,name,items) \
             }; \
@@ -2091,6 +2098,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
 
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_AND_VALUES_ARRAY_ITEM(r, data, elem) \
     BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) BOOST_PP_TUPLE_ELEM(1,elem)
+#define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_AND_VALUES_CPP_VALUE_NAMES_ARRAY_ITEM(r, data, elem) \
+    BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(0,elem))
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_AND_VALUES_PAIR_ARRAY_ITEM(r, data, elem) \
     BOOST_PP_COMMA_IF(BOOST_PP_SUB(r,TM_SERIALIZATION_HELPER_COMMA_START_POS)) std::pair<std::string_view, data> {BOOST_PP_TUPLE_ELEM(1,elem), data::BOOST_PP_TUPLE_ELEM(0,elem)}
 #define TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_AND_VALUES_MAP_ITEM(r, data, elem) \
@@ -2120,6 +2129,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
             static constexpr std::size_t item_count = BOOST_PP_SEQ_SIZE(items); \
             static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(items)> names = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_AND_VALUES_ARRAY_ITEM,name,items) \
+            }; \
+            static constexpr std::array<std::string_view, BOOST_PP_SEQ_SIZE(items)> cppValueNames = { \
+                BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_AND_VALUES_CPP_VALUE_NAMES_ARRAY_ITEM,name,items) \
             }; \
             static constexpr std::array<std::pair<std::string_view, name>, BOOST_PP_SEQ_SIZE(items)> namesAndValues = { \
                 BOOST_PP_SEQ_FOR_EACH(TM_BASIC_CBOR_CAPABLE_ENUM_AS_STRING_WITH_ALTERNATES_AND_VALUES_PAIR_ARRAY_ITEM,name,items) \

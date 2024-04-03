@@ -2643,7 +2643,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 return std::tuple<ConstStringType<T>, size_t> {ConstStringType<T> {}, std::get<1>(*r)};
             }
-            static std::optional<size_t> applyInPlace(ConstStringType<T> &output, std::string_view const &data, size_t start) {
+            static std::optional<size_t> applyInPlace(ConstStringType<T> &, std::string_view const &data, size_t start) {
                 auto r = RunCBORDeserializer<std::string>::apply(data, start);
                 if (!r) {
                     return std::nullopt;

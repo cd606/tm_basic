@@ -6,6 +6,7 @@
 #include <tm_kit/basic/SingleLayerWrapper.hpp>
 #include <tm_kit/basic/ConvertibleWithString.hpp>
 #include <tm_kit/basic/NlohmannJsonInterop.hpp>
+#include <tm_kit/basic/FixedPrecisionShortDecimal.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
     namespace meta_information_helper {
@@ -51,6 +52,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         ((std::string, DataType))
     #define META_INFORMATION_ONE_ENUM_VALUE_FIELDS \
         ((std::string, Name)) \
+        ((std::string, CppValueName)) \
         ((int64_t, Value)) 
     #define META_INFORMATION_ENUM_FIELDS \
         ((dev::cd606::tm::basic::meta_information_helper::Enum, DataKind)) \
@@ -59,20 +61,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         ((std::vector<dev::cd606::tm::basic::MetaInformation_OneEnumValue>, EnumInfo))
     #define META_INFORMATION_TUPLE_FIELDS \
         ((dev::cd606::tm::basic::meta_information_helper::Tuple, DataKind)) \
+        ((std::string, TypeID)) \
         ((std::vector<dev::cd606::tm::basic::MetaInformationPtr>, TupleContent))
     #define META_INFORMATION_VARIANT_FIELDS \
         ((dev::cd606::tm::basic::meta_information_helper::Variant, DataKind)) \
+        ((std::string, TypeID)) \
         ((std::vector<dev::cd606::tm::basic::MetaInformationPtr>, VariantChoices))
     #define META_INFORMATION_OPTIONAL_FIELDS \
         ((dev::cd606::tm::basic::meta_information_helper::Optional, DataKind)) \
+        ((std::string, TypeID)) \
         ((dev::cd606::tm::basic::MetaInformationPtr, UnderlyingType))
     #define META_INFORMATION_COLLECTION_FIELDS \
         ((dev::cd606::tm::basic::meta_information_helper::Collection, DataKind)) \
+        ((std::string, TypeID)) \
         ((dev::cd606::tm::basic::MetaInformationPtr, UnderlyingType))
     #define META_INFORMATION_DICTIONARY_FIELDS \
         ((dev::cd606::tm::basic::meta_information_helper::Dictionary, DataKind)) \
+        ((std::string, TypeID)) \
         ((dev::cd606::tm::basic::MetaInformationPtr, KeyType)) \
-        ((dev::cd606::tm::basic::MetaInformationPtr, DataType))
+        ((dev::cd606::tm::basic::MetaInformationPtr, ValueType))
     #define META_INFORMATION_ONE_STRUCT_FIELD_FIELDS \
         ((std::string, FieldName)) \
         ((dev::cd606::tm::basic::MetaInformationPtr, FieldType))
@@ -216,6 +223,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     #undef TM_BASIC_META_INFORMATION_HELPER_TM_LIST
     #undef TM_BASIC_META_INFORMATION_HELPER_TM_M
 
+    template <std::size_t Precision, typename Underlying>
+    class MetaInformationGenerator<FixedPrecisionShortDecimal<Precision, Underlying>, void> {
+    public:
+        static MetaInformation generate() {
+            return MetaInformation_TM {
+                {}
+                , "basic::FixedPrecisionShortDecimal"
+            };
+        }
+    };
+
     template <class T>
     class MetaInformationGenerator<
         T
@@ -227,11 +245,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     public:
         static MetaInformation generate() { 
             std::vector<MetaInformation_OneEnumValue> info;
+            std::size_t ii = 0;
             for (auto const &x : bytedata_utils::IsEnumWithStringRepresentation<T>::namesAndValues) {
                 info.push_back({
                     std::string {x.first}
+                    , std::string {bytedata_utils::IsEnumWithStringRepresentation<T>::cppValueNames[ii]}
                     , static_cast<int64_t>(x.second)
                 });
+                ++ii;
             }
             return MetaInformation_Enum { 
                 {} 
@@ -251,6 +272,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Tuple {
                 {}
+                , typeid(std::tuple<>).name()
                 , {}
             };
         }
@@ -278,20 +300,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             addToInfo<First, Rest...>(cont);
             return MetaInformation_Tuple {
                 {}
+                , typeid(std::tuple<First, Rest...>).name()
                 , std::move(cont)
-            };
-        }
-    };
-    template <>
-    class MetaInformationGenerator<
-        std::variant<>
-        , void
-    > {
-    public:
-        static MetaInformation generate() {
-            return MetaInformation_Variant {
-                {}
-                , {}
             };
         }
     };
@@ -318,6 +328,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             addToInfo<First, Rest...>(cont);
             return MetaInformation_Variant {
                 {}
+                , typeid(std::variant<First, Rest...>).name()
                 , std::move(cont)
             };
         }
@@ -331,6 +342,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Optional {
                 {}
+                , typeid(std::optional<T>).name()
                 , MetaInformationGenerator<T>::generate()
             };
         }
@@ -344,6 +356,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Collection {
                 {}
+                , typeid(std::vector<T>).name()
                 , std::const_pointer_cast<MetaInformation const>(
                         std::make_shared<MetaInformation>(
                             MetaInformationGenerator<T>::generate()
@@ -361,6 +374,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Collection {
                 {}
+                , typeid(std::list<T>).name()
                 , std::const_pointer_cast<MetaInformation const>(
                         std::make_shared<MetaInformation>(
                             MetaInformationGenerator<T>::generate()
@@ -378,6 +392,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Collection {
                 {}
+                , typeid(std::array<T, N>).name()
                 , std::const_pointer_cast<MetaInformation const>(
                         std::make_shared<MetaInformation>(
                             MetaInformationGenerator<T>::generate()
@@ -395,6 +410,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Collection {
                 {}
+                , typeid(std::valarray<T>).name()
                 , std::const_pointer_cast<MetaInformation const>(
                         std::make_shared<MetaInformation>(
                             MetaInformationGenerator<T>::generate()
@@ -412,6 +428,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Collection {
                 {}
+                , typeid(std::deque<T>).name()
                 , std::const_pointer_cast<MetaInformation const>(
                         std::make_shared<MetaInformation>(
                             MetaInformationGenerator<T>::generate()
@@ -429,6 +446,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Collection {
                 {}
+                , typeid(std::set<T, Cmp>).name()
                 , std::const_pointer_cast<MetaInformation const>(
                         std::make_shared<MetaInformation>(
                             MetaInformationGenerator<T>::generate()
@@ -446,6 +464,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Collection {
                 {}
+                , typeid(std::unordered_set<T, Hash>).name()
                 , std::const_pointer_cast<MetaInformation const>(
                         std::make_shared<MetaInformation>(
                             MetaInformationGenerator<T>::generate()
@@ -463,6 +482,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Dictionary {
                 {}
+                , typeid(std::map<K, V, Cmp>).name()
                 , std::const_pointer_cast<MetaInformation const>(
                         std::make_shared<MetaInformation>(
                             MetaInformationGenerator<K>::generate()
@@ -485,6 +505,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static MetaInformation generate() {
             return MetaInformation_Dictionary {
                 {}
+                , typeid(std::unordered_map<K, V, Hash>).name()
                 , std::const_pointer_cast<MetaInformation const>(
                         std::make_shared<MetaInformation>(
                             MetaInformationGenerator<K>::generate()
@@ -503,7 +524,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     class MetaInformationGenerator<
         T
         , std::enable_if_t<
-            !std::is_same_v<T, char> && ConvertibleWithString<T>::value && !bytedata_utils::IsEnumWithStringRepresentation<T>::value
+            !std::is_same_v<T, char> && ConvertibleWithString<T>::value && !bytedata_utils::IsEnumWithStringRepresentation<T>::value && !IsFixedPrecisionShortDecimal<T>::value
             , void
         >
     > {

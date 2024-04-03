@@ -59,6 +59,7 @@ tm_basic_headers = [
     , 'ConstValueType.hpp'
     , 'ConstStringType.hpp'
     , 'MetaInformation.hpp'
+    , 'MetaInformationTools.hpp'
     ]
   
 install_headers(tm_basic_headers, subdir : 'tm_kit/basic')

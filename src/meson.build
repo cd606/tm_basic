@@ -5,6 +5,7 @@ tm_basic_sources = [
     , 'single_pass_iteration_clock/ClockComponent.cpp'
     , 'ChronoUtils_AddOn.cpp'
     , 'DateHolder.cpp'
+    , 'MetaInformationTools.cpp'
 ]
 if get_option('buildtype') == 'debug'
   tm_basic_lib_debug = static_library('tm_kit_basic_debug', tm_basic_sources, include_directories: inc, dependencies: [common_deps, dependency('date_tz')], install: true)
