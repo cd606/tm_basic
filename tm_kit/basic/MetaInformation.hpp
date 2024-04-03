@@ -145,11 +145,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     #undef TM_BASIC_META_INFORMATION_HELPER_BUILT_IN_LIST
     #undef TM_BASIC_META_INFORMATION_HELPER_BUILT_IN_M
 
-    template <>
+    template <class T>
     class MetaInformationGenerator<
-        unsigned long long
+        T
         , std::enable_if_t<
-            !std::is_same_v<unsigned long long, uint64_t>
+            std::is_same_v<T, unsigned long long> && std::is_same_v<unsigned long long, uint64_t>
             , void
         >
     > {
@@ -161,11 +161,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }; 
         }
     };
-    template <>
+    template <class T>
     class MetaInformationGenerator<
-        long long
+        T
         , std::enable_if_t<
-            !std::is_same_v<long long, int64_t>
+            std::is_same_v<T, long long> && !std::is_same_v<long long, int64_t>
             , void
         >
     > {

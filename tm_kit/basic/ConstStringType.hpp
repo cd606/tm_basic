@@ -82,7 +82,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         template <char... elements>
         struct ConstStringType<ConstStringType_Literal<elements...>> {
             static constexpr char TheString[sizeof...(elements)+1] { elements..., '\0' };
-            static constexpr std::string_view TheView = TheString;
+            static constexpr std::string_view VALUE = TheString;
             bool operator==(ConstStringType const &) const {
                 return true;
             }
