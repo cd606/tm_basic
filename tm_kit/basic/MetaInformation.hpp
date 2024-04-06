@@ -87,7 +87,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         ((dev::cd606::tm::basic::meta_information_helper::Structure, DataKind)) \
         ((std::string, TypeID)) \
         ((std::string, TypeReferenceName)) \
-        ((std::vector<dev::cd606::tm::basic::MetaInformation_OneStructField>, Fields)) 
+        ((std::vector<dev::cd606::tm::basic::MetaInformation_OneStructField>, Fields)) \
+        ((bool, EncDecWithFieldNames))
     TM_BASIC_CBOR_CAPABLE_STRUCT(MetaInformation_BuiltIn, META_INFORMATION_BUILT_IN_FIELDS);
     TM_BASIC_CBOR_CAPABLE_STRUCT(MetaInformation_TM, META_INFORMATION_TM_FIELDS);
     TM_BASIC_CBOR_CAPABLE_STRUCT(MetaInformation_OneEnumValue, META_INFORMATION_ONE_ENUM_VALUE_FIELDS);
@@ -568,6 +569,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 , std::string {typeid(T).name()}
                 , std::string {StructFieldInfo<T>::REFERENCE_NAME}
                 , std::move(cont)
+                , StructFieldInfo<T>::EncDecWithFieldNames
             };
         }
     };

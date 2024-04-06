@@ -263,49 +263,51 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             for (auto const &item : info.Fields) {
                 os << std::string(offset+8, ' ') << "self." << item.FieldName << " = " << item.FieldName << '\n';
             }
-            os << std::string(offset+4, ' ') << "def to_cbor_value(self, use_field_name):\n";
-            os << std::string(offset+8, ' ') << "if use_field_name:\n";
-            os << std::string(offset+12, ' ') << "return {\n";
-            auto atBeginning = true;
-            for (auto const &item : info.Fields) {
-                os << std::string(offset+16, ' ') << (atBeginning?' ':',') << " '" << item.FieldName << "': ";
-                atBeginning = false;
-                writePythonToCbor(item.FieldName, *item.FieldType, assignedNames, unnamedTypes, os);
-                os << '\n';
+            os << std::string(offset+4, ' ') << "def to_cbor_value(self):\n";
+            if (info.EncDecWithFieldNames) {
+                os << std::string(offset+8, ' ') << "return {\n";
+                auto atBeginning = true;
+                for (auto const &item : info.Fields) {
+                    os << std::string(offset+12, ' ') << (atBeginning?' ':',') << " '" << item.FieldName << "': ";
+                    atBeginning = false;
+                    writePythonToCbor(item.FieldName, *item.FieldType, assignedNames, unnamedTypes, os);
+                    os << '\n';
+                }
+                os << std::string(offset+8, ' ') << "}\n";
+            } else {            
+                os << std::string(offset+8, ' ') << "return [\n";
+                auto atBeginning = true;
+                for (auto const &item : info.Fields) {
+                    os << std::string(offset+12, ' ') << (atBeginning?' ':',') << ' ';
+                    atBeginning = false;
+                    writePythonToCbor(item.FieldName, *item.FieldType, assignedNames, unnamedTypes, os);
+                    os << '\n';
+                }
+                os << std::string(offset+8, ' ') << "]\n";
             }
-            os << std::string(offset+12, ' ') << "}\n";
-            os << std::string(offset+8, ' ') << "else:\n";
-            os << std::string(offset+12, ' ') << "return [\n";
-            atBeginning = true;
-            for (auto const &item : info.Fields) {
-                os << std::string(offset+16, ' ') << (atBeginning?' ':',') << ' ';
-                atBeginning = false;
-                writePythonToCbor(item.FieldName, *item.FieldType, assignedNames, unnamedTypes, os);
-                os << '\n';
-            }
-            os << std::string(offset+12, ' ') << "]\n";
             os << std::string(offset+4, ' ') << "@staticmethod\n";
             os << std::string(offset+4, ' ') << "def from_cbor_value(val):\n";            
-            os << std::string(offset+8, ' ') << "if isinstance(val, dict):\n";
-            os << std::string(offset+12, ' ') << "return " << typeName << "(\n";
-            atBeginning = true;
-            for (auto const &item : info.Fields) {
-                os << std::string(offset+16, ' ') << (atBeginning?' ':',') << " ";
-                atBeginning = false;
-                writePythonFromCbor("val[\""+item.FieldName+"\"]", *item.FieldType, assignedNames, unnamedTypes, os);
-                os << '\n';
+            if (info.EncDecWithFieldNames) {            
+                os << std::string(offset+8, ' ') << "return " << typeName << "(\n";
+                auto atBeginning = true;
+                for (auto const &item : info.Fields) {
+                    os << std::string(offset+12, ' ') << (atBeginning?' ':',') << " ";
+                    atBeginning = false;
+                    writePythonFromCbor("val[\""+item.FieldName+"\"]", *item.FieldType, assignedNames, unnamedTypes, os);
+                    os << '\n';
+                }
+                os << std::string(offset+8, ' ') << ")\n";
+            } else {
+                os << std::string(offset+8, ' ') << "return " << typeName << "(\n";
+                auto atBeginning = true;
+                for (auto ii=0; ii<info.Fields.size(); ++ii) {
+                    os << std::string(offset+12, ' ') << (atBeginning?' ':',') << " ";
+                    atBeginning = false;
+                    writePythonFromCbor("val["+std::to_string(ii)+"]", *info.Fields[ii].FieldType, assignedNames, unnamedTypes, os);
+                    os << '\n';
+                }
+                os << std::string(offset+8, ' ') << ")\n";
             }
-            os << std::string(offset+12, ' ') << ")\n";
-            os << std::string(offset+8, ' ') << "else:\n"; 
-            os << std::string(offset+12, ' ') << "return " << typeName << "(\n";
-            atBeginning = true;
-            for (auto ii=0; ii<info.Fields.size(); ++ii) {
-                os << std::string(offset+16, ' ') << (atBeginning?' ':',') << " ";
-                atBeginning = false;
-                writePythonFromCbor("val["+std::to_string(ii)+"]", *info.Fields[ii].FieldType, assignedNames, unnamedTypes, os);
-                os << '\n';
-            }
-            os << std::string(offset+12, ' ') << ")\n";
         }
         void writePythonTupleCbor(std::string const &typeName, MetaInformation_Tuple const &info, std::unordered_map<std::string, std::string> const &assignedNames, std::map<std::string, std::tuple<std::size_t, MetaInformation>> const &unnamedTypes, std::ostream &os, std::size_t offset) {
             os << std::string(offset, ' ') << "@staticmethod\n";

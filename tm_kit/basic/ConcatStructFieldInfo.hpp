@@ -159,6 +159,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     class StructFieldInfo<struct_field_info_utils::ConcatStructFields<Ss...>> {
     public:
         static constexpr bool HasGeneratedStructFieldInfo = true;
+        static constexpr bool EncDecWithFieldNames = false;
         static constexpr std::string_view REFERENCE_NAME = "struct_field_info_utils::ConcatStructFields<>"; \
         static constexpr auto FIELD_NAMES = struct_field_info_utils::internal::ConcatFieldNames<Ss...>::value;
         static constexpr int getFieldIndex(std::string_view const &fieldName) { 

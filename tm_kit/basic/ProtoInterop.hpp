@@ -1188,6 +1188,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
     struct ProtoWrappable<ConstType<N>, void> {
         static constexpr bool value = true;
     };
+    template <typename T>
+    class ProtoEncoder<ConstStringType<T>, void> {
+    public:
+        static constexpr uint64_t thisFieldNumber(uint64_t inputFieldNumber) {
+            return inputFieldNumber;
+        }
+        static constexpr uint64_t nextFieldNumber(uint64_t inputFieldNumber) {
+            return inputFieldNumber+1;
+        }
+        static void write(std::optional<uint64_t> fieldNumber, ConstStringType<T> const &data, std::ostream &os, bool writeDefaultValue) {
+            ProtoEncoder<std::string>::write(fieldNumber, std::string {ConstStringType<T>::VALUE}, os, writeDefaultValue);
+        }
+    };
+    template <typename T>
+    struct ProtoWrappable<ConstStringType<T>, void> {
+        static constexpr bool value = true;
+    };
 
     //single layer wrapper and single layer wrapper with ID are treated differently
     //for protobuf purposes.
@@ -2903,6 +2920,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace pro
             ProtoDecoder<int32_t> subDec(&v, fh.fieldNumber);
             auto res = subDec.handle(fh, input, start);
             if (v != N) {
+                return std::nullopt;
+            }
+            return res;
+        }
+    };
+    template <typename T>
+    class ProtoDecoder<ConstStringType<T>, void> final : public IProtoDecoder<ConstStringType<T>> {
+    public:
+        ProtoDecoder(ConstStringType<T> *output, uint64_t baseFieldNumber) : IProtoDecoder<ConstStringType<T>>(output) {}
+        virtual ~ProtoDecoder() = default;
+        static std::vector<uint64_t> responsibleForFieldNumbers(uint64_t baseFieldNumber) {
+            return {baseFieldNumber};
+        }
+    protected:
+        std::optional<std::size_t> read(ConstStringType<T> &output, internal::FieldHeader const &fh, std::string_view const &input, std::size_t start) override final {
+            std::string v;
+            ProtoDecoder<std::string> subDec(&v, fh.fieldNumber);
+            auto res = subDec.handle(fh, input, start);
+            if (std::string_view {v} != ConstStringType<T>::VALUE) {
                 return std::nullopt;
             }
             return res;

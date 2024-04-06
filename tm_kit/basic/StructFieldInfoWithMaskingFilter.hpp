@@ -100,6 +100,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     class StructFieldInfo<struct_field_info_masking::MaskedStruct<T,maskF>> {
     public:
         static constexpr bool HasGeneratedStructFieldInfo = true;
+        static constexpr bool EncDecWithFieldNames = StructFieldInfo<T>::EncDecWithFieldNames;
         static constexpr std::string_view REFERENCE_NAME = "struct_field_info_masking::MaskedStruct<>" ; \
     private:
         using MSI = struct_field_info_masking::MaskedStructInfo<T,maskF>;

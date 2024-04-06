@@ -39,6 +39,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     class StructFieldInfo<NamedItem<lit,T>> {
     public:
         static constexpr bool HasGeneratedStructFieldInfo = true;
+        static constexpr bool EncDecWithFieldNames = false;
         static constexpr std::string_view REFERENCE_NAME = "NamedItem<>" ; \
         static constexpr std::array<std::string_view, 1> FIELD_NAMES = { lit.value };
         static constexpr int getFieldIndex(std::string_view const &fieldName) {
@@ -177,6 +178,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     class StructFieldInfo<NamedItem<S,T>> {
     public:
         static constexpr bool HasGeneratedStructFieldInfo = true;
+        static constexpr bool EncDecWithFieldNames = false;
         static constexpr std::string_view REFERENCE_NAME = "NamedItem<>" ; \
         static constexpr std::array<std::string_view, 1> FIELD_NAMES = { NamedItem<S,T>::NAME };
         static constexpr int getFieldIndex(std::string_view const &fieldName) {
