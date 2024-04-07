@@ -91,6 +91,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     public:
         static constexpr bool HasGeneratedStructFieldInfo = hasInfoHelper<Ts...>();
+        static constexpr bool EncDecWithFieldNames = false;
         static constexpr std::array<std::string_view, N> FIELD_NAMES = fieldNamesHelper();
         static constexpr int getFieldIndex(std::string_view const &fieldName) {
             return getFieldIndexHelper<0,Ts...>(fieldName);
