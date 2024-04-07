@@ -5,6 +5,7 @@
 #include <tm_kit/basic/ConvertibleWithString.hpp>
 #include <tm_kit/basic/SerializationHelperMacros_Proxy.hpp>
 #include <tm_kit/basic/ChronoUtils_AddOn.hpp>
+#include <tm_kit/basic/ConstStringType.hpp>
 
 #include <boost/lexical_cast.hpp>
 
@@ -15,9 +16,6 @@
 #include <cmath>
 #include <type_traits>
 #include <string_view>
-#if __cplusplus >= 202002L
-#include <tm_kit/basic/StructFieldInfoHelper_NamedField.hpp>
-#endif
 
 #include <stdint.h>
 
@@ -26,7 +24,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         struct Utc {};
         struct Local {};
 #if __cplusplus >= 202002L
-        template <struct_field_info_helper_internal::StringLiteral TimeZoneName>
+        template <ConstStringType_StringLiteral TimeZoneName>
 #else
         template <const char *TimeZoneName>
 #endif
@@ -54,7 +52,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             static constexpr bool Value = true;
         };
 #if __cplusplus >= 202002L
-        template <struct_field_info_helper_internal::StringLiteral TimeZoneName>
+        template <ConstStringType_StringLiteral TimeZoneName>
 #else
         template <const char *TimeZoneName>
 #endif
