@@ -1397,14 +1397,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 , typename R::template Source<typename R::AppType::template Key<A>> &&source 
                 , std::optional<typename R::template Sink<typename R::AppType::template KeyedData<A,B>>> const &sink
             ) {
-                using ClockF = typename AppClockHelper<typename R::AppType>::Facility;
+                using M = typename R::AppType;
+                using ClockF = typename AppClockHelper<M>::Facility;
                 using ClockFInput = typename ClockF::template FacilityInput<A>;
                 class GenKey {
                 private:
                     DurationsGen durationsGen_;
                 public:
                     GenKey(DurationsGen &&g) : durationsGen_(std::move(g)) {}
-                    typename R::AppType::template Key<ClockFInput> operator()(typename R::AppType::template Key<A> &&k) {
+                    typename M::template Key<ClockFInput> operator()(typename M::template Key<A> &&k) {
                         return {
                             k.id()
                             , {
@@ -1415,7 +1416,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     }
                 };
                 auto durationsGen1 = std::move(durationsGen);
-                auto genKey = R::AppType::template liftPure<typename R::AppType::template Key<A>>(
+                auto genKey = M::template liftPure<typename M::template Key<A>>(
                     GenKey(std::move(durationsGen1))
                 );
                 r.registerAction(componentPrefix+"/genKey", genKey);
@@ -1428,9 +1429,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         , clockF
                     );
                 } else {
-                    auto retrieveData = R::AppType::template liftPure<typename R::AppType::template KeyedData<ClockFInput,B>>(
-                        [](typename R::AppType::template KeyedData<ClockFInput,B> &&d) 
-                            -> typename R::AppType::template KeyedData<A,B>
+                    auto retrieveData = M::template liftPure<typename M::template KeyedData<ClockFInput,B>>(
+                        [](typename M::template KeyedData<ClockFInput,B> &&d) 
+                            -> typename M::template KeyedData<A,B>
                         {
                             return {
                                 {d.key.id(), std::move(d.key.key().inputData)}
