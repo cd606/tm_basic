@@ -736,7 +736,22 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         }
                     }
                 } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::chrono::system_clock::time_point>) {
-                    CsvSingleLayerWrapperHelper<ColType>::ref(x) = infra::withtime_utils::parseLocalTime(s);
+                    if (s.length() > 0) {
+                        if (s[0] == '"') {
+                            std::string unquoted;
+    #ifdef _MSC_VER
+                            boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.data(), s.length())
+    #else
+                            boost::iostreams::stream<boost::iostreams::basic_array_source<char>>(s.begin(), s.size())
+    #endif
+                                >> std::quoted(unquoted);
+                            CsvSingleLayerWrapperHelper<ColType>::ref(x) = infra::withtime_utils::parseLocalTime(unquoted);
+                        } else {
+                            CsvSingleLayerWrapperHelper<ColType>::ref(x) = infra::withtime_utils::parseLocalTime(s);
+                        }
+                    } else {
+                        CsvSingleLayerWrapperHelper<ColType>::ref(x) = std::chrono::system_clock::time_point {};
+                    }
                 } else if constexpr (std::is_empty_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>) {
                     //do nothing
                 } else if constexpr (ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
