@@ -139,6 +139,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
         #define TM_BASIC_GET_FIELD(x, f) \
             dev::cd606::tm::basic::bytedata_utils::GetByName<std::decay_t<decltype(x)>>::get<TM_BASIC_CONST_STRING_TYPE(BOOST_PP_STRINGIZE(f))>(x)
+        #define TM_BASIC_GET_QUOTED_FIELD(x, f) \
+            dev::cd606::tm::basic::bytedata_utils::GetByName<std::decay_t<decltype(x)>>::get<TM_BASIC_CONST_STRING_TYPE(f)>(x)
     }
 
     #define _TM_BASIC_NAMED_TUPLE_FIELD_NAMED_ITEM_NAME(x) #x
