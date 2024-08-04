@@ -23,17 +23,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     namespace time_zone_spec {
         struct Utc {};
         struct Local {};
-#if __cplusplus >= 202002L
-        template <ConstStringType_StringLiteral TimeZoneName>
-#else
-        template <const char *TimeZoneName>
-#endif
+        template <typename TimeZoneName>
         struct Named {
-#if __cplusplus >= 202002L
-            static constexpr std::string_view TheName = TimeZoneName.value;
-#else
-            static constexpr std::string_view TheName = TimeZoneName;
-#endif
+            static constexpr std::string_view TheName = TimeZoneName::VALUE;
         };
 
         template <class T>
@@ -51,11 +43,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         public:
             static constexpr bool Value = true;
         };
-#if __cplusplus >= 202002L
-        template <ConstStringType_StringLiteral TimeZoneName>
-#else
-        template <const char *TimeZoneName>
-#endif
+        template <typename TimeZoneName>
         class IsValidTimeZoneSpec<Named<TimeZoneName>> {
         public:
             static constexpr bool Value = true;
@@ -174,6 +162,67 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         }
     };
+
+    class TimePointAsStringWithZoneOffset {
+    private:
+        std::chrono::system_clock::time_point value_;
+    public:
+        TimePointAsStringWithZoneOffset() : value_() {}
+        explicit TimePointAsStringWithZoneOffset(std::chrono::system_clock::time_point const &tp) : value_(tp) {}
+        ~TimePointAsStringWithZoneOffset() = default;
+
+        TimePointAsStringWithZoneOffset(TimePointAsStringWithZoneOffset const &t) : value_(t.value_) {
+        }
+        TimePointAsStringWithZoneOffset &operator=(TimePointAsStringWithZoneOffset const &t) {
+            if (this == &t) {
+                return *this;
+            }
+            value_ = t.value_;
+            return *this;
+        }
+        bool operator==(TimePointAsStringWithZoneOffset const &another) const {
+            return (value_ == another.value_);
+        }
+        bool operator!=(TimePointAsStringWithZoneOffset const &another) const {
+            return (value_ != another.value_);
+        }
+        bool operator>=(TimePointAsStringWithZoneOffset const &another) const {
+            return (value_ >= another.value_);
+        }
+        bool operator<=(TimePointAsStringWithZoneOffset const &another) const {
+            return (value_ <= another.value_);
+        }
+        bool operator>(TimePointAsStringWithZoneOffset const &another) const {
+            return (value_ > another.value_);
+        }
+        bool operator<(TimePointAsStringWithZoneOffset const &another) const {
+            return (value_ < another.value_);
+        }
+
+        std::chrono::system_clock::time_point value() const {
+            return value_;
+        }
+        explicit operator std::chrono::system_clock::time_point() const {
+            return value_;
+        }
+
+        std::string asString() const {
+            auto s = infra::withtime_utils::utcTimeString(value_);
+            return s.substr(0, s.length()-1)+"+00:00";
+        }
+    };
+
+    template <>
+    class ConvertibleWithString<TimePointAsStringWithZoneOffset> {
+    public:
+        static constexpr bool value = true;
+        static std::string toString(TimePointAsStringWithZoneOffset const &d) {
+            return d.asString();
+        }
+        static TimePointAsStringWithZoneOffset fromString(std::string_view const &s) {
+            return TimePointAsStringWithZoneOffset {infra::withtime_utils::parseZonedTime(s)};
+        }
+    };
 }}}}
 
 #define TM_BASIC_TIME_POINT_AS_STRING_TEMPLATE_ARGS \
@@ -181,6 +230,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
 TM_BASIC_TEMPLATE_PRINT_HELPER_THROUGH_STRING(TM_BASIC_TIME_POINT_AS_STRING_TEMPLATE_ARGS, dev::cd606::tm::basic::TimePointAsString);
 TM_BASIC_CBOR_TEMPLATE_ENCDEC_THROUGH_STRING(TM_BASIC_TIME_POINT_AS_STRING_TEMPLATE_ARGS, dev::cd606::tm::basic::TimePointAsString);
+TM_BASIC_PRINT_HELPER_THROUGH_STRING(dev::cd606::tm::basic::TimePointAsStringWithZoneOffset);
+TM_BASIC_CBOR_ENCDEC_THROUGH_STRING(dev::cd606::tm::basic::TimePointAsStringWithZoneOffset);
 
 #undef TM_BASIC_TIME_POINT_AS_STRING_TEMPLATE_ARGS
 
