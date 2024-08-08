@@ -531,6 +531,71 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         };
     }
+
+    template <
+        class T
+        , bool (*maskF)(std::string_view const &)
+    >
+    class PrintHelper<struct_field_info_masking::MaskedStructView<T,maskF>> {
+    private:
+        using MSI = struct_field_info_masking::MaskedStructInfo<T,maskF>;
+        static constexpr std::size_t N = MSI::N;
+        static constexpr std::size_t K = MSI::K;
+        static constexpr struct_field_info_masking::internal::MaskingFilterResults<N,K> filterResults = MSI::filterResults;
+        template <std::size_t Idx>
+        static void printOne(std::ostream &os, struct_field_info_masking::MaskedStructView<T,maskF> const &t) {
+            if constexpr (Idx >= 0 && Idx < K) {
+                if constexpr (Idx > 0) {
+                    os << ',';
+                }
+                os << filterResults.filteredNames[Idx] << '=';
+                PrintHelper<typename StructFieldTypeInfo<
+                    T, filterResults.filteredToOriginal[Idx]
+                >::TheType>::print(os, StructFieldTypeInfo<
+                    T, filterResults.filteredToOriginal[Idx]
+                >::constAccess(*(t.ptr())));
+                printOne<Idx+1>(os, t);
+            }
+        }
+    public:
+        static void print(std::ostream &os, struct_field_info_masking::MaskedStructView<T,maskF> const &t) {
+            os << '{';
+            printOne<0>(os, t);
+            os << '}';
+        }
+    };
+    template <
+        class T
+        , bool (*maskF)(std::string_view const &)
+    >
+    class PrintHelper<struct_field_info_masking::MaskedStructConstView<T,maskF>> {
+    private:
+        using MSI = struct_field_info_masking::MaskedStructInfo<T,maskF>;
+        static constexpr std::size_t N = MSI::N;
+        static constexpr std::size_t K = MSI::K;
+        static constexpr struct_field_info_masking::internal::MaskingFilterResults<N,K> filterResults = MSI::filterResults;
+        template <std::size_t Idx>
+        static void printOne(std::ostream &os, struct_field_info_masking::MaskedStructConstView<T,maskF> const &t) {
+            if constexpr (Idx >= 0 && Idx < K) {
+                if constexpr (Idx > 0) {
+                    os << ',';
+                }
+                os << filterResults.filteredNames[Idx] << '=';
+                PrintHelper<typename StructFieldTypeInfo<
+                    T, filterResults.filteredToOriginal[Idx]
+                >::TheType>::print(os, StructFieldTypeInfo<
+                    T, filterResults.filteredToOriginal[Idx]
+                >::constAccess(*(t.ptr())));
+                printOne<Idx+1>(os, t);
+            }
+        }
+    public:
+        static void print(std::ostream &os, struct_field_info_masking::MaskedStructConstView<T,maskF> const &t) {
+            os << '{';
+            printOne<0>(os, t);
+            os << '}';
+        }
+    };
     
 } } } }
 
