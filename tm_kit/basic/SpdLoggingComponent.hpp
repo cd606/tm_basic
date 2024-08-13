@@ -483,6 +483,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
         void log(dev::cd606::tm::infra::LogLevel l, std::string const &s) {
+            if (!initialized_.load(std::memory_order_acquire)) {
+                std::lock_guard<std::mutex> lock(mtx_);
+                if (!initialized_.load(std::memory_order_relaxed)) {
+                    initializeLogger();
+                    initialized_.store(true, std::memory_order_release);
+                }
+            }
             doLog(l, s);
         }
 
