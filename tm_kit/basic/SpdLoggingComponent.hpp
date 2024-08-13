@@ -1,6 +1,10 @@
 #ifndef TM_KIT_BASIC_SPD_LOGGING_COMPONENT_HPP_
 #define TM_KIT_BASIC_SPD_LOGGING_COMPONENT_HPP_
 
+#ifdef _MSC_VER
+#include <winsock2.h>
+#endif
+
 #include <iostream>
 #include <sstream>
 #include <chrono>
