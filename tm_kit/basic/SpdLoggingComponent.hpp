@@ -27,7 +27,7 @@
 #include <tm_kit/basic/TimePointAsString.hpp>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
-
+    inline constexpr std::size_t MAX_SPDLOG_ROTATING_FILE_COUNT = 200000;
     class SpdLoggingComponent : public virtual dev::cd606::tm::basic::LoggingComponentBase {
     private:
         std::shared_ptr<spdlog::logger> logger_{nullptr};
@@ -35,7 +35,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     public:
         SpdLoggingComponent()
         {
-            logger_ = spdlog::stdout_logger_mt("tm_basic_spdlog_ex");
+            logger_ = spdlog::stdout_logger_mt("tm_basic_spdlog");
             logger_->set_level(spdlog::level::trace);
             logger_->set_pattern("[%l] [%Y-%m-%d %H:%M:%S.%f] [Thread %t] %v");
         }
@@ -176,7 +176,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             int64_t pid = dev::cd606::tm::infra::pid_util::getpid();
             if (maxSize) {
                 logger_ = spdlog::rotating_logger_mt(
-                    "tm_basic_spdlog", prefix + "." + nowStr + "." + std::to_string(pid) + ".log", static_cast<std::size_t>(*maxSize), std::numeric_limits<std::size_t>::max());
+                    "tm_basic_spdlog", prefix + "." + nowStr + "." + std::to_string(pid) + ".log", static_cast<std::size_t>(*maxSize), MAX_SPDLOG_ROTATING_FILE_COUNT);
             } else {
                 logger_ = spdlog::basic_logger_mt("tm_basic_spdlog", prefix + "." + nowStr + "." + std::to_string(pid) + ".log");
             }
@@ -189,7 +189,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             this->log(l, s);
         }
     };
-    using SpdLoggingComponentEx = SpdLoggingComponent;
 
     struct SpdLoggingAsyncParameter {
         bool blockOnFullQueue;
@@ -379,7 +378,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 auto logFileName = (*logFilePrefix_) + "." + nowStr + "." + std::to_string(pid) + ".log";
                 if (maxSize_) {
                     logSink = std::dynamic_pointer_cast<spdlog::sinks::sink>(
-                        std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFileName, *maxSize_, std::numeric_limits<std::size_t>::max(), false, spdlog::file_event_handlers{}));
+                        std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFileName, *maxSize_, MAX_SPDLOG_ROTATING_FILE_COUNT, false, spdlog::file_event_handlers{}));
                 } else {
                     logSink = std::dynamic_pointer_cast<spdlog::sinks::sink>(std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFileName, false, spdlog::file_event_handlers{}));
                 }
@@ -498,9 +497,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             log(l, s);
         }
     };
-    template <class TimeComponent, bool LogThreadID = true, bool ForceActualTimeLogging = false, typename TimeZone = dev::cd606::tm::basic::time_zone_spec::Local>
-    using TimeComponentEnhancedWithSpdLoggingEx = TimeComponentEnhancedWithSpdLogging<TimeComponent, LogThreadID, ForceActualTimeLogging, TimeZone>;
-
+    
 } } } }
 
 #endif
