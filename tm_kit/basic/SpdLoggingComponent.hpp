@@ -18,6 +18,7 @@
 #include <spdlog/async_logger.h>
 #include <spdlog/sinks/stdout_sinks.h>
 #include <spdlog/pattern_formatter.h>
+#include <spdlog/details/periodic_worker.h>
 
 #include <tm_kit/infra/LogLevel.hpp>
 #include <tm_kit/infra/ChronoUtils.hpp>
@@ -212,6 +213,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         bool async_{false};
         std::optional<SpdLoggingAsyncParameter> asyncParam_;
         std::shared_ptr<spdlog::details::thread_pool> asyncThreadPool_;
+        int periodicFlushSeconds_{-1};
+        std::unique_ptr<spdlog::details::periodic_worker> periodicFlusher_;
 
     private:
         template <typename... Args>
@@ -294,6 +297,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 break;
             default:
                 break;
+            }
+
+            if (periodicFlushSeconds_ > 0 && logger_->flush_level() != spdlog::level::trace) {
+                periodicFlusher_ = std::make_unique<spdlog::details::periodic_worker>([this]() { logger_->flush(); }, std::chrono::seconds{periodicFlushSeconds_});
             }
         }
 
@@ -438,7 +445,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             if (asyncThreadPool_) {
                 asyncThreadPool_.reset();
             }
+            if (periodicFlusher_) {
+                periodicFlusher_.reset();
+            }
             if (logger_) {
+                logger_->flush();
                 spdlog::drop(logger_->name());
                 logger_.reset();
             }
@@ -458,9 +469,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             asyncParam_ = asyncParam;
         }
 
-        void flushOn(dev::cd606::tm::infra::LogLevel l)
+        void flushOn(dev::cd606::tm::infra::LogLevel l, int periodicFlush = -1 /* in seconds, -1 means no period flush */)
         {
             flushOn_ = l;
+            periodicFlushSeconds_ = periodicFlush;
         }
 
         void setLogLevel(dev::cd606::tm::infra::LogLevel l)
