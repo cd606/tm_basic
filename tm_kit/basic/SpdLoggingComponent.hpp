@@ -38,7 +38,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         {
             logger_ = spdlog::stdout_logger_mt("tm_basic_spdlog");
             logger_->set_level(spdlog::level::trace);
-            logger_->set_pattern("[%l] [%Y-%m-%d %H:%M:%S.%f] [Thread %t] %v");
+            logger_->set_pattern("[%l] [%Y-%m-%dT%H:%M:%S.%f] [Thread %t] %v");
         }
 
         ~SpdLoggingComponent()
@@ -77,6 +77,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 break;
             default:
                 break;
+            }
+        }
+
+        void setLevel(std::string const& l) 
+        {
+            dev::cd606::tm::infra::LogLevel lv;
+            if (dev::cd606::tm::infra::logLevelFromString(l, lv)) {
+                setLevel(lv);
             }
         }
 
@@ -182,7 +190,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 logger_ = spdlog::basic_logger_mt("tm_basic_spdlog", prefix + "." + nowStr + "." + std::to_string(pid) + ".log");
             }
             logger_->set_level(spdlog::level::trace);
-            logger_->set_pattern("[%l] [%Y-%m-%d %H:%M:%S.%f] [Thread %t] %v");
+            logger_->set_pattern("[%l] [%Y-%m-%dT%H:%M:%S.%f] [Thread %t] %v");
         }
 
         virtual void logThroughLoggingComponentBase(dev::cd606::tm::infra::LogLevel l, std::string const &s) override
@@ -213,7 +221,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         bool async_{false};
         std::optional<SpdLoggingAsyncParameter> asyncParam_;
         std::shared_ptr<spdlog::details::thread_pool> asyncThreadPool_;
-        int periodicFlushSeconds_{-1};
+        int periodicFlushSeconds_{5};
         std::unique_ptr<spdlog::details::periodic_worker> periodicFlusher_;
 
     private:
@@ -272,32 +280,32 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
         void doSetFlushOn()
         {
-            if (!flushOn_) {
+           if (!flushOn_) {
                 logger_->flush_on(spdlog::level::err);
-                return;
-            }
-            switch (*flushOn_) {
-            case dev::cd606::tm::infra::LogLevel::Trace:
-                logger_->flush_on(spdlog::level::trace);
-                break;
-            case dev::cd606::tm::infra::LogLevel::Debug:
-                logger_->flush_on(spdlog::level::debug);
-                break;
-            case dev::cd606::tm::infra::LogLevel::Info:
-                logger_->flush_on(spdlog::level::info);
-                break;
-            case dev::cd606::tm::infra::LogLevel::Warning:
-                logger_->flush_on(spdlog::level::warn);
-                break;
-            case dev::cd606::tm::infra::LogLevel::Error:
-                logger_->flush_on(spdlog::level::err);
-                break;
-            case dev::cd606::tm::infra::LogLevel::Critical:
-                logger_->flush_on(spdlog::level::critical);
-                break;
-            default:
-                break;
-            }
+            } else {
+                switch (*flushOn_) {
+                case dev::cd606::tm::infra::LogLevel::Trace:
+                    logger_->flush_on(spdlog::level::trace);
+                    break;
+                case dev::cd606::tm::infra::LogLevel::Debug:
+                    logger_->flush_on(spdlog::level::debug);
+                    break;
+                case dev::cd606::tm::infra::LogLevel::Info:
+                    logger_->flush_on(spdlog::level::info);
+                    break;
+                case dev::cd606::tm::infra::LogLevel::Warning:
+                    logger_->flush_on(spdlog::level::warn);
+                    break;
+                case dev::cd606::tm::infra::LogLevel::Error:
+                    logger_->flush_on(spdlog::level::err);
+                    break;
+                case dev::cd606::tm::infra::LogLevel::Critical:
+                    logger_->flush_on(spdlog::level::critical);
+                    break;
+                default:
+                    break;
+                }
+            } 
 
             if (periodicFlushSeconds_ > 0 && logger_->flush_level() != spdlog::level::trace) {
                 periodicFlusher_ = std::make_unique<spdlog::details::periodic_worker>([this]() { logger_->flush(); }, std::chrono::seconds{periodicFlushSeconds_});
@@ -409,9 +417,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
 
             if constexpr (ForceActualTimeLogging) {
                 if constexpr (LogThreadID) {
-                    logger_->set_pattern("[%l] [%Y-%m-%d %H:%M:%S.%f] [Thread %t] %v");
+                    logger_->set_pattern("[%l] [%Y-%m-%dT%H:%M:%S.%f] [Thread %t] %v");
                 } else {
-                    logger_->set_pattern("[%l] [%Y-%m-%d %H:%M:%S.%f] %v");
+                    logger_->set_pattern("[%l] [%Y-%m-%dT%H:%M:%S.%f] %v");
                 }
             } else {
                 isActualClock_ = false;
@@ -420,9 +428,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
                 if (isActualClock_) {
                     if constexpr (LogThreadID) {
-                        logger_->set_pattern("[%l] [%Y-%m-%d %H:%M:%S.%f] [Thread %t] %v");
+                        logger_->set_pattern("[%l] [%Y-%m-%dT%H:%M:%S.%f] [Thread %t] %v");
                     } else {
-                        logger_->set_pattern("[%l] [%Y-%m-%d %H:%M:%S.%f] %v");
+                        logger_->set_pattern("[%l] [%Y-%m-%dT%H:%M:%S.%f] %v");
                     }
                 } else {
                     auto formatter = std::make_unique<spdlog::pattern_formatter>();
@@ -469,15 +477,23 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             asyncParam_ = asyncParam;
         }
 
-        void flushOn(dev::cd606::tm::infra::LogLevel l, int periodicFlush = -1 /* in seconds, -1 means no period flush */)
+        void flushOn(dev::cd606::tm::infra::LogLevel l, int periodicFlush = 5 /* in seconds, -1 means no period flush */)
         {
             flushOn_ = l;
             periodicFlushSeconds_ = periodicFlush;
         }
 
-        void setLogLevel(dev::cd606::tm::infra::LogLevel l)
+        void setLevel(dev::cd606::tm::infra::LogLevel l)
         {
             logLevel_ = l;
+        }
+
+        void setLevel(std::string const& l) 
+        {
+            dev::cd606::tm::infra::LogLevel lv;
+            if (dev::cd606::tm::infra::logLevelFromString(l, lv)) {
+                setLevel(lv);
+            }
         }
 
         template <typename... Args>
