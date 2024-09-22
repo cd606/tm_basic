@@ -3,6 +3,8 @@
 
 #ifdef _MSC_VER
 #include <winsock2.h>
+#undef max
+#undef min
 #endif
 
 #include <iostream>
