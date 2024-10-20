@@ -2676,8 +2676,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }
         };
 
+        template <typename, typename = std::void_t<>>
+        struct DirectlySerializableThroughStaticChecker : std::false_type {};
+
+        template <typename T>
+        struct DirectlySerializableThroughStaticChecker<T, std::void_t<decltype(T::ParseFromString(std::declval<std::string_view const&>()))>> : std::true_type {};
+
         template <class T>
         struct DirectlySerializableChecker {
+            
             static constexpr bool IsDirectlySerializable() {
                 const auto checker1 = boost::hana::is_valid(
                     [](auto *t) -> decltype((void) (t->SerializeToString((std::string *) nullptr))) {}
@@ -2685,8 +2692,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 const auto checker2 = boost::hana::is_valid(
                     [](auto *t) -> decltype((void) (t->ParseFromString(*((std::string const *) nullptr)))) {}
                 );
+                const auto checker3 = boost::hana::is_valid(
+                    [](auto *t) -> decltype((void) (t->ParseFromString(*((std::string_view const *) nullptr)))) {}
+                );
+                
                 if constexpr (checker1((T *) nullptr)) {
                     if constexpr (checker2((T *) nullptr)) {
+                        return true;
+                    } else if constexpr (checker3((T *) nullptr)) {
+                        return true;
+                    } else if constexpr (DirectlySerializableThroughStaticChecker<T>::value) {
                         return true;
                     } else {
                         return false;
@@ -2695,12 +2710,79 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     return false;
                 }
             }
+            static std::optional<T> runDeserializeStringView(std::string_view const &data) {
+                const auto checker3 = boost::hana::is_valid(
+                    [](auto *t) -> decltype((void) (t->ParseFromString(*((std::string_view const *) nullptr)))) {}
+                );
+                if constexpr (DirectlySerializableThroughStaticChecker<T>::value) {
+                    return T::ParseFromString(data);
+                } else if constexpr (checker3((T *) nullptr)) {
+                    T t;
+                    if (t.ParseFromString(data)) {
+                        return {std::move(t)};
+                    } else {
+                        return std::nullopt;
+                    }
+                } else {
+                    T t;
+                    std::string s(data);
+                    if (t.ParseFromString(s)) {
+                        return {std::move(t)};
+                    } else {
+                        return std::nullopt;
+                    }
+                }
+            }
+            static std::optional<T> runDeserializeString(std::string const &data) {                
+                if constexpr (DirectlySerializableThroughStaticChecker<T>::value) {
+                    return T::ParseFromString(data);
+                } else {
+                    T t;
+                    if (t.ParseFromString(data)) {
+                        return {std::move(t)};
+                    } else {
+                        return std::nullopt;
+                    }
+                }
+            }
+            static bool runDeserializeInPlaceStringView(T *t, std::string_view const &data) {
+                const auto checker3 = boost::hana::is_valid(
+                    [](auto *t) -> decltype((void) (t->ParseFromString(*((std::string_view const *) nullptr)))) {}
+                );
+                if constexpr (DirectlySerializableThroughStaticChecker<T>::value) {
+                    auto t1 = T::ParseFromString(data);
+                    if (t1) {
+                        *t = std::move(*t1);
+                        return true;
+                    } else {
+                        return false;
+                    }
+                } else if constexpr (checker3((T *) nullptr)) {
+                    return t->ParseFromString(data);
+                } else {                    
+                    std::string s(data);
+                    return t->ParseFromString(s);
+                }
+            }
+            static bool runDeserializeInPlaceString(T *t, std::string const &data) {                
+                if constexpr (DirectlySerializableThroughStaticChecker<T>::value) {
+                    auto t1 = T::ParseFromString(data);
+                    if (t1) {
+                        *t = std::move(*t1);
+                        return true;
+                    } else {
+                        return false;
+                    }
+                } else {
+                    return t->ParseFromString(data);
+                }
+            }
         };
         template <class T>
         struct DirectlySerializableChecker<CBOR<T>> {
             static constexpr bool IsDirectlySerializable() {
                 return true;
-            }
+            }               
         };
         template <class T>
         struct DirectlySerializableChecker<CBORWithMaxSizeHint<T>> {
@@ -2837,22 +2919,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         };
         template <class T, typename Enable=void>
         struct RunDeserializer {
-            static std::optional<T> apply(std::string_view const &data) {
-                return apply(std::string {data});
+            static std::optional<T> apply(std::string_view const &data) {                
+                return DirectlySerializableChecker<T>::runDeserializeStringView(data);
             }
             static std::optional<T> apply(std::string const &data) {
-                T t;
-                if (t.ParseFromString(data)) {
-                    return t;
-                } else {
-                    return std::nullopt;
-                }
+                return DirectlySerializableChecker<T>::runDeserializeString(data);
             }
             static bool applyInPlace(T &output, std::string_view const &data) {
-                return applyInPlace(output, std::string {data});
+                return DirectlySerializableChecker<T>::runDeserializeInPlaceStringView(&output, data);
             }
             static bool applyInPlace(T &output, std::string const &data) {
-                return output.ParseFromString(data);
+                return DirectlySerializableChecker<T>::runDeserializeInPlaceString(&output, data);
             }
         };
         template <class T>

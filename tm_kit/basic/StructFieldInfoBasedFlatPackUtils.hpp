@@ -366,6 +366,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             StructFieldInfoBasedSimpleFlatPackOutput<T>::writeData(oss, t_);
             *s = oss.str();
         }
+        void SerializeToString(std::string *s) const {
+            return writeToString(s);
+        }
         bool fromStringView(std::string_view const &s) {
             auto res = StructFieldInfoBasedSimpleFlatPackInput<T>::readOne(s, 0, t_);
             if (res) {
@@ -373,6 +376,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             } else {
                 return false;
             }
+        }
+        bool ParseFromString(std::string_view const &s) {
+            return fromStringView(s);
         }
         bool fromString(std::string const &s) {
             return fromStringView(std::string_view(s));
@@ -435,6 +441,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 *s = oss.str();
             }
         }
+        void SerializeToString(std::string *s) const {
+            return writeToString(s);
+        }
         bool fromStringView(std::string_view const &s) {
             if (t_) {
                 auto res = StructFieldInfoBasedSimpleFlatPackInput<T>::readOne(s, 0, *t_);
@@ -446,6 +455,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             } else {
                 return false;
             }
+        }
+        bool ParseFromString(std::string_view const &s) {
+            return fromStringView(s);
         }
         bool fromString(std::string const &s) {
             return fromStringView(std::string_view(s));
@@ -494,6 +506,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 *s = oss.str();
             }
         }
+        void SerializeToString(std::string *s) const {
+            return writeToString(s);
+        }
         T const &value() const {
             return *t_;
         }
@@ -530,6 +545,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 *s = oss.str();
             }
         }
+        void SerializeToString(std::string *s) const {
+            return writeToString(s);
+        }
         bool fromStringView(std::string_view const &s) {
             t_.reset();
             auto x = std::make_shared<T>();
@@ -540,6 +558,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             } else {
                 return false;
             }
+        }
+        bool ParseFromString(std::string_view const &s) {
+            return fromStringView(s);
         }
         bool fromString(std::string const &s) {
             return fromStringView(std::string_view(s));
@@ -552,45 +573,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         }
         std::shared_ptr<const T> &operator*() {
             return t_;
-        }
-    };
-} } } } }
-
-namespace dev { namespace cd606 { namespace tm { namespace basic { namespace bytedata_utils {
-    //allow JSON wrapper to be used for encode/decode
-    //without exposing proto-style methods
-    template <class T>
-    struct RunSerializer<struct_field_info_utils::FlatPack<T>, void> {
-        static std::string apply(struct_field_info_utils::FlatPack<T> const &data) {
-            std::string s;
-            data.writeToString(&s);
-            return s;
-        }
-    };
-    template <class T>
-    struct RunDeserializer<struct_field_info_utils::FlatPack<T>, void> {
-        static std::optional<struct_field_info_utils::FlatPack<T>> apply(std::string_view const &data) {
-            struct_field_info_utils::FlatPack<T> t;
-            if (t.fromStringView(data)) {
-                return {std::move(t)};
-            } else {
-                return std::nullopt;
-            }
-        }
-        static std::optional<struct_field_info_utils::FlatPack<T>> apply(std::string const &data) {
-            return apply(std::string_view {data});
-        }
-        static bool applyInPlace(struct_field_info_utils::FlatPack<T> &output, std::string_view const &data) {
-            return output.fromStringView(data);
-        }
-        static bool applyInPlace(struct_field_info_utils::FlatPack<T> &output, std::string const &data) {
-            return output.fromStringView(std::string_view {data});
-        }
-    };
-    template <class T>
-    struct DirectlySerializableChecker<struct_field_info_utils::FlatPack<T>> {
-        static constexpr bool IsDirectlySerializable() {
-            return true;
         }
     };
 } } } } }
