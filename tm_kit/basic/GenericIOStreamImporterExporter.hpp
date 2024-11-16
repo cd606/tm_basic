@@ -882,7 +882,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static constexpr std::size_t TimeSize = sizeof(TimeType);
         std::optional<std::chrono::system_clock::time_point> operator()(void *, std::string_view const &timeData) {
             TimeType t;
-            std::memcpy(&t, timeData.data(), std::min(timeData.length(), sizeof(int64_t)));
+            std::memcpy(&t, timeData.data(), std::min(timeData.length(), sizeof(TimeType)));
             t = boost::endian::little_to_native<TimeType>(t);
             return infra::withtime_utils::epochDurationToTime<Duration>(t);
         }
