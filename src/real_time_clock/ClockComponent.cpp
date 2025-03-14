@@ -7,12 +7,24 @@
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace real_time_clock {
     class ClockComponentImpl {
     private:
+#if BOOST_VERSION >= 108700    
+        std::shared_ptr<boost::asio::io_context> service_;
+#else
         std::shared_ptr<boost::asio::io_service> service_;
+#endif
     public:
+#if BOOST_VERSION >= 108700       
+        ClockComponentImpl() : service_(std::make_shared<boost::asio::io_context>()) {
+#else
         ClockComponentImpl() : service_(std::make_shared<boost::asio::io_service>()) {
+#endif
             auto s = service_;
             std::thread th([s]() {
+#if BOOST_VERSION >= 108700                
+                auto work_guard = boost::asio::make_work_guard(*s);
+#else
                 boost::asio::io_service::work w(*s);
+#endif
                 s->run();
             });
             th.detach();
