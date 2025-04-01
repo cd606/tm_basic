@@ -411,6 +411,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             }, v);
         }
     };
+
+    template <std::size_t Precision, typename Underlying>
+    std::ostream &operator<<(std::ostream &os, FixedPrecisionShortDecimal<Precision,Underlying> const &d) {
+        os << d.asString();
+        return os;
+    }
 }}}}
 
 #define TM_BASIC_FIXED_PRECISION_SHORT_DECIMAL_TEMPLATE_ARGS \
