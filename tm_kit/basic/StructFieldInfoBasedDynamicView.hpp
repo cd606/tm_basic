@@ -115,6 +115,29 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     updateAllByTypeImpl<T,X,F,K+1,N>(t, std::forward<F>(f));
                 }
             }
+            template <class T, class F, std::size_t K>
+            static auto forOneByNameImpl(T const &t, F &&f) {
+                using X = typename StructFieldTypeInfo<T, K>::TheType;
+                if constexpr (CallX<F, X>) {
+                    return f(StructFieldTypeInfo<T,K>::constAccess(t));
+                } else if constexpr (CallXWithName<F, X>) {
+                    return f(StructFieldInfo<T>::FIELD_NAMES[K], StructFieldTypeInfo<T,K>::constAccess(t));
+                } else if constexpr (CallXWithNameAndIndex<F, X>) {
+                    return f(K, StructFieldInfo<T>::FIELD_NAMES[K], StructFieldTypeInfo<T,K>::constAccess(t));
+                }
+            }
+            
+            template <class T, class F, std::size_t K>
+            static void updateOneByNameImpl(T &t, F &&f) {
+                using X = typename StructFieldTypeInfo<T, K>::TheType;
+                if constexpr (UpdateX<F, X>) {
+                    f(StructFieldTypeInfo<T,K>::access(t));
+                } else if constexpr (UpdateXWithName<F, X>) {
+                    f(StructFieldInfo<T>::FIELD_NAMES[K], StructFieldTypeInfo<T,K>::access(t));
+                } else if constexpr (UpdateXWithNameAndIndex<F, X>) {
+                    f(K, StructFieldInfo<T>::FIELD_NAMES[K], StructFieldTypeInfo<T,K>::access(t));
+                }
+            }
 #else
             template <class T, class F, std::size_t K, std::size_t N>
             static void forAllImpl(T const &t, F &&f) {
@@ -186,6 +209,47 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     updateAllByTypeImpl<T,X,F,K+1,N>(t, std::forward<F>(f));
                 }
             }
+            template <class T, class F, std::size_t K>
+            static auto forOneByNameImpl(T const &t, F &&f) {
+                using X = typename StructFieldTypeInfo<T, K>::TheType;
+                static const auto checker1 = boost::hana::is_valid(
+                    [](auto *f, X const *data) -> decltype((void) ((*f)(*data))) {}
+                );
+                static const auto checker2 = boost::hana::is_valid(
+                    [](auto *f, std::string_view const *nm, X const *data) -> decltype((void) ((*f)(*nm, *data))) {}
+                );
+                static const auto checker3 = boost::hana::is_valid(
+                    [](auto *f, std::size_t const *idx, std::string_view const *nm, X const *data) -> decltype((void) ((*f)(*idx, *nm, *data))) {}
+                );
+                if constexpr (checker1((F *) nullptr, (X const *) nullptr)) {
+                    return f(StructFieldTypeInfo<T,K>::constAccess(t));
+                } else if constexpr (checker2((F *) nullptr, (std::string_view const *) nullptr, (X const *) nullptr)) {
+                    return f(StructFieldInfo<T>::FIELD_NAMES[K], StructFieldTypeInfo<T,K>::constAccess(t));
+                } else if constexpr (checker3((F *) nullptr, (std::size_t const *) nullptr, (std::string_view const *) nullptr, (X const *) nullptr)) {
+                    return f(K, StructFieldInfo<T>::FIELD_NAMES[K], StructFieldTypeInfo<T,K>::constAccess(t));
+                }
+            }
+            template <class T, class F, std::size_t K>
+            static auto updateOneByNameImpl(T &t, F &&f) {
+                using X = typename StructFieldTypeInfo<T, K>::TheType;
+                static const auto checker1 = boost::hana::is_valid(
+                    [](auto *f, X *data) -> decltype((void) ((*f)(*data))) {}
+                );
+                static const auto checker2 = boost::hana::is_valid(
+                    [](auto *f, std::string_view const *nm, X *data) -> decltype((void) ((*f)(*nm, *data))) {}
+                );
+                static const auto checker3 = boost::hana::is_valid(
+                    [](auto *f, std::size_t const *idx, std::string_view const *nm, X *data) -> decltype((void) ((*f)(*idx, *nm, *data))) {}
+                );
+
+                if constexpr (checker1((F *) nullptr, (X *) nullptr)) {
+                    return f(StructFieldTypeInfo<T,K>::access(t));
+                } else if constexpr (checker2((F *) nullptr, (std::string_view const *) nullptr, (X *) nullptr)) {
+                    return f(StructFieldInfo<T>::FIELD_NAMES[K], StructFieldTypeInfo<T,K>::access(t));
+                } else if constexpr (checker3((F *) nullptr, (std::size_t const *) nullptr, (std::string_view const *) nullptr, (X *) nullptr)) {
+                    return f(K, StructFieldInfo<T>::FIELD_NAMES[K], StructFieldTypeInfo<T,K>::access(t));
+                }
+            }
 #endif
         public:
             template <class T, class OutIter, typename=std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo>>
@@ -211,6 +275,36 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             template <class T, class X, class F>
             static void updateAllByType(T &t, F &&f) {
                 updateAllByTypeImpl<T,X,F,0,StructFieldInfo<T>::FIELD_NAMES.size()>(t, std::forward<F>(f));
+            }
+            template <class T, class ConstFieldName>
+            static auto returnOneByName(T &t) {
+                constexpr int K = StructFieldInfo<T>::getFieldIndex(ConstFieldName::VALUE);
+                static_assert(K >= 0 && K < StructFieldInfo<T>::FIELD_NAMES.size());
+                return StructFieldTypeInfo<T, K>::constAccess(t);
+            }
+            template <class T, class ConstFieldName, class X>
+            static void setOneByName(T &t, X const &x) {
+                constexpr int K = StructFieldInfo<T>::getFieldIndex(ConstFieldName::VALUE);
+                static_assert(K >= 0 && K < StructFieldInfo<T>::FIELD_NAMES.size());
+                StructFieldTypeInfo<T, K>::access(t) = x;
+            }
+            template <class T, class ConstFieldName, class X>
+            static void setOneByName(T &t, X &&x) {
+                constexpr int K = StructFieldInfo<T>::getFieldIndex(ConstFieldName::VALUE);
+                static_assert(K >= 0 && K < StructFieldInfo<T>::FIELD_NAMES.size());
+                StructFieldTypeInfo<T, K>::access(t) = std::move(x);
+            }
+            template <class T, class ConstFieldName, class F>
+            static auto forOneByName(T &t, F &&f) {
+                constexpr int K = StructFieldInfo<T>::getFieldIndex(ConstFieldName::VALUE);
+                static_assert(K >= 0 && K < StructFieldInfo<T>::FIELD_NAMES.size());
+                return forOneByNameImpl<T,F,K>(t, std::forward<F>(f));
+            }
+            template <class T, class ConstFieldName, class F>
+            static auto updateOneByName(T &t, F &&f) {
+                constexpr int K = StructFieldInfo<T>::getFieldIndex(ConstFieldName::VALUE);
+                static_assert(K >= 0 && K < StructFieldInfo<T>::FIELD_NAMES.size());
+                return updateOneByNameImpl<T,F,K>(t, std::forward<F>(f));
             }
         };
 
@@ -500,6 +594,26 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         void updateAllByType(F &&f) {
             internal::AnyIter::updateAllByType<T,X,F>(*t_, std::forward<F>(f));
         }
+        template <class ConstFieldName>
+        auto returnOneByName() {
+            return internal::AnyIter::returnOneByName<T, ConstFieldName>(*t_);
+        }
+        template <class ConstFieldName, class X>
+        auto setOneByName(X const &x) {
+            return internal::AnyIter::setOneByName<T, ConstFieldName, X>(*t_, x);
+        }
+        template <class ConstFieldName, class X>
+        auto setOneByName(X &&x) {
+            return internal::AnyIter::setOneByName<T, ConstFieldName, X>(*t_, std::forward<X>(x));
+        }
+        template <class ConstFieldName, class F>
+        auto forOneByName(F &&f) {
+            return internal::AnyIter::forOneByName<T, ConstFieldName, F>(*t_, std::forward<F>(f));
+        }
+        template <class ConstFieldName, class F>
+        auto updateOneByName(F &&f) {
+            return internal::AnyIter::updateOneByName<T, ConstFieldName, F>(*t_, std::forward<F>(f));
+        }
     };
 
     template <class T, typename=std::enable_if_t<StructFieldInfo<T>::HasGeneratedStructFieldInfo>>
@@ -537,6 +651,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         template <class X, class F>
         void forAllByType(F &&f) const {
             internal::AnyIter::forAllByType<T,X,F>(*t_, std::forward<F>(f));
+        }
+        template <class ConstFieldName>
+        auto returnOneByName() {
+            return internal::AnyIter::returnOneByName<T, ConstFieldName>(*t_);
+        }
+        template <class ConstFieldName, class F>
+        auto forOneByName(F &&f) {
+            return internal::AnyIter::forOneByName<T, ConstFieldName, F>(*t_, std::forward<F>(f));
         }
     };
 
