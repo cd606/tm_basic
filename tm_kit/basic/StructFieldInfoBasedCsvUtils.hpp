@@ -4,6 +4,7 @@
 #include <tm_kit/basic/StructFieldInfoUtils.hpp>
 #include <tm_kit/basic/DateHolder.hpp>
 #include <tm_kit/basic/ConvertibleWithString.hpp>
+#include <tm_kit/basic/ConstStringType.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/iostreams/device/array.hpp>
@@ -73,6 +74,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             || std::is_same_v<F, std::chrono::system_clock::time_point>
             || std::is_same_v<F, std::string>
             || std::is_empty_v<F>
+            || IsConstStringType<F>::value
             || ConvertibleWithString<F>::value
             || (CsvSingleLayerWrapperHelper<F>::Value && is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>)
         ;
@@ -365,6 +367,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     os << infra::withtime_utils::localTimeString(CsvSingleLayerWrapperHelper<ColType>::constRef(x));
                 } else if constexpr (std::is_empty_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>) {
                     //do nothing
+                } else if constexpr (IsConstStringType<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
+                    os << std::quoted(CsvSingleLayerWrapperHelper<ColType>::UnderlyingType::VALUE);
                 } else if constexpr (ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
                     os << std::quoted(ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::toString(CsvSingleLayerWrapperHelper<ColType>::constRef(x)));
                 } else {
@@ -375,6 +379,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             static void outputSimpleFieldToReceiver_internal(std::string const &name, ColType const &x, std::function<void(std::string const &, std::string const &)> const &receiver) {
                 if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::string>) {
                     receiver(name, CsvSingleLayerWrapperHelper<ColType>::constRef(x));
+                } else if constexpr (IsConstStringType<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
+                    receiver(name, std::string {CsvSingleLayerWrapperHelper<ColType>::UnderlyingType::VALUE});
                 } else if constexpr (ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
                     receiver(name, ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::toString(CsvSingleLayerWrapperHelper<ColType>::constRef(x)));
                 } else if constexpr (std::is_empty_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>) {
@@ -396,10 +402,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 }
             }
             template <class T, std::size_t Index>
-            static void outputTupleFieldToReceiver(std::string &name, T const &f, std::function<void(std::string const &, std::string const &)> const &receiver) {
+            static void outputTupleFieldToReceiver(std::string &name, T const &f, std::function<void(std::string const &, std::string const &)> const &receiver, bool dontAppendIndexToArrayNames) {
                 if constexpr (Index<std::tuple_size_v<T>) {
-                    outputSingleFieldToReceiver(name+"."+std::to_string(Index), std::get<Index>(f), receiver);
-                    outputTupleFieldToReceiver<T,Index+1>(name, f, receiver);
+                    outputSingleFieldToReceiver(name+"."+std::to_string(Index), std::get<Index>(f), receiver, dontAppendIndexToArrayNames);
+                    outputTupleFieldToReceiver<T,Index+1>(name, f, receiver, dontAppendIndexToArrayNames);
                 }
             }
         public:
@@ -457,7 +463,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 }
             }
             template <class F>
-            static void outputSingleFieldToReceiver(std::string const &name, F const &f, std::function<void(std::string const &, std::string const &)> const &receiver) {
+            static void outputSingleFieldToReceiver(std::string const &name, F const &f, std::function<void(std::string const &, std::string const &)> const &receiver, bool dontAppendIndexToArrayNames) {
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
                     outputSimpleFieldToReceiver_internal<F>(name, f, receiver);
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsCharArray) {
@@ -479,9 +485,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
                     for (std::size_t ii=0; ii<ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength; ++ii) {
                         if constexpr (is_simple_csv_field_v<BT>) {
-                            outputSimpleFieldToReceiver_internal<BT>(name+"["+std::to_string(ii)+"]", (CsvSingleLayerWrapperHelper<F>::constRef(f))[ii], receiver);
+                            if (dontAppendIndexToArrayNames) {
+                                outputSimpleFieldToReceiver_internal<BT>(name, (CsvSingleLayerWrapperHelper<F>::constRef(f))[ii], receiver);
+                            } else {
+                                outputSimpleFieldToReceiver_internal<BT>(name+"["+std::to_string(ii)+"]", (CsvSingleLayerWrapperHelper<F>::constRef(f))[ii], receiver);
+                            }
                         } else {
-                            outputSingleFieldToReceiver<BT>(name+"["+std::to_string(ii)+"]", (CsvSingleLayerWrapperHelper<F>::constRef(f))[ii], receiver);
+                            if (dontAppendIndexToArrayNames) {
+                                outputSingleFieldToReceiver<BT>(name, (CsvSingleLayerWrapperHelper<F>::constRef(f))[ii], receiver, dontAppendIndexToArrayNames);
+                            } else {
+                                outputSingleFieldToReceiver<BT>(name+"["+std::to_string(ii)+"]", (CsvSingleLayerWrapperHelper<F>::constRef(f))[ii], receiver, dontAppendIndexToArrayNames);
+                            }
                         }
                     }
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsOptional) {
@@ -493,15 +507,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     } else {
                         if (f) {
                             outputSingleFieldToReceiver<BT>(
-                                name, *(CsvSingleLayerWrapperHelper<F>::constRef(f)), receiver
+                                name, *(CsvSingleLayerWrapperHelper<F>::constRef(f)), receiver, dontAppendIndexToArrayNames
                             ); 
                         }
                     }
                 } else if constexpr (IsTuple<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::Value) {
-                    outputTupleFieldToReceiver<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType, 0>(name, CsvSingleLayerWrapperHelper<F>::constRef(f), receiver);
+                    outputTupleFieldToReceiver<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType, 0>(name, CsvSingleLayerWrapperHelper<F>::constRef(f), receiver, dontAppendIndexToArrayNames);
                 } else {
                     StructFieldInfoBasedSimpleCsvOutputImpl::outputNameValuePairs<F>(
-                        name, f, receiver
+                        name, f, receiver, dontAppendIndexToArrayNames
                     );
                 }
             }
@@ -518,15 +532,15 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 }
             }
             template <class T, int FieldCount, int FieldIndex, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && StructFieldInfoCsvSupportChecker<T>::IsComposite>>
-            static void outputNameValuePairs_internal(std::string const &prefix, T const &t, std::function<void(std::string const &, std::string const &)> const &receiver) {
+            static void outputNameValuePairs_internal(std::string const &prefix, T const &t, std::function<void(std::string const &, std::string const &)> const &receiver, bool dontAppendIndexToArrayNames) {
                 if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                     using F = typename StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::TheType;
                     auto s = std::string(StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES[FieldIndex]);
                     if (prefix != "") {
                         s = prefix+"."+s;
                     }
-                    outputSingleFieldToReceiver<F>(s, StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::constAccess(CsvSingleLayerWrapperHelper<T>::constRef(t)), receiver);
-                    outputNameValuePairs_internal<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldCount,FieldIndex+1>(prefix, CsvSingleLayerWrapperHelper<T>::constRef(t), receiver);
+                    outputSingleFieldToReceiver<F>(s, StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::constAccess(CsvSingleLayerWrapperHelper<T>::constRef(t)), receiver, dontAppendIndexToArrayNames);
+                    outputNameValuePairs_internal<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldCount,FieldIndex+1>(prefix, CsvSingleLayerWrapperHelper<T>::constRef(t), receiver, dontAppendIndexToArrayNames);
                 }
             }
         public:
@@ -552,8 +566,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 writeData_internal<T,StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0>(os, t);
             }
             template <class T, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && StructFieldInfoCsvSupportChecker<T>::IsComposite>>
-            static void outputNameValuePairs(std::string const &prefix, T const &t, std::function<void(std::string const &, std::string const &)> const &receiver) {
-                outputNameValuePairs_internal<T,StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0>(prefix, t, receiver);
+            static void outputNameValuePairs(std::string const &prefix, T const &t, std::function<void(std::string const &, std::string const &)> const &receiver, bool dontAppendIndexToArrayNames) {
+                outputNameValuePairs_internal<T,StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0>(prefix, t, receiver, dontAppendIndexToArrayNames);
             }
         };
     }
@@ -587,8 +601,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 writeData(os, *iter);
             }
         }
-        static void outputNameValuePairs(T const &t, std::function<void(std::string const &, std::string const &)> const &receiver) {
-            internal::StructFieldInfoBasedSimpleCsvOutputImpl::outputNameValuePairs<T>("", t, receiver);
+        static void outputNameValuePairs(T const &t, std::function<void(std::string const &, std::string const &)> const &receiver, bool dontAppendIndexToArrayNames=false) {
+            internal::StructFieldInfoBasedSimpleCsvOutputImpl::outputNameValuePairs<T>("", t, receiver, dontAppendIndexToArrayNames);
         }
     };
     //This is a helper class where we may want to output in csv format
@@ -605,8 +619,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeSingleField<T>(os, t);
         }
         template <class T>
-        static void outputNameValuePairs(T const &t, std::function<void(std::string const &, std::string const &)> const &receiver) {
-            internal::StructFieldInfoBasedSimpleCsvOutputImpl::outputNameValuePairs<T>("", t, receiver);
+        static void outputNameValuePairs(T const &t, std::function<void(std::string const &, std::string const &)> const &receiver, bool dontAppendIndexToArrayNames=false) {
+            internal::StructFieldInfoBasedSimpleCsvOutputImpl::outputNameValuePairs<T>("", t, receiver, dontAppendIndexToArrayNames);
         }
     };
     
@@ -626,6 +640,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         return true;
                     } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::string>) {
                         return true;
+                    } else if constexpr (IsConstStringType<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
+                        return (CsvSingleLayerWrapperHelper<ColType>::UnderlyingType::VALUE == "");
                     } else if constexpr (ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
                         CsvSingleLayerWrapperHelper<ColType>::ref(x) = ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::fromString("");
                         return true;
@@ -754,6 +770,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     }
                 } else if constexpr (std::is_empty_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>) {
                     //do nothing
+                } else if constexpr (IsConstStringType<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
+                    return (CsvSingleLayerWrapperHelper<ColType>::UnderlyingType::VALUE == s);
                 } else if constexpr (ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
                     if (s.length() > 0) {
                         if (s[0] == '"') {

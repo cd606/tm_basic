@@ -128,6 +128,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         os << "ConstStringType<" << ConstStringType<T>::VALUE << ">{}";
         return os;
     }
+    template <class X>
+    class IsConstStringType {
+    public:    
+        static constexpr bool value = false;
+    };
+    template <class T>
+    class IsConstStringType<ConstStringType<T>> {
+    public:    
+        static constexpr bool value = true;
+    };
 } } } }
 
 #endif

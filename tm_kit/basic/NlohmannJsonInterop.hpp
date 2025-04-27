@@ -2581,9 +2581,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, std::optional<T> &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
             if (key) {
                 if (input.contains(*key)) {
-                    data = T {};
-                    if (!JsonDecoder<T>::read(input.at(*key), std::nullopt, *data, mapping)) {
+                    if (input.at(*key).is_null()) {
                         data = std::nullopt;
+                    } else {
+                        data = T {};
+                        if (!JsonDecoder<T>::read(input.at(*key), std::nullopt, *data, mapping)) {
+                            data = std::nullopt;
+                        }
                     }
                 } else {
                     data = std::nullopt;
