@@ -76,8 +76,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 << std::setw(2) << std::setfill('0') << ((micros%(3600ULL*1000000ULL))/(60ULL*1000000ULL))
                 << ':'
                 << std::setw(2) << std::setfill('0') << ((micros%(60ULL*1000000ULL))/1000000ULL)
-                << '.'
-                << std::setw(6) << std::setfill('0') << (micros%1000000ULL);
+                ;
+            if ((micros%1000000ULL) != 0) {
+                oss 
+                    << '.'
+                    << std::setw(6) << std::setfill('0') << (micros%1000000ULL);
+            }
             if (includeZoneName) {
                 oss << " ("
                     << timeZoneName
