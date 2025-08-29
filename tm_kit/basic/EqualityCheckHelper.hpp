@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <map>
 #include <unordered_map>
+#include <optional>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic {
     template <class T>
@@ -38,6 +39,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             } else {
                 return false;
             }
+        }
+    };
+    template <class T>
+    class EqualityCheckHelper<std::optional<T>> {
+    public:
+        static bool check(std::optional<T> const &a, std::optional<T> const &b) {
+            if (!a) {
+                return !b;
+            }
+            if (!b) {
+                return !a;
+            }
+            return EqualityCheckHelper<T>::check(*a, *b);
         }
     };
     
@@ -163,6 +177,19 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
             return true;
+        }
+    };
+    template <class T>
+    class ComparisonHelper<std::optional<T>> {
+    public:
+        static bool check(std::optional<T> const &a, std::optional<T> const &b) {
+            if (!a) {
+                return (bool) b;
+            }
+            if (!b) {
+                return false;
+            }
+            return ComparisonHelper<T>::check(*a, *b);
         }
     };
 }}}}
