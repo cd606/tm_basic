@@ -49,9 +49,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 StructFieldTypeInfo<T,K>::access(t) = std::move(v);
             }
         public:
-            using TupleType = typename TupleTypeInternal<IndexSeq>::TheType;
-            using PtrTupleType = typename TupleTypeInternal<IndexSeq>::ThePtrType;
-            using ConstPtrTupleType = typename TupleTypeInternal<IndexSeq>::TheConstPtrType;
+            using TupleType = typename TupleTypeInternal<std::make_integer_sequence<int, N>>::TheType;
+            using PtrTupleType = typename TupleTypeInternal<std::make_integer_sequence<int, N>>::ThePtrType;
+            using ConstPtrTupleType = typename TupleTypeInternal<std::make_integer_sequence<int, N>>::TheConstPtrType;
         private:
             template <int... Ints>
             static constexpr TupleType fetchTuple(std::integer_sequence<int, Ints...> const *seq, T const &t) {

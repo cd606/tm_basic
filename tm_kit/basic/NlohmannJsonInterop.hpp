@@ -3347,11 +3347,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     using X = typename IsRemainingFieldHandler<F>::UnderlyingType;
                     auto const &s = s_fieldNameSet();
                     for (auto const &item : input.get_object()) {
+#if !defined(_MSC_VER) && defined(__GNUC__) && __GNUC__ >= 15
+		        std::string k { item.key };
+                        if (s.find(k) == s.end()) {
+                            if (!JsonDecoder<X>::read_simd(item.value, std::nullopt, m.data[k])) {
+                                m.data.erase(k);
+                            }
+                        }
+#else
                         if (s.find(item.key()) == s.end()) {
                             if (!JsonDecoder<X>::read_simd(item.value(), std::nullopt, m.data[item.key()])) {
                                 m.data.erase(item.key());
                             }
                         }
+#endif
                     }
                     return read_impl_simd<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
                 } else {
