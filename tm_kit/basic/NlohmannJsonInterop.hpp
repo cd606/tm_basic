@@ -528,6 +528,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
         static constexpr bool value = JsonWrappable<T>::value;
     };
 
+    struct JsonRequiredFieldMark {};
+    template <class T>
+    using JsonRequiredField = SingleLayerWrapperWithTypeMark<JsonRequiredFieldMark, T>;    
+    template <class T>
+    static constexpr bool IsJsonRequiredField = IsSingleLayerWrapperWithGivenTypeMark<JsonRequiredFieldMark, T>::Value;    
+
     struct JsonVariantTypeMark {};
     struct JsonVariantAutoDetectTypeMark {};
 
@@ -3310,6 +3316,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     if (s_fieldNameMappingFilled && mappingForThisOne == nullptr) {
                         std::string const &s = s_fieldNameMapping[FieldIndex];
                         if (input.find(s) == input.end()) {
+                            if constexpr (IsJsonRequiredField<F>) {
+                                return false;
+                            }
                             return read_impl<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
                         } else {
                             bool ret = JsonDecoder<F>::read(input, s, StructFieldTypeInfo<T,FieldIndex>::access(data), mapping);
@@ -3324,6 +3333,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                             }
                         }
                         if (input.find(s) == input.end()) {
+                            if constexpr (IsJsonRequiredField<F>) {
+                                return false;
+                            }
                             return read_impl<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
                         } else {
                             bool ret = JsonDecoder<F>::read(input, s, StructFieldTypeInfo<T,FieldIndex>::access(data), mapping);
@@ -3367,8 +3379,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     if (s_fieldNameMappingFilled && mappingForThisOne == nullptr) {
                         std::string const &s = s_fieldNameMapping[FieldIndex];
                         if (input[s].error() == simdjson::NO_SUCH_FIELD) {
+                            if constexpr (IsJsonRequiredField<F>) {
+                                return false;
+                            }
                             return read_impl_simd<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
                         } else if (input[s].is_null()) {
+                            if constexpr (IsJsonRequiredField<F>) {
+                                return false;
+                            }
                             return read_impl_simd<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
                         } else {
                             bool ret = JsonDecoder<F>::read_simd(input, s, StructFieldTypeInfo<T,FieldIndex>::access(data), mapping);
@@ -3383,8 +3401,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                             }
                         }
                         if (input[s].error() == simdjson::NO_SUCH_FIELD) {
+                            if constexpr (IsJsonRequiredField<F>) {
+                                return false;
+                            }
                             return read_impl_simd<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
                         } else if (input[s].is_null()) {
+                            if constexpr (IsJsonRequiredField<F>) {
+                                return false;
+                            }
                             return read_impl_simd<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
                         } else {
                             bool ret = JsonDecoder<F>::read_simd(input, s, StructFieldTypeInfo<T,FieldIndex>::access(data), mapping);
@@ -3421,8 +3445,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         std::string const &s = s_fieldNameMapping[FieldIndex];
                         auto x = input[s];
                         if (x.error() == simdjson::NO_SUCH_FIELD) {
+                            if constexpr (IsJsonRequiredField<F>) {
+                                return false;
+                            }
                             return read_impl_simd_ondemand<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
                         } else if (x.is_null()) {
+                            if constexpr (IsJsonRequiredField<F>) {
+                                return false;
+                            }
                             return read_impl_simd_ondemand<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
                         } else {
                             bool ret = JsonDecoder<F>::read_simd_ondemand(x, std::nullopt, StructFieldTypeInfo<T,FieldIndex>::access(data), mapping);
@@ -3438,8 +3468,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         }
                         auto x = input[s];
                         if (x.error() == simdjson::NO_SUCH_FIELD) {
+                            if constexpr (IsJsonRequiredField<F>) {
+                                return false;
+                            }
                             return read_impl_simd_ondemand<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
                         } else if (x.is_null()) {
+                            if constexpr (IsJsonRequiredField<F>) {
+                                return false;
+                            }
                             return read_impl_simd_ondemand<FieldCount,FieldIndex+1>(input, data, mapping, mappingForThisOne, retSoFar);
                         } else {
                             bool ret = JsonDecoder<F>::read_simd_ondemand(x, std::nullopt, StructFieldTypeInfo<T,FieldIndex>::access(data), mapping);

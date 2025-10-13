@@ -123,6 +123,43 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         static constexpr int32_t ID = TheID;
         using UnderlyingType = T;
     };
+
+    template <int32_t GivenID, class T>
+    class IsSingleLayerWrapperWithGivenID {
+    public:
+        static constexpr bool Value = false;
+    };
+    template <int32_t GivenID, int32_t TheID, class T>
+    class IsSingleLayerWrapperWithGivenID<GivenID, SingleLayerWrapperWithID<TheID,T>> {
+    public:
+        static constexpr bool Value = (GivenID == TheID);
+    };
+
+    template <class T>
+    class IsSingleLayerWrapperWithTypeMark{
+    public:
+        static constexpr bool Value = false;
+        using TypeMark = void;
+        using UnderlyingType = void;
+    };
+    template <class Mark, class T>
+    class IsSingleLayerWrapperWithTypeMark<SingleLayerWrapperWithTypeMark<Mark,T>> {
+    public:
+        static constexpr bool Value = true;
+        using TypeMark = Mark;
+        using UnderlyingType = T;
+    };
+
+    template <class GivenMark, class T>
+    class IsSingleLayerWrapperWithGivenTypeMark {
+    public:
+        static constexpr bool Value = false;
+    };
+    template <class GivenMark, class Mark, class T>
+    class IsSingleLayerWrapperWithGivenTypeMark<GivenMark, SingleLayerWrapperWithTypeMark<Mark,T>> {
+    public:
+        static constexpr bool Value = std::is_same_v<GivenMark, Mark>;
+    };
 } } } }
 
 namespace dev { namespace cd606 { namespace tm { namespace infra {
