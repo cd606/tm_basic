@@ -469,7 +469,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         if (p[ii] == '\0') {
                             break;
                         }
-                        if (std::isspace(p[ii]) || p[ii] == '\"' || p[ii] == '\\' || p[i] == ',') {
+                        if (std::isspace(p[ii]) || p[ii] == '\"' || p[ii] == '\\' || p[ii] == ',') {
                             needQuote = true;
                         }
                     }
