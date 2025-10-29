@@ -301,10 +301,121 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     return soFar;
                 }
             }
+            template <class ColType>
+            static bool readSimpleField_internal(std::istream &is, ColType &x) {
+                using F = typename FlatPackSingleLayerWrapperHelper<ColType>::UnderlyingType;
+                if constexpr (std::is_empty_v<F>) {
+                    return true;
+                } else if constexpr (std::is_same_v<F, std::string>) {
+                    uint32_t l;
+                    if (is.eof()) {
+                        return false;
+                    }
+                    is.read(reinterpret_cast<char *>(&l), sizeof(uint32_t));
+                    if (is.gcount() != sizeof(uint32_t)) {
+                        return false;
+                    }
+                    FlatPackSingleLayerWrapperHelper<ColType>::ref(x).resize(l);
+                    if (is.eof()) {
+                        return false;
+                    }
+                    is.read(FlatPackSingleLayerWrapperHelper<ColType>::ref(x).data(), l);
+                    if (is.gcount() != l) {
+                        return false;
+                    }
+                    return true;
+                } else if constexpr (std::is_same_v<F, ByteData>) {
+                    uint32_t l;
+                    if (is.eof()) {
+                        return false;
+                    }
+                    is.read(reinterpret_cast<char *>(&l), sizeof(uint32_t));
+                    if (is.gcount() != sizeof(uint32_t)) {
+                        return false;
+                    }
+                    FlatPackSingleLayerWrapperHelper<ColType>::ref(x).content.resize(l);
+                    if (is.eof()) {
+                        return false;
+                    }
+                    is.read(FlatPackSingleLayerWrapperHelper<ColType>::ref(x).content.data(), l);
+                    if (is.gcount() != l) {
+                        return false;
+                    }
+                    return true;
+                } else {
+                    if (is.eof()) {
+                        return false;
+                    }
+                    is.read(
+                        reinterpret_cast<char *>(&FlatPackSingleLayerWrapperHelper<ColType>::ref(x))
+                        , sizeof(F)
+                    );
+                    if (is.gcount() != sizeof(F)) {
+                        return false;
+                    }
+                    return true;
+                }
+            }
+            template <class F>
+            static bool readOne(std::istream &is, F &output) {
+                if constexpr (is_simple_flatpack_field_v<typename FlatPackSingleLayerWrapperHelper<F>::UnderlyingType>) {
+                    return readSimpleField_internal<F>(is, output);
+                } else if constexpr (ArrayAndOptionalChecker<typename FlatPackSingleLayerWrapperHelper<F>::UnderlyingType>::IsArray) {
+                    using BT = typename ArrayAndOptionalChecker<typename FlatPackSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
+                    if constexpr (std::is_arithmetic_v<BT>) {
+                        if (is.eof()) {
+                            return false;
+                        }
+                        is.read(
+                            reinterpret_cast<char *>(FlatPackSingleLayerWrapperHelper<F>::ref(output).data())
+                            , sizeof(BT)*ArrayAndOptionalChecker<F>::ArrayLength
+                        );
+                        if (is.gcount() != sizeof(BT)*ArrayAndOptionalChecker<F>::ArrayLength) {
+                            return false;
+                        }
+                        return true;
+                    } else if constexpr (is_simple_flatpack_field_v<BT>) {
+                        for (auto &item : FlatPackSingleLayerWrapperHelper<F>::ref(output)) {
+                            auto res = readSimpleField_internal<BT>(is, item);
+                            if (!res) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    } else {
+                        for (auto &item : FlatPackSingleLayerWrapperHelper<F>::ref(output)) {
+                            auto res = readOne<BT>(is, item);
+                            if (!res) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    }
+                } else {
+                    return StructFieldInfoBasedSimpleFlatPackInputImpl::template read<F>(is, output);
+                }        
+            }
+            template <class T, int FieldCount, int FieldIndex>
+            static bool read_internal(std::istream &is, T &t) {
+                if constexpr (FieldCount >=0 && FieldIndex < FieldCount) {
+                    using F = typename StructFieldTypeInfo<typename FlatPackSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::TheType;
+                    auto res = readOne<F>(is, StructFieldTypeInfo<typename FlatPackSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::access(FlatPackSingleLayerWrapperHelper<T>::ref(t)));
+                    if (!res) {
+                        return false;
+                    }
+                    return read_internal<typename FlatPackSingleLayerWrapperHelper<T>::UnderlyingType,FieldCount,FieldIndex+1>(is, (FlatPackSingleLayerWrapperHelper<T>::ref(t)));
+                } else {
+                    return true;
+                }
+            }
         public:
             template <class T, typename=std::enable_if_t<internal::StructFieldInfoFlatPackSupportChecker<T>::IsGoodForFlatPack && StructFieldInfoFlatPackSupportChecker<T>::IsComposite>>
             static std::optional<std::size_t> parse(std::string_view const &input, std::size_t start, T &output) {
                 return parse_internal<T,StructFieldInfo<typename FlatPackSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0>(input, start, output, 0);
+            }
+            template <class T, typename=std::enable_if_t<internal::StructFieldInfoFlatPackSupportChecker<T>::IsGoodForFlatPack && StructFieldInfoFlatPackSupportChecker<T>::IsComposite>>
+            static bool read(std::istream &is, T &output) {
+                return read_internal<T,StructFieldInfo<typename FlatPackSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0>(is, output);
             }
         };
     }
@@ -315,7 +426,6 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         static std::optional<std::size_t> readOne(std::string_view const &input, std::size_t start, T &t) {
             basic::struct_field_info_utils::StructFieldInfoBasedInitializer<T>::initialize(t);
             return internal::StructFieldInfoBasedSimpleFlatPackInputImpl::parse<T>(input, start, t);
-            return true;
         }
         template <class OutIter>
         static void readInto(std::string_view const &input, std::size_t start, OutIter iter) {
@@ -328,6 +438,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 }
                 *iter++ = item;
                 idx += *res;
+            }
+        }
+        static bool readOne(std::istream &is, T &t) {
+            basic::struct_field_info_utils::StructFieldInfoBasedInitializer<T>::initialize(t);
+            return internal::StructFieldInfoBasedSimpleFlatPackInputImpl::read<T>(is, t);
+        }
+        template <class OutIter>
+        static void readInto(std::istream &is, OutIter iter) {
+            while (true) {
+                T item;
+                auto res = readOne(is, item);
+                if (!res) {
+                    break;
+                }
+                *iter++ = item;
             }
         }
     };
@@ -382,6 +507,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         }
         bool fromString(std::string const &s) {
             return fromStringView(std::string_view(s));
+        }
+        bool readFromStream(std::istream &is) const {
+            return StructFieldInfoBasedSimpleFlatPackInput<T>::readOne(is, t_);
         }
         T const &value() const {
             return t_;
@@ -461,6 +589,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         }
         bool fromString(std::string const &s) {
             return fromStringView(std::string_view(s));
+        }
+        bool readFromStream(std::istream &is) const {
+            if (t_) {
+                return StructFieldInfoBasedSimpleFlatPackInput<T>::read(is, *t_);
+            } else {
+                return false;
+            }
         }
         T const &value() const {
             return *t_;

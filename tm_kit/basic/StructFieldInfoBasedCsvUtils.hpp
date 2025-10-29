@@ -11,6 +11,7 @@
 #include <boost/iostreams/stream.hpp>
 
 #include <chrono>
+#include <cctype>
 
 namespace dev { namespace cd606 { namespace tm { namespace basic { namespace struct_field_info_utils {
     
@@ -354,9 +355,25 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 }
             }
             template <class ColType>
-            static void writeSimpleField_internal(std::ostream &os, ColType const &x) {
+            static void writeSimpleField_internal(std::ostream &os, ColType const &x, bool dontQuoteFields) {
                 if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::string>) {
-                    os << std::quoted(CsvSingleLayerWrapperHelper<ColType>::constRef(x));
+                    if (dontQuoteFields) {
+                        bool needQuote = false;
+                        std::string const &s = CsvSingleLayerWrapperHelper<ColType>::constRef(x);
+                        for (char c : s) {
+                            if (std::isspace(c) || c == '\"' || c == '\\' || c == ',') {
+                                needQuote = true;
+                                break;
+                            }
+                        }
+                        if (needQuote) {
+                            os << std::quoted(s);
+                        } else {
+                            os << s;
+                        }
+                    } else {
+                        os << std::quoted(CsvSingleLayerWrapperHelper<ColType>::constRef(x));
+                    }
                 } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,bool>) {
                     os << (CsvSingleLayerWrapperHelper<ColType>::constRef(x)?"true":"false");
                 } else if constexpr (std::is_same_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType,std::tm>) {
@@ -368,9 +385,40 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 } else if constexpr (std::is_empty_v<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>) {
                     //do nothing
                 } else if constexpr (IsConstStringType<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
-                    os << std::quoted(CsvSingleLayerWrapperHelper<ColType>::UnderlyingType::VALUE);
+                    if (dontQuoteFields) {
+                        bool needQuote = false;
+                        for (char c : CsvSingleLayerWrapperHelper<ColType>::UnderlyingType::VALUE) {
+                            if (std::isspace(c) || c == '\"' || c == '\\' || c == ',') {
+                                needQuote = true;
+                                break;
+                            }
+                        }
+                        if (needQuote) {
+                            os << std::quoted(CsvSingleLayerWrapperHelper<ColType>::UnderlyingType::VALUE);
+                        } else {
+                            os << CsvSingleLayerWrapperHelper<ColType>::UnderlyingType::VALUE;
+                        }
+                    } else {
+                        os << std::quoted(CsvSingleLayerWrapperHelper<ColType>::UnderlyingType::VALUE);
+                    }
                 } else if constexpr (ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::value) {
-                    os << std::quoted(ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::toString(CsvSingleLayerWrapperHelper<ColType>::constRef(x)));
+                    if (dontQuoteFields) {
+                        bool needQuote = false;
+                        std::string s = ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::toString(CsvSingleLayerWrapperHelper<ColType>::constRef(x));
+                        for (char c : s) {
+                            if (std::isspace(c) || c == '\"' || c == '\\' || c == ',') {
+                                needQuote = true;
+                                break;
+                            }
+                        }
+                        if (needQuote) {
+                            os << std::quoted(s);
+                        } else {
+                            os << s;
+                        }
+                    } else {
+                        os << std::quoted(ConvertibleWithString<typename CsvSingleLayerWrapperHelper<ColType>::UnderlyingType>::toString(CsvSingleLayerWrapperHelper<ColType>::constRef(x)));
+                    }
                 } else {
                     os << CsvSingleLayerWrapperHelper<ColType>::constRef(x);
                 }
@@ -387,18 +435,18 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                     //do nothing
                 } else {
                     std::ostringstream oss;
-                    writeSimpleField_internal<ColType>(oss, x);
+                    writeSimpleField_internal<ColType>(oss, x, true);
                     receiver(name, oss.str());
                 }
             }
             template <class T, std::size_t Index>
-            static void writeTupleField(std::ostream &os, T const &f) {
+            static void writeTupleField(std::ostream &os, T const &f, bool dontQuoteFields) {
                 if constexpr (Index<std::tuple_size_v<T>) {
                     if constexpr (Index > 0) {
                         os << ',';
                     }
-                    writeSingleField(os, std::get<Index>(f));
-                    writeTupleField<T,Index+1>(os, f);
+                    writeSingleField(os, std::get<Index>(f), dontQuoteFields);
+                    writeTupleField<T,Index+1>(os, f, dontQuoteFields);
                 }
             }
             template <class T, std::size_t Index>
@@ -410,21 +458,32 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             }
         public:
             template <class F>
-            static void writeSingleField(std::ostream &os, F const &f) {
+            static void writeSingleField(std::ostream &os, F const &f, bool dontQuoteFields) {
                 if constexpr (is_simple_csv_field_v<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>) {
-                    writeSimpleField_internal<F>(os, f);
+                    writeSimpleField_internal<F>(os, f, dontQuoteFields);
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsCharArray) {
                     char const *p = CsvSingleLayerWrapperHelper<F>::constRef(f).data();
                     std::size_t ii = 0;
+                    bool needQuote = false;
                     for (; ii<ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength; ++ii) {
                         if (p[ii] == '\0') {
                             break;
                         }
+                        if (std::isspace(p[ii]) || p[ii] == '\"' || p[ii] == '\\' || p[i] == ',') {
+                            needQuote = true;
+                        }
                     }
-                    os << std::quoted(std::string_view(
-                        p
-                        , ii
-                    ));
+                    if (dontQuoteFields && !needQuote) {
+                        os << std::string_view(
+                            p
+                            , ii
+                        );
+                    } else {
+                        os << std::quoted(std::string_view(
+                            p
+                            , ii
+                        ));
+                    }
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsArray) {
                     using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
                     for (std::size_t ii=0; ii<ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::ArrayLength; ++ii) {
@@ -432,21 +491,21 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                             os << ',';
                         }
                         if constexpr (is_simple_csv_field_v<BT>) {
-                            writeSimpleField_internal<BT>(os, (CsvSingleLayerWrapperHelper<F>::constRef(f))[ii]);
+                            writeSimpleField_internal<BT>(os, (CsvSingleLayerWrapperHelper<F>::constRef(f))[ii], dontQuoteFields);
                         } else {
-                            writeSingleField<BT>(os, (CsvSingleLayerWrapperHelper<F>::constRef(f))[ii]);
+                            writeSingleField<BT>(os, (CsvSingleLayerWrapperHelper<F>::constRef(f))[ii], dontQuoteFields);
                         }
                     }
                 } else if constexpr (ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::IsOptional) {
                     using BT = typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType;
                     if constexpr (is_simple_csv_field_v<BT>) {
                         if (f) {
-                            writeSimpleField_internal<BT>(os, *(CsvSingleLayerWrapperHelper<F>::constRef(f)));
+                            writeSimpleField_internal<BT>(os, *(CsvSingleLayerWrapperHelper<F>::constRef(f)), dontQuoteFields);
                         }
                     } else {
                         if (f) {
                             writeSingleField<BT>(
-                                os, *(CsvSingleLayerWrapperHelper<F>::constRef(f))
+                                os, *(CsvSingleLayerWrapperHelper<F>::constRef(f)), dontQuoteFields
                             ); 
                         } else {
                             for (std::size_t ii=0; ii<StructFieldInfoCsvSupportChecker<typename ArrayAndOptionalChecker<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::BaseType>::CsvFieldCount-1; ++ii) {
@@ -455,10 +514,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                         }
                     }
                 } else if constexpr (IsTuple<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType>::Value) {
-                    writeTupleField<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType, 0>(os, CsvSingleLayerWrapperHelper<F>::constRef(f));
+                    writeTupleField<typename CsvSingleLayerWrapperHelper<F>::UnderlyingType, 0>(os, CsvSingleLayerWrapperHelper<F>::constRef(f), dontQuoteFields);
                 } else {
                     StructFieldInfoBasedSimpleCsvOutputImpl::writeData<F>(
-                        os, f
+                        os, f, dontQuoteFields
                     );
                 }
             }
@@ -521,14 +580,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             }
         private:
             template <class T, int FieldCount, int FieldIndex, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && StructFieldInfoCsvSupportChecker<T>::IsComposite>>
-            static void writeData_internal(std::ostream &os, T const &t) {
+            static void writeData_internal(std::ostream &os, T const &t, bool dontQuoteFields) {
                 if constexpr (FieldIndex >= 0 && FieldIndex < FieldCount) {
                     if constexpr (FieldIndex != 0) {
                         os << ',';
                     }
                     using F = typename StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::TheType;
-                    writeSingleField<F>(os, StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::constAccess(CsvSingleLayerWrapperHelper<T>::constRef(t)));
-                    writeData_internal<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldCount,FieldIndex+1>(os, (CsvSingleLayerWrapperHelper<T>::constRef(t)));
+                    writeSingleField<F>(os, StructFieldTypeInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldIndex>::constAccess(CsvSingleLayerWrapperHelper<T>::constRef(t)), dontQuoteFields);
+                    writeData_internal<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType,FieldCount,FieldIndex+1>(os, (CsvSingleLayerWrapperHelper<T>::constRef(t)), dontQuoteFields);
                 }
             }
             template <class T, int FieldCount, int FieldIndex, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && StructFieldInfoCsvSupportChecker<T>::IsComposite>>
@@ -562,8 +621,8 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
                 }
             }
             template <class T, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && StructFieldInfoCsvSupportChecker<T>::IsComposite>>
-            static void writeData(std::ostream &os, T const &t) {
-                writeData_internal<T,StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0>(os, t);
+            static void writeData(std::ostream &os, T const &t, bool dontQuoteFields) {
+                writeData_internal<T,StructFieldInfo<typename CsvSingleLayerWrapperHelper<T>::UnderlyingType>::FIELD_NAMES.size(),0>(os, t, dontQuoteFields);
             }
             template <class T, typename=std::enable_if_t<StructFieldInfoCsvSupportChecker<T>::IsGoodForCsv && StructFieldInfoCsvSupportChecker<T>::IsComposite>>
             static void outputNameValuePairs(std::string const &prefix, T const &t, std::function<void(std::string const &, std::string const &)> const &receiver, bool dontAppendIndexToArrayNames) {
@@ -585,20 +644,20 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
         static void writeHeaderNoNewLine(std::ostream &os) {
             internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeHeader<T>(os);
         }
-        static void writeData(std::ostream &os, T const &t) {
-            internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeData<T>(os, t);
+        static void writeData(std::ostream &os, T const &t, bool dontQuoteFields=false) {
+            internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeData<T>(os, t, dontQuoteFields);
             os << '\n';
         }
-        static void writeDataNoNewLine(std::ostream &os, T const &t) {
-            internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeData<T>(os, t);
+        static void writeDataNoNewLine(std::ostream &os, T const &t, bool dontQuoteFields=false) {
+            internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeData<T>(os, t, dontQuoteFields);
         }
         template <class Iter>
-        static void writeDataCollection(std::ostream &os, Iter begin, Iter end, bool dontWriteHeader=false) {
+        static void writeDataCollection(std::ostream &os, Iter begin, Iter end, bool dontWriteHeader=false, bool dontQuoteFields=false) {
             if (!dontWriteHeader) {
                 writeHeader(os);
             }
             for (Iter iter = begin; iter != end; ++iter) {
-                writeData(os, *iter);
+                writeData(os, *iter, dontQuoteFields);
             }
         }
         static void outputNameValuePairs(T const &t, std::function<void(std::string const &, std::string const &)> const &receiver, bool dontAppendIndexToArrayNames=false) {
@@ -610,13 +669,13 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
     class StructFieldInfoBasedSimpleCsvOutput_SingleValue {
     public:
         template <class T>
-        static void writeData(std::ostream &os, T const &t) {
-            internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeSingleField<T>(os, t);
+        static void writeData(std::ostream &os, T const &t, bool dontQuoteFields=false) {
+            internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeSingleField<T>(os, t, dontQuoteFields);
             os << '\n';
         }
         template <class T>
-        static void writeDataNoNewLine(std::ostream &os, T const &t) {
-            internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeSingleField<T>(os, t);
+        static void writeDataNoNewLine(std::ostream &os, T const &t, bool dontQuoteFields=false) {
+            internal::StructFieldInfoBasedSimpleCsvOutputImpl::writeSingleField<T>(os, t, dontQuoteFields);
         }
         template <class T>
         static void outputNameValuePairs(T const &t, std::function<void(std::string const &, std::string const &)> const &receiver, bool dontAppendIndexToArrayNames=false) {
