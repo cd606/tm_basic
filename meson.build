@@ -2,11 +2,22 @@ project('TM kit basic', 'cpp', default_options: ['cpp_std=c++17', 'warning_level
 
 inc = include_directories('.')
 thread_dep = dependency('threads')
-if build_machine.system() == 'windows'
-boost_dep = dependency('boost', modules : ['log','log_setup','thread','filesystem','iostreams'])
-else
-boost_dep = dependency('boost', modules : ['log','log_setup','system','thread','filesystem','iostreams'])
+boost_modules = ['log', 'log_setup', 'thread', 'filesystem', 'iostreams']
+
+# Try adding 'system'
+boost_dep = dependency('boost',
+  modules : boost_modules + ['system'],
+  required : false
+)
+
+# If Boost with 'system' not found, retry without it
+if not boost_dep.found()
+  boost_dep = dependency('boost',
+    modules : boost_modules,
+    required : true
+  )
 endif
+
 spd_dep = dependency('spdlog')
 if get_option('buildtype') == 'debug'
   tm_infra_dep = dependency('tm_kit_infra_debug')
