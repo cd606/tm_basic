@@ -110,7 +110,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             return output;
         }
 
-        void writePythonEnumDef(std::string const &typeName, MetaInformation_Enum const &info, std::unordered_map<std::string, std::string> const &assignedNames, std::map<std::string, std::tuple<std::size_t, MetaInformation>> const &unnamedTypes, std::ostream &os, std::size_t offset) {
+        void writePythonEnumDef(std::string const &typeName, MetaInformation_Enum const &info, std::unordered_map<std::string, std::string> const &/*assignedNames*/, std::map<std::string, std::tuple<std::size_t, MetaInformation>> const &/*unnamedTypes*/, std::ostream &os, std::size_t offset) {
             os << std::string(offset, ' ') << "class " << typeName << "(IntEnum):\n";
             for (auto const &item : info.EnumInfo) {
                 os << std::string(offset+4, ' ') << item.CppValueName << " = " << item.Value << '\n';
@@ -135,7 +135,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             os << std::string(offset+8, ' ') << "else:\n";
             os << std::string(offset+12, ' ') << "raise ValueError\n";
         }
-        void writePythonToCbor(std::string const &fieldName, MetaInformation const &fieldType, std::unordered_map<std::string, std::string> const &assignedNames, std::map<std::string, std::tuple<std::size_t, MetaInformation>> const &unnamedTypes, std::ostream &os) {
+        void writePythonToCbor(std::string const &fieldName, MetaInformation const &fieldType, std::unordered_map<std::string, std::string> const &/*assignedNames*/, std::map<std::string, std::tuple<std::size_t, MetaInformation>> const &unnamedTypes, std::ostream &os) {
             std::visit([&unnamedTypes,&fieldName,&os](auto const &x) {
                 using T = std::decay_t<decltype(x)>;
                 if constexpr (std::is_same_v<T, MetaInformation_BuiltIn>) {
@@ -300,7 +300,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             } else {
                 os << std::string(offset+8, ' ') << "return " << typeName << "(\n";
                 auto atBeginning = true;
-                for (auto ii=0; ii<info.Fields.size(); ++ii) {
+                for (std::size_t ii=0; ii<info.Fields.size(); ++ii) {
                     os << std::string(offset+12, ' ') << (atBeginning?' ':',') << " ";
                     atBeginning = false;
                     writePythonFromCbor("val["+std::to_string(ii)+"]", *info.Fields[ii].FieldType, assignedNames, unnamedTypes, os);

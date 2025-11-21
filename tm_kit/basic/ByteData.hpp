@@ -1401,7 +1401,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
             static std::optional<size_t> applyInPlace(std::chrono::system_clock::time_point &output, std::string_view const &data, size_t start) {
-                int64_t t;
+                int64_t t=0;
                 auto ret = RunCBORDeserializer<int64_t>::applyInPlace(t, data, start);
                 if (ret) {
                     output = infra::withtime_utils::epochDurationToTime<std::chrono::microseconds>(t);
