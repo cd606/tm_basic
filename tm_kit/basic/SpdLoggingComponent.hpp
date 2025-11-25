@@ -436,7 +436,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     }
                 } else {
                     auto formatter = std::make_unique<spdlog::pattern_formatter>();
-                    formatter->add_flag<VirtualClockFormatter>('*', this).set_pattern("[%l] [%*] [Thread %t] %v");
+                    if constexpr (LogThreadID) {
+                        formatter->add_flag<VirtualClockFormatter>('*', this).set_pattern("[%l] [%*] [Thread %t] %v");
+                    } else {
+                        formatter->add_flag<VirtualClockFormatter>('*', this).set_pattern("[%l] [%*] %v");
+                    }
                     logger_->set_formatter(std::move(formatter));
                 }
             }
