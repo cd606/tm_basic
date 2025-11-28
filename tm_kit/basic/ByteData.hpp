@@ -1422,7 +1422,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             }
             static std::optional<size_t> applyInPlace(char &output, std::string_view const &data, size_t start) {
-                int8_t t;
+                int8_t t = 0;
                 auto ret = RunCBORDeserializer<int8_t>::applyInPlace(t, data, start);
                 if (ret) {
                     output = static_cast<char>(t);
