@@ -3359,7 +3359,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     using X = typename IsRemainingFieldHandler<F>::UnderlyingType;
                     auto const &s = s_fieldNameSet();
                     for (auto const &item : input.get_object()) {
-#if !defined(_MSC_VER) && defined(__GNUC__) && __GNUC__ >= 15
+#if !defined(_MSC_VER) && ((defined(__GNUC__) && __GNUC__ >= 15) || (defined(__clang__) && __clang_major__ >= 18))
 		        std::string k { item.key };
                         if (s.find(k) == s.end()) {
                             if (!JsonDecoder<X>::read_simd(item.value, std::nullopt, m.data[k])) {
@@ -3432,7 +3432,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                     using X = typename IsRemainingFieldHandler<F>::UnderlyingType;
                     auto const &s = s_fieldNameSet();
                     for (auto item : input) {
-                        std::string k = std::string_view(item.unescaped_key());
+                        std::string k { std::string_view {item.unescaped_key()} };
                         if (s.find(k) == s.end()) {
                             if (!JsonDecoder<X>::read_simd_ondemand(item.value(), std::nullopt, m.data[k])) {
                                 m.data.erase(k);

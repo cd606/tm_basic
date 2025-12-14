@@ -110,12 +110,12 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
     public:
         static bool check(std::valarray<T> const &a, std::valarray<T> const &b) {
             for (std::size_t ii=0; ii<a.size() && ii<b.size(); ++ii) {
-                auto b = ComparisonHelper<T>::check(a[ii], b[ii]);
-                if (b) {
+                auto r = ComparisonHelper<T>::check(a[ii], b[ii]);
+                if (r) {
                     return true;
                 }
-                b = ComparisonHelper<T>::check(b[ii], a[ii]);
-                if (b) {
+                r = ComparisonHelper<T>::check(b[ii], a[ii]);
+                if (r) {
                     return false;
                 }
                 
