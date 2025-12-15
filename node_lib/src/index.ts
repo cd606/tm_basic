@@ -7,6 +7,7 @@ import { Console } from 'console';
 import * as Types from './types';
 
 export type * from './types';
+export { Transaction_DataStreamInterface_OneUpdateItemSubtypes, TransactionInterface_RequestDecision, TransactionInterface_TransactionSubtypes, GeneralSubscriber_InputSubtypes, GeneralSubscriber_OutputSubtypes } from './types';
 
 const printf = require('printf');  //this module can only be loaded this way in TypeScript
 
