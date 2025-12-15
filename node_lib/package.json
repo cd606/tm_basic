@@ -1,0 +1,31 @@
+{
+    "name": "@dev_cd606/tm_basic",
+    "version": "1.0.0",
+    "description": "Pure Node.js implementation of tm_basic(currently only partial functionalities)",
+    "license": "MIT",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "files": [
+        "dist/"
+    ],
+    "scripts": {
+        "build": "tsc"
+    },
+    "engines": {
+        "node": ">=18"
+    },
+    "devDependencies": {
+        "@types/lodash": "^4.17.21",
+        "@types/node": "^25.0.2",
+        "typescript": "^5.4.0"
+    },
+    "dependencies": {
+        "@dev_cd606/tm_infra": "file:../../tm_infra/node_lib",
+        "console": "^0.7.2",
+        "date-fns": "^4.1.0",
+        "fs": "^0.0.1-security",
+        "lodash": "^4.17.21",
+        "printf": "^0.6.1",
+        "stream": "^0.0.3"
+    }
+}
