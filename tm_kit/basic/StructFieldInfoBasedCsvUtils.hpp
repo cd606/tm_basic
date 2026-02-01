@@ -1206,7 +1206,9 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace str
             std::string s;
             bool gotData = false;
             while (!is.eof()) {
-                std::getline(is, s);
+                if (!std::getline(is, s)) {
+                    return std::nullopt;
+                }
                 boost::trim(s);
                 if (s == "") {
                     continue;
