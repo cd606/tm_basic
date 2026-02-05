@@ -928,6 +928,98 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
     };
 
+    template <class T, class ByteDataWithTopicFormat, template <class... Xs> class Wrapper = std::void_t>
+    class GenericIOStream_TypedDataWithTopicWriter {
+    public:
+        using UnderlyingWriter = ByteDataWithTopicRecordFileWriter<ByteDataWithTopicFormat>;
+    private:
+        UnderlyingWriter writer_;
+    public:
+        GenericIOStream_TypedDataWithTopicWriter(UnderlyingWriter &&writer = UnderlyingWriter {{}, {}}) : writer_(std::move(writer)) {}
+        template <class Env>
+        void start(Env *, std::ostream &os) {
+            writer_.startWritingByteDataWithTopicRecordFile(os);
+        }
+        template <class Env, class TimePoint>
+        void writeOne(Env *, std::ostream &os, infra::WithTime<TypedDataWithTopic<T>, TimePoint> &&data) {
+            writer_.writeByteDataWithTopicRecord(os, infra::WithTime<ByteDataWithTopic, TimePoint> {std::move(data.timePoint), {std::move(data.value.topic), bytedata_utils::RunSerializer<Wrapper<T>>::apply(Wrapper<T> {std::move(data.value.content)})}});            
+        }
+    };
+
+    template <class T, class ByteDataWithTopicFormat>
+    class GenericIOStream_TypedDataWithTopicWriter<T, ByteDataWithTopicFormat, std::void_t> {
+    public:
+        using UnderlyingWriter = ByteDataWithTopicRecordFileWriter<ByteDataWithTopicFormat>;
+    private:
+        UnderlyingWriter writer_;
+    public:
+        GenericIOStream_TypedDataWithTopicWriter(UnderlyingWriter &&writer = UnderlyingWriter {{}, {}}) : writer_(std::move(writer)) {}
+        template <class Env>
+        void start(Env *, std::ostream &os) {
+            writer_.startWritingByteDataWithTopicRecordFile(os);
+        }
+        template <class Env, class TimePoint>
+        void writeOne(Env *, std::ostream &os, infra::WithTime<TypedDataWithTopic<T>, TimePoint> &&data) {
+            writer_.writeByteDataWithTopicRecord(os, infra::WithTime<ByteDataWithTopic, TimePoint> {std::move(data.timePoint), {std::move(data.value.topic), bytedata_utils::RunSerializer<T>::apply(std::move(data.value.content))}});            
+        }
+    };
+
+    template <class T, class ByteDataWithTopicFormat, template <class... Xs> class Wrapper = std::void_t>
+    class GenericIOStream_TypedDataWithTopicReader {
+    public:
+        using UnderlyingReader = ByteDataWithTopicRecordFileReader<ByteDataWithTopicFormat>;
+    private:
+        UnderlyingReader reader_;
+    public:
+        GenericIOStream_TypedDataWithTopicReader(UnderlyingReader &&reader = UnderlyingReader {{}, {}}) : reader_(std::move(reader)) {}
+        template <class Env>
+        void start(Env *, std::istream &is) {
+            reader_.startReadingByteDataWithTopicRecordFile(is);
+        }
+        template <class Env>
+        std::optional<std::tuple<typename Env::TimePointType, TypedDataWithTopic<T>>> readOne(Env *, std::istream &is) {
+            auto res = reader_.readByteDataWithTopicRecord(is);
+            if (!res) {
+                return std::nullopt;
+            }
+            std::optional<Wrapper<T>> t;
+            t = bytedata_utils::RunDeserializer<Wrapper<T>>::apply(res->value.content);
+            if (t) {
+                return std::make_tuple<typename Env::TimePointType, TypedDataWithTopic<T>>(std::move(res->timePoint), TypedDataWithTopic<T> {std::move(res->value.topic), std::move(t->value)});
+            } else {
+                return std::nullopt;    
+            }
+        }
+    };
+
+    template <class T, class ByteDataWithTopicFormat>
+    class GenericIOStream_TypedDataWithTopicReader<T, ByteDataWithTopicFormat, std::void_t> {
+    public:
+        using UnderlyingReader = ByteDataWithTopicRecordFileReader<ByteDataWithTopicFormat>;
+    private:
+        UnderlyingReader reader_;
+    public:
+        GenericIOStream_TypedDataWithTopicReader(UnderlyingReader &&reader = UnderlyingReader {{}, {}}) : reader_(std::move(reader)) {}
+        template <class Env>
+        void start(Env *, std::istream &is) {
+            reader_.startReadingByteDataWithTopicRecordFile(is);
+        }
+        template <class Env>
+        std::optional<std::tuple<typename Env::TimePointType, TypedDataWithTopic<T>>> readOne(Env *, std::istream &is) {
+            auto res = reader_.readByteDataWithTopicRecord(is);
+            if (!res) {
+                return std::nullopt;
+            }
+            std::optional<T> t;
+            t = bytedata_utils::RunDeserializer<T>::apply(res->value.content);
+            if (t) {
+                return std::make_tuple<typename Env::TimePointType, TypedDataWithTopic<T>>(std::move(res->timePoint), TypedDataWithTopic<T> {std::move(res->value.topic), std::move(*t)});
+            } else {
+                return std::nullopt;    
+            }
+        }
+    };
+
 } } } }
 
 #endif
