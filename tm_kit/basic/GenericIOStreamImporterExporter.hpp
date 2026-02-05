@@ -102,10 +102,10 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 );
             }
             return typename App::template InnerData<T> {
-                env 
+                env
                 , {
-                    item.tp 
-                    , item.data 
+                    item.tp
+                    , item.data
                     , queue.empty()
                 }
             };
@@ -120,7 +120,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             bool fileEof_;
             bool done_;
         public:
-            BufferedReader() 
+            BufferedReader()
                 : buf_{
                     std::make_unique<char[]>(BufferSize)
                     , std::make_unique<char[]>(BufferSize)
@@ -129,7 +129,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 , bufPos_{0,0}
                 , bufEndPos_{0,0}
                 , fileEof_(false)
-                , done_(false) 
+                , done_(false)
             {}
             ~BufferedReader() = default;
             BufferedReader(BufferedReader &&) = default;
@@ -182,11 +182,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         ) {
             return infra::BasicWithTimeApp<Env>::template vacuousImporter<T>();
         }
-        
+
         template <class T, class Writer>
         static std::shared_ptr<typename infra::BasicWithTimeApp<Env>::template Exporter<T>>
         createExporter(std::ostream &os, Writer &&writer, bool separateThread=false) {
-            return infra::BasicWithTimeApp<Env>::template trivialExporter<T>();           
+            return infra::BasicWithTimeApp<Env>::template trivialExporter<T>();
         }
     };
 
@@ -226,7 +226,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                                 running_ = false;
                                 break;
                             }
-                            
+
                             if (ret->timedData.timePoint < t) {
                                 if (ret->timedData.timePoint >= t-std::chrono::seconds(1)) {
                                     this->publish(std::move(*ret));
@@ -286,7 +286,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             private:
                 std::shared_ptr<std::istream> stream_;
                 Reader reader_;
-                
+
                 Env *env_;
                 std::thread th_;
                 std::atomic<bool> running_;
@@ -364,7 +364,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             };
             return infra::RealTimeApp<Env>::template importer<T>(new LocalI(stream, std::move(reader)));
         }
-        
+
         template <class T, class Writer>
         static std::shared_ptr<typename infra::RealTimeApp<Env>::template Exporter<T>>
         createExporter(std::ostream &os, Writer &&writer, bool separateThread=false) {
@@ -411,7 +411,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 return infra::RealTimeApp<Env>::template exporter(new LocalEThreaded(os, std::move(writer)));
             } else {
                 return infra::RealTimeApp<Env>::template exporter(new LocalENonThreaded(os, std::move(writer)));
-            }           
+            }
         }
     };
 
@@ -451,7 +451,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         env_, queue_, spec_, reader_, dataComparer_
                     );
                 }
-                virtual typename infra::SinglePassIterationApp<Env>::template Data<T> 
+                virtual typename infra::SinglePassIterationApp<Env>::template Data<T>
                 generate(T const *notUsed=nullptr) override final {
                     TM_INFRA_IMPORTER_TRACER(env_);
                     return GenericIOStreamImporterExporterHelper::template stepQueue<infra::SinglePassIterationApp<Env>,T,Reader,DataComparer>(
@@ -461,7 +461,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             };
             return infra::SinglePassIterationApp<Env>::template importer<T>(new LocalI(spec, std::move(reader), std::move(dataComparer)));
         }
-        
+
         template <class T, class Reader>
         static std::shared_ptr<typename infra::SinglePassIterationApp<Env>::template Importer<T>>
         createImporter(
@@ -473,7 +473,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::shared_ptr<std::istream> stream_;
                 Reader reader_;
                 std::optional<std::tuple<typename infra::SinglePassIterationApp<Env>::TimePoint,T>> data_;
-                
+
                 Env *env_;
             public:
                 LocalI(
@@ -490,7 +490,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                     reader_.start(env_, *stream_);
                     data_ = reader_.readOne(env_, *stream_);
                 }
-                virtual typename infra::SinglePassIterationApp<Env>::template Data<T> 
+                virtual typename infra::SinglePassIterationApp<Env>::template Data<T>
                 generate(T const *notUsed=nullptr) override final {
                     TM_INFRA_IMPORTER_TRACER(env_);
                     if (!data_) {
@@ -570,7 +570,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                         env_, queue_, spec_, reader_, dataComparer_
                     );
                 }
-                virtual std::tuple<bool, typename infra::TopDownSinglePassIterationApp<Env>::template Data<T>> 
+                virtual std::tuple<bool, typename infra::TopDownSinglePassIterationApp<Env>::template Data<T>>
                 generate(T const *notUsed=nullptr) override final {
                     TM_INFRA_IMPORTER_TRACER(env_);
                     auto ret = GenericIOStreamImporterExporterHelper::template stepQueue<infra::TopDownSinglePassIterationApp<Env>,T,Reader,DataComparer>(
@@ -584,7 +584,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             };
             return infra::TopDownSinglePassIterationApp<Env>::template importer<T>(new LocalI(spec, std::move(reader), std::move(dataComparer)));
         }
-        
+
         template <class T, class Reader>
         static std::shared_ptr<typename infra::TopDownSinglePassIterationApp<Env>::template Importer<T>>
         createImporter(
@@ -596,7 +596,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 std::shared_ptr<std::istream> stream_;
                 Reader reader_;
                 std::optional<std::tuple<typename infra::TopDownSinglePassIterationApp<Env>::TimePoint,T>> data_;
-                
+
                 Env *env_;
             public:
                 LocalI(
@@ -885,6 +885,46 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             std::memcpy(&t, timeData.data(), std::min(timeData.length(), sizeof(TimeType)));
             t = boost::endian::little_to_native<TimeType>(t);
             return infra::withtime_utils::epochDurationToTime<Duration>(t);
+        }
+    };
+
+    template <class ByteDataWithTopicFormat>
+    class GenericIOStream_ByteDataWithTopicWriter {
+    public:
+        using UnderlyingWriter = ByteDataWithTopicRecordFileWriter<ByteDataWithTopicFormat>;
+    private:
+        UnderlyingWriter writer_;
+    public:
+        GenericIOStream_ByteDataWithTopicWriter(UnderlyingWriter &&writer = UnderlyingWriter {{}, {}}) : writer_(std::move(writer)) {}
+        template <class Env>
+        void start(Env *, std::ostream &os) {
+            writer_.startWritingByteDataWithTopicRecordFile(os);
+        }
+        template <class Env, class TimePoint>
+        void writeOne(Env *, std::ostream &os, infra::WithTime<ByteDataWithTopic, TimePoint> &&data) {
+            writer_.writeByteDataWithTopicRecord(os, data);
+        }
+    };
+
+    template <class ByteDataWithTopicFormat>
+    class GenericIOStream_ByteDataWithTopicReader {
+    public:
+        using UnderlyingReader = ByteDataWithTopicRecordFileReader<ByteDataWithTopicFormat>;
+    private:
+        UnderlyingReader reader_;
+    public:
+        GenericIOStream_ByteDataWithTopicReader(UnderlyingReader &&reader = UnderlyingReader {{}, {}}) : reader_(std::move(reader)) {}
+        template <class Env>
+        void start(Env *, std::istream &is) {
+            reader_.startReadingByteDataWithTopicRecordFile(is);
+        }
+        template <class Env>
+        std::optional<std::tuple<typename Env::TimePointType, ByteDataWithTopic>> readOne(Env *, std::istream &is) {
+            auto res = reader_.readByteDataWithTopicRecord(is);
+            if (!res) {
+                return std::nullopt;
+            }
+            return std::make_tuple<typename Env::TimePointType, ByteDataWithTopic>(std::move(res->timePoint), std::move(res->value));
         }
     };
 

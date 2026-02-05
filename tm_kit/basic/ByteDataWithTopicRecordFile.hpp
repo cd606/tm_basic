@@ -146,7 +146,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 if (is.gcount() != 1) {
                     return std::nullopt;
                 }
-                ret.finalFlag = ((int) b != 0); 
+                ret.finalFlag = ((int) b != 0);
             } else {
                 ret.finalFlag = false;
             }
