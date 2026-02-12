@@ -223,6 +223,16 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
             return TimePointAsStringWithZoneOffset {infra::withtime_utils::parseZonedTime(s)};
         }
     };
+
+    template <typename TimeZoneSpec>
+    std::ostream &operator<<(std::ostream &os, TimePointAsString<TimeZoneSpec> const &t) {
+        os << t.asString();
+        return os;
+    }
+    inline std::ostream &operator<<(std::ostream &os, TimePointAsStringWithZoneOffset const &t) {
+        os << t.asString();
+        return os;
+    }
 }}}}
 
 #define TM_BASIC_TIME_POINT_AS_STRING_TEMPLATE_ARGS \
