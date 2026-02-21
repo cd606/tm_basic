@@ -1023,7 +1023,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <>
     class JsonDecoder<bool, void> {
     public:
-        static void fillFieldNameMapping(JsonFieldMapping const &mapping=JsonFieldMapping {}) {}
+        static void fillFieldNameMapping(JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {}
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, bool &data, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
             auto const &i = (key?input.at(*key):input);
             if (i.is_string()) {
@@ -1044,14 +1044,14 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 return true;
             }
         }
-        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, bool &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, bool &data, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
             if (key) {
                 try {
                     if (input[*key].is_string()) {
                         try {
                             data = boost::lexical_cast<bool>((std::string_view) input[*key]);
                             return true;
-                        } catch (boost::bad_lexical_cast) {
+                        } catch (boost::bad_lexical_cast const &) {
                             data = false;
                             return false;
                         }
@@ -1069,7 +1069,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                         try {
                             data = boost::lexical_cast<bool>((std::string_view) input);
                             return true;
-                        } catch (boost::bad_lexical_cast) {
+                        } catch (boost::bad_lexical_cast const &) {
                             data = false;
                             return false;
                         }
@@ -1180,7 +1180,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <>
     class JsonDecoder<std::string, void> {
     public:
-        static void fillFieldNameMapping(JsonFieldMapping const &mapping=JsonFieldMapping {}) {}
+        static void fillFieldNameMapping(JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {}
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, std::string &data, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
             auto const &i = (key?input.at(*key):input);
             if (i.is_null()) {
@@ -1191,7 +1191,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
                 return true;
             }
         }
-        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::string &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, std::string &data, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
             if (key) {
                 try {
                     if (input[*key].is_null()) {
@@ -1410,7 +1410,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <>
     class JsonDecoder<ByteData, void> {
     public:
-        static void fillFieldNameMapping(JsonFieldMapping const &mapping=JsonFieldMapping {}) {}
+        static void fillFieldNameMapping(JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {}
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, ByteData &data, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
             std::vector<unsigned int> x;
             bool ret = false;
@@ -1428,7 +1428,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
             }
             return ret;
         }
-        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, ByteData &data, JsonFieldMapping const &mapping=JsonFieldMapping {}) {
+        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, ByteData &data, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
             std::vector<unsigned int> x;
             try {
                 if (key) {
@@ -1542,7 +1542,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <>
     class JsonDecoder<std::tm, void> {
     public:
-        static void fillFieldNameMapping(JsonFieldMapping const &mapping=JsonFieldMapping {}) {}
+        static void fillFieldNameMapping(JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {}
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, std::tm &data, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
             bool ret = false;
             std::string s;
@@ -1597,7 +1597,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <>
     class JsonDecoder<DateHolder, void> {
     public:
-        static void fillFieldNameMapping(JsonFieldMapping const &mapping=JsonFieldMapping {}) {}
+        static void fillFieldNameMapping(JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {}
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, DateHolder &data, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
             bool ret = false;
             std::string s;
@@ -1686,7 +1686,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <>
     class JsonDecoder<std::chrono::system_clock::time_point, void> {
     public:
-        static void fillFieldNameMapping(JsonFieldMapping const &mapping=JsonFieldMapping {}) {}
+        static void fillFieldNameMapping(JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {}
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, std::chrono::system_clock::time_point &data, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
             bool ret = false;
             std::string s;
@@ -2718,7 +2718,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <>
     class JsonDecoder<VoidStruct, void> {
     public:
-        static void fillFieldNameMapping(JsonFieldMapping const &mapping=JsonFieldMapping {}) {}
+        static void fillFieldNameMapping(JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {}
         static bool read(nlohmann::json const &/*input*/, std::optional<std::string> const &/*key*/, VoidStruct &/*data*/, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
             return true;
         }
@@ -2733,7 +2733,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <>
     class JsonDecoder<std::monostate, void> {
     public:
-        static void fillFieldNameMapping(JsonFieldMapping const &mapping=JsonFieldMapping {}) {}
+        static void fillFieldNameMapping(JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {}
         static bool read(nlohmann::json const &/*input*/, std::optional<std::string> const &/*key*/, std::monostate &/*data*/, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
             return true;
         }
@@ -3890,17 +3890,17 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace nlo
     template <>
     class JsonDecoder<nlohmann::json, void> {
     public:
-        static void fillFieldNameMapping(JsonFieldMapping const &mapping=JsonFieldMapping {}) {}
+        static void fillFieldNameMapping(JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {}
         static bool read(nlohmann::json const &input, std::optional<std::string> const &key, nlohmann::json &data, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
             data = (key?input[*key]:input);
             return true;
         }
-        static bool read_simd(simdjson::dom::element const &input, std::optional<std::string> const &key, nlohmann::json &data, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
+        static bool read_simd(simdjson::dom::element const &/*input*/, std::optional<std::string> const &/*key*/, nlohmann::json &/*data*/, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
             throw std::runtime_error("Cannot assign simdjson to nlohmann::json");
             return false;
         }
         template <class X>
-        static bool read_simd_ondemand(X &input, std::optional<std::string> const &key, nlohmann::json &data, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
+        static bool read_simd_ondemand(X &/*input*/, std::optional<std::string> const &/*key*/, nlohmann::json &/*data*/, JsonFieldMapping const &/*mapping*/=JsonFieldMapping {}) {
             throw std::runtime_error("Cannot assign simdjson to nlohmann::json");
             return false;
         }
@@ -4278,11 +4278,11 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace byt
     struct RunCBORDeserializer<nlohmann::json, void> {
         static std::optional<std::tuple<nlohmann::json, size_t>> apply(std::string_view const &data, size_t start) {
             return std::tuple<nlohmann::json,size_t> {
-                nlohmann::json::from_cbor(data.data()+start, data.length()-start), data.length()-start
+                nlohmann::json::from_cbor(data.data()+start, data.data()+data.length()), data.length()-start
             };
         }
         static std::optional<size_t> applyInPlace(nlohmann::json &output, std::string_view const &data, size_t start) {
-            output = nlohmann::json::from_cbor(data.data()+start, data.length()-start);
+            output = nlohmann::json::from_cbor(data.data()+start, data.data()+data.length());
             return (size_t) (data.length()-start);
         }
     };
