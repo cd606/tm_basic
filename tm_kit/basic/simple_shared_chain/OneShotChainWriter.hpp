@@ -31,6 +31,7 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
             } else {
                 currentItem = chain->head(env);
             }
+            using FuncRes = decltype(f(*(typename ChainItemFolder::ResultType const *) nullptr));
 
             while (true) {
                 while (true) {
@@ -53,15 +54,27 @@ namespace dev { namespace cd606 { namespace tm { namespace basic { namespace sim
                         }
                     }
                 }
-                typename std::optional<std::tuple<std::string, typename Chain::DataType>>
-                    calcRes = f(currentState);
-                if (calcRes) {
-                    std::string newID = std::move(std::get<0>(*calcRes));
-                    if (newID == "") {
-                        newID = Chain::template newStorageIDAsString<Env>();
+                if constexpr (std::is_same_v<FuncRes, std::optional<std::tuple<std::string, typename Chain::DataType>>>) {
+                    FuncRes calcRes = f(currentState);
+                    if (calcRes) {
+                        std::string newID = std::move(std::get<0>(*calcRes));
+                        if (newID == "") {
+                            newID = Chain::template newStorageIDAsString<Env>();
+                        }
+                        if (chain->appendAfter(currentItem, chain->formChainItem(newID, std::move(std::get<1>(*calcRes))))) {
+                            return true;
+                        }
+                    } else {
+                        return false;
                     }
-                    if (chain->appendAfter(currentItem, chain->formChainItem(newID, std::move(std::get<1>(*calcRes))))) {
-                        return true;
+                } else if constexpr (std::is_same_v<FuncRes, std::vector<std::tuple<std::string, typename Chain::DataType>>>) {
+                    FuncRes calcRes = f(currentState);
+                    if (!calcRes.empty()) {
+                        if (chain->appendAfter(currentItem, chain->formChainItems(std::move(calcRes)))) {
+                            return true;
+                        }
+                    } else {
+                        return false;
                     }
                 } else {
                     return false;
