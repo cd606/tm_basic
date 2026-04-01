@@ -2,6 +2,7 @@
 #define TM_KIT_BASIC_CONST_STRING_TYPE_HPP_
 
 #include <string_view>
+#include <iostream>
 #if (__cplusplus >= 202002L)
 #include <algorithm>
 #endif
