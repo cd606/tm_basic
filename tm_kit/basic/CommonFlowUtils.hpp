@@ -1879,6 +1879,74 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
         }
 
     private:
+        template <class T, class F>
+        class GroupByLookAhead {
+        private:
+            F groupIdentifierFunc_;
+            std::vector<T> currentGroup_;
+            std::optional<typename M::TimePoint> currentTimestamp_;
+        public:
+            GroupByLookAhead(F &&groupIdentifierFunc)
+                : groupIdentifierFunc_(std::move(groupIdentifierFunc))
+                , currentGroup_()
+                , currentTimestamp_(std::nullopt)
+            {}
+            GroupByLookAhead(GroupByLookAhead &&) = default;
+            GroupByLookAhead &operator=(GroupByLookAhead &&) = delete;
+            GroupByLookAhead(GroupByLookAhead const &) = delete;
+            GroupByLookAhead &operator=(GroupByLookAhead const &) = delete;
+
+            typename M::template Data<std::vector<T>> operator()(typename M::template InnerData<std::tuple<T, std::optional<std::tuple<typename M::TimePoint, T>>>> &&input) {
+                auto const &currentTime = input.timedData.timePoint;
+                auto const &currentValueRef = std::get<0>(input.timedData.value);
+                auto currentGroupIdentifier = groupIdentifierFunc_(currentTime, currentValueRef);
+
+                currentTimestamp_ = currentTime;
+                currentGroup_.push_back(std::move(std::get<0>(input.timedData.value)));
+
+                bool shouldOutput = false;
+                if (!std::get<1>(input.timedData.value)) {
+                    shouldOutput = true;
+                } else {
+                    auto const &nextInfo = *(std::get<1>(input.timedData.value));
+                    if (!(groupIdentifierFunc_(std::get<0>(nextInfo), std::get<1>(nextInfo)) == currentGroupIdentifier)) {
+                        shouldOutput = true;
+                    }
+                }
+
+                if (!shouldOutput) {
+                    return std::nullopt;
+                }
+
+                auto ret = typename M::template Data<std::vector<T>> {
+                    typename M::template InnerData<std::vector<T>> {
+                        input.environment
+                        , {
+                            *currentTimestamp_
+                            , std::move(currentGroup_)
+                            , input.timedData.finalFlag
+                        }
+                    }
+                };
+                currentGroup_.clear();
+                currentTimestamp_ = std::nullopt;
+                return ret;
+            }
+        };
+    public:
+        template <class T, class F>
+        static std::shared_ptr<typename M::template Action<
+            std::tuple<T, std::optional<std::tuple<typename M::TimePoint, T>>>
+            , std::vector<T>
+        >> groupByLookAhead(F &&groupIdentifierFunc, bool suggestThreaded=false) {
+            return M::template kleisli<std::tuple<T, std::optional<std::tuple<typename M::TimePoint, T>>>>(
+                GroupByLookAhead<T,F>(std::move(groupIdentifierFunc))
+                , infra::LiftParameters<typename M::TimePoint>()
+                    .SuggestThreaded(suggestThreaded)
+            );
+        }
+
+    private:
         template <class T, class Comparer=void>
         static auto mergedImporter_(
             std::list<typename M::template AbstractImporter<T> *> const &underlyingImporters

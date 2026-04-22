@@ -1577,6 +1577,46 @@ namespace dev { namespace cd606 { namespace tm { namespace basic {
                 }
             );
         }
+        template <class T, class F>
+        static typename R::template Source<std::vector<T>> groupByLookAhead(
+            R &r
+            , std::string const &prefix
+            , std::shared_ptr<typename M::template Importer<T>> const &importer
+            , F &&groupIdentifier
+        ) {
+            static_assert(
+                (std::is_same_v<
+                    typename R::AppType
+                    , infra::SinglePassIterationApp<TheEnvironment>
+                >
+                ||
+                std::is_same_v<
+                    typename R::AppType
+                    , infra::TopDownSinglePassIterationApp<TheEnvironment>
+                >)
+                , "groupByLookAhead can only be used with single pass app"
+            );
+            auto lookAheadImporter = M::template lookAheadIncludingTimeImporter<T>(importer);
+            auto action = CU::template groupByLookAhead<T>(std::move(groupIdentifier));
+            r.registerImporter(prefix+"/lookAheadImporter", lookAheadImporter);
+            r.registerAction(prefix+"/groupByLookAhead", action);
+            return r.execute(action, r.importItem(lookAheadImporter));
+        }
+        template <class T>
+        static typename R::template Source<std::vector<T>> triviallyGroup(
+            R &r
+            , std::string const &prefix
+            , std::shared_ptr<typename M::template Importer<T>> const &importer
+        ) {
+            auto action = M::template liftPure<T>(
+                [](T &&data) -> std::vector<T> {
+                    return {std::move(data)};
+                }
+            );
+            r.registerImporter(prefix+"/importer", importer);
+            r.registerAction(prefix+"/triviallyGroup", action);
+            return r.execute(action, r.importItem(importer));
+        }
         
         template <class Input, class Output>
         class OnOrderFacilityAPIWrapperClient {
